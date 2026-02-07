@@ -1,7 +1,6 @@
 {
   "id": "notes_default_cs",
   "lang": "cs",
-
   "inputs": [
     {
       "id": "no_foh_engineer",
@@ -10,13 +9,16 @@
     {
       "id": "drum_riser_required",
       "text": "Pro bicí je potřeba zajistit drum riser o rozměrech 3 × 2 m, s maximální výškou 40 cm."
+    },
+    {
+      "id": "separate_foh_iem_processing",
+      "text": "V případě použití digitálního mixážního pultu je požadováno oddělení signálových cest pro FOH a IEM. Úpravy prováděné zvukařem pro FOH (zejména gain, EQ, dynamika a další processing) nesmí ovlivňovat signál v IEM. Pro IEM musí být použity samostatné (virtuální) vstupy nebo oddělené cesty, aby byl zajištěn stabilní a neměnný poslech v uších po celou dobu produkce."
     }
   ],
-
   "monitors": [
-{
-  "id": "digital_console_access",
-  "text": "V případě použití digitálního mixážního pultu je požadován přístup do pultu pro všechny členy kapely používající IEM. Členové kapely používají aplikaci Mixing Station. Každý člen ovládá výhradně svůj osobní monitorový mix (přístupová omezení jsou nastavena přímo v aplikaci Mixing Station); do FOH mixu ani do ostatních monitorových mixů není zasahováno."
-}
+    {
+      "id": "digital_console_access",
+      "text": "V případě použití digitálního mixážního pultu je požadován přístup do pultu pro všechny členy kapely používající IEM. Členové kapely používají aplikaci Mixing Station. Každý člen ovládá výhradně svůj osobní monitorový mix (přístupová omezení jsou nastavena přímo v aplikaci Mixing Station); do FOH mixu ani do ostatních monitorových mixů není zasahováno."
+    }
   ]
 }
