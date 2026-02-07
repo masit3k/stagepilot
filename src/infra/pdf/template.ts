@@ -61,19 +61,19 @@ function renderInputTable(vm: DocumentViewModel): string {
 }
 
 function renderMonitorTable(vm: DocumentViewModel): string {
-  const mons = vm.monitors ?? [];
-  if (mons.length === 0) return "";
+  const rowsSrc: Array<{ no: string; output: string; note: string }> =
+    (vm as any).monitorTableRows ?? [];
 
-  const rows = mons
-    .map((m, idx) => {
-      // Pozn.: pokud máš už typované "IEM/wedge" jinak, uprav jen tohle mapování.
-      const typeLabel = m.kind === "iem" ? "IEM" : "Wedge";
+  // pokud monitorTableRows není přítomné, netiskni tabulku
+  if (!rowsSrc || rowsSrc.length === 0) return "";
 
+  const rows = rowsSrc
+    .map((r) => {
       return `
 <tr>
-  <td class="colNo">${idx + 1}</td>
-  <td class="colInput">${esc(m.label)}</td>
-  <td class="colNote">${esc(typeLabel)}</td>
+  <td class="colNo">${esc(r.no)}</td>
+  <td class="colInput">${esc(r.output)}</td>
+  <td class="colNote">${esc(r.note)}</td>
 </tr>`.trim();
     })
     .join("\n");
@@ -83,8 +83,8 @@ function renderMonitorTable(vm: DocumentViewModel): string {
   <thead>
     <tr>
       <th class="colNo">no.</th>
-      <th class="colInput">monitor</th>
-      <th class="colNote">type</th>
+      <th class="colInput">monitor output</th>
+      <th class="colNote">note</th>
     </tr>
   </thead>
   <tbody>
@@ -166,36 +166,18 @@ ${pdfStyles}
     </table>
   </div>
 
-  <!-- MONITORS / IEM -->
+  <!-- MONITORS (spec table) -->
   <div class="tableBlock">
-    <table class="table monitorTable">
-      <thead>
-        <tr>
-          <th class="colNo">no.</th>
-          <th class="colInput">monitor</th>
-          <th class="colNote">type</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${vm.monitors.map((m, i) => `
-          <tr>
-            <td class="colNo">${i + 1}</td>
-            <td class="colInput">${esc(m.label)}</td>
-            <td class="colNote">${m.kind === "iem" ? "IEM" : "Wedge"}</td>
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>
+    ${monitorTableHtml}
   </div>
 
-<!-- NOTES (ALWAYS AFTER BOTH TABLES) -->
-<div class="notesBlock">
-  <div class="notes">
-    ${vm.notes.inputs.map(n => `<div class="noteLine">${esc(n.text)}</div>`).join("")}
-    ${vm.notes.monitors.map(n => `<div class="noteLine">${esc(n.text)}</div>`).join("")}
+  <!-- NOTES (ALWAYS AFTER BOTH TABLES) -->
+  <div class="notesBlock">
+    <div class="notes">
+      ${vm.notes.inputs.map(n => `<div class="noteLine">${esc(n.text)}</div>`).join("")}
+      ${vm.notes.monitors.map(n => `<div class="noteLine">${esc(n.text)}</div>`).join("")}
+    </div>
   </div>
-</div>
-
 
 </main>
 

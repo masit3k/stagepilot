@@ -390,6 +390,17 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
   const inputs: BuiltInput[] = [];
   const monitors: DocumentViewModel["monitors"] = [];
 
+  // Monitor table rows (UI-only). Keep existing `monitors` array semantics (for notes/validation)
+  // and expose extra rows for the PDF table without changing the public type.
+  type MonitorTableRow = { no: string; output: string; note: string };
+  const monitorTableRows: MonitorTableRow[] = [];
+
+  // Cache lineup musicians for monitor ordering logic
+  const lineupMusicians: Array<{
+    group: Group;
+    musician: { id: string; gender?: "male" | "female"; presets?: PresetItem[] };
+  }> = [];
+
   const lineup = band.defaultLineup ?? {};
   for (const [groupRaw, v] of Object.entries(lineup)) {
     if (!isGroup(groupRaw)) continue;
@@ -398,11 +409,15 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
     for (const musicianId of normalizeLineupValue(v as LineupValue)) {
       const musician = repo.getMusician(musicianId);
 
+      lineupMusicians.push({ group, musician });
+
       for (const item of musician.presets ?? []) {
         if (item.kind === "monitor") {
           const ent = repo.getPreset(item.ref);
           if (ent.type !== "monitor") {
-            throw new Error(`PresetItem(kind=monitor) ref="${item.ref}" points to type="${ent.type}"`);
+            throw new Error(
+              `PresetItem(kind=monitor) ref="${item.ref}" points to type="${ent.type}"`
+            );
           }
 
           // Pragmatické pravidlo: wireless=true => IEM, jinak wedge
@@ -415,6 +430,81 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
       }
     }
   }
+
+  // ------------------------------------------------------------
+  // Monitor table ordering & text per spec
+  // - header is handled in template
+  // - note is taken from monitor entity label
+  // ------------------------------------------------------------
+
+  const firstMonitorLabel = (m: { presets?: PresetItem[] } | undefined): string => {
+    if (!m) return "";
+    const mon = (m.presets ?? []).find((p) => p.kind === "monitor");
+    if (!mon) return "";
+    const ent = repo.getPreset(mon.ref);
+    if (ent.type !== "monitor") return "";
+    return ent.label ?? "";
+  };
+
+  const hasLeadPreset = (m: { presets?: PresetItem[] } | undefined): boolean => {
+    if (!m) return false;
+    return (m.presets ?? []).some((p) => p.kind === "preset" && /^vocal_lead/i.test(p.ref));
+  };
+
+  const pickByGroup = (g: Group): (typeof lineupMusicians)[number]["musician"] | undefined => {
+    return lineupMusicians.find((x) => x.group === g)?.musician;
+  };
+
+  const guitarM = pickByGroup("guitar");
+  const keysM = pickByGroup("keys");
+  const bassM = pickByGroup("bass");
+  const drumsM = pickByGroup("drums");
+
+  const vocsAll = lineupMusicians.filter((x) => x.group === "vocs").map((x) => x.musician);
+  const leads = vocsAll.filter((m) => hasLeadPreset(m));
+
+  // fallback: if no explicit lead found, use first vocal (deterministic)
+  const leadResolved = (
+    leads.length > 0 ? leads : vocsAll.slice().sort((a, b) => a.id.localeCompare(b.id, "en"))
+  ).slice(0, 2);
+
+  const pushRow = (output: string, musician?: { presets?: PresetItem[] } | undefined) => {
+    monitorTableRows.push({
+      no: String(monitorTableRows.length + 1),
+      output,
+      note: firstMonitorLabel(musician),
+    });
+  };
+
+  // Base order
+  pushRow("Guitar", guitarM);
+
+  if (leadResolved.length <= 1) {
+    pushRow("Lead voc", leadResolved[0]);
+  } else {
+    const a = leadResolved[0];
+    const b = leadResolved[1];
+
+    const ga = a.gender;
+    const gb = b.gender;
+
+    // different genders => male then female
+    if ((ga === "male" && gb === "female") || (ga === "female" && gb === "male")) {
+      const male = ga === "male" ? a : b;
+      const female = ga === "female" ? a : b;
+      pushRow("Lead voc (male)", male);
+      pushRow("Lead voc (female)", female);
+    } else {
+      // same gender or missing gender => Lead voc 1 / Lead voc 2 (deterministic)
+      const two = [a, b].slice().sort((x, y) => x.id.localeCompare(y.id, "en"));
+      pushRow("Lead voc 1", two[0]);
+      pushRow("Lead voc 2", two[1]);
+    }
+  }
+
+  pushRow("Keys", keysM);
+  pushRow("Bass", bassM);
+  pushRow("Drums", drumsM);
 
   inputs.sort((a, b) => {
     const g = groupRank(a.group) - groupRank(b.group);
@@ -456,6 +546,10 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
     inputRows,
 
     monitors,
+
+    // extra field for rendering the monitor table in PDF
+    // (keeps backward compatible VM contract)
+    ...({ monitorTableRows } as any),
 
     notes: {
       inputs: tpl.inputs ?? [],

@@ -39,6 +39,7 @@ export interface Musician {
   id: string;
   firstName: string;
   lastName: string;
+  gender?: "male" | "female";
   group: Group;
   contactRef?: string;
 
