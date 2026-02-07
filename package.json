@@ -5,6 +5,7 @@
     "cli:dev": "node --enable-source-maps --import tsx src/cli/index.ts",
     "pdf": "npm run cli -- --pdf",
     "pdf:dev": "npm run cli:dev -- --pdf",
+    "smoke:versions": "node --enable-source-maps --import tsx scripts/smoke_versions.ts",
     "test": "vitest run",
     "lint": "biome check .",
     "format": "biome format --write ."

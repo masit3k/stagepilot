@@ -1,15 +1,19 @@
 import path from "node:path";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 
 import { loadRepository } from "../../infra/fs/repo.js";
 import { DATA_ROOT, USER_DATA_ROOT } from "../../infra/fs/dataRoot.js";
 import { loadJsonFile } from "../../infra/fs/loadJson.js";
+import { createProjectVersion } from "../../infra/fs/versionStore.js";
+import { getGeneratedAtUtc, getTodayLocalDate } from "../../infra/time/today.js";
 import { buildDocument } from "../../domain/pipeline/buildDocument.js";
 import { validateDocument } from "../../domain/rules/validateDocument.js";
 import { renderPdf } from "../../infra/pdf/pdf.js";
 
 export interface ExportPdfResult {
   pdfPath: string;
+  versionId: string;
+  versionPath: string;
 }
 
 type ContactEntity = {
@@ -20,17 +24,17 @@ type ContactEntity = {
   email?: string;
 };
 
-function safeFilePart(s: string): string {
-  // allow letters, numbers, underscore, dash (keep case)
-  return s.replaceAll(/[^a-zA-Z0-9_-]+/g, "_");
-}
+function sanitizeFileName(name: string): string {
+  const normalized = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const withoutSpaces = normalized.replace(/\s+/g, "_");
+  const sanitized = withoutSpaces.replace(/[^A-Za-z0-9._-]/g, "_").replace(/_+/g, "_");
+  const withExt = sanitized.toLowerCase().endsWith(".pdf") ? sanitized : `${sanitized}.pdf`;
 
-function formatDateDdMmYyyy(isoDate: string): string {
-  // expects YYYY-MM-DD
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
-  if (!m) throw new Error(`Invalid project date (expected YYYY-MM-DD): ${isoDate}`);
-  const [, yyyy, mm, dd] = m;
-  return `${dd}-${mm}-${yyyy}`;
+  if (withExt.length <= 80) return withExt;
+
+  const ext = ".pdf";
+  const base = withExt.slice(0, Math.max(0, withExt.length - ext.length));
+  return `${base.slice(0, 80 - ext.length)}${ext}`;
 }
 
 type ProjectDateSource = {
@@ -105,21 +109,45 @@ export async function exportPdf(projectId: string): Promise<ExportPdfResult> {
   const project = repo.getProject(projectId);
   const band = repo.getBand(project.bandRef);
 
+  project.documentDate = getTodayLocalDate();
+
   const vm = buildDocument(project, repo);
   validateDocument(vm);
 
   const contactLine = await loadDefaultContactLine(band.defaultContactId);
 
-  const bandCode = band.code && band.code.trim() !== "" ? band.code : band.id;
-  const datePart = formatDateDdMmYyyy(resolveProjectDate(project));
+  const pdfBaseName =
+    project.purpose === "event"
+      ? `${project.bandRef}_${project.eventVenue ?? "event"}_${project.documentDate}`
+      : `${project.bandRef}_${project.documentDate}`;
+  const pdfFileName = sanitizeFileName(`${pdfBaseName}.pdf`);
 
   const outDir = path.resolve(USER_DATA_ROOT, "exports");
   await mkdir(outDir, { recursive: true });
 
-  const fileName = `${safeFilePart(bandCode)}_Inputlist_StagePlan_${datePart}.pdf`;
-  const pdfPath = path.join(outDir, fileName);
+  const pdfPath = path.join(outDir, pdfFileName);
 
   await renderPdf(vm, { outFile: pdfPath, contactLine });
 
-  return { pdfPath };
+  const pdfBytes = await readFile(pdfPath);
+  const meta = await createProjectVersion({
+    project,
+    projectId,
+    pdfBytes,
+    pdfFileName,
+    meta: {
+      projectId,
+      generatedAt: getGeneratedAtUtc(),
+      documentDate: project.documentDate,
+      bandRef: project.bandRef,
+      purpose: project.purpose,
+      title: project.title ?? null,
+      eventDate: project.eventDate,
+      eventVenue: project.eventVenue,
+    },
+  });
+
+  const versionPath = path.resolve(meta.paths.versionDir);
+
+  return { pdfPath, versionId: meta.versionId, versionPath };
 }

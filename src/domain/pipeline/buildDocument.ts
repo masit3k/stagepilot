@@ -27,10 +27,11 @@ function buildMetaLine(project: Project): MetaLineModel {
   if (project.purpose === "event") {
     const d = formatDateCZShort(project.eventDate!);
     const v = project.eventVenue!.trim();
+    const docDate = formatDateCZShort(project.documentDate);
     return {
       kind: "labeled",
       label: "Datum akce a místo konání:",
-      value: `${d}, ${v}`,
+      value: `${d}, ${v} – datum aktualizace: ${docDate}`,
     };
   }
 
