@@ -5,25 +5,18 @@
   "inputs": [
     {
       "id": "no_foh_engineer",
-      "text": "Kapela nemá vlastního zvukaře. Prosíme pořadatele o zajištění zkušeného zvukaře po celou dobu produkce kapely."
+      "text": "Kapela NEMÁ vlastního zvukaře. Prosíme pořadatele o zajištění zkušeného zvukaře po celou dobu produkce kapely."
     },
     {
       "id": "drum_riser_required",
-      "text": "Požadujeme drum riser pod bicí o rozměrech 3 × 2 m, maximální výška 40 cm."
+      "text": "Pro bicí je potřeba zajistit drum riser o rozměrech 3 × 2 m, s maximální výškou 40 cm."
     }
   ],
 
   "monitors": [
-    {
-      "id": "wedge_present_message",
-      "text": "V případě použití pódiových odposlechů (wedge) prosíme o jejich samostatné směsi a možnost nezávislé regulace hlasitosti.",
-      "when": {
-        "monitors": { "hasWedge": true }
-      }
-    },
-    {
-      "id": "digital_console_access",
-      "text": "V případě použití digitálního mixážního pultu požadujeme zprostředkování přístupu do pultu pro všechny členy používající IEM (např. prostřednictvím aplikace Mixing Station). Každý člen bude ovládat výhradně svůj osobní monitorový mix; do FOH mixu ani do ostatních mixů nebude zasahováno."
-    }
+{
+  "id": "digital_console_access",
+  "text": "V případě použití digitálního mixážního pultu je požadován přístup do pultu pro všechny členy kapely používající IEM. Členové kapely používají aplikaci Mixing Station. Každý člen ovládá výhradně svůj osobní monitorový mix (přístupová omezení jsou nastavena přímo v aplikaci Mixing Station); do FOH mixu ani do ostatních monitorových mixů není zasahováno."
+}
   ]
 }
