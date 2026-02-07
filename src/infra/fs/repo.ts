@@ -23,17 +23,23 @@ export interface DataRepository {
   getNotesTemplate(id: string): NotesTemplate;
 }
 
-export async function loadRepository(): Promise<DataRepository> {
-  const projects = await loadMap<Project>(path.join(USER_DATA_ROOT, "projects"));
-  const bands = await loadMap<Band>(path.join(DATA_ROOT, "bands"));
-  const musicians = await loadMap<Musician>(path.join(DATA_ROOT, "musicians"));
+export async function loadRepository(options?: {
+  userDataRoot?: string;
+  dataRoot?: string;
+}): Promise<DataRepository> {
+  const userDataRoot = options?.userDataRoot ?? USER_DATA_ROOT;
+  const dataRoot = options?.dataRoot ?? DATA_ROOT;
+
+  const projects = await loadMap<Project>(path.join(userDataRoot, "projects"));
+  const bands = await loadMap<Band>(path.join(dataRoot, "bands"));
+  const musicians = await loadMap<Musician>(path.join(dataRoot, "musicians"));
 
   // preset entity = preset | vocal_type | talkback_type | monitor
-  const presets = await loadMap<PresetEntity>(path.join(DATA_ROOT, "presets"));
+  const presets = await loadMap<PresetEntity>(path.join(dataRoot, "presets"));
 
   // notes templates
   const notesTemplates = await loadMap<NotesTemplate>(
-    path.join(DATA_ROOT, "templates", "notes")
+    path.join(dataRoot, "templates", "notes")
   );
 
   return {

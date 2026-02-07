@@ -1,14 +1,16 @@
 import path from "node:path";
-import { access, mkdir, readFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 
 import { loadRepository } from "../../infra/fs/repo.js";
 import { DATA_ROOT, USER_DATA_ROOT } from "../../infra/fs/dataRoot.js";
 import { loadJsonFile } from "../../infra/fs/loadJson.js";
-import { createProjectVersion } from "../../infra/fs/versionStore.js";
-import { getGeneratedAtUtc, getTodayLocalDate } from "../../infra/time/today.js";
+import { createProjectVersion, prepareVersionDir } from "../../infra/fs/versionStore.js";
+import { getGeneratedAtUtc } from "../../infra/time/today.js";
 import { buildDocument } from "../../domain/pipeline/buildDocument.js";
 import { validateDocument } from "../../domain/rules/validateDocument.js";
 import { renderPdf } from "../../infra/pdf/pdf.js";
+import { normalizeProject } from "./normalizeProject.js";
+import type { Project, ProjectJson } from "../../domain/model/types.js";
 
 export interface ExportPdfResult {
   pdfPath: string;
@@ -113,11 +115,29 @@ async function loadDefaultContactLine(defaultContactId?: string): Promise<string
 
 export async function exportPdf(projectId: string): Promise<ExportPdfResult> {
   const repo = await loadRepository();
-
   const project = repo.getProject(projectId);
-  const band = repo.getBand(project.bandRef);
+  return exportPdfFromProject(projectId, project, USER_DATA_ROOT);
+}
 
-  project.documentDate = getTodayLocalDate();
+export async function exportPdfFromProjectFile(
+  projectPath: string,
+  outDir: string
+): Promise<ExportPdfResult> {
+  const rawProject = await loadJsonFile<ProjectJson>(projectPath);
+  const project = normalizeProject(rawProject);
+  return exportPdfFromProject(project.id, project, outDir);
+}
+
+async function exportPdfFromProject(
+  projectId: string,
+  project: Project,
+  outDir: string
+): Promise<ExportPdfResult> {
+  if (project.id !== projectId) {
+    throw new Error(`Project id mismatch: ${projectId} vs ${project.id}`);
+  }
+  const repo = await loadRepository({ userDataRoot: outDir });
+  const band = repo.getBand(project.bandRef);
 
   const vm = buildDocument(project, repo);
   validateDocument(vm);
@@ -135,9 +155,8 @@ export async function exportPdf(projectId: string): Promise<ExportPdfResult> {
 
   let pdfFileName: string;
   if (project.purpose === "generic") {
-    const bandCode = band.code && band.code.trim() !== "" ? band.code.trim() : band.id;
     const year = project.documentDate.slice(0, 4);
-    pdfFileName = sanitizeFileName(`${bandCode}_Inputlist_Stageplan_${year}.pdf`);
+    pdfFileName = sanitizeFileName(`BK_Inputlist_Stageplan_${year}.pdf`);
   } else {
     const bandCode = band.code?.trim() || project.bandRef;
     const pdfDate = formatDateForFileName(project.eventDate ?? resolveProjectDate(project));
@@ -146,19 +165,20 @@ export async function exportPdf(projectId: string): Promise<ExportPdfResult> {
     pdfFileName = sanitizeFileName(`${pdfBaseName}.pdf`);
   }
 
-  const outDir = path.resolve(USER_DATA_ROOT, "exports");
-  await mkdir(outDir, { recursive: true });
+  const { versionId, versionDir } = await prepareVersionDir(projectId, outDir);
+  const pdfPath = path.join(versionDir, pdfFileName);
 
-  const pdfPath = path.join(outDir, pdfFileName);
-
+  await mkdir(versionDir, { recursive: true });
   await renderPdf(vm, { outFile: pdfPath, contactLine });
 
-  const pdfBytes = await readFile(pdfPath);
   const meta = await createProjectVersion({
     project,
     projectId,
-    pdfBytes,
+    pdfSourcePath: pdfPath,
     pdfFileName,
+    versionId,
+    versionDir,
+    userDataRoot: outDir,
     meta: {
       projectId,
       generatedAt: getGeneratedAtUtc(),
@@ -171,7 +191,7 @@ export async function exportPdf(projectId: string): Promise<ExportPdfResult> {
     },
   });
 
-  const versionPath = path.resolve(meta.paths.versionDir);
+  const versionPath = path.resolve(versionDir);
 
   return { pdfPath, versionId: meta.versionId, versionPath };
 }

@@ -26,12 +26,16 @@ export type ProjectSnapshotMeta = {
 type CreateProjectVersionArgs = {
   project: unknown;
   projectId: string;
-  pdfBytes: Uint8Array;
+  pdfSourcePath: string;
   pdfFileName: string;
   meta: Omit<
     ProjectSnapshotMeta,
     "schemaVersion" | "versionId" | "pdfFileName" | "paths"
   >;
+  versionId?: string;
+  versionDir?: string;
+  userDataRoot?: string;
+  projectRoot?: string;
 };
 
 const VERSIONS_ROOT = path.resolve(USER_DATA_ROOT, "versions");
@@ -39,19 +43,37 @@ const VERSIONS_ROOT = path.resolve(USER_DATA_ROOT, "versions");
 export async function createProjectVersion(
   args: CreateProjectVersionArgs
 ): Promise<ProjectSnapshotMeta> {
-  const baseVersionId = formatVersionId(new Date());
-  const { versionId, versionDir } = await ensureUniqueVersionDir(args.projectId, baseVersionId);
+  const versionsRoot = resolveVersionsRoot(args.userDataRoot);
+  const projectRoot = args.projectRoot ?? PROJECT_ROOT;
+  let versionId = args.versionId;
+  let versionDir = args.versionDir;
+
+  if (!versionDir) {
+    const prepared = await ensureUniqueVersionDir(
+      versionsRoot,
+      args.projectId,
+      versionId ?? formatVersionId(new Date())
+    );
+    versionId = prepared.versionId;
+    versionDir = prepared.versionDir;
+  }
+
+  if (!versionId) {
+    versionId = path.basename(versionDir);
+  }
 
   await fs.mkdir(versionDir, { recursive: true });
 
   const projectJsonPath = path.join(versionDir, "project.json");
   const metaJsonPath = path.join(versionDir, "meta.json");
-  const pdfPath = path.join(versionDir, "document.pdf");
+  const pdfPath = path.join(versionDir, args.pdfFileName);
 
   await fs.writeFile(projectJsonPath, JSON.stringify(args.project, null, 2));
-  await fs.writeFile(pdfPath, args.pdfBytes);
+  if (path.resolve(args.pdfSourcePath) !== path.resolve(pdfPath)) {
+    await fs.copyFile(args.pdfSourcePath, pdfPath);
+  }
 
-  const paths = buildPaths(versionDir, {
+  const paths = buildPaths(projectRoot, versionDir, {
     projectJsonPath,
     metaJsonPath,
     pdfPath,
@@ -72,9 +94,11 @@ export async function createProjectVersion(
 }
 
 export async function listProjectVersions(
-  projectId: string
+  projectId: string,
+  userDataRoot?: string
 ): Promise<ProjectSnapshotMeta[]> {
-  const projectDir = path.join(VERSIONS_ROOT, projectId);
+  const versionsRoot = resolveVersionsRoot(userDataRoot);
+  const projectDir = path.join(versionsRoot, projectId);
 
   if (!(await pathExists(projectDir))) {
     return [];
@@ -96,28 +120,32 @@ export async function listProjectVersions(
 
 export async function loadProjectVersion(
   projectId: string,
-  versionId: string
+  versionId: string,
+  userDataRoot?: string
 ): Promise<{
   meta: ProjectSnapshotMeta;
   project: unknown;
   pdfPath: string;
 }> {
-  const versionDir = path.join(VERSIONS_ROOT, projectId, versionId);
+  const versionsRoot = resolveVersionsRoot(userDataRoot);
+  const versionDir = path.join(versionsRoot, projectId, versionId);
   const metaPath = path.join(versionDir, "meta.json");
   const projectPath = path.join(versionDir, "project.json");
-  const pdfPath = path.join(versionDir, "document.pdf");
 
   const metaRaw = await fs.readFile(metaPath, "utf8");
   const projectRaw = await fs.readFile(projectPath, "utf8");
+  const meta = JSON.parse(metaRaw) as ProjectSnapshotMeta;
+  const pdfPath = path.join(versionDir, meta.pdfFileName);
 
   return {
-    meta: JSON.parse(metaRaw) as ProjectSnapshotMeta,
+    meta,
     project: JSON.parse(projectRaw) as unknown,
     pdfPath,
   };
 }
 
 function buildPaths(
+  projectRoot: string,
   versionDir: string,
   files: {
     projectJsonPath: string;
@@ -126,15 +154,15 @@ function buildPaths(
   }
 ): ProjectSnapshotMeta["paths"] {
   return {
-    versionDir: toRelative(versionDir),
-    projectJson: toRelative(files.projectJsonPath),
-    metaJson: toRelative(files.metaJsonPath),
-    pdf: toRelative(files.pdfPath),
+    versionDir: toRelative(projectRoot, versionDir),
+    projectJson: toRelative(projectRoot, files.projectJsonPath),
+    metaJson: toRelative(projectRoot, files.metaJsonPath),
+    pdf: toRelative(projectRoot, files.pdfPath),
   };
 }
 
-function toRelative(absPath: string): string {
-  return path.relative(PROJECT_ROOT, absPath).split(path.sep).join("/");
+function toRelative(projectRoot: string, absPath: string): string {
+  return path.relative(projectRoot, absPath).split(path.sep).join("/");
 }
 
 function formatVersionId(date: Date): string {
@@ -148,18 +176,40 @@ function formatVersionId(date: Date): string {
   return `${yyyy}${mm}${dd}-${hh}${min}${ss}-${ms}`;
 }
 
-async function ensureUniqueVersionDir(projectId: string, baseVersionId: string): Promise<{
+export async function prepareVersionDir(
+  projectId: string,
+  userDataRoot?: string,
+  baseVersionId: string = formatVersionId(new Date())
+): Promise<{
+  versionId: string;
+  versionDir: string;
+}> {
+  const versionsRoot = resolveVersionsRoot(userDataRoot);
+  const { versionId, versionDir } = await ensureUniqueVersionDir(
+    versionsRoot,
+    projectId,
+    baseVersionId
+  );
+  await fs.mkdir(versionDir, { recursive: true });
+  return { versionId, versionDir };
+}
+
+async function ensureUniqueVersionDir(
+  versionsRoot: string,
+  projectId: string,
+  baseVersionId: string
+): Promise<{
   versionId: string;
   versionDir: string;
 }> {
   let versionId = baseVersionId;
-  let versionDir = path.join(VERSIONS_ROOT, projectId, versionId);
+  let versionDir = path.join(versionsRoot, projectId, versionId);
   let counter = 0;
 
   while (await pathExists(versionDir)) {
     counter += 1;
     versionId = `${baseVersionId}-${counter}`;
-    versionDir = path.join(VERSIONS_ROOT, projectId, versionId);
+    versionDir = path.join(versionsRoot, projectId, versionId);
   }
 
   return { versionId, versionDir };
@@ -176,4 +226,9 @@ async function pathExists(target: string): Promise<boolean> {
 
 function pad2(value: number): string {
   return String(value).padStart(2, "0");
+}
+
+function resolveVersionsRoot(userDataRoot?: string): string {
+  const root = userDataRoot ? path.resolve(userDataRoot) : USER_DATA_ROOT;
+  return path.resolve(root, "versions");
 }
