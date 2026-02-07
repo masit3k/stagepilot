@@ -417,10 +417,7 @@ function guitarRankByKey(input: BuiltInput): number {
 }
 
 function normalizeLeadLabel(label: string): string {
-  return label
-    .replace(/\s+\d+\s*(\([^)]+\))?\s*$/i, "")
-    .replace(/\s+\([^)]+\)\s*$/i, "")
-    .trim();
+  return "Lead vocal";
 }
 
 /* ============================================================
@@ -512,15 +509,8 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
   const vocsAll = lineupMusicians.filter((x) => x.group === "vocs").map((x) => x.musician);
   const leads = vocsAll.filter((m) => hasLeadPreset(m));
   const leadResolved = leads.length > 0 ? leads : vocsAll;
-  const leadGenders = new Set(leadResolved.map((m) => m.gender).filter(Boolean));
-  const leadMixed = leadGenders.size >= 2;
-  const leadCount = leadResolved.length;
-
   const leadLabel = (index: number, gender?: "m" | "f" | "x"): string => {
-    const base = "Lead vocal";
-    const indexed = leadCount > 1 ? `${base} ${index}` : base;
-    if (!leadMixed) return indexed;
-    return `${indexed} (${gender ?? "x"})`;
+    return `Lead vocal ${index} (${gender ?? "x"})`;
   };
 
   const pushRow = (output: string, musician?: { presets?: PresetItem[] } | undefined) => {
@@ -576,8 +566,7 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
     const indexMatch = /voc_lead_(\d+)/i.exec(input.key);
     const index = indexMatch ? Number(indexMatch[1]) : 1;
     const base = normalizeLeadLabel(input.label) || "Lead vocal";
-    const indexed = leadCount > 1 ? `${base} ${index}` : base;
-    const label = leadMixed ? `${indexed} (${leadGenderByIndex[index - 1] ?? "x"})` : indexed;
+    const label = `${base} ${index} (${leadGenderByIndex[index - 1] ?? "x"})`;
 
     return { ...input, label };
   });
