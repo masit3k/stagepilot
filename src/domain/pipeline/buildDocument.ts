@@ -13,6 +13,7 @@ import type {
 } from "../model/types.js";
 import type { DataRepository } from "../../infra/fs/repo.js";
 import { disambiguateInputKeys } from "./disambiguateInputKeys.js";
+import { reorderAcousticGuitars } from "./reorderAcousticGuitars.js";
 
 /* ============================================================
  * Helpers
@@ -558,7 +559,8 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
     return a.key.localeCompare(b.key, "en");
   });
 
-  const disambiguatedInputs = disambiguateInputKeys(inputs);
+  const reorderedInputs = reorderAcousticGuitars(inputs);
+  const disambiguatedInputs = disambiguateInputKeys(reorderedInputs);
   const leadGenderByIndex = leadResolved.map((m) => m.gender);
   const finalizedInputs = disambiguatedInputs.map((input) => {
     if (!input.key.startsWith("voc_lead")) return input;
