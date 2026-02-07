@@ -1,7 +1,3 @@
-// Co? Základní dokumentace projektu a návod ke spuštění.
-// Proč? Aby bylo jasné, jak StagePilot používat a spustit i po delší době.
-
-
 # StagePilot
 
 ## Install
