@@ -9,12 +9,38 @@ import type {
   InputChannel,
   NotesTemplate,
   NoteLine,
+  MetaLineModel,
 } from "../model/types.js";
 import type { DataRepository } from "../../infra/fs/repo.js";
 
 /* ============================================================
  * Helpers
  * ============================================================ */
+
+function formatDateCZShort(iso: string): string {
+  // ISO "YYYY-MM-DD" -> "D. M. YYYY"
+  const d = new Date(iso);
+  return `${d.getDate()}. ${d.getMonth() + 1}. ${d.getFullYear()}`;
+}
+
+function buildMetaLine(project: Project): MetaLineModel {
+  if (project.purpose === "event") {
+    const d = formatDateCZShort(project.eventDate!);
+    const v = project.eventVenue!.trim();
+    return {
+      kind: "labeled",
+      label: "Datum akce a místo konání:",
+      value: `${d}, ${v}`,
+    };
+  }
+
+  const title = project.title?.trim() || "Stage plan";
+  const d = formatDateCZShort(project.documentDate);
+  return {
+    kind: "plain",
+    value: `${title} – datum aktualizace: ${d}`,
+  };
+}
 
 function groupRank(group: Group): number {
   const i = GROUP_ORDER.indexOf(group);
@@ -318,8 +344,8 @@ function expandPresetItem(
           group: ent.group,
           note: ent.input.note
             ? ent.input.note
-                .replace("{ownerKey}", item.ownerKey)
-                .replace("{ownerLabel}", item.ownerLabel ?? item.ownerKey)
+              .replace("{ownerKey}", item.ownerKey)
+              .replace("{ownerLabel}", item.ownerLabel ?? item.ownerKey)
             : undefined,
         },
       ];
@@ -340,8 +366,8 @@ function expandPresetItem(
           group: ent.group,
           note: ent.input.note
             ? ent.input.note
-                .replace("{ownerKey}", item.ownerKey)
-                .replace("{ownerLabel}", item.ownerLabel ?? item.ownerKey)
+              .replace("{ownerKey}", item.ownerKey)
+              .replace("{ownerLabel}", item.ownerLabel ?? item.ownerKey)
             : undefined,
         },
       ];
@@ -539,9 +565,18 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
     meta: {
       projectId: project.id,
       bandName: band.name,
-      date: project.date,
-      venue: project.venue,
+
+      purpose: project.purpose,
+
+      eventDate: project.eventDate,
+      eventVenue: project.eventVenue,
+
+      documentDate: project.documentDate,
+      title: project.title,
+
+      metaLine: buildMetaLine(project),
     },
+
     inputs: inputsWithCh,
     inputRows,
 

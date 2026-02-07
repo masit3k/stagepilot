@@ -5,13 +5,77 @@
 import type { Group } from "./groups.js";
 export type { Group } from "./groups.js";
 
-/** Projekt = konkrétní akce (instance), pro kterou generujeme dokumenty. */
+/* ============================================================
+ * Project (domain) + ProjectJson (input)
+ * ============================================================ */
+
+/**
+ * Účel stageplanu.
+ * - event: jednorázová akce (vyžaduje datum + místo konání)
+ * - generic: univerzální/sezónní dokument (datum = aktualizace/vytvoření, místo není vyžadováno)
+ */
+export type StagePlanPurpose = "event" | "generic";
+
+/**
+ * Normalizovaný doménový projekt (po načtení a normalizaci z JSONu).
+ * Tohle má používat pipeline.
+ */
 export interface Project {
   id: string;
   bandRef: string; // band.id
+
+  purpose: StagePlanPurpose;
+
+  /** Datum konání akce (jen pro purpose="event") */
+  eventDate?: string; // ISO "YYYY-MM-DD"
+
+  /** Místo konání akce (jen pro purpose="event") */
+  eventVenue?: string;
+
+  /** Datum vytvoření/aktualizace dokumentu (vždy) */
+  documentDate: string; // ISO "YYYY-MM-DD"
+
+  /** Název projektu (tour/sezóna/poznámka), typicky pro purpose="generic" */
+  title?: string;
+
+  /** Volitelně: volba template/layoutu */
+  template?: string;
+}
+
+/**
+ * Legacy podoba project.json (současný stav v repu).
+ * Loader může tenhle tvar přijmout a převést na Project (normalize).
+ */
+export interface LegacyProjectJson {
+  id: string;
+  bandRef: string;
   date: string; // ISO "YYYY-MM-DD"
   venue?: string;
 }
+
+/**
+ * Nová podoba project.json (doporučený vstup do budoucna).
+ * Pokud ji použiješ hned v datech, loader může být jednodušší.
+ */
+export interface ProjectJsonV2 {
+  id: string;
+  bandRef: string;
+
+  purpose: StagePlanPurpose;
+
+  eventDate?: string;
+  eventVenue?: string;
+
+  documentDate: string;
+  title?: string;
+  template?: string;
+}
+
+/**
+ * Projekt v JSONu může být dočasně legacy nebo V2.
+ * Loader má zodpovědnost sjednotit na `Project`.
+ */
+export type ProjectJson = LegacyProjectJson | ProjectJsonV2;
 
 /** Lineup: pro danou skupinu může být jeden muzikant nebo více muzikantů. */
 export type LineupValue = string | string[];
@@ -132,8 +196,7 @@ export type PresetEntity = Preset | VocalType | TalkbackType | Monitor;
 
 export type NoteSeverity = "info" | "warning";
 
-export type NoteCondition =
-  | { monitors: { hasWedge: true } };
+export type NoteCondition = { monitors: { hasWedge: true } };
 
 export interface NoteLine {
   id: string;
@@ -150,13 +213,45 @@ export interface NotesTemplate {
   monitors: NoteLine[];
 }
 
+/* ============================================================
+ * Output view model (pipeline -> template)
+ * ============================================================ */
+
+/**
+ * Meta řádek je buď:
+ * - labeled: "Label: value"
+ * - plain: jeden textový řádek (např. "Tour 35 let – datum aktualizace: ...")
+ *
+ * Tohle je přenosný formát mezi pipeline a template,
+ * aby template nemusel hádat sémantiku projektu.
+ */
+export type MetaLineModel =
+  | {
+      kind: "labeled";
+      label: string;
+      value: string;
+    }
+  | {
+      kind: "plain";
+      value: string;
+    };
+
 /** Výstup pipeline – připraveno pro render (PDF) nebo export. */
 export interface DocumentViewModel {
   meta: {
     projectId: string;
     bandName: string;
-    date: string;
-    venue?: string;
+
+    purpose: StagePlanPurpose;
+
+    /** Normalizovaná projektová data (pro debug/export i template) */
+    eventDate?: string;
+    eventVenue?: string;
+    documentDate: string;
+    title?: string;
+
+    /** Už připravený meta řádek k vytištění */
+    metaLine: MetaLineModel;
   };
 
   /**

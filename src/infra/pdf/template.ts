@@ -1,4 +1,5 @@
 import type { DocumentViewModel } from "../../domain/model/types.js";
+import type { MetaLineModel } from "../../domain/model/types.js";
 import { pdfStyles } from "./styles.js";
 import { pdfLayout } from "./layout.js";
 
@@ -9,6 +10,22 @@ function esc(s: unknown): string {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+function renderMetaLine(metaLine: MetaLineModel, esc: (s: string) => string): string {
+  if (metaLine.kind === "labeled") {
+    return `
+      <div class="metaLine">
+        <span class="metaLabel">${esc(metaLine.label)}</span> ${esc(metaLine.value)}
+      </div>
+    `.trim();
+  }
+
+  return `
+    <div class="metaLine">
+      ${esc(metaLine.value)}
+    </div>
+  `.trim();
 }
 
 function formatDateCZ(iso: string): string {
@@ -104,15 +121,7 @@ export function renderInputlistHtml(vm: DocumentViewModel, opts: RenderTemplateO
     ? `<div class="contactLine">${esc(opts.contactLine)}</div>`
     : "";
 
-  const eventDate = vm.meta.date ? formatDateCZ(vm.meta.date) : "";
-  const venue = vm.meta.venue?.trim();
-
-  const metaValue = [eventDate, venue].filter(Boolean).join(", ");
-
-  const metaHtml = `
-    <div class="metaLine">
-      <span class="metaLabel">Datum akce a místo konání:</span> ${esc(metaValue)}
-    </div>`.trim();
+  const metaHtml = renderMetaLine(vm.meta.metaLine, esc);
 
   // TABLES
   const inputTableHtml = renderInputTable(vm);
