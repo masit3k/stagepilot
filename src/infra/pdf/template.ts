@@ -107,11 +107,12 @@ export function renderInputlistHtml(vm: DocumentViewModel, opts: RenderTemplateO
   const eventDate = vm.meta.date ? formatDateCZ(vm.meta.date) : "";
   const venue = vm.meta.venue?.trim();
 
+  const metaValue = [eventDate, venue].filter(Boolean).join(", ");
+
   const metaHtml = `
-<div class="metaLine">
-  <span class="metaLabel">Datum akce:</span> ${esc(eventDate)}
-  ${venue ? `<span class="metaSep">•</span><span class="metaLabel">Místo:</span> ${esc(venue)}` : ""}
-</div>`.trim();
+    <div class="metaLine">
+      <span class="metaLabel">Datum akce a místo konání:</span> ${esc(metaValue)}
+    </div>`.trim();
 
   // TABLES
   const inputTableHtml = renderInputTable(vm);
