@@ -33,6 +33,30 @@ function formatDateDdMmYyyy(isoDate: string): string {
   return `${dd}-${mm}-${yyyy}`;
 }
 
+type ProjectDateSource = {
+  purpose?: "event" | "generic";
+  eventDate?: string;
+  documentDate?: string;
+  date?: string;
+};
+
+function resolveProjectDate(project: ProjectDateSource): string {
+  if (project.purpose === "event") {
+    if (project.eventDate) return project.eventDate;
+    throw new Error("Missing eventDate for event project");
+  }
+
+  if (project.purpose === "generic") {
+    if (project.documentDate) return project.documentDate;
+    throw new Error("Missing documentDate for generic project");
+  }
+
+  if (project.date) return project.date;
+  if (project.documentDate) return project.documentDate;
+
+  throw new Error("Missing project date");
+}
+
 function formatCzPhone(phoneRaw: string): string {
   const s = phoneRaw.trim();
 
@@ -87,7 +111,7 @@ export async function exportPdf(projectId: string): Promise<ExportPdfResult> {
   const contactLine = await loadDefaultContactLine(band.defaultContactId);
 
   const bandCode = band.code && band.code.trim() !== "" ? band.code : band.id;
-  const datePart = formatDateDdMmYyyy(project.date);
+  const datePart = formatDateDdMmYyyy(resolveProjectDate(project));
 
   const outDir = path.resolve(USER_DATA_ROOT, "exports");
   await mkdir(outDir, { recursive: true });
