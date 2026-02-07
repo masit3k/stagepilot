@@ -37,6 +37,14 @@ function sanitizeFileName(name: string): string {
   return `${base.slice(0, 80 - ext.length)}${ext}`;
 }
 
+function formatDateForFileName(iso: string): string {
+  const [year, month, day] = iso.split("-");
+  if (!year || !month || !day) {
+    throw new Error(`Invalid ISO date for filename: ${iso}`);
+  }
+  return `${day}-${month}-${year}`;
+}
+
 type ProjectDateSource = {
   purpose?: "event" | "generic";
   eventDate?: string;
@@ -116,10 +124,16 @@ export async function exportPdf(projectId: string): Promise<ExportPdfResult> {
 
   const contactLine = await loadDefaultContactLine(band.defaultContactId);
 
-  const pdfBaseName =
+  const bandCode = band.code?.trim() || project.bandRef;
+  const pdfDate =
     project.purpose === "event"
-      ? `${project.bandRef}_${project.eventVenue ?? "event"}_${project.documentDate}`
-      : `${project.bandRef}_${project.documentDate}`;
+      ? formatDateForFileName(project.eventDate ?? resolveProjectDate(project))
+      : formatDateForFileName(resolveProjectDate(project));
+  const pdfVenue =
+    project.purpose === "event"
+      ? project.eventVenue?.trim() || "event"
+      : project.title?.trim() || "generic";
+  const pdfBaseName = `${bandCode}_Inputlist_Stageplan_${pdfDate}_${pdfVenue}`;
   const pdfFileName = sanitizeFileName(`${pdfBaseName}.pdf`);
 
   const outDir = path.resolve(USER_DATA_ROOT, "exports");

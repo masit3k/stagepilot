@@ -31,7 +31,7 @@ function buildMetaLine(project: Project): MetaLineModel {
     return {
       kind: "labeled",
       label: "Datum akce a místo konání:",
-      value: `${d}, ${v} – datum aktualizace: ${docDate}`,
+      value: `${d}, ${v} (datum aktualizace: ${docDate})`,
     };
   }
 
@@ -39,7 +39,7 @@ function buildMetaLine(project: Project): MetaLineModel {
   const d = formatDateCZShort(project.documentDate);
   return {
     kind: "plain",
-    value: `${title} – datum aktualizace: ${d}`,
+    value: `${title} (datum aktualizace: ${d})`,
   };
 }
 
