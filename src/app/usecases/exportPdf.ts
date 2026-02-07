@@ -124,17 +124,18 @@ export async function exportPdf(projectId: string): Promise<ExportPdfResult> {
 
   const contactLine = await loadDefaultContactLine(band.defaultContactId);
 
-  const bandCode = band.code?.trim() || project.bandRef;
-  const pdfDate =
-    project.purpose === "event"
-      ? formatDateForFileName(project.eventDate ?? resolveProjectDate(project))
-      : formatDateForFileName(resolveProjectDate(project));
-  const pdfVenue =
-    project.purpose === "event"
-      ? project.eventVenue?.trim() || "event"
-      : project.title?.trim() || "generic";
-  const pdfBaseName = `${bandCode}_Inputlist_Stageplan_${pdfDate}_${pdfVenue}`;
-  const pdfFileName = sanitizeFileName(`${pdfBaseName}.pdf`);
+  let pdfFileName: string;
+  if (project.purpose === "generic") {
+    const bandCode = band.code && band.code.trim() !== "" ? band.code.trim() : band.id;
+    const year = project.documentDate.slice(0, 4);
+    pdfFileName = sanitizeFileName(`${bandCode}_Inputlist_Stageplan_${year}.pdf`);
+  } else {
+    const bandCode = band.code?.trim() || project.bandRef;
+    const pdfDate = formatDateForFileName(project.eventDate ?? resolveProjectDate(project));
+    const pdfVenue = project.eventVenue?.trim() || "event";
+    const pdfBaseName = `${bandCode}_Inputlist_Stageplan_${pdfDate}_${pdfVenue}`;
+    pdfFileName = sanitizeFileName(`${pdfBaseName}.pdf`);
+  }
 
   const outDir = path.resolve(USER_DATA_ROOT, "exports");
   await mkdir(outDir, { recursive: true });

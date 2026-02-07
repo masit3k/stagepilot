@@ -60,6 +60,7 @@ body {
 :root {
   --header-gap: 6pt;
   --block-gap: 14pt;
+  --meta-contact-letter-spacing: 0.2px;
 
   /* line color + widths (single source of truth) */
   --c-line: #000;
@@ -89,8 +90,9 @@ body {
 /* Datum/Místo – celé kurzívou */
 .metaLine {
   margin: 0 0 var(--header-gap) 0;
-  font-size: 10.5pt;
+  font-size: ${pdfLayout.typography.contact.size};
   line-height: 1.2;
+  letter-spacing: var(--meta-contact-letter-spacing);
   color: #222;
   font-style: italic;
   white-space: nowrap;
@@ -112,6 +114,7 @@ body {
   font-size: ${pdfLayout.typography.contact.size};
   font-weight: ${pdfLayout.typography.contact.weight};
   line-height: ${pdfLayout.typography.contact.lineHeight};
+  letter-spacing: var(--meta-contact-letter-spacing);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: clip;

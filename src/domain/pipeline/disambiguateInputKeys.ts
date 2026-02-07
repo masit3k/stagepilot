@@ -35,6 +35,20 @@ function ensureNumberSuffix(label: string, index: number): string {
   return `${label} ${index}`;
 }
 
+function ensureNumberBeforeSide(label: string, index: number): string {
+  const trimmed = label.trimEnd();
+  const sideMatch = /^(.*)\s+(L|R)\s*$/i.exec(trimmed);
+  if (!sideMatch) return ensureNumberSuffix(label, index);
+
+  const base = sideMatch[1];
+  const side = sideMatch[2];
+  if (/\s\d+$/.test(base.trim()) || /\(\d+\)$/.test(base.trim())) {
+    return label;
+  }
+
+  return `${base.trim()} ${index} ${side}`;
+}
+
 export function disambiguateInputKeys<T extends InputLike>(inputs: T[]): T[] {
   const assignments: Assignment[] = [];
   const groupStates = new Map<string, GroupState>();
@@ -87,7 +101,7 @@ export function disambiguateInputKeys<T extends InputLike>(inputs: T[]): T[] {
     }
 
     const key = `${input.key}_${assignment.instanceIndex}`;
-    const label = ensureNumberSuffix(input.label, assignment.instanceIndex);
+    const label = ensureNumberBeforeSide(input.label, assignment.instanceIndex);
     return { ...input, key, label };
   });
 }

@@ -103,7 +103,7 @@ export interface Musician {
   id: string;
   firstName: string;
   lastName: string;
-  gender?: "male" | "female";
+  gender?: "m" | "f" | "x";
   group: Group;
   contactRef?: string;
 

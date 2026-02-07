@@ -3,7 +3,7 @@
     "firstName": "Danka",
     "lastName": "Štarková",
     "group": "vocs",
-    "gender": "female",
+    "gender": "f",
     "presets": [
         {
             "kind": "preset",

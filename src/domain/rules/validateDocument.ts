@@ -7,7 +7,7 @@ export function validateDocument(vm: DocumentViewModel): void {
     throw new Error("No inputs generated. Check band.defaultLineup and musician.presets mapping.");
   }
 
-  const MAX_INPUTS = 32;
+  const MAX_INPUTS = 30;
   if (vm.inputs.length > MAX_INPUTS) {
     throw new Error(`Too many inputs: ${vm.inputs.length} (max ${MAX_INPUTS})`);
   }

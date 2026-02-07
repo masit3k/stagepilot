@@ -32,6 +32,7 @@ describe("disambiguateInputKeys", () => {
       "keys_pad_l_2",
       "keys_pad_r_2",
     ]);
+    expect(result.map((i) => i.label)).toEqual(["Pad 1 L", "Pad 1 R", "Pad 2 L", "Pad 2 R"]);
   });
 
   it("leaves mixed mono/stereo inputs unchanged when no duplicates exist", () => {

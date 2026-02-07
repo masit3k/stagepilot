@@ -120,6 +120,7 @@ type BuiltInput = {
   label: string;
   group: Group;
   note?: string;
+  ownerGender?: "m" | "f" | "x";
 };
 
 type BuiltInputWithCh = BuiltInput & { ch: number };
@@ -398,14 +399,28 @@ const VOC_ORDER: Record<string, number> = {
 function vocalRank(input: BuiltInput): number {
   if (input.group !== "vocs") return 999;
 
-  if (input.key === "voc_lead") return VOC_ORDER.lead;
+  if (input.key === "voc_lead" || input.key.startsWith("voc_lead_")) return VOC_ORDER.lead;
 
   if (input.key.startsWith("voc_back_")) {
-    const suffix = input.key.slice("voc_back_".length);
+    const suffix = input.key.slice("voc_back_".length).replace(/_\d+$/i, "");
     return VOC_ORDER[suffix] ?? 900;
   }
 
   return 900;
+}
+
+function guitarRankByKey(input: BuiltInput): number {
+  // Default rule: acoustic comes last inside the guitar group (may conflict with future group order rules).
+  const key = input.key.toLowerCase();
+  if (key.startsWith("ac_guitar")) return 100;
+  return 0;
+}
+
+function normalizeLeadLabel(label: string): string {
+  return label
+    .replace(/\s+\d+\s*(\([^)]+\))?\s*$/i, "")
+    .replace(/\s+\([^)]+\)\s*$/i, "")
+    .trim();
 }
 
 /* ============================================================
@@ -426,7 +441,7 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
   // Cache lineup musicians for monitor ordering logic
   const lineupMusicians: Array<{
     group: Group;
-    musician: { id: string; gender?: "male" | "female"; presets?: PresetItem[] };
+    musician: { id: string; gender?: "m" | "f" | "x"; presets?: PresetItem[] };
   }> = [];
 
   const lineup = band.defaultLineup ?? {};
@@ -454,7 +469,13 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
           continue;
         }
 
-        inputs.push(...expandPresetItem(item, group, repo));
+        const expanded = expandPresetItem(item, group, repo);
+        if (item.kind === "preset" && /^vocal_lead/i.test(item.ref)) {
+          for (const input of expanded) {
+            input.ownerGender = musician.gender;
+          }
+        }
+        inputs.push(...expanded);
       }
     }
   }
@@ -490,11 +511,17 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
 
   const vocsAll = lineupMusicians.filter((x) => x.group === "vocs").map((x) => x.musician);
   const leads = vocsAll.filter((m) => hasLeadPreset(m));
+  const leadResolved = leads.length > 0 ? leads : vocsAll;
+  const leadGenders = new Set(leadResolved.map((m) => m.gender).filter(Boolean));
+  const leadMixed = leadGenders.size >= 2;
+  const leadCount = leadResolved.length;
 
-  // fallback: if no explicit lead found, use first vocal (deterministic)
-  const leadResolved = (
-    leads.length > 0 ? leads : vocsAll.slice().sort((a, b) => a.id.localeCompare(b.id, "en"))
-  ).slice(0, 2);
+  const leadLabel = (index: number, gender?: "m" | "f" | "x"): string => {
+    const base = "Lead vocal";
+    const indexed = leadCount > 1 ? `${base} ${index}` : base;
+    if (!leadMixed) return indexed;
+    return `${indexed} (${gender ?? "x"})`;
+  };
 
   const pushRow = (output: string, musician?: { presets?: PresetItem[] } | undefined) => {
     monitorTableRows.push({
@@ -507,28 +534,9 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
   // Base order
   pushRow("Guitar", guitarM);
 
-  if (leadResolved.length <= 1) {
-    pushRow("Lead voc", leadResolved[0]);
-  } else {
-    const a = leadResolved[0];
-    const b = leadResolved[1];
-
-    const ga = a.gender;
-    const gb = b.gender;
-
-    // different genders => male then female
-    if ((ga === "male" && gb === "female") || (ga === "female" && gb === "male")) {
-      const male = ga === "male" ? a : b;
-      const female = ga === "female" ? a : b;
-      pushRow("Lead voc (male)", male);
-      pushRow("Lead voc (female)", female);
-    } else {
-      // same gender or missing gender => Lead voc 1 / Lead voc 2 (deterministic)
-      const two = [a, b].slice().sort((x, y) => x.id.localeCompare(y.id, "en"));
-      pushRow("Lead voc 1", two[0]);
-      pushRow("Lead voc 2", two[1]);
-    }
-  }
+  leadResolved.forEach((m, index) => {
+    pushRow(leadLabel(index + 1, m.gender), m);
+  });
 
   pushRow("Keys", keysM);
   pushRow("Bass", bassM);
@@ -548,6 +556,12 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
       if (vr !== 0) return vr;
     }
 
+    if (a.group === "guitar" && b.group === "guitar") {
+      // Acoustic guitars come after electric ones within the guitar block.
+      const gr = guitarRankByKey(a) - guitarRankByKey(b);
+      if (gr !== 0) return gr;
+    }
+
     const l = a.label.localeCompare(b.label, "en");
     if (l !== 0) return l;
 
@@ -555,7 +569,20 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
   });
 
   const disambiguatedInputs = disambiguateInputKeys(inputs);
-  const inputsWithCh = assignChannelsWithOddStereoRule(disambiguatedInputs);
+  const leadGenderByIndex = leadResolved.map((m) => m.gender);
+  const finalizedInputs = disambiguatedInputs.map((input) => {
+    if (!input.key.startsWith("voc_lead")) return input;
+
+    const indexMatch = /voc_lead_(\d+)/i.exec(input.key);
+    const index = indexMatch ? Number(indexMatch[1]) : 1;
+    const base = normalizeLeadLabel(input.label) || "Lead vocal";
+    const indexed = leadCount > 1 ? `${base} ${index}` : base;
+    const label = leadMixed ? `${indexed} (${leadGenderByIndex[index - 1] ?? "x"})` : indexed;
+
+    return { ...input, label };
+  });
+
+  const inputsWithCh = assignChannelsWithOddStereoRule(finalizedInputs);
   const inputRows = buildInputRows(inputsWithCh);
 
   // Notes template resolution

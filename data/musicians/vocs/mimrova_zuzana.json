@@ -3,7 +3,7 @@
     "firstName": "Zuzana",
     "lastName": "Mimrová",
     "group": "vocs",
-    "gender": "female",
+    "gender": "f",
     "presets": [
         {
             "kind": "preset",
