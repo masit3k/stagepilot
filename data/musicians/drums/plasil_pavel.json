@@ -1,0 +1,26 @@
+{
+    "id": "plasil_pavel",
+    "firstName": "Pavel",
+    "lastName": "Plašil",
+    "group": "drums",
+    "presets": [
+        {
+            "kind": "preset",
+            "ref": "standard_9"
+        },
+        {
+            "kind": "preset",
+            "ref": "sample_pad_stereo"
+        },
+        {
+            "kind": "vocal",
+            "ref": "vocal_back_no_mic",
+            "ownerKey": "drums",
+            "ownerLabel": "drums"
+        },
+        {
+            "kind": "monitor",
+            "ref": "iem_stereo_wired"
+        }
+    ]
+}

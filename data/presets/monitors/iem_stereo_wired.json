@@ -1,0 +1,7 @@
+{
+    "type": "monitor",
+    "id": "iem_stereo_wired",
+    "label": "IEM STEREO wired",
+    "mode": "stereo",
+    "wireless": false
+}

@@ -1,0 +1,166 @@
+Stageplan & Inputlist Generator – Project Guidelines
+
+This document defines the goals, rules, and workflow of the Stageplan & Inputlist Generator project.
+Technical and architectural details are intentionally kept minimal here and are described in separate documents.
+
+--------------------------------------------------
+1. Project Goal
+--------------------------------------------------
+
+The goal of this project is to automate the creation of a stageplan and input list for a band
+and eliminate manual editing in Word documents.
+
+From predefined presets (band → lineup → musicians), the application must generate,
+in a single step, a clean and professional document and export it to PDF
+with a fixed layout (A4, exactly one page).
+
+Main benefits:
+- time savings
+- elimination of common errors (duplicate inputs, wrong numbering)
+- consistent and professional output for sound engineers and promoters
+
+--------------------------------------------------
+2. Core Principles
+--------------------------------------------------
+
+- Single source of truth
+  Inputs, monitors, and stage requirements are defined once in presets.
+
+- Automation over manual editing
+  Manual overrides are allowed only as an exception.
+
+- Predictable output
+  Same inputs always produce the same layout.
+
+- Local-first
+  The application works locally; online mode is optional.
+
+- No overengineering
+  MVP uses structured JSON files, no database.
+
+--------------------------------------------------
+3. Application Output
+--------------------------------------------------
+
+- Format: PDF
+- Page size: A4
+- Pages: exactly 1
+- Document language: English
+- Limits:
+  - max 32 input channels
+  - max 6 monitor / IEM mixes
+
+Filename format:
+[BAND_CODE]_Stageplan_Inputlist_DD_MM_YYYY.pdf
+
+--------------------------------------------------
+4. User Workflow
+--------------------------------------------------
+
+1. Select band (default: Couple of Sounds)
+2. Enter event date (required)
+3. Optionally enter venue
+4. Review or override contact details
+5. Select lineup and musician presets
+6. Automatic generation of:
+   - input list
+   - monitor / IEM table
+   - stageplan boxes
+7. Validation
+8. PDF export
+
+--------------------------------------------------
+5. Fixed Groups and Ordering
+--------------------------------------------------
+
+The following groups are fixed and ordered:
+
+1. drums
+2. bass
+3. guitar
+4. keys
+5. vocs
+6. talkback
+
+This order is used for:
+- input list sorting
+- stageplan box ordering
+- automatic channel numbering
+
+--------------------------------------------------
+6. Musician Presets
+--------------------------------------------------
+
+Each musician has one or more presets representing their typical setup.
+
+A preset defines:
+- input channels (with unique technical keys)
+- default monitor / IEM requirements
+- the group the preset belongs to
+
+Rules:
+- input keys must be globally unique within a project
+- presets are the primary data source
+- projects only assemble existing presets
+
+--------------------------------------------------
+7. Monitors / IEM
+--------------------------------------------------
+
+Monitor requirements are part of musician presets.
+
+The project may:
+- use preset defaults
+- override them if required (e.g. IEM → wedge)
+
+The monitor table is generated automatically from the final lineup.
+
+--------------------------------------------------
+8. Stageplan
+--------------------------------------------------
+
+The stageplan is generated automatically.
+
+Each group is represented by a single box containing:
+- assigned input channels (with channel numbers)
+- monitor / IEM summary
+- optional technical notes
+
+Manual drag & drop positioning is not part of MVP,
+but the architecture must allow it in the future.
+
+--------------------------------------------------
+9. Validation Before Export
+--------------------------------------------------
+
+PDF export is allowed only if:
+- required data is present (band, date)
+- no input key is duplicated
+- input count ≤ 25
+- monitor count ≤ 6
+
+If validation fails, export is blocked and a clear error message is shown.
+
+--------------------------------------------------
+10. Related Project Documents
+--------------------------------------------------
+
+- Architecture and code quality rules:
+  See ARCHITECTURE.txt
+
+- Reference layouts and expected outputs:
+  See files prefixed with VZOR_*
+
+- ARCHITECTURE.txt is the authoritative source for all architectural and code-quality decisions.
+
+--------------------------------------------------
+11. Scope and Future Extensions
+--------------------------------------------------
+
+The architecture accounts for future extensions such as:
+- database storage
+- multi-page exports
+- drag & drop stageplan
+- additional export formats
+
+These features are explicitly out of scope for MVP.

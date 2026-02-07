@@ -1,0 +1,16 @@
+{
+    "id": "pisa_karel",
+    "firstName": "Karel",
+    "lastName": "Píša",
+    "group": "guitar",
+    "presets": [
+        {
+            "kind": "preset",
+            "ref": "el_guitar_xlr_stereo"
+        },
+        {
+            "kind": "monitor",
+            "ref": "iem_stereo_wireless"
+        }
+    ]
+}

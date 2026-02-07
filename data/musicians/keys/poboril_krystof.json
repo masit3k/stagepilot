@@ -1,0 +1,16 @@
+{
+    "id": "poboril_krystof",
+    "firstName": "Kryštof",
+    "lastName": "Pobořil",
+    "group": "keys",
+    "presets": [
+        {
+            "kind": "preset",
+            "ref": "keys"
+        },
+        {
+            "kind": "monitor",
+            "ref": "iem_stereo_wired"
+        }
+    ]
+}

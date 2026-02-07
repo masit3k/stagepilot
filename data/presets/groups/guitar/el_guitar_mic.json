@@ -1,0 +1,21 @@
+{
+    "type": "preset",
+    "id": "el_guitar_mic",
+    "label": "Electric guitar (mic)",
+    "group": "guitar",
+    "inputs": [
+        {
+            "key": "el_guitar_mic",
+            "label": "Electric guitar",
+            "note": "SM 57 - small boom mic stand"
+        }
+    ],
+    "requirements": {
+        "power": [
+            {
+                "voltage": 230,
+                "sockets": 3
+            }
+        ]
+    }
+}

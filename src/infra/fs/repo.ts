@@ -1,0 +1,74 @@
+// src/infra/fs/repo.ts
+// Co? Načítá JSON data do paměti a poskytuje k nim přístup.
+// Proč? Odděluje doménovou logiku od filesystemu (domain si jen říká o entity podle id).
+
+import path from "node:path";
+import { DATA_ROOT, USER_DATA_ROOT } from "./dataRoot.js";
+import { listJsonFiles } from "./loadTree.js";
+import { loadJsonFile } from "./loadJson.js";
+
+import type {
+  Band,
+  Musician,
+  Project,
+  PresetEntity,
+  NotesTemplate,
+} from "../../domain/model/types.js";
+
+export interface DataRepository {
+  getBand(id: string): Band;
+  getMusician(id: string): Musician;
+  getProject(id: string): Project;
+  getPreset(id: string): PresetEntity;
+  getNotesTemplate(id: string): NotesTemplate;
+}
+
+export async function loadRepository(): Promise<DataRepository> {
+  const projects = await loadMap<Project>(path.join(USER_DATA_ROOT, "projects"));
+  const bands = await loadMap<Band>(path.join(DATA_ROOT, "bands"));
+  const musicians = await loadMap<Musician>(path.join(DATA_ROOT, "musicians"));
+
+  // preset entity = preset | vocal_type | talkback_type | monitor
+  const presets = await loadMap<PresetEntity>(path.join(DATA_ROOT, "presets"));
+
+  // notes templates
+  const notesTemplates = await loadMap<NotesTemplate>(
+    path.join(DATA_ROOT, "templates", "notes")
+  );
+
+  return {
+    getBand: (id: string) => must(bands, id, "Band"),
+    getMusician: (id: string) => must(musicians, id, "Musician"),
+    getProject: (id: string) => must(projects, id, "Project"),
+    getPreset: (id: string) => must(presets, id, "PresetEntity"),
+    getNotesTemplate: (id: string) => must(notesTemplates, id, "NotesTemplate"),
+  };
+}
+
+async function loadMap<T>(absDir: string): Promise<Map<string, T>> {
+  const files = await listJsonFiles(absDir);
+  const map = new Map<string, T>();
+
+  for (const f of files) {
+    const obj = await loadJsonFile<Record<string, unknown>>(f);
+
+    const id = obj.id;
+    if (typeof id !== "string" || id.trim() === "") {
+      throw new Error(`Missing or invalid "id" in: ${f}`);
+    }
+
+    if (map.has(id)) {
+      throw new Error(`Duplicate id "${id}" in: ${absDir}`);
+    }
+
+    map.set(id, obj as unknown as T);
+  }
+
+  return map;
+}
+
+function must<T>(map: Map<string, T>, id: string, kind: string): T {
+  const v = map.get(id);
+  if (!v) throw new Error(`${kind} not found: ${id}`);
+  return v;
+}

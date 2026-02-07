@@ -1,0 +1,11 @@
+{
+    "type": "talkback_type",
+    "id": "talkback",
+    "label": "Talkback",
+    "group": "talkback",
+    "input": {
+        "key": "tb_{ownerKey}",
+        "label": "Talkback – {ownerLabel}",
+        "note": "BETA 58A, SE V7, SM58 – boom mic stand"
+    }
+}

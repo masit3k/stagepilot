@@ -1,0 +1,155 @@
+Code & Architecture
+
+This document defines the architectural and coding principles of the Stageplan & Inputlist Generator project.
+The goal is a modern, robust, readable, professional, and scalable solution.
+
+--------------------------------------------------
+1. Core Architectural Principles
+--------------------------------------------------
+
+- Single Source of Truth
+  Project + Presets + Templates -> PDF
+  No manual adjustments, no hidden state.
+
+- Strict Layered Architecture
+  UI -> Application -> Domain -> Infrastructure
+
+- Deterministic Output
+  Same input data always produces the same PDF.
+
+- No Overengineering
+  Simple and explicit solutions are preferred.
+
+--------------------------------------------------
+2. Layer Responsibilities
+--------------------------------------------------
+
+UI
+- Data editing and selection
+- Displays validation errors
+- No business logic
+
+Application
+- Orchestrates use-cases
+- Coordinates validation and export
+
+Domain
+- Core business rules
+- Domain models
+- No IO, no rendering
+
+Infrastructure
+- Filesystem access
+- PDF rendering
+- Templates and logging
+
+--------------------------------------------------
+3. Project Structure
+--------------------------------------------------
+
+/data
+  /bands
+  /musicians
+  /presets
+  /projects
+
+/src
+  /domain
+  /app
+  /infra
+  /ui
+
+--------------------------------------------------
+4. Domain Model Principles
+--------------------------------------------------
+
+Entities:
+- Band
+- Musician
+- Preset
+- Project
+- InputChannel
+- MonitorMix
+
+- Explicit domain rules
+- No side effects
+- Controlled state changes
+
+--------------------------------------------------
+5. Processing Pipeline
+--------------------------------------------------
+
+1. Resolve lineup
+2. Build input list
+3. Sort by fixed group order
+4. Assign channel numbers
+5. Build monitors
+6. Build stageplan boxes
+7. Validate
+8. Render PDF
+
+--------------------------------------------------
+6. Fixed Rules & Constraints
+--------------------------------------------------
+
+- Max 32 inputs
+- Max monitor mixes as count of members
+- Fixed group order:
+  drums, bass, guitar, keys, vocs, talkback
+- Unique input keys
+- PDF is always A4, one page
+
+--------------------------------------------------
+7. Validation Strategy
+--------------------------------------------------
+
+- Runs before export
+- Returns all errors
+- Errors contain:
+  code, message, path
+
+--------------------------------------------------
+8. PDF Rendering Rules
+--------------------------------------------------
+
+- HTML/CSS rendering
+- Local fonts only
+- No responsive layout
+- No page breaks
+- Overflow = validation error
+
+--------------------------------------------------
+9. Logging & Debugging
+--------------------------------------------------
+
+- Structured logs
+- One job ID per export
+- Logs include band, date, errors
+
+--------------------------------------------------
+10. Testing Strategy
+--------------------------------------------------
+
+- Unit tests for domain logic
+- Snapshot tests for view models
+- Optional PDF checks
+
+--------------------------------------------------
+11. Code Quality Rules
+--------------------------------------------------
+
+- TypeScript strict mode
+- No any
+- No magic strings
+- Short, readable functions
+
+--------------------------------------------------
+12. Long-Term Scalability
+--------------------------------------------------
+
+Architecture must allow:
+- Database storage
+- Multi-page exports
+- Drag & drop stageplan
+- Additional formats
+- Extended technical documents

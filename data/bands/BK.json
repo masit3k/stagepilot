@@ -1,0 +1,51 @@
+{
+  "type": "band",
+  "id": "bk",
+  "code": "BK",
+  "name": "Blanická kapela",
+  "defaultContactId": "krecmer_matej",
+  "constraints": {
+    "drums": {
+      "min": 1,
+      "max": 1
+    },
+    "bass": {
+      "min": 1,
+      "max": 1
+    },
+    "guitar": {
+      "min": 2,
+      "max": 2
+    },
+    "keys": {
+      "min": 1,
+      "max": 1
+    },
+    "vocs": {
+      "min": 2,
+      "max": 2
+    },
+    "talkback": {
+      "min": 0,
+      "max": 0
+    }
+  },
+  "roleConstraints": {
+    "vocs": {
+      "lead": {
+        "min": 2,
+        "max": 2
+      }
+    }
+  },
+  "defaultLineup": {
+    "drums": "skalicka_vit",
+    "bass": "krecmer_matej",
+    "guitar": "pisa_karel",
+    "keys": "zidek_jakub",
+    "vocs": [
+      "krecmerova_eliska",
+      "holoubek_lukas"
+    ]
+  }
+}

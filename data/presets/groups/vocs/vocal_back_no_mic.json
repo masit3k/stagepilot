@@ -1,0 +1,11 @@
+{
+    "type": "vocal_type",
+    "id": "vocal_back_no_mic",
+    "label": "Back vocal (no mic)",
+    "group": "vocs",
+    "input": {
+        "key": "voc_back_{ownerKey}",
+        "label": "Back vocal – {ownerLabel}",
+        "note": "BETA 58A, SE V7, SM58 – boom mic stand"
+    }
+}

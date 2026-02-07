@@ -1,0 +1,26 @@
+{
+    "id": "zidek_jakub",
+    "firstName": "Jakub",
+    "lastName": "Žídek",
+    "group": "keys",
+    "presets": [
+        {
+            "kind": "preset",
+            "ref": "keys"
+        },
+        {
+            "kind": "preset",
+            "ref": "synth"
+        },
+        {
+            "kind": "vocal",
+            "ref": "vocal_back_no_mic",
+            "ownerKey": "keys",
+            "ownerLabel": "keys"
+        },
+        {
+            "kind": "monitor",
+            "ref": "iem_stereo_wired"
+        }
+    ]
+}

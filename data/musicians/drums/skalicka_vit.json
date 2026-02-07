@@ -1,0 +1,20 @@
+{
+    "id": "skalicka_vit",
+    "firstName": "Vít",
+    "lastName": "Skalička",
+    "group": "drums",
+    "presets": [
+        {
+            "kind": "preset",
+            "ref": "standard_9"
+        },
+        {
+            "kind": "preset",
+            "ref": "sample_pad_stereo"
+        },
+        {
+            "kind": "monitor",
+            "ref": "iem_stereo_wired"
+        }
+    ]
+}

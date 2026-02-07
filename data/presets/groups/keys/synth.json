@@ -1,0 +1,18 @@
+{
+    "type": "preset",
+    "id": "synth",
+    "label": "Synth (top)",
+    "group": "keys",
+    "inputs": [
+        {
+            "key": "synth_l",
+            "label": "Synth L",
+            "note": "TS jack 6.3mm – DI box"
+        },
+        {
+            "key": "synth_r",
+            "label": "Synth R",
+            "note": "TS jack 6.3mm – DI box"
+        }
+    ]
+}

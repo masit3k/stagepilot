@@ -1,0 +1,13 @@
+{
+    "type": "feature",
+    "id": "sample_pad_mono",
+    "label": "Sample pad (mono)",
+    "group": "drums",
+    "inputs": [
+        {
+            "key": "dr_pad",
+            "label": "Sample pad (main out)",
+            "note": "TS jack 6.3mm – DI box"
+        }
+    ]
+}

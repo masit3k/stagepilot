@@ -1,0 +1,21 @@
+{
+    "type": "preset",
+    "id": "ac_guitar",
+    "label": "Acoustic guitar",
+    "group": "guitar",
+    "inputs": [
+        {
+            "key": "ac_guitar",
+            "label": "Acoustic guitar",
+            "note": "TS jack 6.3mm – DI box"
+        }
+    ],
+    "requirements": {
+        "power": [
+            {
+                "voltage": 230,
+                "sockets": 3
+            }
+        ]
+    }
+}

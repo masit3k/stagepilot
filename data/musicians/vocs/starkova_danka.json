@@ -1,0 +1,17 @@
+{
+    "id": "starkova_danka",
+    "firstName": "Danka",
+    "lastName": "Štarková",
+    "group": "vocs",
+    "gender": "female",
+    "presets": [
+        {
+            "kind": "preset",
+            "ref": "vocal_lead_no_mic"
+        },
+        {
+            "kind": "monitor",
+            "ref": "iem_mono_wired"
+        }
+    ]
+}

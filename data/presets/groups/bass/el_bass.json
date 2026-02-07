@@ -1,0 +1,21 @@
+{
+    "type": "preset",
+    "id": "el_bass",
+    "label": "Electric bass guitar",
+    "group": "bass",
+    "inputs": [
+        {
+            "key": "el_bass",
+            "label": "Electric bass guitar",
+            "note": "XLR out from amp"
+        }
+    ],
+    "requirements": {
+        "power": [
+            {
+                "voltage": 230,
+                "sockets": 3
+            }
+        ]
+    }
+}

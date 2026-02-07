@@ -1,0 +1,16 @@
+{
+    "id": "nyvlt_jakub",
+    "firstName": "Jakub",
+    "lastName": "Nývlt",
+    "group": "drums",
+    "presets": [
+        {
+            "kind": "preset",
+            "ref": "standard_9"
+        },
+        {
+            "kind": "monitor",
+            "ref": "iem_stereo_wired"
+        }
+    ]
+}

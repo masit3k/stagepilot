@@ -1,0 +1,11 @@
+{
+    "type": "vocal_type",
+    "id": "vocal_back_wired",
+    "label": "Back vocal (wired)",
+    "group": "vocs",
+    "input": {
+        "key": "voc_back_{ownerKey}",
+        "label": "Back vocal – {ownerLabel}",
+        "note": "Own wired mic – boom mic stand"
+    }
+}

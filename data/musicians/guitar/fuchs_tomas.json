@@ -1,0 +1,16 @@
+{
+    "id": "fuchs_tomas",
+    "firstName": "Tomáš",
+    "lastName": "Fuchs",
+    "group": "guitar",
+    "presets": [
+        {
+            "kind": "preset",
+            "ref": "el_guitar_mic"
+        },
+        {
+            "kind": "monitor",
+            "ref": "wedge"
+        }
+    ]
+}

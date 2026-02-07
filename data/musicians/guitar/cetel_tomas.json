@@ -1,0 +1,22 @@
+{
+    "id": "cetel_tomas",
+    "firstName": "Tomáš",
+    "lastName": "Cetel",
+    "group": "guitar",
+    "presets": [
+        {
+            "kind": "preset",
+            "ref": "el_guitar_xlr_mono"
+        },
+        {
+            "kind": "vocal",
+            "ref": "vocal_back_no_mic",
+            "ownerKey": "guitar",
+            "ownerLabel": "guitar"
+        },
+        {
+            "kind": "monitor",
+            "ref": "iem_mono_wired"
+        }
+    ]
+}

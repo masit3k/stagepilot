@@ -1,0 +1,22 @@
+{
+    "id": "mludek_tomas",
+    "firstName": "Tomáš",
+    "lastName": "Mludek",
+    "group": "keys",
+    "presets": [
+        {
+            "kind": "preset",
+            "ref": "keys"
+        },
+        {
+            "kind": "vocal",
+            "ref": "vocal_back_no_mic",
+            "ownerKey": "keys",
+            "ownerLabel": "keys"
+        },
+        {
+            "kind": "monitor",
+            "ref": "iem_stereo_wired"
+        }
+    ]
+}

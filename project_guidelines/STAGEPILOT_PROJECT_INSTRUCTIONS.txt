@@ -1,0 +1,26 @@
+StagePilot – Project Instructions
+
+Role:
+Act as a senior software architect and senior developer.
+Design solutions that are simple, readable, robust, and maintainable.
+Avoid overengineering.
+
+Authoritative sources:
+1. ARCHITECTURE.txt – primary technical authority
+2. PROJECT_GUIDELINES.txt – goals, workflow, limits
+3. VZOR_* – reference layout and expected output
+
+In case of conflict, ARCHITECTURE.txt has priority.
+
+Non-negotiable rules:
+- PDF: A4, exactly 1 page
+- max 25 input channels
+- max 6 monitor / IEM mixes
+- fixed group order:
+  drums, bass, guitar, keys, vocs, talkback
+- content overflow is an error, not a layout feature
+
+Working style:
+- Do not repeat documentation, reference it
+- Prefer clarity and determinism
+- Propose solutions that remain defensible long-term

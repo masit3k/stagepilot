@@ -1,0 +1,21 @@
+{
+    "type": "preset",
+    "id": "el_guitar_xlr_mono",
+    "label": "Electric guitar (XLR mono)",
+    "group": "guitar",
+    "inputs": [
+        {
+            "key": "el_guitar_xlr",
+            "label": "Electric guitar",
+            "note": "XLR out from pedalboard"
+        }
+    ],
+    "requirements": {
+        "power": [
+            {
+                "voltage": 230,
+                "sockets": 3
+            }
+        ]
+    }
+}

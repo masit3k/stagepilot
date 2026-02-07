@@ -1,0 +1,26 @@
+{
+    "type": "preset",
+    "id": "keys",
+    "label": "Keys (bottom)",
+    "group": "keys",
+    "inputs": [
+        {
+            "key": "keys_l",
+            "label": "Keys L",
+            "note": "TS jack 6.3mm – DI box"
+        },
+        {
+            "key": "keys_r",
+            "label": "Keys R",
+            "note": "TS jack 6.3mm – DI box"
+        }
+    ],
+    "requirements": {
+        "power": [
+            {
+                "voltage": 230,
+                "sockets": 3
+            }
+        ]
+    }
+}

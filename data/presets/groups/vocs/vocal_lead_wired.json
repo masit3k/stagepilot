@@ -1,0 +1,13 @@
+{
+  "type": "preset",
+  "id": "vocal_lead_wired",
+  "label": "Lead vocal (wired)",
+  "group": "vocs",
+  "inputs": [
+    {
+      "key": "voc_lead",
+      "label": "Lead vocal",
+      "note": "Own wired mic – boom mic stand"
+    }
+  ]
+}

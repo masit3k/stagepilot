@@ -1,0 +1,28 @@
+{
+    "id": "krecmer_matej",
+    "firstName": "Matěj",
+    "lastName": "Krečmer",
+    "group": "bass",
+    "contactRef": "krecmer_matej",
+    "presets": [
+        {
+            "kind": "preset",
+            "ref": "el_bass"
+        },
+        {
+            "kind": "vocal",
+            "ref": "vocal_back_no_mic",
+            "ownerKey": "bass",
+            "ownerLabel": "bass"
+        },
+        {
+            "kind": "talkback",
+            "ref": "talkback",
+            "ownerKey": "bass"
+        },
+        {
+            "kind": "monitor",
+            "ref": "iem_stereo_wireless"
+        }
+    ]
+}

@@ -1,0 +1,26 @@
+{
+    "type": "preset",
+    "id": "el_guitar_xlr_stereo",
+    "label": "Electric guitar (XLR stereo)",
+    "group": "guitar",
+    "inputs": [
+        {
+            "key": "el_guitar_xlr_l",
+            "label": "Electric guitar L",
+            "note": "XLR out from pedalboard"
+        },
+        {
+            "key": "el_guitar_xlr_r",
+            "label": "Electric guitar R",
+            "note": "XLR out from pedalboard"
+        }
+    ],
+    "requirements": {
+        "power": [
+            {
+                "voltage": 230,
+                "sockets": 3
+            }
+        ]
+    }
+}

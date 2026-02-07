@@ -1,0 +1,17 @@
+{
+    "id": "mimrova_zuzana",
+    "firstName": "Zuzana",
+    "lastName": "Mimrová",
+    "group": "vocs",
+    "gender": "female",
+    "presets": [
+        {
+            "kind": "preset",
+            "ref": "vocal_lead_wireless"
+        },
+        {
+            "kind": "monitor",
+            "ref": "wedge"
+        }
+    ]
+}

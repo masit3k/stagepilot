@@ -1,0 +1,17 @@
+{
+    "id": "krecmerova_eliska",
+    "firstName": "Eliška",
+    "lastName": "Krečmerová",
+    "gender": "female",
+    "group": "vocs",
+    "presets": [
+        {
+            "kind": "preset",
+            "ref": "vocal_lead_wireless"
+        },
+        {
+            "kind": "monitor",
+            "ref": "iem_stereo_wireless"
+        }
+    ]
+}
