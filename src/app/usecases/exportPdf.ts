@@ -1,5 +1,5 @@
 import path from "node:path";
-import { mkdir, readFile } from "node:fs/promises";
+import { access, mkdir, readFile } from "node:fs/promises";
 
 import { loadRepository } from "../../infra/fs/repo.js";
 import { DATA_ROOT, USER_DATA_ROOT } from "../../infra/fs/dataRoot.js";
@@ -121,6 +121,15 @@ export async function exportPdf(projectId: string): Promise<ExportPdfResult> {
 
   const vm = buildDocument(project, repo);
   validateDocument(vm);
+
+  if (vm.meta.logoFile) {
+    const logoPath = path.resolve(process.cwd(), vm.meta.logoFile);
+    try {
+      await access(logoPath);
+    } catch {
+      throw new Error(`Logo file not found: ${vm.meta.logoFile}`);
+    }
+  }
 
   const contactLine = await loadDefaultContactLine(band.defaultContactId);
 

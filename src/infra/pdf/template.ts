@@ -114,6 +114,7 @@ export interface RenderTemplateOptions {
   tabTitle: string;
   baseHref: string; // file:///.../src/infra/pdf/
   contactLine?: string;
+  logoHref?: string;
 }
 
 export function renderInputlistHtml(vm: DocumentViewModel, opts: RenderTemplateOptions): string {
@@ -145,6 +146,7 @@ ${pdfStyles}
 <body>
   <div id="${pdfLayout.ids.page}">
     <header class="header">
+      ${opts.logoHref ? `<img class="bandLogo" src="${esc(opts.logoHref)}" alt="" />` : ""}
       <div class="headerCenter">
         <div class="bandName">${esc(vm.meta.bandName)}</div>
         ${metaHtml}

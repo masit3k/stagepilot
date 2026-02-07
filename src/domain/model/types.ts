@@ -96,6 +96,9 @@ export interface Band {
 
   /** Volitelné: reference na notes template */
   notesTemplateRef?: string;
+
+  /** Volitelné: relativní cesta k logu (od root projektu) */
+  logoFile?: string;
 }
 
 /** Muzikant: profil osoby a reference na presety, které používá. */
@@ -252,6 +255,9 @@ export interface DocumentViewModel {
 
     /** Už připravený meta řádek k vytištění */
     metaLine: MetaLineModel;
+
+    /** Volitelné: relativní cesta k logu (od root projektu) */
+    logoFile?: string;
   };
 
   /**

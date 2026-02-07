@@ -23,10 +23,15 @@ export async function renderPdf(vm: DocumentViewModel, opts: RenderPdfOptions): 
     const pdfBaseDir = path.join(process.cwd(), "src", "infra", "pdf");
     const baseHref = pathToFileURL(pdfBaseDir + path.sep).href; // musí končit "/"
 
+    const logoHref = vm.meta.logoFile
+        ? pathToFileURL(path.resolve(process.cwd(), vm.meta.logoFile)).href
+        : undefined;
+
     const html = renderInputlistHtml(vm, {
         tabTitle,
         baseHref,
         contactLine: opts.contactLine,
+        logoHref,
     });
 
     await fs.mkdir(path.dirname(opts.outFile), { recursive: true });

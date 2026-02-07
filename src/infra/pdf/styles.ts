@@ -73,6 +73,7 @@ body {
    =============================== */
 .header {
   margin-bottom: 12pt;
+  position: relative;
 }
 
 .headerCenter {
@@ -85,6 +86,14 @@ body {
   line-height: ${pdfLayout.typography.title.lineHeight};
   margin: 0 0 var(--header-gap) 0;
   letter-spacing: 0.2px;
+}
+
+.bandLogo {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 40mm;
+  height: auto;
 }
 
 /* Datum/Místo – celé kurzívou */

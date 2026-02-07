@@ -596,6 +596,7 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
       title: project.title,
 
       metaLine: buildMetaLine(project),
+      logoFile: band.logoFile,
     },
 
     inputs: inputsWithCh,

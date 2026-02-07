@@ -3,6 +3,7 @@
   "id": "cos",
   "code": "CoS",
   "name": "Couple of Sounds",
+  "logoFile": "user_data/assets/logos/couple_of_sounds.png",
   "defaultContactId": "krecmer_matej",
   "constraints": {
     "drums": {
