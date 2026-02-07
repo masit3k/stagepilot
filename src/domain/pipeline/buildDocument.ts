@@ -12,6 +12,7 @@ import type {
   MetaLineModel,
 } from "../model/types.js";
 import type { DataRepository } from "../../infra/fs/repo.js";
+import { disambiguateInputKeys } from "./disambiguateInputKeys.js";
 
 /* ============================================================
  * Helpers
@@ -553,7 +554,8 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
     return a.key.localeCompare(b.key, "en");
   });
 
-  const inputsWithCh = assignChannelsWithOddStereoRule(inputs);
+  const disambiguatedInputs = disambiguateInputKeys(inputs);
+  const inputsWithCh = assignChannelsWithOddStereoRule(disambiguatedInputs);
   const inputRows = buildInputRows(inputsWithCh);
 
   // Notes template resolution
