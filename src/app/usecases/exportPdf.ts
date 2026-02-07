@@ -1,10 +1,5 @@
 import path from "node:path";
-<<<<<<< ours
-import { access, mkdir, readFile } from "node:fs/promises";
-=======
-import { mkdir } from "node:fs/promises";
-
->>>>>>> theirs
+import { access, mkdir } from "node:fs/promises";
 import { loadRepository } from "../../infra/fs/repo.js";
 import { DATA_ROOT, USER_DATA_ROOT } from "../../infra/fs/dataRoot.js";
 import { loadJsonFile } from "../../infra/fs/loadJson.js";
@@ -122,8 +117,6 @@ export async function exportPdf(projectId: string): Promise<ExportPdfResult> {
   const project = repo.getProject(projectId);
   return exportPdfFromProject(projectId, project, USER_DATA_ROOT);
 }
-<<<<<<< ours
-
 export async function exportPdfFromProjectFile(
   projectPath: string,
   outDir: string
@@ -132,19 +125,6 @@ export async function exportPdfFromProjectFile(
   const project = normalizeProject(rawProject);
   return exportPdfFromProject(project.id, project, outDir);
 }
-
-=======
-
-export async function exportPdfFromProjectFile(
-  projectPath: string,
-  outDir: string
-): Promise<ExportPdfResult> {
-  const rawProject = await loadJsonFile<ProjectJson>(projectPath);
-  const project = normalizeProject(rawProject);
-  return exportPdfFromProject(project.id, project, outDir);
-}
-
->>>>>>> theirs
 async function exportPdfFromProject(
   projectId: string,
   project: Project,
