@@ -1,11 +1,11 @@
 {
     "type": "preset",
-    "id": "el_bass",
+    "id": "el_bass_xlr",
     "label": "Electric bass guitar",
     "group": "bass",
     "inputs": [
         {
-            "key": "el_bass",
+            "key": "el_bass_xlr",
             "label": "Electric bass guitar",
             "note": "XLR out from amp"
         }

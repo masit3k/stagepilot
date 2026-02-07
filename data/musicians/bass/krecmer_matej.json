@@ -7,7 +7,7 @@
     "presets": [
         {
             "kind": "preset",
-            "ref": "el_bass"
+            "ref": "el_bass_xlr"
         },
         {
             "kind": "vocal",
