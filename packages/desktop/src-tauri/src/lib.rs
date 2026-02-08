@@ -62,15 +62,15 @@ fn resolve_user_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, ApiError> {
         return Ok(resolve_repo_root().join("user_data"));
     }
 
-    let app_data_dir = app
-        .path()
-        .app_data_dir()
-        .ok_or(ApiError {
-            code: "USER_DATA_DIR_FAILED".into(),
-            message: "Unable to resolve app data directory.".into(),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        })?;
+let app_data_dir = app
+  .path()
+  .app_data_dir()
+  .map_err(|e| ApiError {
+    code: "APP_DATA_DIR_FAILED".into(),
+    message: format!("Failed to resolve app_data_dir: {e}"),
+    export_pdf_path: None,
+    version_pdf_path: None,
+  })?;
 
     Ok(app_data_dir)
 }
