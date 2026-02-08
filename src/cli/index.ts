@@ -134,9 +134,22 @@ async function main() {
   }
 
   if (wantPdf) {
-    const { pdfPath, versionId, versionPath } = await exportPdf(projectId);
+    const { versionPdfPath, exportPdfPath, exportUpdated, versionId, versionPath } =
+      await exportPdf(projectId);
     console.log(
-      JSON.stringify({ ok: true, projectId, pdfPath, versionId, versionPath }, null, 2)
+      JSON.stringify(
+        {
+          ok: true,
+          projectId,
+          versionPdfPath,
+          exportPdfPath,
+          exportUpdated,
+          versionId,
+          versionPath,
+        },
+        null,
+        2
+      )
     );
     return;
   }
@@ -174,7 +187,7 @@ async function handleGenerate(args: string[]): Promise<CliResult> {
     const versionDir = path.resolve(result.versionPath);
     const metaPath = path.join(versionDir, "meta.json");
     const projectJsonPath = path.join(versionDir, "project.json");
-    const pdfPath = path.resolve(result.pdfPath);
+    const pdfPath = path.resolve(result.versionPdfPath);
     const projectId = await readProjectId(projectJsonPath);
     const versionLogPath = path.join(versionDir, "log.txt");
     await copyFile(logPath, versionLogPath);

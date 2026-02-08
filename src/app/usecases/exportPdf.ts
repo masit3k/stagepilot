@@ -8,11 +8,14 @@ import { getGeneratedAtUtc } from "../../infra/time/today.js";
 import { buildDocument } from "../../domain/pipeline/buildDocument.js";
 import { validateDocument } from "../../domain/rules/validateDocument.js";
 import { renderPdf } from "../../infra/pdf/pdf.js";
+import { publishExportPdf } from "./publishExportPdf.js";
 import { normalizeProject } from "./normalizeProject.js";
 import type { Project, ProjectJson } from "../../domain/model/types.js";
 
 export interface ExportPdfResult {
-  pdfPath: string;
+  versionPdfPath: string;
+  exportPdfPath: string;
+  exportUpdated: boolean;
   versionId: string;
   versionPath: string;
 }
@@ -189,6 +192,17 @@ async function exportPdfFromProject(
   });
 
   const versionPath = path.resolve(versionDir);
+  const { exportPdfPath, exportUpdated } = await publishExportPdf({
+    sourcePdfPath: pdfPath,
+    exportRoot: path.resolve(outDir, "exports"),
+    pdfFileName,
+  });
 
-  return { pdfPath, versionId: meta.versionId, versionPath };
+  return {
+    versionPdfPath: pdfPath,
+    exportPdfPath,
+    exportUpdated,
+    versionId: meta.versionId,
+    versionPath,
+  };
 }
