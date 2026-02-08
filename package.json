@@ -8,9 +8,13 @@
     "smoke:versions": "node --enable-source-maps --import tsx scripts/smoke_versions.ts",
     "test": "vitest run",
     "lint": "biome check .",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2",
     "@biomejs/biome": "^1.9.4",
     "@types/node": "^25.2.1",
     "tsx": "^4.21.0",
