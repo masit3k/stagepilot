@@ -12,14 +12,12 @@
     "test": "vitest run",
     "lint": "biome check .",
     "format": "biome format --write .",
-    "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "dev": "npm --prefix packages/desktop run dev",
+    "build:desktop": "npm --prefix packages/desktop run build"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2",
-    "@biomejs/biome": "^1.9.4",
     "@tauri-apps/cli": "^2.10.0",
+    "@biomejs/biome": "^1.9.4",
     "@types/node": "^25.2.1",
     "tsx": "^4.21.0",
     "typescript": "^5.6.3",
