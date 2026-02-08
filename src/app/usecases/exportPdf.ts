@@ -128,6 +128,14 @@ export async function exportPdfFromProjectFile(
   const project = normalizeProject(rawProject);
   return exportPdfFromProject(project.id, project, outDir);
 }
+
+export async function exportProjectPdf(args: {
+  userDataDir: string;
+  project: ProjectJson;
+}): Promise<ExportPdfResult> {
+  const project = normalizeProject(args.project);
+  return exportPdfFromProject(project.id, project, args.userDataDir);
+}
 async function exportPdfFromProject(
   projectId: string,
   project: Project,
