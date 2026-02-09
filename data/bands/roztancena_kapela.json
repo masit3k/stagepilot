@@ -1,9 +1,9 @@
 {
   "type": "band",
-  "id": "pl",
-  "code": "PL",
-  "name": "Party Leaders",
-  "bandLeader": "krecmer_matej",
+  "id": "rk",
+  "code": "RK",
+  "name": "Roztančená kapela",
+  "bandLeader": "zidek_jakub",
   "defaultContactId": "zidek_jakub",
   "constraints": {
     "drums": {
@@ -40,7 +40,7 @@
     }
   },
   "defaultLineup": {
-    "drums": "plasil_pavel",
+    "drums": "skalicka_vit",
     "bass": "krecmer_matej",
     "guitar": "cetel_tomas",
     "keys": "zidek_jakub",

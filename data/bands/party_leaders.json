@@ -1,0 +1,49 @@
+{
+  "type": "band",
+  "id": "pl",
+  "code": "PL",
+  "name": "Party Leaders",
+  "bandLeader": "krecmer_matej",
+  "defaultContactId": "krecmer_matej",
+  "constraints": {
+    "drums": {
+      "min": 1,
+      "max": 1
+    },
+    "bass": {
+      "min": 1,
+      "max": 1
+    },
+    "guitar": {
+      "min": 1,
+      "max": 1
+    },
+    "keys": {
+      "min": 1,
+      "max": 1
+    },
+    "vocs": {
+      "min": 1,
+      "max": 99
+    },
+    "talkback": {
+      "min": 1,
+      "max": 1
+    }
+  },
+  "roleConstraints": {
+    "vocs": {
+      "lead": {
+        "min": 1,
+        "max": 1
+      }
+    }
+  },
+  "defaultLineup": {
+    "drums": "plasil_pavel",
+    "bass": "krecmer_matej",
+    "guitar": "cetel_tomas",
+    "keys": "zidek_jakub",
+    "vocs": "krecmerova_eliska"
+  }
+}
