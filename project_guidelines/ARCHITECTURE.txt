@@ -98,6 +98,8 @@ Entities:
   drums, bass, guitar, keys, vocs, talkback
 - Unique input keys
 - PDF is always A4, one page
+- Exception: Inputlist PDF export MAY be 2 pages when Stageplan is included as page 2.
+  Stageplan is always page 2, never page 1.
 
 --------------------------------------------------
 7. Validation Strategy
@@ -115,8 +117,8 @@ Entities:
 - HTML/CSS rendering
 - Local fonts only
 - No responsive layout
-- No page breaks
-- Overflow = validation error
+- No page breaks (except the explicit Stageplan page 2)
+- Overflow = validation error (for each page separately)
 
 --------------------------------------------------
 9. Logging & Debugging

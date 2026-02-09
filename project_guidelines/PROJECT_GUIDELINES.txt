@@ -45,6 +45,8 @@ Main benefits:
 - Format: PDF
 - Page size: A4
 - Pages: exactly 1
+  - Exception: Inputlist PDF export MAY be 2 pages when Stageplan is included as page 2.
+    Stageplan is always page 2, never page 1.
 - Document language: English
 - Limits:
   - max 32 input channels

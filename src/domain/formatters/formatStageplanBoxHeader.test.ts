@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import { formatStageplanBoxHeader } from "./formatStageplanBoxHeader.js";
 
 describe("formatStageplanBoxHeader", () => {
-  it("formats uppercase header with underscore", () => {
+  it("formats uppercase header with dash", () => {
     const label = formatStageplanBoxHeader({
       instrumentLabel: "Guitar",
       firstName: "Matěj",
     });
 
-    expect(label).toBe("GUITAR_MATĚJ");
+    expect(label).toBe("GUITAR - MATĚJ");
   });
 
   it("falls back to question mark when name missing", () => {
@@ -16,6 +16,6 @@ describe("formatStageplanBoxHeader", () => {
       instrumentLabel: "Lead vocal",
     });
 
-    expect(label).toBe("LEAD VOCAL_?");
+    expect(label).toBe("LEAD VOC - ?");
   });
 });

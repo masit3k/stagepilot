@@ -146,7 +146,7 @@ ${pdfStyles}
 </head>
 
 <body>
-  <div id="${pdfLayout.ids.page}">
+  <div class="pdfPage pdfPage--break" id="${pdfLayout.ids.page}">
     <header class="header">
       ${opts.logoHref ? `<img class="bandLogo" src="${esc(opts.logoHref)}" alt="" />` : ""}
       <div class="headerCenter">
@@ -193,10 +193,14 @@ ${pdfStyles}
     </div>
   </div>
 
-  ${stageplanHtml}
-
 </main>
 
+  </div>
+
+  <div class="pdfPage" id="${pdfLayout.ids.page2}">
+    <main id="${pdfLayout.ids.content2}" class="stageplanPageContent">
+      ${stageplanHtml}
+    </main>
   </div>
 </body>
 </html>`.trim();

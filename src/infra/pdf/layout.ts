@@ -27,5 +27,7 @@ export const pdfLayout = {
   ids: {
     page: "page",
     content: "content",
+    page2: "page2",
+    content2: "content2",
   },
 } as const;

@@ -8,5 +8,6 @@ export function formatStageplanBoxHeader({
   firstName,
 }: StageplanBoxHeaderArgs): string {
   const resolvedName = firstName && firstName.trim() ? firstName.trim() : "?";
-  return `${instrumentLabel}_${resolvedName}`.toUpperCase();
+  const displayInstrument = instrumentLabel === "Lead vocal" ? "Lead voc" : instrumentLabel;
+  return `${displayInstrument} - ${resolvedName}`.toUpperCase();
 }

@@ -54,6 +54,17 @@ body {
 /* Wrappery pro overflow check v pdf.ts */
 #${pdfLayout.ids.page} { }
 #${pdfLayout.ids.content} { }
+#${pdfLayout.ids.page2} { }
+#${pdfLayout.ids.content2} { }
+
+.pdfPage {
+  position: relative;
+}
+
+.pdfPage--break {
+  break-after: page;
+  page-break-after: always;
+}
 
 /* ===============================
    Constants for lines
@@ -250,11 +261,13 @@ body {
   font-weight: ${stageplanLayout.headingWeight};
   line-height: 1;
   margin: 0 0 8pt 0;
+  text-align: center;
 }
 
 .stageplanArea {
   position: relative;
   width: ${stageplanLayout.areaWidthMm}mm;
+  margin: 0 auto;
 }
 
 .stageplanBox {

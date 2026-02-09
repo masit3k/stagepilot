@@ -67,6 +67,7 @@ export type StageplanPlan = {
 function resolveMonitorInstrument(output: string): StageplanInstrument | null {
   const normalized = output.trim().toLowerCase();
   if (normalized.startsWith("lead vocal")) return "Lead vocal";
+  if (normalized.startsWith("lead voc")) return "Lead vocal";
   if (normalized.startsWith("guitar")) return "Guitar";
   if (normalized.startsWith("keys")) return "Keys";
   if (normalized.startsWith("bass")) return "Bass";
@@ -175,9 +176,7 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
 
     const needed = lines * lineHeightPt;
     if (needed > availablePt) {
-      throw new Error(
-        `Stageplan overflow in ${box.instrument}: ${needed}px > ${availablePt}px`
-      );
+      throw new Error(`Stageplan overflow in ${box.instrument}`);
     }
   }
 

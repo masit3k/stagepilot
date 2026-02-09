@@ -33,36 +33,37 @@ describe("stageplan render plan", () => {
       const vm = buildDocument(project, repo);
       const plan = buildStageplanPlan(vm.stageplan);
 
-    expect(plan.boxes).toHaveLength(5);
+      expect(plan.boxes).toHaveLength(5);
 
-    expect(parsePt(plan.heading.fontSize)).toBeLessThan(
-      parsePt(pdfLayout.typography.title.size)
-    );
+      expect(parsePt(plan.heading.fontSize)).toBeLessThan(
+        parsePt(pdfLayout.typography.title.size)
+      );
 
-    expect(plan.textStyle.fontSize).toBe(pdfLayout.typography.table.size);
+      expect(plan.textStyle.fontSize).toBe(pdfLayout.typography.table.size);
 
-    const drumsBox = plan.boxes.find((box) => box.instrument === "Drums");
-    expect(drumsBox).toBeTruthy();
+      const drumsBox = plan.boxes.find((box) => box.instrument === "Drums");
+      expect(drumsBox).toBeTruthy();
+      expect(drumsBox?.header).toBe("DRUMS - PAVEL");
 
-    const inputBullets = drumsBox?.inputBullets ?? [];
-    expect(inputBullets).toEqual(
-      expect.arrayContaining([
-        "Kick out (1)",
-        "OH R (9)",
-        "Sample pad L (main out L) (11)",
-        "Sample pad R (main out R) (12)",
-        "Back vocal – drums (23)",
-      ])
-    );
+      const inputBullets = drumsBox?.inputBullets ?? [];
+      expect(inputBullets).toEqual(
+        expect.arrayContaining([
+          "Kick out (1)",
+          "OH R (9)",
+          "Sample pad L (main out L) (11)",
+          "Sample pad R (main out R) (12)",
+          "Back vocal – drums (23)",
+        ])
+      );
 
-    const channelNumbers = inputBullets
-      .map((line) => Number.parseInt(line.replace(/.*\\((\\d+)\\)$/, "$1"), 10))
-      .filter((n) => !Number.isNaN(n));
-    expect(channelNumbers).toEqual([...channelNumbers].sort((a, b) => a - b));
+      const channelNumbers = inputBullets
+        .map((line) => Number.parseInt(line.replace(/.*\\((\\d+)\\)$/, "$1"), 10))
+        .filter((n) => !Number.isNaN(n));
+      expect(channelNumbers).toEqual([...channelNumbers].sort((a, b) => a - b));
 
-    expect(drumsBox?.monitorBullets).toEqual(
-      expect.arrayContaining(["IEM STEREO wired (5)"])
-    );
+      expect(drumsBox?.monitorBullets).toEqual(
+        expect.arrayContaining(["IEM STEREO wired (5)"])
+      );
       expect(drumsBox?.extraBullets).toEqual(
         expect.arrayContaining(["Drum riser 3x2"])
       );

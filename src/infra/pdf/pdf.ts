@@ -5,6 +5,7 @@ import puppeteer from "puppeteer";
 
 import type { DocumentViewModel } from "../../domain/model/types.js";
 import { renderInputlistHtml } from "./template.js";
+import { pdfLayout } from "./layout.js";
 
 export interface RenderPdfOptions {
     outFile: string;         // absolutní nebo relativní
@@ -12,7 +13,8 @@ export interface RenderPdfOptions {
 }
 
 /**
- * Render DocumentViewModel do PDF (A4, přesně 1 stránka).
+ * Render DocumentViewModel do PDF (A4).
+ * Defaultně 1 stránka; výjimka je Stageplan na stránce 2.
  * Pokud obsah přeteče, je to ERROR (ne “layout feature”).
  */
 export async function renderPdf(vm: DocumentViewModel, opts: RenderPdfOptions): Promise<void> {
@@ -44,29 +46,41 @@ export async function renderPdf(vm: DocumentViewModel, opts: RenderPdfOptions): 
         // setContent stačí "load" – fonty se načtou přes file://
         await page.setContent(html, { waitUntil: "load" });
 
-        // Overflow check: #content musí být uvnitř #page (A4/1 page).
-        const overflow = await page.evaluate(() => {
+        // Overflow check: každý #content musí být uvnitř svého #page (A4/stránka).
+        const pairs = [
+            { pageId: pdfLayout.ids.page, contentId: pdfLayout.ids.content },
+            { pageId: pdfLayout.ids.page2, contentId: pdfLayout.ids.content2 },
+        ];
+
+        const overflow = await page.evaluate((pairsArg) => {
             const d = globalThis as any;
             const doc = d.document as any;
-
-            const pageEl = doc.getElementById("page");
-            const contentEl = doc.getElementById("content");
-            if (!pageEl || !contentEl) return { ok: false, reason: "missing #page or #content" };
-
-            const pageRect = pageEl.getBoundingClientRect();
-            const contentRect = contentEl.getBoundingClientRect();
+            const pairs = pairsArg;
 
             const tolerancePx = 2;
-            const overflowPx = contentRect.bottom - pageRect.bottom;
+            for (const pair of pairs) {
+                const pageEl = doc.getElementById(pair.pageId);
+                const contentEl = doc.getElementById(pair.contentId);
+                if (!pageEl || !contentEl) {
+                    return { ok: false, reason: `missing #${pair.pageId} or #${pair.contentId}` };
+                }
 
-            return { ok: overflowPx <= tolerancePx, overflowPx };
-        });
+                const pageRect = pageEl.getBoundingClientRect();
+                const contentRect = contentEl.getBoundingClientRect();
+                const overflowPx = contentRect.bottom - pageRect.bottom;
+                if (overflowPx > tolerancePx) {
+                    return { ok: false, overflowPx, pageId: pair.pageId };
+                }
+            }
+
+            return { ok: true };
+        }, pairs);
 
         if (!("ok" in overflow) || overflow.ok === false) {
             const msg =
-                "PDF overflow: content does not fit A4/1 page. " +
+                "PDF overflow: content does not fit A4 page. " +
                 (typeof overflow === "object" && overflow && "overflowPx" in overflow
-                    ? `overflowPx=${String((overflow as any).overflowPx)}`
+                    ? `pageId=${String((overflow as any).pageId)} overflowPx=${String((overflow as any).overflowPx)}`
                     : "");
             throw new Error(msg);
         }
@@ -76,7 +90,6 @@ export async function renderPdf(vm: DocumentViewModel, opts: RenderPdfOptions): 
             format: "A4",
             printBackground: true,
             preferCSSPageSize: true,
-            pageRanges: "1",
         });
     } finally {
         await browser.close();
