@@ -74,4 +74,48 @@ describe("stageplan render plan", () => {
       await fs.rm(tmpRoot, { recursive: true, force: true });
     }
   });
+
+  it("collapses stereo inputs and keeps monitor bullets intact", () => {
+    const plan = buildStageplanPlan({
+      lineupByRole: {},
+      inputs: [
+        { channelNo: 1, label: "Kick", group: "drums" },
+        { channelNo: 2, label: "Snare", group: "drums" },
+        { channelNo: 8, label: "OH L", group: "guitar" },
+        { channelNo: 9, label: "OH R", group: "guitar" },
+        { channelNo: 11, label: "PAD L", group: "drums" },
+        { channelNo: 12, label: "PAD R", group: "drums" },
+        { channelNo: 15, label: "Keys L", group: "keys" },
+        { channelNo: 16, label: "Keys R", group: "keys" },
+        { channelNo: 17, label: "Synth L", group: "keys" },
+        { channelNo: 18, label: "Synth R", group: "keys" },
+      ],
+      monitorOutputs: [
+        {
+          no: 3,
+          output: "Drums",
+          note: "IEM STEREO wired",
+        },
+      ],
+    });
+
+    const keysBox = plan.boxes.find((box) => box.instrument === "Keys");
+    expect(keysBox?.inputBullets).toEqual(
+      expect.arrayContaining(["2x Keys (15+16)", "2x Synth (17+18)"])
+    );
+    expect(keysBox?.inputBullets.join(" ")).not.toContain("Keys L (15)");
+    expect(keysBox?.inputBullets.join(" ")).not.toContain("Keys R (16)");
+
+    const guitarBox = plan.boxes.find((box) => box.instrument === "Guitar");
+    expect(guitarBox?.inputBullets).toEqual(
+      expect.arrayContaining(["OH L (8)", "OH R (9)"])
+    );
+    expect(guitarBox?.inputBullets.join(" ")).not.toContain("2x OH");
+
+    const drumsBox = plan.boxes.find((box) => box.instrument === "Drums");
+    expect(drumsBox?.inputBullets.join(" ")).toContain("2x PAD (11+12)");
+    expect(drumsBox?.monitorBullets).toEqual(
+      expect.arrayContaining(["IEM STEREO wired (3)"])
+    );
+  });
 });

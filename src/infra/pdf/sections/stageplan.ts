@@ -5,6 +5,8 @@ import type {
 } from "../../../domain/model/types.js";
 import type { DocumentViewModel } from "../../../domain/model/types.js";
 import { formatStageplanBoxHeader } from "../../../domain/formatters/formatStageplanBoxHeader.js";
+import type { StageplanLine } from "../../../domain/stageplan/stereoCollapse.js";
+import { collapseStereoForStageplan } from "../../../domain/stageplan/stereoCollapse.js";
 import { resolveStageplanRoleForInput } from "../../../domain/stageplan/resolveStageplanRoleForInput.js";
 import { pdfLayout } from "../layout.js";
 
@@ -159,6 +161,15 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
       return a.channelNo - b.channelNo;
     });
 
+    const buildInputLines = (
+      items: Array<{ channelNo: number; label: string }>
+    ): StageplanLine[] =>
+      items.map((item) => ({
+        kind: "input",
+        label: item.label,
+        no: item.channelNo,
+      }));
+
     const isPadInput = (label: string): boolean => /pad/i.test(label);
     const isDummyInput = (label: string): boolean => /dummy/i.test(label);
     const isBackVocalDrums = (label: string): boolean =>
@@ -191,14 +202,25 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
             const bullets: string[] = [];
             const drumRange = formatRange("Drums", drumInputs);
             const padRange = formatRange("PAD", padInputs);
+            const padLines = buildInputLines(padInputs);
+            const collapsedPadLines = collapseStereoForStageplan(padLines);
+            const padStereoLine =
+              padInputs.length === 2 && collapsedPadLines.length === 1
+                ? collapsedPadLines[0]?.text ?? null
+                : null;
+
             if (drumRange) bullets.push(drumRange);
-            if (padRange) bullets.push(padRange);
+            if (padStereoLine) {
+              bullets.push(padStereoLine);
+            } else if (padRange) {
+              bullets.push(padRange);
+            }
             for (const item of backVocalInputs) {
               bullets.push(`${item.label} (${item.channelNo})`);
             }
             return bullets;
           })()
-        : inputs.map((item) => `${item.label} (${item.channelNo})`);
+        : collapseStereoForStageplan(buildInputLines(inputs)).map((line) => line.text);
 
     const monitors = (monitorByInstrument.get(instrument) ?? [])
       .slice()
