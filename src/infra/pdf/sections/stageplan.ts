@@ -27,16 +27,27 @@ function parseMm(value: string): number {
 }
 
 const headingSizePt = parsePt(pdfLayout.typography.title.size) - 6;
+const stageplanTextLineHeight = 1.3;
+const boxTitleGapPt = 6;
+const boxPaddingBottomPt = parsePt(pdfLayout.table.padY);
+const stageplanTextSizePt = parsePt(pdfLayout.typography.table.size);
+const stageplanLineHeightPt = stageplanTextSizePt * stageplanTextLineHeight;
+const powerBadgeMarginTopPt = 0;
+const powerBadgeHeightPt = stageplanLineHeightPt + boxPaddingBottomPt * 2;
+const powerBadgeReservedPt = powerBadgeHeightPt + powerBadgeMarginTopPt;
+const powerBadgeTextGapPt = stageplanLineHeightPt;
+const powerBadgeSpacerHeightPt = powerBadgeReservedPt + powerBadgeTextGapPt;
 
 const stageplanLayout = {
   headingSize: `${headingSizePt}pt`,
   headingWeight: 700,
   textSize: pdfLayout.typography.table.size,
-  textLineHeight: pdfLayout.typography.table.lineHeight,
+  textLineHeight: stageplanTextLineHeight,
   padX: pdfLayout.table.padX,
   padY: pdfLayout.table.padY,
-  titlePadTop: "0pt",
-  titleGap: "6pt",
+  boxTitleGap: `${boxTitleGapPt}pt`,
+  boxPaddingBottom: `${boxPaddingBottomPt}pt`,
+  powerBadgeSpacerHeight: `${powerBadgeSpacerHeightPt}pt`,
   sectionMarginTop: "16pt",
   containerMarginTop: "24pt",
   containerPad: "24pt",
@@ -209,12 +220,11 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
     };
   });
 
-  const paddingYpt = parsePt(stageplanLayout.padY);
-  const titlePadTopPt = parsePt(stageplanLayout.titlePadTop);
-  const titleGapPt = parsePt(stageplanLayout.titleGap);
+  const boxTitleGapPt = parsePt(stageplanLayout.boxTitleGap);
+  const boxPaddingBottomPt = parsePt(stageplanLayout.boxPaddingBottom);
   const fontSizePt = parsePt(stageplanLayout.textSize);
   const lineHeightPt = fontSizePt * stageplanLayout.textLineHeight;
-  const powerBadgeHeightPt = lineHeightPt + paddingYpt * 2;
+  const powerBadgeSpacerHeightPt = parsePt(stageplanLayout.powerBadgeSpacerHeight);
 
   const countRenderedLines = (box: StageplanBoxContent): number => {
     const inputLines = box.inputBullets.length;
@@ -233,13 +243,12 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
       box.extraBullets.length > 0;
     const lines = countRenderedLines(box);
     const baseHeight =
-      paddingYpt +
-      titlePadTopPt +
+      boxTitleGapPt +
       lineHeightPt +
-      (hasBody ? titleGapPt : 0) +
-      lines * lineHeightPt +
-      paddingYpt;
-    return baseHeight + (box.powerLabel ? powerBadgeHeightPt : 0);
+      (hasBody ? boxTitleGapPt : 0) +
+      lines * lineHeightPt;
+    const bottomPart = box.powerLabel ? powerBadgeSpacerHeightPt : boxPaddingBottomPt;
+    return baseHeight + bottomPart;
   };
 
   const requiredHeightsPt = boxContents.map((box) => calculateRequiredHeightPt(box));
@@ -366,8 +375,14 @@ export function renderStageplanSection(vm: DocumentViewModel): string {
         ? `<div class="stageplanPower">${box.powerLabel}</div>`
         : "";
 
+      if (box.powerLabel) {
+        lines.push(`<div class="stageplanPowerGap"></div>`);
+      }
+
+      const powerClass = box.powerLabel ? " stageplanBox--withPower" : "";
+
       return `
-<div class="stageplanBox" style="left:${box.position.xMm}mm; top:${box.position.yMm}mm; width:${box.position.widthMm}mm; height:${box.position.heightMm}mm;">\n  ${lines.join("")}\n  ${powerHtml}\n</div>`.trim();
+<div class="stageplanBox${powerClass}" style="left:${box.position.xMm}mm; top:${box.position.yMm}mm; width:${box.position.widthMm}mm; height:${box.position.heightMm}mm;">\n  ${lines.join("")}\n  ${powerHtml}\n</div>`.trim();
     })
     .join("\n");
 

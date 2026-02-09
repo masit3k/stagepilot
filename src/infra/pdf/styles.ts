@@ -283,20 +283,25 @@ body {
   position: absolute;
   border: 2px solid var(--c-line);
   background: #fff;
-  padding: ${stageplanLayout.padY} ${stageplanLayout.padX};
+  padding: 0 ${stageplanLayout.padX} ${stageplanLayout.boxPaddingBottom};
+  padding-top: ${stageplanLayout.boxTitleGap};
   font-size: ${stageplanLayout.textSize};
   line-height: ${stageplanLayout.textLineHeight};
+}
+
+.stageplanBox--withPower {
+  padding-bottom: 0;
 }
 
 .stageplanBoxHeader {
   font-weight: 700;
   margin: 0;
-  padding-top: ${stageplanLayout.titlePadTop};
+  padding-top: 0;
   text-align: center;
 }
 
 .stageplanTitleGap {
-  height: ${stageplanLayout.titleGap};
+  height: ${stageplanLayout.boxTitleGap};
 }
 
 .stageplanBoxLine {
@@ -329,6 +334,10 @@ body {
   font-size: ${stageplanLayout.textSize};
   line-height: ${stageplanLayout.textLineHeight};
   white-space: nowrap;
+}
+
+.stageplanPowerGap {
+  height: ${stageplanLayout.powerBadgeSpacerHeight};
 }
 
 
