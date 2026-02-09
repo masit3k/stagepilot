@@ -1,17 +1,17 @@
 {
   "type": "feature",
   "id": "sample_pad_stereo",
-  "label": "Sample pad (stereo)",
+  "label": "PAD (stereo)",
   "group": "drums",
   "inputs": [
     {
       "key": "dr_pad_l",
-      "label": "Sample pad L (main out L)",
+      "label": "PAD L (main out L)",
       "note": "TS jack 6.3mm – DI box"
     },
     {
       "key": "dr_pad_r",
-      "label": "Sample pad R (main out R)",
+      "label": "PAD R (main out R)",
       "note": "TS jack 6.3mm – DI box"
     }
   ]
