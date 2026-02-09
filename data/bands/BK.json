@@ -48,23 +48,5 @@
       "krecmerova_eliska",
       "holoubek_lukas"
     ]
-  },
-  "stageplanPersons": {
-    "drums": {
-      "firstName": "Vít"
-    },
-    "bass": {
-      "firstName": "Matěj",
-      "isBandLeader": true
-    },
-    "guitar": {
-      "firstName": "Karel"
-    },
-    "vocs": {
-      "firstName": "Eliška"
-    },
-    "keys": {
-      "firstName": "Jakub"
-    }
   }
 }

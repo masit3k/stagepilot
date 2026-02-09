@@ -20,8 +20,8 @@ export type StageplanInstrument = "Drums" | "Bass" | "Guitar" | "Keys" | "Lead v
 export type StageplanInstrumentKey = "drums" | "bass" | "guitar" | "vocs" | "keys";
 
 export type StageplanPerson = {
-  firstName?: string;
-  isBandLeader?: boolean;
+  firstName: string | null;
+  isBandLeader: boolean;
 };
 
 /**
@@ -109,9 +109,6 @@ export interface Band {
 
   /** Volitelné: relativní cesta k logu (od root projektu) */
   logoFile?: string;
-
-  /** Volitelné: deterministické mapování pro stageplan box headers. */
-  stageplanPersons?: Partial<Record<StageplanInstrumentKey, StageplanPerson>>;
 }
 
 /** Muzikant: profil osoby a reference na presety, které používá. */
@@ -312,7 +309,7 @@ export interface DocumentViewModel {
   };
 
   stageplan: {
-    stageplanPersons: Partial<Record<StageplanInstrument, StageplanPerson>>;
+    lineupByRole: Partial<Record<StageplanInstrumentKey, StageplanPerson>>;
     inputs: Array<{
       channelNo: number;
       label: string;

@@ -1,4 +1,8 @@
-import type { Group, StageplanInstrument } from "../../../domain/model/types.js";
+import type {
+  Group,
+  StageplanInstrument,
+  StageplanInstrumentKey,
+} from "../../../domain/model/types.js";
 import type { DocumentViewModel } from "../../../domain/model/types.js";
 import { formatStageplanBoxHeader } from "../../../domain/formatters/formatStageplanBoxHeader.js";
 import { resolveStageplanRoleForInput } from "../../../domain/stageplan/resolveStageplanRoleForInput.js";
@@ -14,6 +18,14 @@ function parsePt(value: string): number {
   return Number.parseFloat(m[1] ?? "0");
 }
 
+function parseMm(value: string): number {
+  const m = /([0-9.]+)\s*mm/i.exec(value);
+  if (!m) {
+    throw new Error(`Stageplan layout expects mm values, got "${value}"`);
+  }
+  return Number.parseFloat(m[1] ?? "0");
+}
+
 const headingSizePt = parsePt(pdfLayout.typography.title.size) - 6;
 
 const stageplanLayout = {
@@ -23,13 +35,13 @@ const stageplanLayout = {
   textLineHeight: pdfLayout.typography.table.lineHeight,
   padX: pdfLayout.table.padX,
   padY: pdfLayout.table.padY,
-  titlePadTop: "8pt",
-  titleGap: "12pt",
+  titlePadTop: "0pt",
+  titleGap: "6pt",
+  sectionMarginTop: "16pt",
+  containerMarginTop: "24pt",
   containerPad: "24pt",
   areaWidthMm: 180,
   boxWidthMm: 55,
-  boxHeightMm: 60,
-  drumsBoxHeightMm: 68,
   gapXmm: 7.5,
   gapYmm: 8,
   powerCellColor: "#F7E65A",
@@ -60,6 +72,8 @@ type StageplanBoxPlan = {
   powerLabel: string | null;
   position: { xMm: number; yMm: number; widthMm: number; heightMm: number };
 };
+
+type StageplanBoxContent = Omit<StageplanBoxPlan, "position">;
 
 export type StageplanPlan = {
   heading: { text: string; fontSize: string; fontWeight: number };
@@ -112,24 +126,18 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
     monitorByInstrument.get(instrument)?.push({ no: output.no, label: bullet });
   }
 
-  const topRowY = 0;
-  const topRowHeight = stageplanLayout.drumsBoxHeightMm;
-  const bottomRowY = topRowHeight + stageplanLayout.gapYmm;
-  const leftX = 0;
-  const midX = leftX + stageplanLayout.boxWidthMm + stageplanLayout.gapXmm;
-  const rightX = midX + stageplanLayout.boxWidthMm + stageplanLayout.gapXmm;
-
-  const positions: Record<StageplanInstrument, { xMm: number; yMm: number }> = {
-    Drums: { xMm: midX, yMm: topRowY },
-    Bass: { xMm: rightX, yMm: topRowY },
-    Guitar: { xMm: leftX, yMm: bottomRowY },
-    "Lead vocal": { xMm: midX, yMm: bottomRowY },
-    Keys: { xMm: rightX, yMm: bottomRowY },
+  const instrumentToRole: Record<StageplanInstrument, StageplanInstrumentKey> = {
+    Drums: "drums",
+    Bass: "bass",
+    Guitar: "guitar",
+    Keys: "keys",
+    "Lead vocal": "vocs",
   };
 
-  const boxPlans: StageplanBoxPlan[] = instrumentOrder.map((instrument) => {
-    const person = vm.stageplanPersons[instrument];
-    const firstName = person?.firstName;
+  const boxContents: StageplanBoxContent[] = instrumentOrder.map((instrument) => {
+    const role = instrumentToRole[instrument];
+    const person = vm.lineupByRole[role];
+    const firstName = person?.firstName ?? null;
     const header = formatStageplanBoxHeader({
       instrumentLabel: instrument,
       firstName,
@@ -198,15 +206,6 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
       monitorBullets: monitors,
       extraBullets,
       powerLabel: powerRequirementByInstrument[instrument],
-      position: {
-        xMm: positions[instrument].xMm,
-        yMm: positions[instrument].yMm,
-        widthMm: stageplanLayout.boxWidthMm,
-        heightMm:
-          instrument === "Drums"
-            ? stageplanLayout.drumsBoxHeightMm
-            : stageplanLayout.boxHeightMm,
-      },
     };
   });
 
@@ -215,41 +214,97 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
   const titleGapPt = parsePt(stageplanLayout.titleGap);
   const fontSizePt = parsePt(stageplanLayout.textSize);
   const lineHeightPt = fontSizePt * stageplanLayout.textLineHeight;
-  const boxHeightPt = (boxHeightMm: number): number => boxHeightMm * MM_TO_PT;
+  const powerBadgeHeightPt = lineHeightPt + paddingYpt * 2;
 
-  for (const box of boxPlans) {
-    let lines = 1 + box.inputBullets.length;
+  const countRenderedLines = (box: StageplanBoxContent): number => {
+    const inputLines = box.inputBullets.length;
+    const monitorLines = box.monitorBullets.length;
+    const extraLines = box.extraBullets.length;
+    let lines = inputLines + monitorLines + extraLines;
+    if (monitorLines > 0 && inputLines > 0) lines += 1;
+    if (extraLines > 0 && (monitorLines > 0 || inputLines > 0)) lines += 1;
+    return lines;
+  };
+
+  const calculateRequiredHeightPt = (box: StageplanBoxContent): number => {
     const hasBody =
       box.inputBullets.length > 0 ||
       box.monitorBullets.length > 0 ||
       box.extraBullets.length > 0;
-    if (box.monitorBullets.length > 0) {
-      if (box.inputBullets.length > 0) lines += 1;
-      lines += box.monitorBullets.length;
-    }
-    if (box.extraBullets.length > 0) {
-      if (box.monitorBullets.length > 0 || box.inputBullets.length > 0) {
-        lines += 1;
-      }
-      lines += box.extraBullets.length;
-    }
+    const lines = countRenderedLines(box);
+    const baseHeight =
+      paddingYpt +
+      titlePadTopPt +
+      lineHeightPt +
+      (hasBody ? titleGapPt : 0) +
+      lines * lineHeightPt +
+      paddingYpt;
+    return baseHeight + (box.powerLabel ? powerBadgeHeightPt : 0);
+  };
 
-    const availablePt = boxHeightPt(box.position.heightMm) - paddingYpt * 2;
-    const needed =
-      lines * lineHeightPt + titlePadTopPt + (hasBody ? titleGapPt : 0);
-    if (needed > availablePt) {
+  const requiredHeightsPt = boxContents.map((box) => calculateRequiredHeightPt(box));
+  const maxHeightPt = Math.max(...requiredHeightsPt);
+  const maxHeightMm = maxHeightPt / MM_TO_PT;
+
+  for (const [index, box] of boxContents.entries()) {
+    if (requiredHeightsPt[index] > maxHeightPt + 0.01) {
       throw new Error(`Stageplan overflow in ${box.instrument}`);
     }
   }
 
-  return boxPlans;
+  const topRowY = 0;
+  const topRowHeight = maxHeightMm;
+  const bottomRowY = topRowHeight + stageplanLayout.gapYmm;
+  const leftX = 0;
+  const midX = leftX + stageplanLayout.boxWidthMm + stageplanLayout.gapXmm;
+  const rightX = midX + stageplanLayout.boxWidthMm + stageplanLayout.gapXmm;
+
+  const positions: Record<StageplanInstrument, { xMm: number; yMm: number }> = {
+    Drums: { xMm: midX, yMm: topRowY },
+    Bass: { xMm: rightX, yMm: topRowY },
+    Guitar: { xMm: leftX, yMm: bottomRowY },
+    "Lead vocal": { xMm: midX, yMm: bottomRowY },
+    Keys: { xMm: rightX, yMm: bottomRowY },
+  };
+
+  return boxContents.map((box) => ({
+    ...box,
+    position: {
+      xMm: positions[box.instrument].xMm,
+      yMm: positions[box.instrument].yMm,
+      widthMm: stageplanLayout.boxWidthMm,
+      heightMm: maxHeightMm,
+    },
+  }));
 }
 
 export function buildStageplanPlan(vm: DocumentViewModel["stageplan"]): StageplanPlan {
   const boxes = buildStageplanBoxes(vm);
-  const topRowHeight = stageplanLayout.drumsBoxHeightMm;
-  const bottomRowHeight = stageplanLayout.boxHeightMm;
+  const maxHeightMm = Math.max(...boxes.map((box) => box.position.heightMm));
+  const topRowHeight = maxHeightMm;
+  const bottomRowHeight = maxHeightMm;
   const areaHeightMm = topRowHeight + stageplanLayout.gapYmm + bottomRowHeight;
+  const pageHeightMm = 297;
+  const marginTopMm = parseMm(pdfLayout.page.margins.top);
+  const marginBottomMm = parseMm(pdfLayout.page.margins.bottom);
+  const headingHeightMm = (parsePt(stageplanLayout.headingSize) / MM_TO_PT) * 1;
+  const containerMarginTopMm = parsePt(stageplanLayout.containerMarginTop) / MM_TO_PT;
+  const containerPadMm = (parsePt(stageplanLayout.containerPad) / MM_TO_PT) * 2;
+  const sectionMarginTopMm = parsePt(stageplanLayout.sectionMarginTop) / MM_TO_PT;
+  const totalHeightMm =
+    sectionMarginTopMm +
+    headingHeightMm +
+    containerMarginTopMm +
+    containerPadMm +
+    areaHeightMm;
+  const availableHeightMm = pageHeightMm - marginTopMm - marginBottomMm;
+  if (totalHeightMm > availableHeightMm) {
+    throw new Error(
+      `Stageplan layout overflow: required ${totalHeightMm.toFixed(
+        2
+      )}mm exceeds available ${availableHeightMm.toFixed(2)}mm.`
+    );
+  }
   return {
     heading: {
       text: "Stageplan",

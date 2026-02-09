@@ -1,6 +1,6 @@
 type StageplanBoxHeaderArgs = {
   instrumentLabel: string;
-  firstName?: string;
+  firstName?: string | null;
   isBandLeader?: boolean;
 };
 

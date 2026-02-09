@@ -46,23 +46,5 @@
     "guitar": "cetel_tomas",
     "keys": "zidek_jakub",
     "vocs": "krecmerova_eliska"
-  },
-  "stageplanPersons": {
-    "drums": {
-      "firstName": "Pavel"
-    },
-    "bass": {
-      "firstName": "Matěj",
-      "isBandLeader": true
-    },
-    "guitar": {
-      "firstName": "Tomáš"
-    },
-    "vocs": {
-      "firstName": "Eliška"
-    },
-    "keys": {
-      "firstName": "Jakub"
-    }
   }
 }

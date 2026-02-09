@@ -45,6 +45,10 @@ describe("stageplan render plan", () => {
       expect(drumsBox).toBeTruthy();
       expect(drumsBox?.header).toBe("DRUMS – PAVEL");
 
+      const bassBox = plan.boxes.find((box) => box.instrument === "Bass");
+      expect(bassBox).toBeTruthy();
+      expect(bassBox?.header).toBe("BASS – MATĚJ (band leader)");
+
       const inputBullets = drumsBox?.inputBullets ?? [];
       expect(inputBullets[0]).toMatch(/^Drums \(\d+(–\d+)?\)$/);
       expect(inputBullets).toEqual(
@@ -60,6 +64,12 @@ describe("stageplan render plan", () => {
       expect(drumsBox?.extraBullets).toEqual(
         expect.arrayContaining(["Drum riser 3x2"])
       );
+
+      const heights = plan.boxes.map((box) => box.position.heightMm);
+      const maxHeight = Math.max(...heights);
+      for (const height of heights) {
+        expect(height).toBeCloseTo(maxHeight, 5);
+      }
     } finally {
       await fs.rm(tmpRoot, { recursive: true, force: true });
     }

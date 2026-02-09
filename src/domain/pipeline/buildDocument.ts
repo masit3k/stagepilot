@@ -3,9 +3,9 @@ import type { Group } from "../model/groups.js";
 import type {
   DocumentViewModel,
   LineupValue,
-  StageplanInstrument,
   StageplanInstrumentKey,
   StageplanPerson,
+  Musician,
   PresetEntity,
   PresetItem,
   Project,
@@ -18,6 +18,7 @@ import type { DataRepository } from "../../infra/fs/repo.js";
 import { disambiguateInputKeys } from "./disambiguateInputKeys.js";
 import { reorderAcousticGuitars } from "./reorderAcousticGuitars.js";
 import { validateBandLeader } from "../rules/validateBandLeader.js";
+import { resolveStageplanPerson } from "../stageplan/resolveStageplanPerson.js";
 
 /* ============================================================
  * Helpers
@@ -443,6 +444,12 @@ function formatLeadVocalLabel(
 export function buildDocument(project: Project, repo: DataRepository): DocumentViewModel {
   const band = repo.getBand(project.bandRef);
   validateBandLeader(band, repo);
+  const legacyStageplanPersons = (band as { stageplanPersons?: unknown }).stageplanPersons;
+  if (legacyStageplanPersons) {
+    console.warn(
+      `Ignoring legacy stageplanPersons for band "${band.id}". Use defaultLineup/musicians instead.`
+    );
+  }
 
   const inputs: BuiltInput[] = [];
   const monitors: DocumentViewModel["monitors"] = [];
@@ -453,6 +460,7 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
   const monitorTableRows: MonitorTableRow[] = [];
 
   // Cache lineup musicians for monitor ordering logic
+  const membersById = new Map<string, Musician>();
   const lineupMusicians: Array<{
     group: Group;
     musician: { id: string; gender?: string; presets?: PresetItem[] };
@@ -466,6 +474,7 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
     for (const musicianId of normalizeLineupValue(v as LineupValue)) {
       const musician = repo.getMusician(musicianId);
 
+      membersById.set(musicianId, musician);
       lineupMusicians.push({ group, musician });
 
       for (const item of musician.presets ?? []) {
@@ -494,68 +503,16 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
     }
   }
 
-  const mapGroupToStageplanInstrument = (group: Group): StageplanInstrument | null => {
-    switch (group) {
-      case "drums":
-        return "Drums";
-      case "bass":
-        return "Bass";
-      case "guitar":
-        return "Guitar";
-      case "keys":
-        return "Keys";
-      case "vocs":
-        return "Lead vocal";
-      default:
-        return null;
-    }
-  };
-
-  const bandLeaderGroup = lineupMusicians.find(
-    (item) => item.musician.id === band.bandLeader
-  )?.group;
-  const bandLeaderInstrument = bandLeaderGroup
-    ? mapGroupToStageplanInstrument(bandLeaderGroup)
-    : null;
-
-  const mapStageplanKeyToInstrument = (
-    key: StageplanInstrumentKey
-  ): StageplanInstrument | null => {
-    switch (key) {
-      case "drums":
-        return "Drums";
-      case "bass":
-        return "Bass";
-      case "guitar":
-        return "Guitar";
-      case "keys":
-        return "Keys";
-      case "vocs":
-        return "Lead vocal";
-      default:
-        return null;
-    }
-  };
-
-  const stageplanPersons: Partial<Record<StageplanInstrument, StageplanPerson>> = {};
-  for (const [key, person] of Object.entries(band.stageplanPersons ?? {})) {
-    const instrument = mapStageplanKeyToInstrument(key as StageplanInstrumentKey);
-    if (!instrument || !person) continue;
-    stageplanPersons[instrument] = {
-      firstName: person.firstName,
-      isBandLeader: person.isBandLeader,
-    };
-  }
-
-  if (bandLeaderInstrument) {
-    const existing = stageplanPersons[bandLeaderInstrument];
-    if (existing) {
-      if (!existing.isBandLeader) {
-        existing.isBandLeader = true;
-      }
-    } else {
-      stageplanPersons[bandLeaderInstrument] = { isBandLeader: true };
-    }
+  const stageplanRoles: StageplanInstrumentKey[] = [
+    "drums",
+    "bass",
+    "guitar",
+    "keys",
+    "vocs",
+  ];
+  const lineupByRole: Partial<Record<StageplanInstrumentKey, StageplanPerson>> = {};
+  for (const role of stageplanRoles) {
+    lineupByRole[role] = resolveStageplanPerson(band, role, membersById);
   }
 
   // ------------------------------------------------------------
@@ -701,7 +658,7 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
     },
 
     stageplan: {
-      stageplanPersons,
+      lineupByRole,
       inputs: stageplanInputs,
       monitorOutputs: monitorTableRows.map((row) => ({
         no: Number.parseInt(row.no, 10),

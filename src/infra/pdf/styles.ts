@@ -253,7 +253,7 @@ body {
    =============================== */
 
 .stageplanSection {
-  margin-top: 16pt;
+  margin-top: ${stageplanLayout.sectionMarginTop};
   text-align: center;
 }
 
@@ -267,7 +267,7 @@ body {
 
 .stageplanContainer {
   display: inline-block;
-  margin-top: 24pt;
+  margin-top: ${stageplanLayout.containerMarginTop};
   padding: ${stageplanLayout.containerPad};
   background: #eeeeee;
   border: 1px solid var(--c-line);
