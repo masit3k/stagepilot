@@ -3,6 +3,7 @@ import type { Group } from "../model/groups.js";
 import type {
   DocumentViewModel,
   LineupValue,
+  StageplanInstrument,
   PresetEntity,
   PresetItem,
   Project,
@@ -491,6 +492,30 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
     }
   }
 
+  const mapGroupToStageplanInstrument = (group: Group): StageplanInstrument | null => {
+    switch (group) {
+      case "drums":
+        return "Drums";
+      case "bass":
+        return "Bass";
+      case "guitar":
+        return "Guitar";
+      case "keys":
+        return "Keys";
+      case "vocs":
+        return "Lead vocal";
+      default:
+        return null;
+    }
+  };
+
+  const bandLeaderGroup = lineupMusicians.find(
+    (item) => item.musician.id === band.bandLeader
+  )?.group;
+  const bandLeaderInstrument = bandLeaderGroup
+    ? mapGroupToStageplanInstrument(bandLeaderGroup)
+    : null;
+
   // ------------------------------------------------------------
   // Monitor table ordering & text per spec
   // - header is handled in template
@@ -635,6 +660,7 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
 
     stageplan: {
       instrumentFirstNames: band.stageplanMembers ?? {},
+      bandLeaderInstrument,
       inputs: stageplanInputs,
       monitorOutputs: monitorTableRows.map((row) => ({
         no: Number.parseInt(row.no, 10),

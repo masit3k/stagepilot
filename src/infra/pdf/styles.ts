@@ -254,25 +254,34 @@ body {
 
 .stageplanSection {
   margin-top: 16pt;
+  text-align: center;
 }
 
 .stageplanHeading {
   font-size: ${stageplanLayout.headingSize};
   font-weight: ${stageplanLayout.headingWeight};
   line-height: 1;
-  margin: 0 0 8pt 0;
+  margin: 0;
   text-align: center;
+}
+
+.stageplanContainer {
+  display: inline-block;
+  margin-top: 24pt;
+  padding: ${stageplanLayout.containerPad};
+  background: #eeeeee;
+  border: 1px solid var(--c-line);
 }
 
 .stageplanArea {
   position: relative;
   width: ${stageplanLayout.areaWidthMm}mm;
-  margin: 0 auto;
+  margin: 0;
 }
 
 .stageplanBox {
   position: absolute;
-  border: 1px solid var(--c-line);
+  border: 2px solid var(--c-line);
   background: #fff;
   padding: ${stageplanLayout.padY} ${stageplanLayout.padX};
   font-size: ${stageplanLayout.textSize};
@@ -283,10 +292,12 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   margin: 0;
+  text-align: center;
 }
 
 .stageplanLine {
   margin: 0;
+  text-align: center;
 }
 
 .stageplanGap {
@@ -295,9 +306,9 @@ body {
 
 .stageplanPower {
   position: absolute;
-  right: 0;
-  bottom: 0;
-  border: 1px solid var(--c-line);
+  right: -2px;
+  bottom: -2px;
+  border: 2px solid var(--c-line);
   background: ${stageplanLayout.powerCellColor};
   padding: ${stageplanLayout.padY} ${stageplanLayout.padX};
   font-size: ${stageplanLayout.textSize};

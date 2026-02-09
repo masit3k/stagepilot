@@ -43,23 +43,10 @@ describe("stageplan render plan", () => {
 
       const drumsBox = plan.boxes.find((box) => box.instrument === "Drums");
       expect(drumsBox).toBeTruthy();
-      expect(drumsBox?.header).toBe("DRUMS - PAVEL");
+      expect(drumsBox?.header).toBe("DRUMS – PAVEL");
 
       const inputBullets = drumsBox?.inputBullets ?? [];
-      expect(inputBullets).toEqual(
-        expect.arrayContaining([
-          "Kick out (1)",
-          "OH R (9)",
-          "Sample pad L (main out L) (11)",
-          "Sample pad R (main out R) (12)",
-          "Back vocal – drums (23)",
-        ])
-      );
-
-      const channelNumbers = inputBullets
-        .map((line) => Number.parseInt(line.replace(/.*\\((\\d+)\\)$/, "$1"), 10))
-        .filter((n) => !Number.isNaN(n));
-      expect(channelNumbers).toEqual([...channelNumbers].sort((a, b) => a - b));
+      expect(inputBullets).toEqual(["Drums (1–23)", "PAD (11–12)"]);
 
       expect(drumsBox?.monitorBullets).toEqual(
         expect.arrayContaining(["IEM STEREO wired (5)"])

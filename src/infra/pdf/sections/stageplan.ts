@@ -23,9 +23,11 @@ const stageplanLayout = {
   textLineHeight: pdfLayout.typography.table.lineHeight,
   padX: pdfLayout.table.padX,
   padY: pdfLayout.table.padY,
+  containerPad: "24pt",
   areaWidthMm: 180,
   boxWidthMm: 55,
-  boxHeightMm: 68,
+  boxHeightMm: 60,
+  drumsBoxHeightMm: 68,
   gapXmm: 7.5,
   gapYmm: 8,
   powerCellColor: "#F7E65A",
@@ -104,7 +106,8 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
   }
 
   const topRowY = 0;
-  const bottomRowY = stageplanLayout.boxHeightMm + stageplanLayout.gapYmm;
+  const topRowHeight = stageplanLayout.drumsBoxHeightMm;
+  const bottomRowY = topRowHeight + stageplanLayout.gapYmm;
   const leftX = 0;
   const midX = leftX + stageplanLayout.boxWidthMm + stageplanLayout.gapXmm;
   const rightX = midX + stageplanLayout.boxWidthMm + stageplanLayout.gapXmm;
@@ -122,12 +125,36 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
     const header = formatStageplanBoxHeader({
       instrumentLabel: instrument,
       firstName,
+      isBandLeader: vm.bandLeaderInstrument === instrument,
     });
 
-    const inputs = (inputByInstrument.get(instrument) ?? [])
-      .slice()
-      .sort((a, b) => a.channelNo - b.channelNo)
-      .map((item) => `${item.label} (${item.channelNo})`);
+    const inputs = (inputByInstrument.get(instrument) ?? []).slice().sort((a, b) => {
+      return a.channelNo - b.channelNo;
+    });
+
+    const isPadInput = (label: string): boolean => /pad/i.test(label);
+    const formatRange = (label: string, items: Array<{ channelNo: number }>): string | null => {
+      if (items.length === 0) return null;
+      const numbers = items.map((item) => item.channelNo);
+      const min = Math.min(...numbers);
+      const max = Math.max(...numbers);
+      const range = min === max ? `${min}` : `${min}–${max}`;
+      return `${label} (${range})`;
+    };
+
+    const inputBullets =
+      instrument === "Drums"
+        ? (() => {
+            const padInputs = inputs.filter((item) => isPadInput(item.label));
+            const drumInputs = inputs.filter((item) => !isPadInput(item.label));
+            const bullets: string[] = [];
+            const drumRange = formatRange("Drums", drumInputs);
+            const padRange = formatRange("PAD", padInputs);
+            if (drumRange) bullets.push(drumRange);
+            if (padRange) bullets.push(padRange);
+            return bullets;
+          })()
+        : inputs.map((item) => `${item.label} (${item.channelNo})`);
 
     const monitors = (monitorByInstrument.get(instrument) ?? [])
       .slice()
@@ -142,7 +169,7 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
     return {
       instrument,
       header,
-      inputBullets: inputs,
+      inputBullets,
       monitorBullets: monitors,
       extraBullets,
       powerLabel: powerRequirementByInstrument[instrument],
@@ -150,7 +177,10 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
         xMm: positions[instrument].xMm,
         yMm: positions[instrument].yMm,
         widthMm: stageplanLayout.boxWidthMm,
-        heightMm: stageplanLayout.boxHeightMm,
+        heightMm:
+          instrument === "Drums"
+            ? stageplanLayout.drumsBoxHeightMm
+            : stageplanLayout.boxHeightMm,
       },
     };
   });
@@ -158,8 +188,7 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
   const paddingYpt = parsePt(stageplanLayout.padY);
   const fontSizePt = parsePt(stageplanLayout.textSize);
   const lineHeightPt = fontSizePt * stageplanLayout.textLineHeight;
-  const availablePt =
-    stageplanLayout.boxHeightMm * MM_TO_PT - paddingYpt * 2;
+  const boxHeightPt = (boxHeightMm: number): number => boxHeightMm * MM_TO_PT;
 
   for (const box of boxPlans) {
     let lines = 1 + box.inputBullets.length;
@@ -174,6 +203,7 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
       lines += box.extraBullets.length;
     }
 
+    const availablePt = boxHeightPt(box.position.heightMm) - paddingYpt * 2;
     const needed = lines * lineHeightPt;
     if (needed > availablePt) {
       throw new Error(`Stageplan overflow in ${box.instrument}`);
@@ -185,7 +215,9 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
 
 export function buildStageplanPlan(vm: DocumentViewModel["stageplan"]): StageplanPlan {
   const boxes = buildStageplanBoxes(vm);
-  const areaHeightMm = stageplanLayout.boxHeightMm * 2 + stageplanLayout.gapYmm;
+  const topRowHeight = stageplanLayout.drumsBoxHeightMm;
+  const bottomRowHeight = stageplanLayout.boxHeightMm;
+  const areaHeightMm = topRowHeight + stageplanLayout.gapYmm + bottomRowHeight;
   return {
     heading: {
       text: "Stageplan",
@@ -243,7 +275,7 @@ export function renderStageplanSection(vm: DocumentViewModel): string {
     .join("\n");
 
   return `
-<section class="stageplanSection">\n  <div class="stageplanHeading">${plan.heading.text}</div>\n  <div class="stageplanArea" style="height:${areaHeight}mm;">\n    ${boxesHtml}\n  </div>\n</section>`.trim();
+<section class="stageplanSection">\n  <div class="stageplanHeading">${plan.heading.text}</div>\n  <div class="stageplanContainer">\n    <div class="stageplanArea" style="height:${areaHeight}mm;">\n      ${boxesHtml}\n    </div>\n  </div>\n</section>`.trim();
 }
 
 export { stageplanLayout };

@@ -307,6 +307,7 @@ export interface DocumentViewModel {
 
   stageplan: {
     instrumentFirstNames: Partial<Record<StageplanInstrument, string>>;
+    bandLeaderInstrument?: StageplanInstrument | null;
     inputs: Array<{
       channelNo: number;
       label: string;
