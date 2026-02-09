@@ -417,8 +417,19 @@ function guitarRankByKey(input: BuiltInput): number {
   return 0;
 }
 
-function normalizeLeadLabel(label: string): string {
-  return "Lead vocal";
+function formatLeadVocalLabel(
+  leadVocalCount: number,
+  index: number,
+  gender?: string
+): string {
+  const base = "Lead vocal";
+
+  if (leadVocalCount <= 1) {
+    return base;
+  }
+
+  const genderSuffix = gender && gender !== "x" ? ` (${gender})` : "";
+  return `${base} ${index}${genderSuffix}`;
 }
 
 /* ============================================================
@@ -439,7 +450,7 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
   // Cache lineup musicians for monitor ordering logic
   const lineupMusicians: Array<{
     group: Group;
-    musician: { id: string; gender?: "m" | "f" | "x"; presets?: PresetItem[] };
+    musician: { id: string; gender?: string; presets?: PresetItem[] };
   }> = [];
 
   const lineup = band.defaultLineup ?? {};
@@ -510,8 +521,9 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
   const vocsAll = lineupMusicians.filter((x) => x.group === "vocs").map((x) => x.musician);
   const leads = vocsAll.filter((m) => hasLeadPreset(m));
   const leadResolved = leads.length > 0 ? leads : vocsAll;
-  const leadLabel = (index: number, gender?: "m" | "f" | "x"): string => {
-    return `Lead vocal ${index} (${gender ?? "x"})`;
+  const leadVocalCount = inputs.filter((input) => input.key.startsWith("voc_lead")).length;
+  const leadLabel = (index: number, gender?: string): string => {
+    return formatLeadVocalLabel(leadVocalCount, index, gender);
   };
 
   const pushRow = (output: string, musician?: { presets?: PresetItem[] } | undefined) => {
@@ -567,8 +579,7 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
 
     const indexMatch = /voc_lead_(\d+)/i.exec(input.key);
     const index = indexMatch ? Number(indexMatch[1]) : 1;
-    const base = normalizeLeadLabel(input.label) || "Lead vocal";
-    const label = `${base} ${index} (${leadGenderByIndex[index - 1] ?? "x"})`;
+    const label = formatLeadVocalLabel(leadVocalCount, index, leadGenderByIndex[index - 1]);
 
     return { ...input, label };
   });
