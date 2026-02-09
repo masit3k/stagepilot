@@ -17,6 +17,12 @@ export type { Group } from "./groups.js";
 export type StagePlanPurpose = "event" | "generic";
 
 export type StageplanInstrument = "Drums" | "Bass" | "Guitar" | "Keys" | "Lead vocal";
+export type StageplanInstrumentKey = "drums" | "bass" | "guitar" | "vocs" | "keys";
+
+export type StageplanPerson = {
+  firstName?: string;
+  isBandLeader?: boolean;
+};
 
 /**
  * Normalizovaný doménový projekt (po načtení a normalizaci z JSONu).
@@ -105,7 +111,7 @@ export interface Band {
   logoFile?: string;
 
   /** Volitelné: deterministické mapování pro stageplan box headers. */
-  stageplanMembers?: Partial<Record<StageplanInstrument, string>>;
+  stageplanPersons?: Partial<Record<StageplanInstrumentKey, StageplanPerson>>;
 }
 
 /** Muzikant: profil osoby a reference na presety, které používá. */
@@ -306,8 +312,7 @@ export interface DocumentViewModel {
   };
 
   stageplan: {
-    instrumentFirstNames: Partial<Record<StageplanInstrument, string>>;
-    bandLeaderInstrument?: StageplanInstrument | null;
+    stageplanPersons: Partial<Record<StageplanInstrument, StageplanPerson>>;
     inputs: Array<{
       channelNo: number;
       label: string;

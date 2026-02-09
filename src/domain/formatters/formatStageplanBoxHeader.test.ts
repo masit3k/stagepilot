@@ -11,12 +11,12 @@ describe("formatStageplanBoxHeader", () => {
     expect(label).toBe("GUITAR – MATĚJ");
   });
 
-  it("falls back to question mark when name missing", () => {
+  it("omits name when missing", () => {
     const label = formatStageplanBoxHeader({
       instrumentLabel: "Lead vocal",
     });
 
-    expect(label).toBe("LEAD VOC – ?");
+    expect(label).toBe("LEAD VOC");
   });
 
   it("adds band leader suffix when requested", () => {

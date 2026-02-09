@@ -9,9 +9,10 @@ export function formatStageplanBoxHeader({
   firstName,
   isBandLeader = false,
 }: StageplanBoxHeaderArgs): string {
-  const resolvedName = firstName && firstName.trim() ? firstName.trim() : "?";
+  const resolvedName = firstName && firstName.trim() ? firstName.trim() : "";
   const displayInstrument = instrumentLabel === "Lead vocal" ? "Lead voc" : instrumentLabel;
-  const main = `${displayInstrument} – ${resolvedName}`.toUpperCase();
+  const mainBase = resolvedName ? `${displayInstrument} – ${resolvedName}` : displayInstrument;
+  const main = mainBase.toUpperCase();
   const suffix = isBandLeader ? " (band leader)" : "";
   return `${main}${suffix}`;
 }

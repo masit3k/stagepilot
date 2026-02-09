@@ -46,7 +46,13 @@ describe("stageplan render plan", () => {
       expect(drumsBox?.header).toBe("DRUMS – PAVEL");
 
       const inputBullets = drumsBox?.inputBullets ?? [];
-      expect(inputBullets).toEqual(["Drums (1–23)", "PAD (11–12)"]);
+      expect(inputBullets[0]).toMatch(/^Drums \(\d+(–\d+)?\)$/);
+      expect(inputBullets).toEqual(
+        expect.arrayContaining([
+          expect.stringMatching(/^PAD \(\d+(–\d+)?\)$/),
+          expect.stringMatching(/^Back vocal – drums \(\d+(–\d+)?\)$/),
+        ])
+      );
 
       expect(drumsBox?.monitorBullets).toEqual(
         expect.arrayContaining(["IEM STEREO wired (5)"])

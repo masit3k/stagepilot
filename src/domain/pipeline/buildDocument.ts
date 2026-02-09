@@ -4,6 +4,8 @@ import type {
   DocumentViewModel,
   LineupValue,
   StageplanInstrument,
+  StageplanInstrumentKey,
+  StageplanPerson,
   PresetEntity,
   PresetItem,
   Project,
@@ -516,6 +518,46 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
     ? mapGroupToStageplanInstrument(bandLeaderGroup)
     : null;
 
+  const mapStageplanKeyToInstrument = (
+    key: StageplanInstrumentKey
+  ): StageplanInstrument | null => {
+    switch (key) {
+      case "drums":
+        return "Drums";
+      case "bass":
+        return "Bass";
+      case "guitar":
+        return "Guitar";
+      case "keys":
+        return "Keys";
+      case "vocs":
+        return "Lead vocal";
+      default:
+        return null;
+    }
+  };
+
+  const stageplanPersons: Partial<Record<StageplanInstrument, StageplanPerson>> = {};
+  for (const [key, person] of Object.entries(band.stageplanPersons ?? {})) {
+    const instrument = mapStageplanKeyToInstrument(key as StageplanInstrumentKey);
+    if (!instrument || !person) continue;
+    stageplanPersons[instrument] = {
+      firstName: person.firstName,
+      isBandLeader: person.isBandLeader,
+    };
+  }
+
+  if (bandLeaderInstrument) {
+    const existing = stageplanPersons[bandLeaderInstrument];
+    if (existing) {
+      if (!existing.isBandLeader) {
+        existing.isBandLeader = true;
+      }
+    } else {
+      stageplanPersons[bandLeaderInstrument] = { isBandLeader: true };
+    }
+  }
+
   // ------------------------------------------------------------
   // Monitor table ordering & text per spec
   // - header is handled in template
@@ -659,8 +701,7 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
     },
 
     stageplan: {
-      instrumentFirstNames: band.stageplanMembers ?? {},
-      bandLeaderInstrument,
+      stageplanPersons,
       inputs: stageplanInputs,
       monitorOutputs: monitorTableRows.map((row) => ({
         no: Number.parseInt(row.no, 10),

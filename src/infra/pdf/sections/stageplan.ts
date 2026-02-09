@@ -1,4 +1,4 @@
-import type { StageplanInstrument } from "../../../domain/model/types.js";
+import type { Group, StageplanInstrument } from "../../../domain/model/types.js";
 import type { DocumentViewModel } from "../../../domain/model/types.js";
 import { formatStageplanBoxHeader } from "../../../domain/formatters/formatStageplanBoxHeader.js";
 import { resolveStageplanRoleForInput } from "../../../domain/stageplan/resolveStageplanRoleForInput.js";
@@ -23,6 +23,8 @@ const stageplanLayout = {
   textLineHeight: pdfLayout.typography.table.lineHeight,
   padX: pdfLayout.table.padX,
   padY: pdfLayout.table.padY,
+  titlePadTop: "8pt",
+  titleGap: "12pt",
   containerPad: "24pt",
   areaWidthMm: 180,
   boxWidthMm: 55,
@@ -84,7 +86,10 @@ function formatMonitorBullet(note: string, no: number): string {
 }
 
 function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPlan[] {
-  const inputByInstrument = new Map<StageplanInstrument, Array<{ channelNo: number; label: string }>>();
+  const inputByInstrument = new Map<
+    StageplanInstrument,
+    Array<{ channelNo: number; label: string; group?: Group }>
+  >();
   const monitorByInstrument = new Map<StageplanInstrument, Array<{ no: number; label: string }>>();
 
   for (const instrument of instrumentOrder) {
@@ -95,7 +100,9 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
   for (const input of vm.inputs) {
     const instrument = resolveStageplanRoleForInput(input);
     if (!instrument) continue;
-    inputByInstrument.get(instrument)?.push({ channelNo: input.channelNo, label: input.label });
+    inputByInstrument
+      .get(instrument)
+      ?.push({ channelNo: input.channelNo, label: input.label, group: input.group });
   }
 
   for (const output of vm.monitorOutputs) {
@@ -121,11 +128,12 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
   };
 
   const boxPlans: StageplanBoxPlan[] = instrumentOrder.map((instrument) => {
-    const firstName = vm.instrumentFirstNames[instrument];
+    const person = vm.stageplanPersons[instrument];
+    const firstName = person?.firstName;
     const header = formatStageplanBoxHeader({
       instrumentLabel: instrument,
       firstName,
-      isBandLeader: vm.bandLeaderInstrument === instrument,
+      isBandLeader: person?.isBandLeader ?? false,
     });
 
     const inputs = (inputByInstrument.get(instrument) ?? []).slice().sort((a, b) => {
@@ -133,6 +141,9 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
     });
 
     const isPadInput = (label: string): boolean => /pad/i.test(label);
+    const isDummyInput = (label: string): boolean => /dummy/i.test(label);
+    const isBackVocalDrums = (label: string): boolean =>
+      /back vocal\s*[-–—]\s*drums/i.test(label);
     const formatRange = (label: string, items: Array<{ channelNo: number }>): string | null => {
       if (items.length === 0) return null;
       const numbers = items.map((item) => item.channelNo);
@@ -145,13 +156,27 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
     const inputBullets =
       instrument === "Drums"
         ? (() => {
-            const padInputs = inputs.filter((item) => isPadInput(item.label));
-            const drumInputs = inputs.filter((item) => !isPadInput(item.label));
+            const padInputs = inputs.filter(
+              (item) => isPadInput(item.label) && !isDummyInput(item.label)
+            );
+            const backVocalInputs = inputs.filter((item) =>
+              isBackVocalDrums(item.label)
+            );
+            const drumInputs = inputs.filter(
+              (item) =>
+                item.group === "drums" &&
+                !isPadInput(item.label) &&
+                !isDummyInput(item.label) &&
+                !isBackVocalDrums(item.label)
+            );
             const bullets: string[] = [];
             const drumRange = formatRange("Drums", drumInputs);
             const padRange = formatRange("PAD", padInputs);
             if (drumRange) bullets.push(drumRange);
             if (padRange) bullets.push(padRange);
+            for (const item of backVocalInputs) {
+              bullets.push(`${item.label} (${item.channelNo})`);
+            }
             return bullets;
           })()
         : inputs.map((item) => `${item.label} (${item.channelNo})`);
@@ -186,12 +211,18 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
   });
 
   const paddingYpt = parsePt(stageplanLayout.padY);
+  const titlePadTopPt = parsePt(stageplanLayout.titlePadTop);
+  const titleGapPt = parsePt(stageplanLayout.titleGap);
   const fontSizePt = parsePt(stageplanLayout.textSize);
   const lineHeightPt = fontSizePt * stageplanLayout.textLineHeight;
   const boxHeightPt = (boxHeightMm: number): number => boxHeightMm * MM_TO_PT;
 
   for (const box of boxPlans) {
     let lines = 1 + box.inputBullets.length;
+    const hasBody =
+      box.inputBullets.length > 0 ||
+      box.monitorBullets.length > 0 ||
+      box.extraBullets.length > 0;
     if (box.monitorBullets.length > 0) {
       if (box.inputBullets.length > 0) lines += 1;
       lines += box.monitorBullets.length;
@@ -204,7 +235,8 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
     }
 
     const availablePt = boxHeightPt(box.position.heightMm) - paddingYpt * 2;
-    const needed = lines * lineHeightPt;
+    const needed =
+      lines * lineHeightPt + titlePadTopPt + (hasBody ? titleGapPt : 0);
     if (needed > availablePt) {
       throw new Error(`Stageplan overflow in ${box.instrument}`);
     }
@@ -245,9 +277,19 @@ export function renderStageplanSection(vm: DocumentViewModel): string {
       const lines: string[] = [];
       lines.push(`<div class="stageplanBoxHeader">${box.header}</div>`);
 
+      const hasBody =
+        box.inputBullets.length > 0 ||
+        box.monitorBullets.length > 0 ||
+        box.extraBullets.length > 0;
+      if (hasBody) {
+        lines.push(`<div class="stageplanTitleGap"></div>`);
+      }
+
       const addBullets = (bullets: string[]) => {
         for (const bullet of bullets) {
-          lines.push(`<div class=\"stageplanLine\">• ${bullet}</div>`);
+          lines.push(
+            `<div class="stageplanBoxLine"><span class="bullet">•</span><span class="text">${bullet}</span></div>`
+          );
         }
       };
 

@@ -290,14 +290,29 @@ body {
 
 .stageplanBoxHeader {
   font-weight: 700;
-  text-transform: uppercase;
   margin: 0;
+  padding-top: ${stageplanLayout.titlePadTop};
   text-align: center;
 }
 
-.stageplanLine {
+.stageplanTitleGap {
+  height: ${stageplanLayout.titleGap};
+}
+
+.stageplanBoxLine {
   margin: 0;
   text-align: center;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.stageplanBoxLine .bullet {
+  display: inline-block;
+  margin-right: 6px;
+}
+
+.stageplanBoxLine .text {
+  display: inline-block;
 }
 
 .stageplanGap {
