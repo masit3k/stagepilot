@@ -53,7 +53,7 @@ describe("stageplan render plan", () => {
       expect(inputBullets[0]).toMatch(/^Drums \(\d+(–\d+)?\)$/);
       expect(inputBullets).toEqual(
         expect.arrayContaining([
-          expect.stringMatching(/^PAD \(\d+(–\d+)?\)$/),
+          expect.stringMatching(/^2x PAD \(\d+\+\d+\)$/),
           expect.stringMatching(/^Back vocal – drums \(\d+(–\d+)?\)$/),
         ])
       );
@@ -76,11 +76,13 @@ describe("stageplan render plan", () => {
   });
 
   it("collapses stereo inputs and keeps monitor bullets intact", () => {
-      const plan = buildStageplanPlan({
-        lineupByRole: {},
-        inputs: [
-          { channelNo: 1, label: "Kick", group: "drums" },
+    const plan = buildStageplanPlan({
+      lineupByRole: {},
+      inputs: [
+        { channelNo: 1, label: "Kick", group: "drums" },
         { channelNo: 2, label: "Snare", group: "drums" },
+        { channelNo: 5, label: "Bass L (main out L)", group: "bass" },
+        { channelNo: 6, label: "Bass R (main out R)", group: "bass" },
         { channelNo: 8, label: "OH L", group: "guitar" },
         { channelNo: 9, label: "OH R", group: "guitar" },
         { channelNo: 11, label: "PAD L", group: "drums" },
@@ -90,15 +92,15 @@ describe("stageplan render plan", () => {
         { channelNo: 17, label: "Synth L", group: "keys" },
         { channelNo: 18, label: "Synth R", group: "keys" },
       ],
-        monitorOutputs: [
-          {
-            no: 3,
-            output: "Drums",
-            note: "IEM STEREO wired",
-          },
-        ],
-        powerByRole: {},
-      });
+      monitorOutputs: [
+        {
+          no: 3,
+          output: "Drums",
+          note: "IEM STEREO wired",
+        },
+      ],
+      powerByRole: {},
+    });
 
     const keysBox = plan.boxes.find((box) => box.instrument === "Keys");
     expect(keysBox?.inputBullets).toEqual(
@@ -112,6 +114,11 @@ describe("stageplan render plan", () => {
       expect.arrayContaining(["OH L (8)", "OH R (9)"])
     );
     expect(guitarBox?.inputBullets.join(" ")).not.toContain("2x OH");
+
+    const bassBox = plan.boxes.find((box) => box.instrument === "Bass");
+    expect(bassBox?.inputBullets).toEqual(expect.arrayContaining(["2x Bass (5+6)"]));
+    expect(bassBox?.inputBullets.join(" ")).not.toContain("Bass L (5)");
+    expect(bassBox?.inputBullets.join(" ")).not.toContain("Bass R (6)");
 
     const drumsBox = plan.boxes.find((box) => box.instrument === "Drums");
     expect(drumsBox?.inputBullets.join(" ")).toContain("2x PAD (11+12)");

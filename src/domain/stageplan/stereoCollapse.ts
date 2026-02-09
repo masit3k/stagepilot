@@ -18,31 +18,18 @@ type StageplanTextLine = {
   text: string;
 };
 
-const parenthesesStereoPattern = /^(.*)\(([^)]*)\s([LR])\)\s*$/;
-const trailingStereoPattern = /^(.*)\s([LR])$/;
+const stereoPattern = /^(.*?)(?:\s+([LR]))(?:\s*\(.*\))?$/i;
 
 function parseStereoLabel(label: string): StereoCandidate | null {
   const trimmed = label.trim();
-  const trailingMatch = trailingStereoPattern.exec(trimmed);
-  if (trailingMatch) {
-    return {
-      baseLabel: (trailingMatch[1] ?? "").trim(),
-      side: (trailingMatch[2] ?? "L") as StereoSide,
-    };
-  }
-
-  const parenMatch = parenthesesStereoPattern.exec(trimmed);
-  if (parenMatch) {
-    const prefix = (parenMatch[1] ?? "").trimEnd();
-    const inner = (parenMatch[2] ?? "").trim();
-    const baseLabel = `${prefix}${prefix ? " " : ""}(${inner})`.trim();
-    return {
-      baseLabel,
-      side: (parenMatch[3] ?? "L") as StereoSide,
-    };
-  }
-
-  return null;
+  const match = stereoPattern.exec(trimmed);
+  if (!match) return null;
+  const baseLabel = (match[1] ?? "").trim();
+  if (baseLabel === "") return null;
+  return {
+    baseLabel,
+    side: (match[2] ?? "L").toUpperCase() as StereoSide,
+  };
 }
 
 function formatLine(line: StageplanLine): string {
@@ -59,7 +46,7 @@ export function collapseStereoForStageplan(lines: StageplanLine[]): StageplanTex
     if (line.kind !== "input" || line.no == null) continue;
     const stereo = parseStereoLabel(line.label);
     if (!stereo) continue;
-    if (stereo.baseLabel === "OH") continue;
+    if (stereo.baseLabel.trim().toLowerCase() === "oh") continue;
     const entry = candidates.get(stereo.baseLabel) ?? { L: [], R: [] };
     entry[stereo.side].push(line);
     candidates.set(stereo.baseLabel, entry);
