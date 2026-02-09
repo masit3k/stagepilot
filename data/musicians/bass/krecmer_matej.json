@@ -28,7 +28,7 @@
     "requirements": {
         "power": {
             "voltage": 230,
-            "sockets": 3
+            "sockets": 5
         }
     }
 }
