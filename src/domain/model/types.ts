@@ -89,6 +89,8 @@ export interface Band {
   code?: string;
   name: string;
 
+  bandLeader: string;
+
   /** Výchozí obsazení kapely pro generování (group -> musicianId(s)). */
   defaultLineup: DefaultLineup;
 

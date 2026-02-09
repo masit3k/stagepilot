@@ -3,6 +3,7 @@
   "id": "bk",
   "code": "BK",
   "name": "Blanická kapela",
+  "bandLeader": "krecmer_matej",
   "defaultContactId": "krecmer_matej",
   "constraints": {
     "drums": {

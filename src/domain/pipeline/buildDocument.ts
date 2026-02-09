@@ -14,6 +14,7 @@ import type {
 import type { DataRepository } from "../../infra/fs/repo.js";
 import { disambiguateInputKeys } from "./disambiguateInputKeys.js";
 import { reorderAcousticGuitars } from "./reorderAcousticGuitars.js";
+import { validateBandLeader } from "../rules/validateBandLeader.js";
 
 /* ============================================================
  * Helpers
@@ -438,6 +439,7 @@ function formatLeadVocalLabel(
 
 export function buildDocument(project: Project, repo: DataRepository): DocumentViewModel {
   const band = repo.getBand(project.bandRef);
+  validateBandLeader(band, repo);
 
   const inputs: BuiltInput[] = [];
   const monitors: DocumentViewModel["monitors"] = [];

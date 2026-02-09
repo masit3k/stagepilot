@@ -3,6 +3,7 @@
   "id": "pl",
   "code": "PL",
   "name": "Party Leaders",
+  "bandLeader": "krecmer_matej",
   "defaultContactId": "zidek_jakub",
   "constraints": {
     "drums": {

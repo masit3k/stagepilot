@@ -10,7 +10,9 @@ import { validateDocument } from "../../domain/rules/validateDocument.js";
 import { renderPdf } from "../../infra/pdf/pdf.js";
 import { publishExportPdf } from "./publishExportPdf.js";
 import { normalizeProject } from "./normalizeProject.js";
-import type { Project, ProjectJson } from "../../domain/model/types.js";
+import { isBandLeader } from "../../domain/model/bandLeader.js";
+import type { Band, Project, ProjectJson } from "../../domain/model/types.js";
+import type { DataRepository } from "../../infra/fs/repo.js";
 
 export interface ExportPdfResult {
   versionPdfPath: string;
@@ -87,32 +89,61 @@ function formatCzPhone(phoneRaw: string): string {
   return s;
 }
 
-async function loadDefaultContactLine(defaultContactId?: string): Promise<string | undefined> {
-  if (!defaultContactId) return undefined;
+export function formatContactLine(args: {
+  contact: ContactEntity;
+  band: Band;
+  contactMusicianId?: string;
+}): string {
+  const { contact, band, contactMusicianId } = args;
 
-  const contactPath = path.resolve(DATA_ROOT, "contacts", `${defaultContactId}.json`);
-  const c = await loadJsonFile<ContactEntity>(contactPath);
-
-  const first = (c.firstName ?? "").trim();
-  const last = (c.lastName ?? "").trim();
+  const first = (contact.firstName ?? "").trim();
+  const last = (contact.lastName ?? "").trim();
   if (!first && !last) {
-    throw new Error(`Invalid contact (missing firstName/lastName): ${defaultContactId}`);
+    throw new Error(`Invalid contact (missing firstName/lastName): ${contact.id}`);
   }
 
   const name = `${first} ${last}`.trim();
 
-  const phone = c.phone ? formatCzPhone(c.phone) : "";
-  const email = c.email ? c.email.trim() : "";
+  const phone = contact.phone ? formatCzPhone(contact.phone) : "";
+  const email = contact.email ? contact.email.trim() : "";
 
   // formát přesně dle zadání:
-  // "Kontaktní osoba – (kapelník) [first_name] [last_name], [tel], [mail]"
+  // "Kontaktní osoba – (band leader) [first_name] [last_name], [tel], [mail]"
   // (pokud některé pole chybí, vynecháme ho i s čárkou)
   const parts: string[] = [];
   if (phone) parts.push(phone);
   if (email) parts.push(email);
 
   const tail = parts.length ? `, ${parts.join(", ")}` : "";
-  return `Kontaktní osoba – (kapelník) ${name}${tail}`;
+  const leaderSuffix =
+    contactMusicianId && isBandLeader(band, contactMusicianId) ? " (band leader)" : "";
+  return `Kontaktní osoba –${leaderSuffix} ${name}${tail}`;
+}
+
+function resolveContactMusicianId(
+  contactId: string,
+  repo: DataRepository
+): string | undefined {
+  try {
+    repo.getMusician(contactId);
+    return contactId;
+  } catch {
+    return undefined;
+  }
+}
+
+async function loadDefaultContactLine(
+  defaultContactId: string | undefined,
+  band: Band,
+  repo: DataRepository
+): Promise<string | undefined> {
+  if (!defaultContactId) return undefined;
+
+  const contactPath = path.resolve(DATA_ROOT, "contacts", `${defaultContactId}.json`);
+  const contact = await loadJsonFile<ContactEntity>(contactPath);
+  const contactMusicianId = resolveContactMusicianId(defaultContactId, repo);
+
+  return formatContactLine({ contact, band, contactMusicianId });
 }
 
 export async function exportPdf(projectId: string): Promise<ExportPdfResult> {
@@ -159,7 +190,7 @@ async function exportPdfFromProject(
     }
   }
 
-  const contactLine = await loadDefaultContactLine(band.defaultContactId);
+  const contactLine = await loadDefaultContactLine(band.defaultContactId, band, repo);
 
   let pdfFileName: string;
   if (project.purpose === "generic") {
