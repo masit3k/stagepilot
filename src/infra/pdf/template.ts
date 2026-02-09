@@ -2,6 +2,7 @@ import type { DocumentViewModel } from "../../domain/model/types.js";
 import type { MetaLineModel } from "../../domain/model/types.js";
 import { pdfStyles } from "./styles.js";
 import { pdfLayout } from "./layout.js";
+import { renderStageplanSection } from "./sections/stageplan.js";
 
 function esc(s: unknown): string {
   const str = s == null ? "" : String(s);
@@ -131,6 +132,7 @@ export function renderInputlistHtml(vm: DocumentViewModel, opts: RenderTemplateO
   // NOTES: vždy až POD oběma tabulkami
   const inputNotesHtml = renderNotesBlock(null, vm.notes?.inputs);
   const monitorNotesHtml = renderNotesBlock(null, vm.notes?.monitors);
+  const stageplanHtml = renderStageplanSection(vm);
 
   return `<!doctype html>
 <html lang="cs">
@@ -190,6 +192,8 @@ ${pdfStyles}
       ${vm.notes.monitors.map(n => `<div class="noteLine">${esc(n.text)}</div>`).join("")}
     </div>
   </div>
+
+  ${stageplanHtml}
 
 </main>
 

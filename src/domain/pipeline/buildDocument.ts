@@ -588,6 +588,13 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
 
   const inputsWithCh = assignChannelsWithOddStereoRule(finalizedInputs);
   const inputRows = buildInputRows(inputsWithCh);
+  const stageplanInputs = inputsWithCh
+    .filter((input) => input.label !== "---" && input.key !== "---" && !input.key.startsWith("spare_ch_"))
+    .map((input) => ({
+      channelNo: input.ch,
+      label: input.label,
+      group: input.group,
+    }));
 
   // Notes template resolution
   const notesTemplateId = band.notesTemplateRef ?? "notes_default_cs";
@@ -624,6 +631,16 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
     notes: {
       inputs: tpl.inputs ?? [],
       monitors: filterNotesMonitors(tpl.monitors ?? [], hasWedge),
+    },
+
+    stageplan: {
+      instrumentFirstNames: band.stageplanMembers ?? {},
+      inputs: stageplanInputs,
+      monitorOutputs: monitorTableRows.map((row) => ({
+        no: Number.parseInt(row.no, 10),
+        output: row.output,
+        note: row.note,
+      })),
     },
   };
 }

@@ -16,6 +16,8 @@ export type { Group } from "./groups.js";
  */
 export type StagePlanPurpose = "event" | "generic";
 
+export type StageplanInstrument = "Drums" | "Bass" | "Guitar" | "Keys" | "Lead vocal";
+
 /**
  * Normalizovaný doménový projekt (po načtení a normalizaci z JSONu).
  * Tohle má používat pipeline.
@@ -101,6 +103,9 @@ export interface Band {
 
   /** Volitelné: relativní cesta k logu (od root projektu) */
   logoFile?: string;
+
+  /** Volitelné: deterministické mapování pro stageplan box headers. */
+  stageplanMembers?: Partial<Record<StageplanInstrument, string>>;
 }
 
 /** Muzikant: profil osoby a reference na presety, které používá. */
@@ -298,5 +303,19 @@ export interface DocumentViewModel {
   notes: {
     inputs: NoteLine[];
     monitors: NoteLine[];
+  };
+
+  stageplan: {
+    instrumentFirstNames: Partial<Record<StageplanInstrument, string>>;
+    inputs: Array<{
+      channelNo: number;
+      label: string;
+      group: Group;
+    }>;
+    monitorOutputs: Array<{
+      no: number;
+      output: string;
+      note: string;
+    }>;
   };
 }

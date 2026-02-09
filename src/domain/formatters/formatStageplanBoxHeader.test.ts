@@ -1,34 +1,21 @@
 import { describe, expect, it } from "vitest";
-import type { Band } from "../model/types.js";
 import { formatStageplanBoxHeader } from "./formatStageplanBoxHeader.js";
 
 describe("formatStageplanBoxHeader", () => {
-  const band: Band = {
-    id: "band-1",
-    name: "Band",
-    bandLeader: "leader-id",
-    defaultLineup: {},
-  };
-
-  it("adds suffix for band leader", () => {
+  it("formats uppercase header with underscore", () => {
     const label = formatStageplanBoxHeader({
       instrumentLabel: "Guitar",
-      musicianName: "Leader Name",
-      musicianId: "leader-id",
-      band,
+      firstName: "Matěj",
     });
 
-    expect(label).toBe("Guitar – Leader Name (band leader)");
+    expect(label).toBe("GUITAR_MATĚJ");
   });
 
-  it("does not add suffix for other musicians", () => {
+  it("falls back to question mark when name missing", () => {
     const label = formatStageplanBoxHeader({
-      instrumentLabel: "Keys",
-      musicianName: "Other Name",
-      musicianId: "other-id",
-      band,
+      instrumentLabel: "Lead vocal",
     });
 
-    expect(label).toBe("Keys – Other Name");
+    expect(label).toBe("LEAD VOCAL_?");
   });
 });

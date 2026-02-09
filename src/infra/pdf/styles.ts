@@ -1,4 +1,5 @@
 import { pdfLayout } from "./layout.js";
+import { stageplanLayout } from "./sections/stageplan.js";
 
 export const pdfStyles = `
 /* ===============================
@@ -234,6 +235,61 @@ body {
 
 .noteLine {
   margin: 0 0 12pt 0;        /* větší mezery mezi poznámkami */
+}
+
+/* ===============================
+   Stageplan section
+   =============================== */
+
+.stageplanSection {
+  margin-top: 16pt;
+}
+
+.stageplanHeading {
+  font-size: ${stageplanLayout.headingSize};
+  font-weight: ${stageplanLayout.headingWeight};
+  line-height: 1;
+  margin: 0 0 8pt 0;
+}
+
+.stageplanArea {
+  position: relative;
+  width: ${stageplanLayout.areaWidthMm}mm;
+}
+
+.stageplanBox {
+  position: absolute;
+  border: 1px solid var(--c-line);
+  background: #fff;
+  padding: ${stageplanLayout.padY} ${stageplanLayout.padX};
+  font-size: ${stageplanLayout.textSize};
+  line-height: ${stageplanLayout.textLineHeight};
+}
+
+.stageplanBoxHeader {
+  font-weight: 700;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.stageplanLine {
+  margin: 0;
+}
+
+.stageplanGap {
+  height: calc(1em * ${stageplanLayout.textLineHeight});
+}
+
+.stageplanPower {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  border: 1px solid var(--c-line);
+  background: ${stageplanLayout.powerCellColor};
+  padding: ${stageplanLayout.padY} ${stageplanLayout.padX};
+  font-size: ${stageplanLayout.textSize};
+  line-height: ${stageplanLayout.textLineHeight};
+  white-space: nowrap;
 }
 
 
