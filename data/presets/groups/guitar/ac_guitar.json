@@ -9,13 +9,5 @@
             "label": "Acoustic guitar",
             "note": "TS jack 6.3mm – DI box"
         }
-    ],
-    "requirements": {
-        "power": [
-            {
-                "voltage": 230,
-                "sockets": 3
-            }
-        ]
-    }
+    ]
 }

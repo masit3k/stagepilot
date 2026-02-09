@@ -12,5 +12,11 @@
             "kind": "monitor",
             "ref": "wedge"
         }
-    ]
+    ],
+    "requirements": {
+        "power": {
+            "voltage": 230,
+            "sockets": 3
+        }
+    }
 }

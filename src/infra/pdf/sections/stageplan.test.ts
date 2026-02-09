@@ -76,10 +76,10 @@ describe("stageplan render plan", () => {
   });
 
   it("collapses stereo inputs and keeps monitor bullets intact", () => {
-    const plan = buildStageplanPlan({
-      lineupByRole: {},
-      inputs: [
-        { channelNo: 1, label: "Kick", group: "drums" },
+      const plan = buildStageplanPlan({
+        lineupByRole: {},
+        inputs: [
+          { channelNo: 1, label: "Kick", group: "drums" },
         { channelNo: 2, label: "Snare", group: "drums" },
         { channelNo: 8, label: "OH L", group: "guitar" },
         { channelNo: 9, label: "OH R", group: "guitar" },
@@ -90,14 +90,15 @@ describe("stageplan render plan", () => {
         { channelNo: 17, label: "Synth L", group: "keys" },
         { channelNo: 18, label: "Synth R", group: "keys" },
       ],
-      monitorOutputs: [
-        {
-          no: 3,
-          output: "Drums",
-          note: "IEM STEREO wired",
-        },
-      ],
-    });
+        monitorOutputs: [
+          {
+            no: 3,
+            output: "Drums",
+            note: "IEM STEREO wired",
+          },
+        ],
+        powerByRole: {},
+      });
 
     const keysBox = plan.boxes.find((box) => box.instrument === "Keys");
     expect(keysBox?.inputBullets).toEqual(
@@ -117,5 +118,28 @@ describe("stageplan render plan", () => {
     expect(drumsBox?.monitorBullets).toEqual(
       expect.arrayContaining(["IEM STEREO wired (3)"])
     );
+  });
+
+  it("renders power badges based on stageplan power data", () => {
+    const plan = buildStageplanPlan({
+      lineupByRole: {},
+      inputs: [],
+      monitorOutputs: [],
+      powerByRole: {
+        drums: { hasPowerBadge: true, powerBadgeText: "3x 230 V" },
+        keys: { hasPowerBadge: true, powerBadgeText: "5x 230 V" },
+        vocs: { hasPowerBadge: false, powerBadgeText: "" },
+      },
+    });
+
+    const drumsBox = plan.boxes.find((box) => box.instrument === "Drums");
+    expect(drumsBox?.hasPowerBadge).toBe(true);
+    expect(drumsBox?.powerBadgeText).toBe("3x 230 V");
+
+    const keysBox = plan.boxes.find((box) => box.instrument === "Keys");
+    expect(keysBox?.powerBadgeText).toBe("5x 230 V");
+
+    const vocalsBox = plan.boxes.find((box) => box.instrument === "Lead vocal");
+    expect(vocalsBox?.hasPowerBadge).toBe(false);
   });
 });

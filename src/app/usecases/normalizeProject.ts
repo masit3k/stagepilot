@@ -15,6 +15,7 @@ function assertPurpose(value: unknown): StagePlanPurpose {
 export function normalizeProject(input: ProjectJson): Project {
   const id = assertString((input as ProjectJson).id, "project id");
   const bandRef = assertString((input as ProjectJson).bandRef, "bandRef");
+  const stageplan = (input as ProjectJson).stageplan;
 
   if ("purpose" in input) {
     const purpose = assertPurpose(input.purpose);
@@ -32,6 +33,7 @@ export function normalizeProject(input: ProjectJson): Project {
         documentDate,
         title: input.title?.trim() || undefined,
         template: input.template?.trim() || undefined,
+        stageplan,
       };
     }
 
@@ -42,6 +44,7 @@ export function normalizeProject(input: ProjectJson): Project {
       documentDate,
       title: input.title?.trim() || undefined,
       template: input.template?.trim() || undefined,
+      stageplan,
     };
   }
 
@@ -56,6 +59,7 @@ export function normalizeProject(input: ProjectJson): Project {
       eventDate,
       eventVenue,
       documentDate: eventDate,
+      stageplan,
     };
   }
 

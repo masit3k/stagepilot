@@ -14,13 +14,5 @@
             "label": "Electric guitar R",
             "note": "XLR out from pedalboard"
         }
-    ],
-    "requirements": {
-        "power": [
-            {
-                "voltage": 230,
-                "sockets": 3
-            }
-        ]
-    }
+    ]
 }

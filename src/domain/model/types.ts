@@ -48,6 +48,10 @@ export interface Project {
 
   /** Volitelně: volba template/layoutu */
   template?: string;
+
+  stageplan?: {
+    powerOverridesByMusician?: Record<string, PowerRequirement>;
+  };
 }
 
 /**
@@ -59,6 +63,9 @@ export interface LegacyProjectJson {
   bandRef: string;
   date: string; // ISO "YYYY-MM-DD"
   venue?: string;
+  stageplan?: {
+    powerOverridesByMusician?: Record<string, PowerRequirement>;
+  };
 }
 
 /**
@@ -77,6 +84,9 @@ export interface ProjectJsonV2 {
   documentDate: string;
   title?: string;
   template?: string;
+  stageplan?: {
+    powerOverridesByMusician?: Record<string, PowerRequirement>;
+  };
 }
 
 /**
@@ -122,6 +132,9 @@ export interface Musician {
 
   /** V2: explicitní položky s discriminator `kind` */
   presets: PresetItem[];
+  requirements?: {
+    power?: PowerRequirement;
+  };
 }
 
 /** Jedna položka presetů na muzikantovi (V2). */
@@ -162,8 +175,12 @@ export interface Preset {
   label: string;
   group: Group;
   inputs: InputChannel[];
-  requirements?: unknown;
 }
+
+export type PowerRequirement = {
+  voltage: number;
+  sockets: number;
+};
 
 /** Vocal "typ" – šablona, ze které se generuje jeden input. */
 export interface VocalType {
@@ -320,5 +337,14 @@ export interface DocumentViewModel {
       output: string;
       note: string;
     }>;
+    powerByRole: Partial<
+      Record<
+        StageplanInstrumentKey,
+        {
+          hasPowerBadge: boolean;
+          powerBadgeText: string;
+        }
+      >
+    >;
   };
 }

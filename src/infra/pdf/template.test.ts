@@ -40,7 +40,7 @@ describe("inputlist template layout", () => {
       expect(page1Html).not.toContain("stageplanSection");
       expect(page2Html).toContain("Stageplan");
 
-      const boxMatches = page2Html.match(/class="stageplanBox"/g) ?? [];
+      const boxMatches = page2Html.match(/class="stageplanBox\b/g) ?? [];
       expect(boxMatches).toHaveLength(5);
 
       const plan = buildStageplanPlan(vm.stageplan);

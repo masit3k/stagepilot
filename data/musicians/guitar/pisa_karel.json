@@ -12,5 +12,11 @@
             "kind": "monitor",
             "ref": "iem_stereo_wireless"
         }
-    ]
+    ],
+    "requirements": {
+        "power": {
+            "voltage": 230,
+            "sockets": 3
+        }
+    }
 }

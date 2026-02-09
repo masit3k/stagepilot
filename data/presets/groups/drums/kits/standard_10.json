@@ -54,17 +54,5 @@
             "label": "OH R",
             "note": "Condenser mic – boom mic stand"
         }
-    ],
-    "requirements": {
-        "riser": {
-            "size": "3 x 2 m",
-            "maxHeightCm": 40
-        },
-        "power": [
-            {
-                "voltage": 230,
-                "sockets": 3
-            }
-        ]
-    }
+    ]
 }

@@ -9,13 +9,5 @@
             "label": "Electric bass guitar",
             "note": "XLR out from amp"
         }
-    ],
-    "requirements": {
-        "power": [
-            {
-                "voltage": 230,
-                "sockets": 3
-            }
-        ]
-    }
+    ]
 }

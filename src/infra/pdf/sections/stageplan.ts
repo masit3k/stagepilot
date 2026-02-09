@@ -60,14 +60,6 @@ const stageplanLayout = {
   powerCellColor: "#F7E65A",
 } as const;
 
-const powerRequirementByInstrument: Record<StageplanInstrument, string | null> = {
-  Drums: "3x 230 V",
-  Bass: "3x 230 V",
-  Guitar: "3x 230 V",
-  Keys: "3x 230 V",
-  "Lead vocal": null,
-};
-
 const instrumentOrder: StageplanInstrument[] = [
   "Drums",
   "Bass",
@@ -82,7 +74,8 @@ type StageplanBoxPlan = {
   inputBullets: string[];
   monitorBullets: string[];
   extraBullets: string[];
-  powerLabel: string | null;
+  hasPowerBadge: boolean;
+  powerBadgeText: string;
   position: { xMm: number; yMm: number; widthMm: number; heightMm: number };
 };
 
@@ -151,6 +144,7 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
     const role = instrumentToRole[instrument];
     const person = vm.lineupByRole[role];
     const firstName = person?.firstName ?? null;
+    const powerBadge = vm.powerByRole[role];
     const header = formatStageplanBoxHeader({
       instrumentLabel: instrument,
       firstName,
@@ -238,7 +232,8 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
       inputBullets,
       monitorBullets: monitors,
       extraBullets,
-      powerLabel: powerRequirementByInstrument[instrument],
+      hasPowerBadge: powerBadge?.hasPowerBadge ?? false,
+      powerBadgeText: powerBadge?.powerBadgeText ?? "",
     };
   });
 
@@ -269,7 +264,7 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
       lineHeightPt +
       (hasBody ? boxTitleGapPt : 0) +
       lines * lineHeightPt;
-    const bottomPart = box.powerLabel ? powerBadgeSpacerHeightPt : boxPaddingBottomPt;
+    const bottomPart = box.hasPowerBadge ? powerBadgeSpacerHeightPt : boxPaddingBottomPt;
     return baseHeight + bottomPart;
   };
 
@@ -393,15 +388,15 @@ export function renderStageplanSection(vm: DocumentViewModel): string {
         addBullets(box.extraBullets);
       }
 
-      const powerHtml = box.powerLabel
-        ? `<div class="stageplanPower">${box.powerLabel}</div>`
+      const powerHtml = box.hasPowerBadge
+        ? `<div class="stageplanPower">${box.powerBadgeText}</div>`
         : "";
 
-      if (box.powerLabel) {
+      if (box.hasPowerBadge) {
         lines.push(`<div class="stageplanPowerGap"></div>`);
       }
 
-      const powerClass = box.powerLabel ? " stageplanBox--withPower" : "";
+      const powerClass = box.hasPowerBadge ? " stageplanBox--withPower" : "";
 
       return `
 <div class="stageplanBox${powerClass}" style="left:${box.position.xMm}mm; top:${box.position.yMm}mm; width:${box.position.widthMm}mm; height:${box.position.heightMm}mm;">\n  ${lines.join("")}\n  ${powerHtml}\n</div>`.trim();

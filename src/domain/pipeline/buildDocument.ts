@@ -19,6 +19,7 @@ import { disambiguateInputKeys } from "./disambiguateInputKeys.js";
 import { reorderAcousticGuitars } from "./reorderAcousticGuitars.js";
 import { validateBandLeader } from "../rules/validateBandLeader.js";
 import { resolveStageplanPerson } from "../stageplan/resolveStageplanPerson.js";
+import { resolvePowerForStageplan } from "../stageplan/resolvePowerForStageplan.js";
 
 /* ============================================================
  * Helpers
@@ -514,6 +515,26 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
   for (const role of stageplanRoles) {
     lineupByRole[role] = resolveStageplanPerson(band, role, membersById);
   }
+  const powerByRole: Partial<
+    Record<
+      StageplanInstrumentKey,
+      {
+        hasPowerBadge: boolean;
+        powerBadgeText: string;
+      }
+    >
+  > = {};
+  for (const role of stageplanRoles) {
+    const power = resolvePowerForStageplan(role, band, project, membersById);
+    if (power) {
+      powerByRole[role] = {
+        hasPowerBadge: true,
+        powerBadgeText: `${power.sockets}x ${power.voltage} V`,
+      };
+    } else {
+      powerByRole[role] = { hasPowerBadge: false, powerBadgeText: "" };
+    }
+  }
 
   // ------------------------------------------------------------
   // Monitor table ordering & text per spec
@@ -665,6 +686,7 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
         output: row.output,
         note: row.note,
       })),
+      powerByRole,
     },
   };
 }
