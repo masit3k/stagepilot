@@ -226,10 +226,10 @@ body {
 }
 
 .notes {
-  font-size: 10pt;            /* MENŠÍ písmo – jasně menší než tabulka */
+  font-size: 9pt;            /* MENŠÍ písmo – jasně menší než tabulka */
   line-height: 1.4;
   font-style: italic;        /* použije Inter-Italic.ttf */
-  color: #222;
+  color: #000000;
 }
 
 .noteLine {
