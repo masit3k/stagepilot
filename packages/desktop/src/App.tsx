@@ -15,7 +15,7 @@ type ProjectSummary = {
 type NewProjectPayload = {
   id: string;
   title: string;
-  purpose: "generic";
+  purpose: "event" | "generic";
   bandRef?: string;
   createdAt: string;
 };
@@ -110,7 +110,20 @@ function App() {
       ) : null}
 
       {pathname === "/projects/new" ? (
-        <NewProjectPage
+        <ChooseProjectTypePage navigate={navigate} />
+      ) : null}
+
+      {pathname === "/projects/new/event" ? (
+        <NewEventProjectPage
+          navigate={navigate}
+          onCreated={async () => {
+            await refreshProjects();
+          }}
+        />
+      ) : null}
+
+      {pathname === "/projects/new/generic" ? (
+        <NewGenericProjectPage
           navigate={navigate}
           onCreated={async () => {
             await refreshProjects();
@@ -135,7 +148,9 @@ function StartPage({ projects, userDataDir, navigate, onOpenExisting }: StartPag
     <section className="panel">
       <div className="panel__header">
         <h2>Project Hub</h2>
-        <p className="subtle">{userDataDir ? `Data: ${userDataDir}` : "Loading user_data…"}</p>
+        {import.meta.env.DEV ? (
+          <p className="subtle">{userDataDir ? `Data: ${userDataDir}` : "Loading user_data…"}</p>
+        ) : null}
       </div>
 
       <h3>Projects</h3>
@@ -145,16 +160,18 @@ function StartPage({ projects, userDataDir, navigate, onOpenExisting }: StartPag
         <button type="button" className="button-secondary" onClick={onOpenExisting}>
           Open Existing
         </button>
-        <button
-          type="button"
-          className="button-secondary"
-          onClick={() => {
-            console.log("debug click");
-            navigate("/projects/new");
-          }}
-        >
-          Debug click
-        </button>
+        {import.meta.env.DEV ? (
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={() => {
+              console.log("debug click");
+              navigate("/projects/new");
+            }}
+          >
+            Debug click
+          </button>
+        ) : null}
       </div>
 
       {projects.length === 0 ? (
@@ -184,7 +201,70 @@ type NewProjectPageProps = {
   onCreated: () => Promise<void>;
 };
 
-function NewProjectPage({ navigate, onCreated }: NewProjectPageProps) {
+function ChooseProjectTypePage({ navigate }: Pick<NewProjectPageProps, "navigate">) {
+  return (
+    <section className="panel">
+      <div className="panel__header">
+        <h2>New Project</h2>
+        <button type="button" className="button-secondary" onClick={() => navigate("/")}>
+          Back to projects
+        </button>
+      </div>
+
+      <div className="actions-row">
+        <button type="button" onClick={() => navigate("/projects/new/event")}>
+          Event (show)
+        </button>
+        <button type="button" onClick={() => navigate("/projects/new/generic")}>
+          Generic (template)
+        </button>
+      </div>
+
+      <p className="subtle">Project tied to a specific date/venue</p>
+      <p className="subtle">Reusable template / generic export</p>
+    </section>
+  );
+}
+
+function NewEventProjectPage({ navigate, onCreated }: NewProjectPageProps) {
+  return (
+    <ProjectBaseForm
+      navigate={navigate}
+      onCreated={onCreated}
+      purpose="event"
+      heading="New Event Project"
+      projectNamePlaceholder="My next show"
+    />
+  );
+}
+
+function NewGenericProjectPage({ navigate, onCreated }: NewProjectPageProps) {
+  return (
+    <ProjectBaseForm
+      navigate={navigate}
+      onCreated={onCreated}
+      purpose="generic"
+      heading="New Generic Project"
+      projectNamePlaceholder="My reusable template"
+    />
+  );
+}
+
+type ProjectBaseFormProps = {
+  navigate: (path: string) => void;
+  onCreated: () => Promise<void>;
+  purpose: "event" | "generic";
+  heading: string;
+  projectNamePlaceholder: string;
+};
+
+function ProjectBaseForm({
+  navigate,
+  onCreated,
+  purpose,
+  heading,
+  projectNamePlaceholder,
+}: ProjectBaseFormProps) {
   const [projectName, setProjectName] = useState<string>("");
   const [bandRef, setBandRef] = useState<string>("");
   const [status, setStatus] = useState<string>("");
@@ -201,7 +281,7 @@ function NewProjectPage({ navigate, onCreated }: NewProjectPageProps) {
     const payload: NewProjectPayload = {
       id,
       title: projectName.trim(),
-      purpose: "generic",
+      purpose,
       createdAt: new Date().toISOString(),
       ...(bandRef.trim() ? { bandRef: bandRef.trim() } : {}),
     };
@@ -218,7 +298,7 @@ function NewProjectPage({ navigate, onCreated }: NewProjectPageProps) {
   return (
     <section className="panel">
       <div className="panel__header">
-        <h2>New Project</h2>
+        <h2>{heading}</h2>
         <button type="button" className="button-secondary" onClick={() => navigate("/")}>
           Back to projects
         </button>
@@ -231,7 +311,7 @@ function NewProjectPage({ navigate, onCreated }: NewProjectPageProps) {
             type="text"
             value={projectName}
             onChange={(event) => setProjectName(event.target.value)}
-            placeholder="My next show"
+            placeholder={projectNamePlaceholder}
           />
         </label>
 
