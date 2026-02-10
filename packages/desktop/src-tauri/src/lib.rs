@@ -22,6 +22,7 @@ struct ProjectSummary {
     event_date: Option<String>,
     event_venue: Option<String>,
     purpose: Option<String>,
+    created_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -149,6 +150,10 @@ fn list_projects(app: tauri::AppHandle) -> Result<Vec<ProjectSummary>, ApiError>
                 .map(|s| s.to_string()),
             purpose: json
                 .get("purpose")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
+            created_at: json
+                .get("createdAt")
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string()),
         };

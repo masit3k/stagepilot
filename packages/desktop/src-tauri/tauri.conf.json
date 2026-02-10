@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "stagepilot-desktop",
+  "productName": "StagePilot",
   "version": "0.1.0",
   "identifier": "com.mkrecmer.stagepilot-desktop",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "stagepilot-desktop",
+        "title": "StagePilot",
         "width": 800,
         "height": 600
       }
