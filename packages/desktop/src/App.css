@@ -143,3 +143,45 @@ button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+.lineup-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px;
+  background: #f9fafb;
+}
+
+.lineup-card h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+.lineup-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.slot-button {
+  min-width: 170px;
+}
+
+.selector-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.45);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.selector-dialog {
+  width: min(520px, 95vw);
+}
+
+.selector-list {
+  display: grid;
+  gap: 8px;
+  max-height: 300px;
+  overflow: auto;
+}

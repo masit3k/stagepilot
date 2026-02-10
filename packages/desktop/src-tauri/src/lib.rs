@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::{
+    collections::HashMap,
     fs,
     path::{Path, PathBuf},
     process::Command,
@@ -32,6 +34,29 @@ struct BandOption {
     code: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct RoleCountConstraint {
+    min: usize,
+    max: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BandSetupData {
+    id: String,
+    name: String,
+    constraints: HashMap<String, RoleCountConstraint>,
+    role_constraints: Option<Value>,
+    default_lineup: Option<Value>,
+    members: HashMap<String, Vec<MemberOption>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct MemberOption {
+    id: String,
+    name: String,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ExportPdfResult {
@@ -55,6 +80,7 @@ struct NodeExportResponse {
 
 fn resolve_repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
         .join("..")
         .join("..")
 }
@@ -171,8 +197,12 @@ fn list_projects(app: tauri::AppHandle) -> Result<Vec<ProjectSummary>, ApiError>
 #[tauri::command]
 fn list_bands() -> Result<Vec<BandOption>, ApiError> {
     let bands_dir = resolve_repo_root().join("data").join("bands");
-    let entries = fs::read_dir(&bands_dir)
-        .map_err(|err| map_io_error(err, "BAND_LIST_FAILED", "Failed to read bands"))?;
+    let entries = fs::read_dir(&bands_dir).map_err(|err| ApiError {
+        code: "BAND_LIST_FAILED".into(),
+        message: format!("Failed to read bands at {} ({})", bands_dir.display(), err),
+        export_pdf_path: None,
+        version_pdf_path: None,
+    })?;
 
     let mut results = Vec::new();
     for entry in entries {
@@ -218,6 +248,132 @@ fn list_bands() -> Result<Vec<BandOption>, ApiError> {
 
     results.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
     Ok(results)
+}
+
+#[tauri::command]
+fn get_band_setup_data(band_id: String) -> Result<BandSetupData, ApiError> {
+    let repo_root = resolve_repo_root();
+    let bands_dir = repo_root.join("data").join("bands");
+    let entries = fs::read_dir(&bands_dir).map_err(|err| ApiError {
+        code: "BAND_SETUP_LOAD_FAILED".into(),
+        message: format!("Failed to read bands at {} ({})", bands_dir.display(), err),
+        export_pdf_path: None,
+        version_pdf_path: None,
+    })?;
+
+    let mut selected: Option<Value> = None;
+    for entry in entries {
+        let path = entry
+            .map_err(|err| map_io_error(err, "BAND_SETUP_LOAD_FAILED", "Failed to read bands"))?
+            .path();
+        if path.extension().and_then(|s| s.to_str()) != Some("json") {
+            continue;
+        }
+        let contents = fs::read_to_string(&path).map_err(|err| {
+            map_io_error(err, "BAND_SETUP_LOAD_FAILED", "Failed to read band file")
+        })?;
+        let json: Value = serde_json::from_str(&contents).map_err(|err| ApiError {
+            code: "BAND_SETUP_LOAD_FAILED".into(),
+            message: format!("Invalid band JSON in {} ({})", path.display(), err),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        })?;
+
+        if json.get("id").and_then(|v| v.as_str()) == Some(band_id.as_str()) {
+            selected = Some(json);
+            break;
+        }
+    }
+
+    let json = selected.ok_or(ApiError {
+        code: "BAND_NOT_FOUND".into(),
+        message: format!("Band not found: {}", band_id),
+        export_pdf_path: None,
+        version_pdf_path: None,
+    })?;
+
+    let members_root = repo_root.join("data").join("musicians");
+    let mut members: HashMap<String, Vec<MemberOption>> = HashMap::new();
+    for role in ["drums", "bass", "guitar", "keys", "vocs", "talkback"] {
+        let role_dir = members_root.join(role);
+        let mut role_members: Vec<MemberOption> = Vec::new();
+        if role_dir.exists() {
+            let role_entries = fs::read_dir(&role_dir).map_err(|err| {
+                map_io_error(err, "BAND_SETUP_LOAD_FAILED", "Failed to read musicians")
+            })?;
+            for role_entry in role_entries {
+                let role_path = role_entry
+                    .map_err(|err| {
+                        map_io_error(err, "BAND_SETUP_LOAD_FAILED", "Failed to read musicians")
+                    })?
+                    .path();
+                if role_path.extension().and_then(|s| s.to_str()) != Some("json") {
+                    continue;
+                }
+                let contents = fs::read_to_string(&role_path).map_err(|err| {
+                    map_io_error(
+                        err,
+                        "BAND_SETUP_LOAD_FAILED",
+                        "Failed to read musician file",
+                    )
+                })?;
+                let musician: Value = serde_json::from_str(&contents).map_err(|err| ApiError {
+                    code: "BAND_SETUP_LOAD_FAILED".into(),
+                    message: format!("Invalid musician JSON in {} ({})", role_path.display(), err),
+                    export_pdf_path: None,
+                    version_pdf_path: None,
+                })?;
+                let id = musician.get("id").and_then(|v| v.as_str()).unwrap_or("");
+                if id.is_empty() {
+                    continue;
+                }
+                let first_name = musician
+                    .get("firstName")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let last_name = musician
+                    .get("lastName")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let name = format!("{} {}", last_name, first_name).trim().to_string();
+                role_members.push(MemberOption {
+                    id: id.to_string(),
+                    name,
+                });
+            }
+        }
+        role_members.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+        members.insert(role.to_string(), role_members);
+    }
+
+    let constraints: HashMap<String, RoleCountConstraint> = serde_json::from_value(
+        json.get("constraints")
+            .cloned()
+            .unwrap_or(Value::Object(serde_json::Map::new())),
+    )
+    .map_err(|err| ApiError {
+        code: "BAND_SETUP_LOAD_FAILED".into(),
+        message: format!("Invalid constraints for band {} ({})", band_id, err),
+        export_pdf_path: None,
+        version_pdf_path: None,
+    })?;
+
+    Ok(BandSetupData {
+        id: json
+            .get("id")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string(),
+        name: json
+            .get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string(),
+        constraints,
+        role_constraints: json.get("roleConstraints").cloned(),
+        default_lineup: json.get("defaultLineup").cloned(),
+        members,
+    })
 }
 
 #[tauri::command]
@@ -374,6 +530,7 @@ pub fn run() {
             get_user_data_dir,
             list_projects,
             list_bands,
+            get_band_setup_data,
             read_project,
             save_project,
             export_pdf,

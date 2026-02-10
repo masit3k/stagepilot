@@ -18,6 +18,28 @@ type BandOption = {
   code?: string | null;
 };
 
+type RoleConstraint = {
+  min: number;
+  max: number;
+};
+
+type MemberOption = {
+  id: string;
+  name: string;
+};
+
+type LineupValue = string | string[];
+type LineupMap = Record<string, LineupValue | undefined>;
+
+type BandSetupData = {
+  id: string;
+  name: string;
+  constraints: Record<string, RoleConstraint>;
+  roleConstraints?: Record<string, unknown> | null;
+  defaultLineup?: LineupMap | null;
+  members: Record<string, MemberOption[]>;
+};
+
 type NewProjectPayload = {
   id: string;
   purpose: "event" | "generic";
@@ -27,7 +49,10 @@ type NewProjectPayload = {
   eventVenue?: string;
   note?: string;
   createdAt: string;
+  lineup?: LineupMap;
 };
+
+const ROLE_ORDER = ["drums", "bass", "guitar", "keys", "vocs", "talkback"];
 
 function sanitizeVenueSlug(value: string) {
   return value
@@ -77,6 +102,32 @@ function matchProjectDetailPath(pathname: string) {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
+function matchProjectSetupPath(pathname: string) {
+  const match = pathname.match(/^\/projects\/([^/]+)\/setup$/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function normalizeLineupValue(value: LineupValue | undefined, maxSlots: number): string[] {
+  if (!value) return [];
+  const ids = Array.isArray(value) ? value : [value];
+  return ids.slice(0, Math.max(maxSlots, 0));
+}
+
+function validateLineup(lineup: LineupMap, constraints: Record<string, RoleConstraint>): string[] {
+  const errors: string[] = [];
+  for (const role of ROLE_ORDER) {
+    const roleConstraint = constraints[role];
+    if (!roleConstraint) continue;
+    const selected = normalizeLineupValue(lineup[role], roleConstraint.max);
+    if (selected.length < roleConstraint.min || selected.length > roleConstraint.max) {
+      errors.push(
+        `${role}: expected ${roleConstraint.min === roleConstraint.max ? roleConstraint.min : `${roleConstraint.min}-${roleConstraint.max}`} slot(s), selected ${selected.length}.`,
+      );
+    }
+  }
+  return errors;
+}
+
 function App() {
   const [userDataDir, setUserDataDir] = useState<string>("");
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
@@ -115,11 +166,17 @@ function App() {
     }
 
     bootstrap().catch((err) => {
-      setStatus(`Failed to load app data: ${String(err)}`);
+      console.error("bootstrap failed", {
+        command: "get_user_data_dir/list_projects/list_bands",
+        resolvedPath: userDataDir,
+        originalError: err,
+      });
+      setStatus("Failed to load band data. Check application logs.");
     });
   }, []);
 
   const projectId = useMemo(() => matchProjectDetailPath(pathname), [pathname]);
+  const setupProjectId = useMemo(() => matchProjectSetupPath(pathname), [pathname]);
 
   return (
     <main className="app-shell">
@@ -168,7 +225,9 @@ function App() {
         />
       ) : null}
 
-      {projectId ? <ProjectDetailPage id={projectId} navigate={navigate} /> : null}
+      {setupProjectId ? <ProjectSetupPage id={setupProjectId} navigate={navigate} /> : null}
+
+      {projectId && !setupProjectId ? <ProjectDetailPage id={projectId} navigate={navigate} /> : null}
     </main>
   );
 }
@@ -280,7 +339,7 @@ function NewEventProjectPage({ navigate, onCreated, bands }: NewProjectPageProps
     });
 
     await onCreated();
-    navigate(`/projects/${id}`);
+    navigate(`/projects/${id}/setup`);
   }
 
   return (
@@ -362,7 +421,7 @@ function NewGenericProjectPage({ navigate, onCreated, bands }: NewProjectPagePro
     });
 
     await onCreated();
-    navigate(`/projects/${id}`);
+    navigate(`/projects/${id}/setup`);
   }
 
   return (
@@ -393,7 +452,7 @@ function NewGenericProjectPage({ navigate, onCreated, bands }: NewProjectPagePro
             type="text"
             value={note}
             onChange={(event) => setNote(event.target.value)}
-            placeholder="Reusable template note"
+            placeholder="Note, tour name, or additional context"
           />
         </label>
 
@@ -429,6 +488,151 @@ function ProjectDetailPage({ id, navigate }: ProjectDetailPageProps) {
       <h2>Project Detail</h2>
       <p>Project ID: {id}</p>
       <button type="button" onClick={() => navigate("/")}>Back to projects</button>
+    </section>
+  );
+}
+
+function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
+  const [project, setProject] = useState<NewProjectPayload | null>(null);
+  const [setupData, setSetupData] = useState<BandSetupData | null>(null);
+  const [lineup, setLineup] = useState<LineupMap>({});
+  const [editing, setEditing] = useState<{ role: string; slotIndex: number } | null>(null);
+  const [status, setStatus] = useState<string>("");
+
+  useEffect(() => {
+    async function load() {
+      const raw = await invoke<string>("read_project", { projectId: id });
+      const parsed = JSON.parse(raw) as NewProjectPayload;
+      setProject(parsed);
+
+      const data = await invoke<BandSetupData>("get_band_setup_data", { bandId: parsed.bandRef });
+      setSetupData(data);
+
+      if (!data.defaultLineup) {
+        if (import.meta.env.DEV) {
+          throw new Error(`Band ${parsed.bandRef} has no defaultLineup`);
+        }
+        setStatus("Warning: band has no default lineup. Please fill all required roles.");
+        setLineup({});
+      } else {
+        setLineup({ ...data.defaultLineup });
+      }
+    }
+
+    load().catch((err) => {
+      console.error("setup load failed", {
+        command: "read_project/get_band_setup_data",
+        resolvedPath: id,
+        originalError: err,
+      });
+      setStatus("Failed to load band data. Check application logs.");
+    });
+  }, [id]);
+
+  const errors = useMemo(() => {
+    if (!setupData) return [];
+    return validateLineup(lineup, setupData.constraints);
+  }, [lineup, setupData]);
+
+  async function saveAndContinue() {
+    if (!project || !setupData) return;
+    if (errors.length > 0) {
+      setStatus("Lineup is incomplete or violates role constraints.");
+      return;
+    }
+    const payload: NewProjectPayload = { ...project, lineup: { ...lineup } };
+    await invoke("save_project", {
+      projectId: id,
+      json: JSON.stringify(payload, null, 2),
+    });
+    setStatus("Lineup saved.");
+    navigate(`/projects/${id}`);
+  }
+
+  function updateSlot(role: string, slotIndex: number, musicianId: string) {
+    const constraint = setupData?.constraints[role];
+    if (!constraint) return;
+    const current = normalizeLineupValue(lineup[role], constraint.max);
+    while (current.length < constraint.max) {
+      current.push("");
+    }
+    current[slotIndex] = musicianId;
+    const next = current.filter((entry) => entry);
+    setLineup((prev) => {
+      const value: LineupValue | undefined = constraint.max <= 1 ? next[0] : next;
+      return { ...prev, [role]: value };
+    });
+  }
+
+  return (
+    <section className="panel">
+      <div className="panel__header">
+        <h2>Project Setup</h2>
+        <button type="button" className="button-secondary" onClick={() => navigate("/")}>Back to projects</button>
+      </div>
+
+      <p className="subtle">Configure lineup for Input List and Stage Plan.</p>
+
+      {setupData ? ROLE_ORDER.map((role) => {
+        const constraint = setupData.constraints[role];
+        if (!constraint) return null;
+        const slots = Math.max(constraint.max, 0);
+        const selected = normalizeLineupValue(lineup[role], slots);
+        return (
+          <article key={role} className="lineup-card">
+            <h3>{role.toUpperCase()} ({slots})</h3>
+            <div className="lineup-slots">
+              {Array.from({ length: slots }).map((_, index) => (
+                <button
+                  type="button"
+                  key={`${role}-${index}`}
+                  className="slot-button button-secondary"
+                  onClick={() => setEditing({ role, slotIndex: index })}
+                >
+                  {selected[index] ? (setupData.members[role] || []).find((m) => m.id === selected[index])?.name ?? selected[index] : "+ Change"}
+                </button>
+              ))}
+            </div>
+          </article>
+        );
+      }) : <p className="subtle">Loading setup…</p>}
+
+      {errors.length > 0 ? (
+        <div className="status status--error">
+          {errors.map((error) => <p key={error}>{error}</p>)}
+        </div>
+      ) : null}
+      {status ? <p className="status status--error">{status}</p> : null}
+
+      <div className="actions-row">
+        <button type="button" onClick={saveAndContinue} disabled={errors.length > 0}>Continue</button>
+      </div>
+
+      {editing && setupData ? (
+        <div className="selector-overlay" role="dialog" aria-modal="true">
+          <div className="selector-dialog panel">
+            <div className="panel__header">
+              <h3>Select {editing.role}</h3>
+              <button type="button" className="button-secondary" onClick={() => setEditing(null)}>Close</button>
+            </div>
+            <div className="selector-list">
+              {(setupData.members[editing.role] || []).map((member) => (
+                <button
+                  type="button"
+                  key={member.id}
+                  className="button-secondary"
+                  onClick={() => {
+                    updateSlot(editing.role, editing.slotIndex, member.id);
+                    setEditing(null);
+                  }}
+                >
+                  {member.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
