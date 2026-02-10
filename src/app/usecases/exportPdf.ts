@@ -148,7 +148,7 @@ async function loadDefaultContactLine(
 
 export async function exportPdf(projectId: string): Promise<ExportPdfResult> {
   const repo = await loadRepository();
-  const project = repo.getProject(projectId);
+  const project = normalizeProject(repo.getProject(projectId) as ProjectJson);
   return exportPdfFromProject(projectId, project, USER_DATA_ROOT);
 }
 export async function exportPdfFromProjectFile(
@@ -192,12 +192,12 @@ async function exportPdfFromProject(
 
   const contactLine = await loadDefaultContactLine(band.defaultContactId, band, repo);
 
+  const bandCode = band.code?.trim() || project.bandRef;
   let pdfFileName: string;
   if (project.purpose === "generic") {
     const year = project.documentDate.slice(0, 4);
-    pdfFileName = sanitizeFileName(`BK_Inputlist_Stageplan_${year}.pdf`);
+    pdfFileName = sanitizeFileName(`${bandCode}_Inputlist_Stageplan_${year}.pdf`);
   } else {
-    const bandCode = band.code?.trim() || project.bandRef;
     const pdfDate = formatDateForFileName(project.eventDate ?? resolveProjectDate(project));
     const pdfVenue = project.eventVenue?.trim() || "event";
     const pdfBaseName = `${bandCode}_Inputlist_Stageplan_${pdfDate}_${pdfVenue}`;
@@ -224,7 +224,7 @@ async function exportPdfFromProject(
       documentDate: project.documentDate,
       bandRef: project.bandRef,
       purpose: project.purpose,
-      title: project.title ?? null,
+      note: project.note ?? null,
       eventDate: project.eventDate,
       eventVenue: project.eventVenue,
     },

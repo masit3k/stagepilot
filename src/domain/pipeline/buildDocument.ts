@@ -43,11 +43,11 @@ function buildMetaLine(project: Project): MetaLineModel {
     };
   }
 
-  const title = project.title?.trim() || "Stage plan";
+  const note = project.note?.trim() || "Stage plan";
   const d = formatDateCZShort(project.documentDate);
   return {
     kind: "plain",
-    value: `${title} (datum aktualizace: ${d})`,
+    value: `${note} (datum aktualizace: ${d})`,
   };
 }
 
@@ -556,7 +556,7 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
     return (m.presets ?? []).some((p) => p.kind === "preset" && /^vocal_lead/i.test(p.ref));
   };
 
-  const pickByGroup = (g: Group): (typeof lineupMusicians)[number]["musician"] | undefined => {
+  const pickByGroup = (g: Group): Musician | undefined => {
     return lineupMusicians.find((x) => x.group === g)?.musician;
   };
 
@@ -577,7 +577,7 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
     return formatLeadVocalLabel(leadVocalCount, index, gender);
   };
 
-  const pushRow = (output: string, musician?: { presets?: PresetItem[] } | undefined) => {
+  const pushRow = (output: string, musician?: Musician | undefined) => {
     monitorTableRows.push({
       no: String(monitorTableRows.length + 1),
       output,
@@ -662,7 +662,7 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
       eventVenue: project.eventVenue,
 
       documentDate: project.documentDate,
-      title: project.title,
+      note: project.note,
 
       metaLine: buildMetaLine(project),
       logoFile: band.logoFile,

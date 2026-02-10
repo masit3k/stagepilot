@@ -31,7 +31,7 @@ export function normalizeProject(input: ProjectJson): Project {
         eventDate,
         eventVenue,
         documentDate,
-        title: input.title?.trim() || undefined,
+        note: input.note?.trim() || input.title?.trim() || undefined,
         template: input.template?.trim() || undefined,
         stageplan,
       };
@@ -42,7 +42,7 @@ export function normalizeProject(input: ProjectJson): Project {
       bandRef,
       purpose,
       documentDate,
-      title: input.title?.trim() || undefined,
+      note: input.note?.trim() || input.title?.trim() || undefined,
       template: input.template?.trim() || undefined,
       stageplan,
     };

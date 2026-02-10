@@ -12,5 +12,5 @@ export type Project =
     bandRef: string;
     purpose: "generic";
     documentDate: string;
-    title: string;
+    note: string;
   };

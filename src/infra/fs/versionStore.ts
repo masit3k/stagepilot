@@ -11,7 +11,7 @@ export type ProjectSnapshotMeta = {
   documentDate: string; // YYYY-MM-DD
   purpose?: "event" | "generic";
   bandRef: string;
-  title?: string | null;
+  note?: string | null;
   eventDate?: string;
   eventVenue?: string;
   pdfFileName: string;

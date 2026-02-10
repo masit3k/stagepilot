@@ -12,22 +12,54 @@ type ProjectSummary = {
   createdAt?: string | null;
 };
 
+type BandOption = {
+  id: string;
+  name: string;
+  code?: string | null;
+};
+
 type NewProjectPayload = {
   id: string;
-  title: string;
   purpose: "event" | "generic";
-  bandRef?: string;
+  bandRef: string;
+  documentDate: string;
+  eventDate?: string;
+  eventVenue?: string;
+  note?: string;
   createdAt: string;
 };
 
-function slugifyName(value: string) {
+function sanitizeVenueSlug(value: string) {
   return value
+    .trim()
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
     .replace(/^-+|-+$/g, "")
-    .slice(0, 40);
+    .slice(0, 50);
+}
+
+function formatDateForProjectId(eventDate: string): string {
+  const [year, month, day] = eventDate.split("-");
+  if (!year || !month || !day) {
+    throw new Error(`Invalid event date: ${eventDate}`);
+  }
+  return `${day}-${month}-${year}`;
+}
+
+function buildEventProjectId(band: BandOption, eventDate: string, eventVenue: string): string {
+  const code = band.code?.trim() || band.id;
+  const date = formatDateForProjectId(eventDate);
+  const venueSlug = sanitizeVenueSlug(eventVenue) || "venue";
+  return `${code}_Inputlist_Stageplan_${date}_${venueSlug}`;
+}
+
+function buildGenericProjectId(band: BandOption, year: string): string {
+  const code = band.code?.trim() || band.id;
+  return `${code}_Inputlist_Stageplan_${year}`;
 }
 
 function formatProjectDate(project: ProjectSummary) {
@@ -48,6 +80,7 @@ function matchProjectDetailPath(pathname: string) {
 function App() {
   const [userDataDir, setUserDataDir] = useState<string>("");
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const [bands, setBands] = useState<BandOption[]>([]);
   const [status, setStatus] = useState<string>("");
   const [pathname, setPathname] = useState<string>(getCurrentPath());
 
@@ -69,15 +102,20 @@ function App() {
     setProjects(list);
   }
 
+  async function refreshBands() {
+    const list = await invoke<BandOption[]>("list_bands");
+    setBands(list);
+  }
+
   useEffect(() => {
     async function bootstrap() {
       const dir = await invoke<string>("get_user_data_dir");
       setUserDataDir(dir);
-      await refreshProjects();
+      await Promise.all([refreshProjects(), refreshBands()]);
     }
 
     bootstrap().catch((err) => {
-      setStatus(`Failed to load projects: ${String(err)}`);
+      setStatus(`Failed to load app data: ${String(err)}`);
     });
   }, []);
 
@@ -103,18 +141,16 @@ function App() {
           userDataDir={userDataDir}
           navigate={navigate}
           onOpenExisting={() => {
-            console.log("open existing clicked");
             setStatus("Open Existing is not implemented yet.");
           }}
         />
       ) : null}
 
-      {pathname === "/projects/new" ? (
-        <ChooseProjectTypePage navigate={navigate} />
-      ) : null}
+      {pathname === "/projects/new" ? <ChooseProjectTypePage navigate={navigate} /> : null}
 
       {pathname === "/projects/new/event" ? (
         <NewEventProjectPage
+          bands={bands}
           navigate={navigate}
           onCreated={async () => {
             await refreshProjects();
@@ -124,6 +160,7 @@ function App() {
 
       {pathname === "/projects/new/generic" ? (
         <NewGenericProjectPage
+          bands={bands}
           navigate={navigate}
           onCreated={async () => {
             await refreshProjects();
@@ -160,18 +197,6 @@ function StartPage({ projects, userDataDir, navigate, onOpenExisting }: StartPag
         <button type="button" className="button-secondary" onClick={onOpenExisting}>
           Open Existing
         </button>
-        {import.meta.env.DEV ? (
-          <button
-            type="button"
-            className="button-secondary"
-            onClick={() => {
-              console.log("debug click");
-              navigate("/projects/new");
-            }}
-          >
-            Debug click
-          </button>
-        ) : null}
       </div>
 
       {projects.length === 0 ? (
@@ -199,6 +224,7 @@ function StartPage({ projects, userDataDir, navigate, onOpenExisting }: StartPag
 type NewProjectPageProps = {
   navigate: (path: string) => void;
   onCreated: () => Promise<void>;
+  bands: BandOption[];
 };
 
 function ChooseProjectTypePage({ navigate }: Pick<NewProjectPageProps, "navigate">) {
@@ -212,78 +238,40 @@ function ChooseProjectTypePage({ navigate }: Pick<NewProjectPageProps, "navigate
       </div>
 
       <div className="actions-row">
-        <button type="button" onClick={() => navigate("/projects/new/event")}>
-          Event (show)
-        </button>
-        <button type="button" onClick={() => navigate("/projects/new/generic")}>
-          Generic (template)
-        </button>
+        <button type="button" onClick={() => navigate("/projects/new/event")}>Event</button>
+        <button type="button" onClick={() => navigate("/projects/new/generic")}>Generic</button>
       </div>
 
-      <p className="subtle">Project tied to a specific date/venue</p>
-      <p className="subtle">Reusable template / generic export</p>
+      <p className="subtle">For a specific show with date and venue.</p>
+      <p className="subtle">Reusable template for a season or tour.</p>
     </section>
   );
 }
 
-function NewEventProjectPage({ navigate, onCreated }: NewProjectPageProps) {
-  return (
-    <ProjectBaseForm
-      navigate={navigate}
-      onCreated={onCreated}
-      purpose="event"
-      heading="New Event Project"
-      projectNamePlaceholder="My next show"
-    />
-  );
-}
-
-function NewGenericProjectPage({ navigate, onCreated }: NewProjectPageProps) {
-  return (
-    <ProjectBaseForm
-      navigate={navigate}
-      onCreated={onCreated}
-      purpose="generic"
-      heading="New Generic Project"
-      projectNamePlaceholder="My reusable template"
-    />
-  );
-}
-
-type ProjectBaseFormProps = {
-  navigate: (path: string) => void;
-  onCreated: () => Promise<void>;
-  purpose: "event" | "generic";
-  heading: string;
-  projectNamePlaceholder: string;
-};
-
-function ProjectBaseForm({
-  navigate,
-  onCreated,
-  purpose,
-  heading,
-  projectNamePlaceholder,
-}: ProjectBaseFormProps) {
-  const [projectName, setProjectName] = useState<string>("");
+function NewEventProjectPage({ navigate, onCreated, bands }: NewProjectPageProps) {
+  const [eventDate, setEventDate] = useState<string>("");
+  const [eventVenue, setEventVenue] = useState<string>("");
   const [bandRef, setBandRef] = useState<string>("");
   const [status, setStatus] = useState<string>("");
 
+  const selectedBand = bands.find((band) => band.id === bandRef);
+  const canSubmit = Boolean(eventDate && eventVenue.trim() && selectedBand);
+
   async function createProject() {
-    if (!projectName.trim()) {
-      setStatus("Project name is required.");
+    if (!selectedBand || !eventDate || !eventVenue.trim()) {
+      setStatus("Date, venue, and band are required.");
       return;
     }
 
-    const base = slugifyName(projectName);
-    const fallback = `project-${Date.now()}`;
-    const id = `${base || fallback}-${Date.now().toString().slice(-6)}`;
+    const id = buildEventProjectId(selectedBand, eventDate, eventVenue);
     const payload: NewProjectPayload = {
       id,
-      title: projectName.trim(),
-      purpose,
+      purpose: "event",
+      eventDate,
+      eventVenue: eventVenue.trim(),
+      bandRef: selectedBand.id,
+      documentDate: eventDate,
       createdAt: new Date().toISOString(),
-      ...(bandRef.trim() ? { bandRef: bandRef.trim() } : {}),
     };
 
     await invoke("save_project", {
@@ -298,30 +286,125 @@ function ProjectBaseForm({
   return (
     <section className="panel">
       <div className="panel__header">
-        <h2>{heading}</h2>
-        <button type="button" className="button-secondary" onClick={() => navigate("/")}>
-          Back to projects
+        <h2>New Event Project</h2>
+        <button type="button" className="button-secondary" onClick={() => navigate("/projects/new")}>
+          Back
         </button>
       </div>
 
       <div className="form-grid">
         <label>
-          Project name *
+          Date *
+          <input type="date" value={eventDate} onChange={(event) => setEventDate(event.target.value)} />
+        </label>
+
+        <label>
+          Venue *
           <input
             type="text"
-            value={projectName}
-            onChange={(event) => setProjectName(event.target.value)}
-            placeholder={projectNamePlaceholder}
+            value={eventVenue}
+            onChange={(event) => setEventVenue(event.target.value)}
+            placeholder="Venue"
           />
         </label>
 
         <label>
-          bandRef (optional)
+          Band *
+          <select value={bandRef} onChange={(event) => setBandRef(event.target.value)}>
+            <option value="">Select band</option>
+            {bands.map((band) => (
+              <option key={band.id} value={band.id}>
+                {band.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {status ? <p className="status status--error">{status}</p> : null}
+
+      <div className="actions-row">
+        <button type="button" onClick={createProject} disabled={!canSubmit}>Create</button>
+      </div>
+    </section>
+  );
+}
+
+function NewGenericProjectPage({ navigate, onCreated, bands }: NewProjectPageProps) {
+  const [year, setYear] = useState<string>(String(new Date().getFullYear()));
+  const [note, setNote] = useState<string>("");
+  const [bandRef, setBandRef] = useState<string>("");
+  const [status, setStatus] = useState<string>("");
+
+  const selectedBand = bands.find((band) => band.id === bandRef);
+  const yearOk = /^\d{4}$/.test(year);
+  const canSubmit = Boolean(selectedBand && yearOk);
+
+  async function createProject() {
+    if (!selectedBand || !yearOk) {
+      setStatus("Band and validity year are required.");
+      return;
+    }
+
+    const id = buildGenericProjectId(selectedBand, year);
+    const payload: NewProjectPayload = {
+      id,
+      purpose: "generic",
+      bandRef: selectedBand.id,
+      documentDate: `${year}-01-01`,
+      ...(note.trim() ? { note: note.trim() } : {}),
+      createdAt: new Date().toISOString(),
+    };
+
+    await invoke("save_project", {
+      projectId: id,
+      json: JSON.stringify(payload, null, 2),
+    });
+
+    await onCreated();
+    navigate(`/projects/${id}`);
+  }
+
+  return (
+    <section className="panel">
+      <div className="panel__header">
+        <h2>New Generic Project</h2>
+        <button type="button" className="button-secondary" onClick={() => navigate("/projects/new")}>
+          Back
+        </button>
+      </div>
+
+      <div className="form-grid">
+        <label>
+          Band *
+          <select value={bandRef} onChange={(event) => setBandRef(event.target.value)}>
+            <option value="">Select band</option>
+            {bands.map((band) => (
+              <option key={band.id} value={band.id}>
+                {band.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          Note
           <input
             type="text"
-            value={bandRef}
-            onChange={(event) => setBandRef(event.target.value)}
-            placeholder="placeholder"
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder="Reusable template note"
+          />
+        </label>
+
+        <label>
+          Validity year *
+          <input
+            type="number"
+            min="2000"
+            max="2100"
+            value={year}
+            onChange={(event) => setYear(event.target.value)}
           />
         </label>
       </div>
@@ -329,9 +412,7 @@ function ProjectBaseForm({
       {status ? <p className="status status--error">{status}</p> : null}
 
       <div className="actions-row">
-        <button type="button" onClick={createProject}>
-          Create
-        </button>
+        <button type="button" onClick={createProject} disabled={!canSubmit}>Create</button>
       </div>
     </section>
   );

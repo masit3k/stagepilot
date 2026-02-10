@@ -13,7 +13,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -118,7 +119,8 @@ label {
   gap: 6px;
 }
 
-input {
+input,
+select {
   border: 1px solid #d1d5db;
   border-radius: 8px;
   padding: 8px;
@@ -135,4 +137,9 @@ input {
 .text-link {
   color: #2563eb;
   text-decoration: none;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }

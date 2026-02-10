@@ -43,8 +43,8 @@ export interface Project {
   /** Datum vytvoření/aktualizace dokumentu (vždy) */
   documentDate: string; // ISO "YYYY-MM-DD"
 
-  /** Název projektu (tour/sezóna/poznámka), typicky pro purpose="generic" */
-  title?: string;
+  /** Poznámka k projektu (tour/sezóna/poznámka), typicky pro purpose="generic" */
+  note?: string;
 
   /** Volitelně: volba template/layoutu */
   template?: string;
@@ -82,6 +82,8 @@ export interface ProjectJsonV2 {
   eventVenue?: string;
 
   documentDate: string;
+  note?: string;
+  /** Legacy read-compat only. */
   title?: string;
   template?: string;
   stageplan?: {
@@ -278,7 +280,7 @@ export interface DocumentViewModel {
     eventDate?: string;
     eventVenue?: string;
     documentDate: string;
-    title?: string;
+    note?: string;
 
     /** Už připravený meta řádek k vytištění */
     metaLine: MetaLineModel;

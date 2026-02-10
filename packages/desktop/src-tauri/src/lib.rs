@@ -26,6 +26,13 @@ struct ProjectSummary {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+struct BandOption {
+    id: String,
+    name: String,
+    code: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ExportPdfResult {
     version_pdf_path: String,
@@ -63,15 +70,12 @@ fn resolve_user_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, ApiError> {
         return Ok(resolve_repo_root().join("user_data"));
     }
 
-let app_data_dir = app
-  .path()
-  .app_data_dir()
-  .map_err(|e| ApiError {
-    code: "APP_DATA_DIR_FAILED".into(),
-    message: format!("Failed to resolve app_data_dir: {e}"),
-    export_pdf_path: None,
-    version_pdf_path: None,
-  })?;
+    let app_data_dir = app.path().app_data_dir().map_err(|e| ApiError {
+        code: "APP_DATA_DIR_FAILED".into(),
+        message: format!("Failed to resolve app_data_dir: {e}"),
+        export_pdf_path: None,
+        version_pdf_path: None,
+    })?;
 
     Ok(app_data_dir)
 }
@@ -165,6 +169,58 @@ fn list_projects(app: tauri::AppHandle) -> Result<Vec<ProjectSummary>, ApiError>
 }
 
 #[tauri::command]
+fn list_bands() -> Result<Vec<BandOption>, ApiError> {
+    let bands_dir = resolve_repo_root().join("data").join("bands");
+    let entries = fs::read_dir(&bands_dir)
+        .map_err(|err| map_io_error(err, "BAND_LIST_FAILED", "Failed to read bands"))?;
+
+    let mut results = Vec::new();
+    for entry in entries {
+        let entry =
+            entry.map_err(|err| map_io_error(err, "BAND_LIST_FAILED", "Failed to read bands"))?;
+        let path = entry.path();
+        if path.extension().and_then(|s| s.to_str()) != Some("json") {
+            continue;
+        }
+
+        let contents = fs::read_to_string(&path)
+            .map_err(|err| map_io_error(err, "BAND_LIST_FAILED", "Failed to read band file"))?;
+
+        let json: serde_json::Value = serde_json::from_str(&contents).map_err(|err| ApiError {
+            code: "BAND_LIST_FAILED".into(),
+            message: format!("Invalid band JSON: {}", err),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        })?;
+
+        let id = json
+            .get("id")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .unwrap_or_default();
+        let name = json
+            .get("name")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .unwrap_or_default();
+
+        if id.is_empty() || name.is_empty() {
+            continue;
+        }
+
+        let code = json
+            .get("code")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+
+        results.push(BandOption { id, name, code });
+    }
+
+    results.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    Ok(results)
+}
+
+#[tauri::command]
 fn read_project(app: tauri::AppHandle, project_id: String) -> Result<String, ApiError> {
     let user_data_dir = resolve_user_data_dir(&app)?;
     let project_path = user_data_dir
@@ -217,17 +273,18 @@ fn export_pdf(app: tauri::AppHandle, project_id: String) -> Result<ExportPdfResu
         .map_err(|err| map_io_error(err, "EXPORT_FAILED", "Failed to execute export"))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let response: NodeExportResponse = serde_json::from_str(stdout.trim()).map_err(|err| ApiError {
-        code: "EXPORT_FAILED".into(),
-        message: format!(
-            "Failed to parse export response: {} (stdout: {}, stderr: {})",
-            err,
-            stdout,
-            String::from_utf8_lossy(&output.stderr)
-        ),
-        export_pdf_path: None,
-        version_pdf_path: None,
-    })?;
+    let response: NodeExportResponse =
+        serde_json::from_str(stdout.trim()).map_err(|err| ApiError {
+            code: "EXPORT_FAILED".into(),
+            message: format!(
+                "Failed to parse export response: {} (stdout: {}, stderr: {})",
+                err,
+                stdout,
+                String::from_utf8_lossy(&output.stderr)
+            ),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        })?;
 
     if response.ok {
         return response.result.ok_or(ApiError {
@@ -239,9 +296,7 @@ fn export_pdf(app: tauri::AppHandle, project_id: String) -> Result<ExportPdfResu
     }
 
     let code = response.code.unwrap_or_else(|| "EXPORT_FAILED".into());
-    let message = response
-        .message
-        .unwrap_or_else(|| "Export failed.".into());
+    let message = response.message.unwrap_or_else(|| "Export failed.".into());
 
     Err(ApiError {
         code,
@@ -318,6 +373,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_user_data_dir,
             list_projects,
+            list_bands,
             read_project,
             save_project,
             export_pdf,
