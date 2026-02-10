@@ -568,6 +568,10 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
   const vocsAll = lineupMusicians.filter((x) => x.group === "vocs").map((x) => x.musician);
   const leads = vocsAll.filter((m) => hasLeadPreset(m));
   const leadResolved = leads.length > 0 ? leads : vocsAll;
+  const leadVocalStageplanPersons = leadResolved.map((m) => ({
+    firstName: m.firstName ?? null,
+    isBandLeader: m.id === band.bandLeader,
+  }));
   const leadVocalCount = inputs.filter((input) => input.key.startsWith("voc_lead")).length;
   const leadLabel = (index: number, gender?: string): string => {
     return formatLeadVocalLabel(leadVocalCount, index, gender);
@@ -680,6 +684,7 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
 
     stageplan: {
       lineupByRole,
+      leadVocals: leadVocalStageplanPersons,
       inputs: stageplanInputs,
       monitorOutputs: monitorTableRows.map((row) => ({
         no: Number.parseInt(row.no, 10),

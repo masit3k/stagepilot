@@ -327,6 +327,7 @@ export interface DocumentViewModel {
 
   stageplan: {
     lineupByRole: Partial<Record<StageplanInstrumentKey, StageplanPerson>>;
+    leadVocals?: StageplanPerson[];
     inputs: Array<{
       channelNo: number;
       label: string;

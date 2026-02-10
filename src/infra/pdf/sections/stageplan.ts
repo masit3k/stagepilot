@@ -12,6 +12,23 @@ import { pdfLayout } from "../layout.js";
 
 const MM_TO_PT = 72 / 25.4;
 
+type StageplanRoleSlot = "drums" | "bass" | "guitar" | "keys" | "lead_voc_1" | "lead_voc_2";
+type StageplanLayoutId = "layout_5_party" | "layout_6_2_vocs";
+
+type StageplanLayoutDefinition = {
+  id: StageplanLayoutId;
+  topRow: ReadonlyArray<{ slot: StageplanRoleSlot; column: 0 | 1 | 2 }>;
+  bottomRow: {
+    columns: number;
+    slots: ReadonlyArray<StageplanRoleSlot>;
+    typography: {
+      fontSizeDeltaPt: number;
+      lineHeightDelta: number;
+      bulletSpacingPx: number;
+    };
+  };
+};
+
 function parsePt(value: string): number {
   const m = /([0-9.]+)\s*pt/i.exec(value);
   if (!m) {
@@ -60,15 +77,44 @@ const stageplanLayout = {
   powerCellColor: "#F7E65A",
 } as const;
 
-const instrumentOrder: StageplanInstrument[] = [
-  "Drums",
-  "Bass",
-  "Guitar",
-  "Lead vocal",
-  "Keys",
-];
+const STAGEPLAN_LAYOUTS: Record<StageplanLayoutId, StageplanLayoutDefinition> = {
+  layout_5_party: {
+    id: "layout_5_party",
+    topRow: [
+      { slot: "drums", column: 1 },
+      { slot: "bass", column: 2 },
+    ],
+    bottomRow: {
+      columns: 3,
+      slots: ["guitar", "lead_voc_1", "keys"],
+      typography: {
+        fontSizeDeltaPt: 0,
+        lineHeightDelta: 0,
+        bulletSpacingPx: 6,
+      },
+    },
+  },
+  layout_6_2_vocs: {
+    id: "layout_6_2_vocs",
+    topRow: [
+      { slot: "drums", column: 1 },
+      { slot: "bass", column: 2 },
+    ],
+    bottomRow: {
+      columns: 4,
+      slots: ["guitar", "lead_voc_1", "lead_voc_2", "keys"],
+      typography: {
+        fontSizeDeltaPt: -1,
+        lineHeightDelta: -0.05,
+        bulletSpacingPx: 4,
+      },
+    },
+  },
+};
 
 type StageplanBoxPlan = {
+  slot: StageplanRoleSlot;
+  row: "top" | "bottom";
   instrument: StageplanInstrument;
   header: string;
   inputBullets: string[];
@@ -76,6 +122,14 @@ type StageplanBoxPlan = {
   extraBullets: string[];
   hasPowerBadge: boolean;
   powerBadgeText: string;
+  typography: {
+    fontSizePt: number;
+    lineHeight: number;
+    bulletSpacingPx: number;
+    titleGapPt: number;
+    boxPaddingBottomPt: number;
+    powerBadgeSpacerHeightPt: number;
+  };
   position: { xMm: number; yMm: number; widthMm: number; heightMm: number };
 };
 
@@ -84,7 +138,7 @@ type StageplanBoxContent = Omit<StageplanBoxPlan, "position">;
 export type StageplanPlan = {
   heading: { text: string; fontSize: string; fontWeight: number };
   textStyle: { fontSize: string; lineHeight: number };
-  layout: typeof stageplanLayout & { areaHeightMm: number };
+  layout: typeof stageplanLayout & { areaHeightMm: number; layoutId: StageplanLayoutId };
   boxes: StageplanBoxPlan[];
 };
 
@@ -105,104 +159,161 @@ function formatMonitorBullet(note: string, no: number): string {
   return `${label} (${no})`;
 }
 
-function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPlan[] {
-  const inputByInstrument = new Map<
-    StageplanInstrument,
-    Array<{ channelNo: number; label: string; group?: Group }>
-  >();
-  const monitorByInstrument = new Map<StageplanInstrument, Array<{ no: number; label: string }>>();
+function resolveLeadVocalSlotLabel(label: string): "lead_voc_1" | "lead_voc_2" {
+  const normalized = label.toLowerCase();
+  if (/\b2\b/.test(normalized)) return "lead_voc_2";
+  return "lead_voc_1";
+}
 
-  for (const instrument of instrumentOrder) {
-    inputByInstrument.set(instrument, []);
-    monitorByInstrument.set(instrument, []);
+function roleDataForSlot(
+  vm: DocumentViewModel["stageplan"],
+  slot: StageplanRoleSlot
+): { instrument: StageplanInstrument; role: StageplanInstrumentKey; firstName: string | null; isBandLeader: boolean } {
+  if (slot === "lead_voc_1" || slot === "lead_voc_2") {
+    const leads = vm.leadVocals ?? [];
+    const fallback = vm.lineupByRole.vocs;
+    const lead = slot === "lead_voc_1" ? (leads[0] ?? fallback) : (leads[1] ?? null);
+    return {
+      instrument: "Lead vocal",
+      role: "vocs",
+      firstName: lead?.firstName ?? null,
+      isBandLeader: lead?.isBandLeader ?? false,
+    };
+  }
+
+  const bySlot: Record<Exclude<StageplanRoleSlot, "lead_voc_1" | "lead_voc_2">, { instrument: StageplanInstrument; role: StageplanInstrumentKey }> = {
+    drums: { instrument: "Drums", role: "drums" },
+    bass: { instrument: "Bass", role: "bass" },
+    guitar: { instrument: "Guitar", role: "guitar" },
+    keys: { instrument: "Keys", role: "keys" },
+  };
+  const meta = bySlot[slot];
+  const person = vm.lineupByRole[meta.role];
+  return {
+    instrument: meta.instrument,
+    role: meta.role,
+    firstName: person?.firstName ?? null,
+    isBandLeader: person?.isBandLeader ?? false,
+  };
+}
+
+export function matchStageplanLayout(vm: DocumentViewModel["stageplan"]): StageplanLayoutDefinition {
+  const leadCount = vm.leadVocals?.length ?? (vm.lineupByRole.vocs?.firstName ? 1 : 0);
+  if (leadCount === 2) return STAGEPLAN_LAYOUTS.layout_6_2_vocs;
+  if (leadCount > 2) {
+    throw new Error(`Unsupported lead vocal count for stageplan layout: ${leadCount}`);
+  }
+  return STAGEPLAN_LAYOUTS.layout_5_party;
+}
+
+function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): { layout: StageplanLayoutDefinition; boxes: StageplanBoxPlan[]; areaHeightMm: number } {
+  const selectedLayout = matchStageplanLayout(vm);
+  const allSlots = [...selectedLayout.topRow.map((item) => item.slot), ...selectedLayout.bottomRow.slots];
+
+  const inputBySlot = new Map<StageplanRoleSlot, Array<{ channelNo: number; label: string; group?: Group }>>();
+  const monitorBySlot = new Map<StageplanRoleSlot, Array<{ no: number; label: string }>>();
+  for (const slot of allSlots) {
+    inputBySlot.set(slot, []);
+    monitorBySlot.set(slot, []);
   }
 
   for (const input of vm.inputs) {
     const instrument = resolveStageplanRoleForInput(input);
     if (!instrument) continue;
-    inputByInstrument
-      .get(instrument)
-      ?.push({ channelNo: input.channelNo, label: input.label, group: input.group });
+    if (instrument === "Lead vocal") {
+      const slot = resolveLeadVocalSlotLabel(input.label);
+      inputBySlot.get(slot)?.push({ channelNo: input.channelNo, label: input.label, group: input.group });
+      continue;
+    }
+    const slotByInstrument: Record<Exclude<StageplanInstrument, "Lead vocal">, StageplanRoleSlot> = {
+      Drums: "drums",
+      Bass: "bass",
+      Guitar: "guitar",
+      Keys: "keys",
+    };
+    inputBySlot.get(slotByInstrument[instrument])?.push({ channelNo: input.channelNo, label: input.label, group: input.group });
   }
 
   for (const output of vm.monitorOutputs) {
     const instrument = resolveMonitorInstrument(output.output);
     if (!instrument) continue;
     const bullet = formatMonitorBullet(output.note, output.no);
-    monitorByInstrument.get(instrument)?.push({ no: output.no, label: bullet });
+    if (instrument === "Lead vocal") {
+      const slot = resolveLeadVocalSlotLabel(output.output);
+      monitorBySlot.get(slot)?.push({ no: output.no, label: bullet });
+      continue;
+    }
+    const slotByInstrument: Record<Exclude<StageplanInstrument, "Lead vocal">, StageplanRoleSlot> = {
+      Drums: "drums",
+      Bass: "bass",
+      Guitar: "guitar",
+      Keys: "keys",
+    };
+    monitorBySlot.get(slotByInstrument[instrument])?.push({ no: output.no, label: bullet });
   }
 
-  const instrumentToRole: Record<StageplanInstrument, StageplanInstrumentKey> = {
-    Drums: "drums",
-    Bass: "bass",
-    Guitar: "guitar",
-    Keys: "keys",
-    "Lead vocal": "vocs",
+  const buildInputLines = (items: Array<{ channelNo: number; label: string }>): StageplanLine[] =>
+    items.map((item) => ({
+      kind: "input",
+      label: item.label,
+      no: item.channelNo,
+    }));
+
+  const isPadInput = (label: string): boolean => /pad/i.test(label);
+  const isDummyInput = (label: string): boolean => /dummy/i.test(label);
+  const isBackVocalDrums = (label: string): boolean => /back vocal\s*[-–—]\s*drums/i.test(label);
+  const formatRange = (label: string, items: Array<{ channelNo: number }>): string | null => {
+    if (items.length === 0) return null;
+    const numbers = items.map((item) => item.channelNo);
+    const min = Math.min(...numbers);
+    const max = Math.max(...numbers);
+    const range = min === max ? `${min}` : `${min}–${max}`;
+    return `${label} (${range})`;
   };
 
-  const boxContents: StageplanBoxContent[] = instrumentOrder.map((instrument) => {
-    const role = instrumentToRole[instrument];
-    const person = vm.lineupByRole[role];
-    const firstName = person?.firstName ?? null;
-    const powerBadge = vm.powerByRole[role];
+  const topTypography = {
+    fontSizePt: parsePt(stageplanLayout.textSize),
+    lineHeight: stageplanLayout.textLineHeight,
+    bulletSpacingPx: 6,
+    titleGapPt: parsePt(stageplanLayout.boxTitleGap),
+    boxPaddingBottomPt: parsePt(stageplanLayout.boxPaddingBottom),
+    powerBadgeSpacerHeightPt: parsePt(stageplanLayout.powerBadgeSpacerHeight),
+  };
+  const bottomTypography = {
+    fontSizePt: topTypography.fontSizePt + selectedLayout.bottomRow.typography.fontSizeDeltaPt,
+    lineHeight: topTypography.lineHeight + selectedLayout.bottomRow.typography.lineHeightDelta,
+    bulletSpacingPx: selectedLayout.bottomRow.typography.bulletSpacingPx,
+    titleGapPt: topTypography.titleGapPt,
+    boxPaddingBottomPt: topTypography.boxPaddingBottomPt,
+    powerBadgeSpacerHeightPt: parsePt(stageplanLayout.powerBadgeSpacerHeight) +
+      selectedLayout.bottomRow.typography.fontSizeDeltaPt * (topTypography.lineHeight + selectedLayout.bottomRow.typography.lineHeightDelta),
+  };
+
+  const boxContents: StageplanBoxContent[] = allSlots.map((slot) => {
+    const isBottom = selectedLayout.bottomRow.slots.includes(slot);
+    const roleData = roleDataForSlot(vm, slot);
+    const powerBadge = vm.powerByRole[roleData.role];
     const header = formatStageplanBoxHeader({
-      instrumentLabel: instrument,
-      firstName,
-      isBandLeader: person?.isBandLeader ?? false,
+      instrumentLabel: roleData.instrument,
+      firstName: roleData.firstName,
+      isBandLeader: roleData.isBandLeader,
     });
 
-    const inputs = (inputByInstrument.get(instrument) ?? []).slice().sort((a, b) => {
-      return a.channelNo - b.channelNo;
-    });
-
-    const buildInputLines = (
-      items: Array<{ channelNo: number; label: string }>
-    ): StageplanLine[] =>
-      items.map((item) => ({
-        kind: "input",
-        label: item.label,
-        no: item.channelNo,
-      }));
-
-    const isPadInput = (label: string): boolean => /pad/i.test(label);
-    const isDummyInput = (label: string): boolean => /dummy/i.test(label);
-    const isBackVocalDrums = (label: string): boolean =>
-      /back vocal\s*[-–—]\s*drums/i.test(label);
-    const formatRange = (label: string, items: Array<{ channelNo: number }>): string | null => {
-      if (items.length === 0) return null;
-      const numbers = items.map((item) => item.channelNo);
-      const min = Math.min(...numbers);
-      const max = Math.max(...numbers);
-      const range = min === max ? `${min}` : `${min}–${max}`;
-      return `${label} (${range})`;
-    };
-
+    const inputs = (inputBySlot.get(slot) ?? []).slice().sort((a, b) => a.channelNo - b.channelNo);
     const inputBullets =
-      instrument === "Drums"
+      slot === "drums"
         ? (() => {
-            const padInputs = inputs.filter(
-              (item) => isPadInput(item.label) && !isDummyInput(item.label)
-            );
-            const backVocalInputs = inputs.filter((item) =>
-              isBackVocalDrums(item.label)
-            );
+            const padInputs = inputs.filter((item) => isPadInput(item.label) && !isDummyInput(item.label));
+            const backVocalInputs = inputs.filter((item) => isBackVocalDrums(item.label));
             const drumInputs = inputs.filter(
-              (item) =>
-                item.group === "drums" &&
-                !isPadInput(item.label) &&
-                !isDummyInput(item.label) &&
-                !isBackVocalDrums(item.label)
+              (item) => item.group === "drums" && !isPadInput(item.label) && !isDummyInput(item.label) && !isBackVocalDrums(item.label)
             );
             const bullets: string[] = [];
             const drumRange = formatRange("Drums", drumInputs);
             const padRange = formatRange("PAD", padInputs);
             const padLines = buildInputLines(padInputs);
             const collapsedPadLines = collapseStereoForStageplan(padLines);
-            const padStereoLine =
-              padInputs.length === 2 && collapsedPadLines.length === 1
-                ? collapsedPadLines[0]?.text ?? null
-                : null;
-
+            const padStereoLine = padInputs.length === 2 && collapsedPadLines.length === 1 ? (collapsedPadLines[0]?.text ?? null) : null;
             if (drumRange) bullets.push(drumRange);
             if (padStereoLine) {
               bullets.push(padStereoLine);
@@ -216,32 +327,22 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
           })()
         : collapseStereoForStageplan(buildInputLines(inputs)).map((line) => line.text);
 
-    const monitors = (monitorByInstrument.get(instrument) ?? [])
-      .slice()
-      .sort((a, b) => a.no - b.no)
-      .map((item) => item.label);
-
-    const extraBullets: string[] = [];
-    if (instrument === "Drums") {
-      extraBullets.push("Drum riser 3x2");
-    }
+    const monitors = (monitorBySlot.get(slot) ?? []).slice().sort((a, b) => a.no - b.no).map((item) => item.label);
+    const extraBullets: string[] = slot === "drums" ? ["Drum riser 3x2"] : [];
 
     return {
-      instrument,
+      slot,
+      row: isBottom ? "bottom" : "top",
+      instrument: roleData.instrument,
       header,
       inputBullets,
       monitorBullets: monitors,
       extraBullets,
       hasPowerBadge: powerBadge?.hasPowerBadge ?? false,
       powerBadgeText: powerBadge?.powerBadgeText ?? "",
+      typography: isBottom ? bottomTypography : topTypography,
     };
   });
-
-  const boxTitleGapPt = parsePt(stageplanLayout.boxTitleGap);
-  const boxPaddingBottomPt = parsePt(stageplanLayout.boxPaddingBottom);
-  const fontSizePt = parsePt(stageplanLayout.textSize);
-  const lineHeightPt = fontSizePt * stageplanLayout.textLineHeight;
-  const powerBadgeSpacerHeightPt = parsePt(stageplanLayout.powerBadgeSpacerHeight);
 
   const countRenderedLines = (box: StageplanBoxContent): number => {
     const inputLines = box.inputBullets.length;
@@ -254,62 +355,49 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): StageplanBoxPl
   };
 
   const calculateRequiredHeightPt = (box: StageplanBoxContent): number => {
-    const hasBody =
-      box.inputBullets.length > 0 ||
-      box.monitorBullets.length > 0 ||
-      box.extraBullets.length > 0;
+    const hasBody = box.inputBullets.length > 0 || box.monitorBullets.length > 0 || box.extraBullets.length > 0;
     const lines = countRenderedLines(box);
-    const baseHeight =
-      boxTitleGapPt +
-      lineHeightPt +
-      (hasBody ? boxTitleGapPt : 0) +
-      lines * lineHeightPt;
-    const bottomPart = box.hasPowerBadge ? powerBadgeSpacerHeightPt : boxPaddingBottomPt;
+    const lineHeightPt = box.typography.fontSizePt * box.typography.lineHeight;
+    const baseHeight = box.typography.titleGapPt + lineHeightPt + (hasBody ? box.typography.titleGapPt : 0) + lines * lineHeightPt;
+    const bottomPart = box.hasPowerBadge ? box.typography.powerBadgeSpacerHeightPt : box.typography.boxPaddingBottomPt;
     return baseHeight + bottomPart;
   };
 
-  const requiredHeightsPt = boxContents.map((box) => calculateRequiredHeightPt(box));
-  const maxHeightPt = Math.max(...requiredHeightsPt);
-  const maxHeightMm = maxHeightPt / MM_TO_PT;
-
-  for (const [index, box] of boxContents.entries()) {
-    if (requiredHeightsPt[index] > maxHeightPt + 0.01) {
-      throw new Error(`Stageplan overflow in ${box.instrument}`);
-    }
-  }
+  const topBoxes = boxContents.filter((box) => box.row === "top");
+  const bottomBoxes = boxContents.filter((box) => box.row === "bottom");
+  const topHeightMm = Math.max(...topBoxes.map((box) => calculateRequiredHeightPt(box))) / MM_TO_PT;
+  const bottomHeightMm = Math.max(...bottomBoxes.map((box) => calculateRequiredHeightPt(box))) / MM_TO_PT;
 
   const topRowY = 0;
-  const topRowHeight = maxHeightMm;
-  const bottomRowY = topRowHeight + stageplanLayout.gapYmm;
-  const leftX = 0;
-  const midX = leftX + stageplanLayout.boxWidthMm + stageplanLayout.gapXmm;
-  const rightX = midX + stageplanLayout.boxWidthMm + stageplanLayout.gapXmm;
+  const bottomRowY = topHeightMm + stageplanLayout.gapYmm;
+  const topX = [0, stageplanLayout.boxWidthMm + stageplanLayout.gapXmm, 2 * (stageplanLayout.boxWidthMm + stageplanLayout.gapXmm)] as const;
+  const bottomWidthMm =
+    (stageplanLayout.areaWidthMm - stageplanLayout.gapXmm * (selectedLayout.bottomRow.columns - 1)) /
+    selectedLayout.bottomRow.columns;
 
-  const positions: Record<StageplanInstrument, { xMm: number; yMm: number }> = {
-    Drums: { xMm: midX, yMm: topRowY },
-    Bass: { xMm: rightX, yMm: topRowY },
-    Guitar: { xMm: leftX, yMm: bottomRowY },
-    "Lead vocal": { xMm: midX, yMm: bottomRowY },
-    Keys: { xMm: rightX, yMm: bottomRowY },
+  const positionBySlot = new Map<StageplanRoleSlot, { xMm: number; yMm: number; widthMm: number; heightMm: number }>();
+  for (const item of selectedLayout.topRow) {
+    positionBySlot.set(item.slot, { xMm: topX[item.column], yMm: topRowY, widthMm: stageplanLayout.boxWidthMm, heightMm: topHeightMm });
+  }
+  selectedLayout.bottomRow.slots.forEach((slot, index) => {
+    positionBySlot.set(slot, {
+      xMm: index * (bottomWidthMm + stageplanLayout.gapXmm),
+      yMm: bottomRowY,
+      widthMm: bottomWidthMm,
+      heightMm: bottomHeightMm,
+    });
+  });
+
+  return {
+    layout: selectedLayout,
+    areaHeightMm: topHeightMm + stageplanLayout.gapYmm + bottomHeightMm,
+    boxes: boxContents.map((box) => ({ ...box, position: positionBySlot.get(box.slot)! })),
   };
-
-  return boxContents.map((box) => ({
-    ...box,
-    position: {
-      xMm: positions[box.instrument].xMm,
-      yMm: positions[box.instrument].yMm,
-      widthMm: stageplanLayout.boxWidthMm,
-      heightMm: maxHeightMm,
-    },
-  }));
 }
 
 export function buildStageplanPlan(vm: DocumentViewModel["stageplan"]): StageplanPlan {
-  const boxes = buildStageplanBoxes(vm);
-  const maxHeightMm = Math.max(...boxes.map((box) => box.position.heightMm));
-  const topRowHeight = maxHeightMm;
-  const bottomRowHeight = maxHeightMm;
-  const areaHeightMm = topRowHeight + stageplanLayout.gapYmm + bottomRowHeight;
+  const built = buildStageplanBoxes(vm);
+  const areaHeightMm = built.areaHeightMm;
   const pageHeightMm = 297;
   const marginTopMm = parseMm(pdfLayout.page.margins.top);
   const marginBottomMm = parseMm(pdfLayout.page.margins.bottom);
@@ -318,17 +406,11 @@ export function buildStageplanPlan(vm: DocumentViewModel["stageplan"]): Stagepla
   const containerPadMm = (parsePt(stageplanLayout.containerPad) / MM_TO_PT) * 2;
   const sectionMarginTopMm = parsePt(stageplanLayout.sectionMarginTop) / MM_TO_PT;
   const totalHeightMm =
-    sectionMarginTopMm +
-    headingHeightMm +
-    containerMarginTopMm +
-    containerPadMm +
-    areaHeightMm;
+    sectionMarginTopMm + headingHeightMm + containerMarginTopMm + containerPadMm + areaHeightMm;
   const availableHeightMm = pageHeightMm - marginTopMm - marginBottomMm;
   if (totalHeightMm > availableHeightMm) {
     throw new Error(
-      `Stageplan layout overflow: required ${totalHeightMm.toFixed(
-        2
-      )}mm exceeds available ${availableHeightMm.toFixed(2)}mm.`
+      `Stageplan layout overflow: required ${totalHeightMm.toFixed(2)}mm exceeds available ${availableHeightMm.toFixed(2)}mm.`
     );
   }
   return {
@@ -344,8 +426,9 @@ export function buildStageplanPlan(vm: DocumentViewModel["stageplan"]): Stagepla
     layout: {
       ...stageplanLayout,
       areaHeightMm,
+      layoutId: built.layout.id,
     },
-    boxes,
+    boxes: built.boxes,
   };
 }
 
@@ -358,18 +441,15 @@ export function renderStageplanSection(vm: DocumentViewModel): string {
       const lines: string[] = [];
       lines.push(`<div class="stageplanBoxHeader">${box.header}</div>`);
 
-      const hasBody =
-        box.inputBullets.length > 0 ||
-        box.monitorBullets.length > 0 ||
-        box.extraBullets.length > 0;
+      const hasBody = box.inputBullets.length > 0 || box.monitorBullets.length > 0 || box.extraBullets.length > 0;
       if (hasBody) {
-        lines.push(`<div class="stageplanTitleGap"></div>`);
+        lines.push(`<div class="stageplanTitleGap" style="height:${box.typography.titleGapPt}pt;"></div>`);
       }
 
       const addBullets = (bullets: string[]) => {
         for (const bullet of bullets) {
           lines.push(
-            `<div class="stageplanBoxLine"><span class="bullet">•</span><span class="text">${bullet}</span></div>`
+            `<div class="stageplanBoxLine"><span class="bullet" style="margin-right:${box.typography.bulletSpacingPx}px;">•</span><span class="text">${bullet}</span></div>`
           );
         }
       };
@@ -377,29 +457,27 @@ export function renderStageplanSection(vm: DocumentViewModel): string {
       addBullets(box.inputBullets);
       if (box.monitorBullets.length > 0) {
         if (box.inputBullets.length > 0) {
-          lines.push(`<div class="stageplanGap"></div>`);
+          lines.push(`<div class="stageplanGap" style="height:calc(1em * ${box.typography.lineHeight});"></div>`);
         }
         addBullets(box.monitorBullets);
       }
       if (box.extraBullets.length > 0) {
         if (box.monitorBullets.length > 0 || box.inputBullets.length > 0) {
-          lines.push(`<div class="stageplanGap"></div>`);
+          lines.push(`<div class="stageplanGap" style="height:calc(1em * ${box.typography.lineHeight});"></div>`);
         }
         addBullets(box.extraBullets);
       }
 
-      const powerHtml = box.hasPowerBadge
-        ? `<div class="stageplanPower">${box.powerBadgeText}</div>`
-        : "";
+      const powerHtml = box.hasPowerBadge ? `<div class="stageplanPower">${box.powerBadgeText}</div>` : "";
 
       if (box.hasPowerBadge) {
-        lines.push(`<div class="stageplanPowerGap"></div>`);
+        lines.push(`<div class="stageplanPowerGap" style="height:${box.typography.powerBadgeSpacerHeightPt}pt;"></div>`);
       }
 
       const powerClass = box.hasPowerBadge ? " stageplanBox--withPower" : "";
 
       return `
-<div class="stageplanBox${powerClass}" style="left:${box.position.xMm}mm; top:${box.position.yMm}mm; width:${box.position.widthMm}mm; height:${box.position.heightMm}mm;">\n  ${lines.join("")}\n  ${powerHtml}\n</div>`.trim();
+<div class="stageplanBox${powerClass}" style="left:${box.position.xMm}mm; top:${box.position.yMm}mm; width:${box.position.widthMm}mm; height:${box.position.heightMm}mm; font-size:${box.typography.fontSizePt}pt; line-height:${box.typography.lineHeight};">\n  ${lines.join("")}\n  ${powerHtml}\n</div>`.trim();
     })
     .join("\n");
 

@@ -5,7 +5,7 @@ import path from "node:path";
 import { loadRepository } from "../../fs/repo.js";
 import { buildDocument } from "../../../domain/pipeline/buildDocument.js";
 import type { Project } from "../../../domain/model/types.js";
-import { buildStageplanPlan } from "./stageplan.js";
+import { buildStageplanPlan, matchStageplanLayout } from "./stageplan.js";
 import { pdfLayout } from "../layout.js";
 
 function parsePt(value: string): number {
@@ -33,6 +33,7 @@ describe("stageplan render plan", () => {
       const vm = buildDocument(project, repo);
       const plan = buildStageplanPlan(vm.stageplan);
 
+      expect(plan.layout.layoutId).toBe("layout_5_party");
       expect(plan.boxes).toHaveLength(5);
 
       expect(parsePt(plan.heading.fontSize)).toBeLessThan(
@@ -41,11 +42,11 @@ describe("stageplan render plan", () => {
 
       expect(plan.textStyle.fontSize).toBe(pdfLayout.typography.table.size);
 
-      const drumsBox = plan.boxes.find((box) => box.instrument === "Drums");
+      const drumsBox = plan.boxes.find((box) => box.slot === "drums");
       expect(drumsBox).toBeTruthy();
       expect(drumsBox?.header).toBe("DRUMS – PAVEL");
 
-      const bassBox = plan.boxes.find((box) => box.instrument === "Bass");
+      const bassBox = plan.boxes.find((box) => box.slot === "bass");
       expect(bassBox).toBeTruthy();
       expect(bassBox?.header).toBe("BASS – MATĚJ (band leader)");
 
@@ -65,14 +66,82 @@ describe("stageplan render plan", () => {
         expect.arrayContaining(["Drum riser 3x2"])
       );
 
-      const heights = plan.boxes.map((box) => box.position.heightMm);
-      const maxHeight = Math.max(...heights);
-      for (const height of heights) {
-        expect(height).toBeCloseTo(maxHeight, 5);
-      }
+      const topBoxes = plan.boxes.filter((box) => box.row === "top");
+      const bottomBoxes = plan.boxes.filter((box) => box.row === "bottom");
+      const topHeight = topBoxes[0]?.position.heightMm ?? 0;
+      const bottomHeight = bottomBoxes[0]?.position.heightMm ?? 0;
+      expect(topBoxes.every((box) => Math.abs(box.position.heightMm - topHeight) < 0.001)).toBe(true);
+      expect(bottomBoxes.every((box) => Math.abs(box.position.heightMm - bottomHeight) < 0.001)).toBe(true);
     } finally {
       await fs.rm(tmpRoot, { recursive: true, force: true });
     }
+  });
+
+  it("selects layout by lead vocalist count", () => {
+    expect(
+      matchStageplanLayout({
+        lineupByRole: { vocs: { firstName: "A", isBandLeader: false } },
+        leadVocals: [{ firstName: "A", isBandLeader: false }],
+        inputs: [],
+        monitorOutputs: [],
+        powerByRole: {},
+      }).id
+    ).toBe("layout_5_party");
+
+    expect(
+      matchStageplanLayout({
+        lineupByRole: {},
+        leadVocals: [
+          { firstName: "A", isBandLeader: false },
+          { firstName: "B", isBandLeader: false },
+        ],
+        inputs: [],
+        monitorOutputs: [],
+        powerByRole: {},
+      }).id
+    ).toBe("layout_6_2_vocs");
+  });
+
+  it("renders layout_6_2_vocs in slot order with dynamic names", () => {
+    const plan = buildStageplanPlan({
+      lineupByRole: {
+        drums: { firstName: "Drummer", isBandLeader: false },
+        bass: { firstName: "Bassist", isBandLeader: false },
+        guitar: { firstName: "Guitarist", isBandLeader: false },
+        keys: { firstName: "Keysman", isBandLeader: false },
+      },
+      leadVocals: [
+        { firstName: "Alice", isBandLeader: false },
+        { firstName: "Bob", isBandLeader: false },
+      ],
+      inputs: [
+        { channelNo: 1, label: "Lead vocal 1", group: "vocs" },
+        { channelNo: 2, label: "Lead vocal 2", group: "vocs" },
+      ],
+      monitorOutputs: [
+        { no: 1, output: "Lead vocal 1", note: "IEM A" },
+        { no: 2, output: "Lead vocal 2", note: "IEM B" },
+      ],
+      powerByRole: {},
+    });
+
+    expect(plan.layout.layoutId).toBe("layout_6_2_vocs");
+    const bottomSlots = plan.boxes
+      .filter((box) => box.row === "bottom")
+      .sort((a, b) => a.position.xMm - b.position.xMm)
+      .map((box) => box.slot);
+    expect(bottomSlots).toEqual(["guitar", "lead_voc_1", "lead_voc_2", "keys"]);
+
+    const lead1 = plan.boxes.find((box) => box.slot === "lead_voc_1");
+    const lead2 = plan.boxes.find((box) => box.slot === "lead_voc_2");
+    expect(lead1?.header).toContain("ALICE");
+    expect(lead2?.header).toContain("BOB");
+    expect(lead1?.header).not.toContain("TOMÁŠ");
+    expect(lead2?.header).not.toContain("TOMÁŠ");
+
+    const topCenter = plan.boxes.find((box) => box.slot === "drums");
+    expect(topCenter?.position.xMm).toBeCloseTo(62.5, 5);
+    expect(topCenter?.row).toBe("top");
   });
 
   it("collapses stereo inputs and keeps monitor bullets intact", () => {
@@ -146,7 +215,7 @@ describe("stageplan render plan", () => {
     const keysBox = plan.boxes.find((box) => box.instrument === "Keys");
     expect(keysBox?.powerBadgeText).toBe("5x 230 V");
 
-    const vocalsBox = plan.boxes.find((box) => box.instrument === "Lead vocal");
+    const vocalsBox = plan.boxes.find((box) => box.slot === "lead_voc_1");
     expect(vocalsBox?.hasPowerBadge).toBe(false);
   });
 });
