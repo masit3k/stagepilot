@@ -5,7 +5,7 @@ import path from "node:path";
 import { loadRepository } from "../../fs/repo.js";
 import { buildDocument } from "../../../domain/pipeline/buildDocument.js";
 import type { Project } from "../../../domain/model/types.js";
-import { buildStageplanPlan, matchStageplanLayout } from "./stageplan.js";
+import { __stageplanTestExports, buildStageplanPlan, matchStageplanLayout } from "./stageplan.js";
 import { pdfLayout } from "../layout.js";
 
 function parsePt(value: string): number {
@@ -144,15 +144,45 @@ describe("stageplan render plan", () => {
     expect(topCenter?.row).toBe("top");
 
     const legacyBottomWidthMm = (plan.layout.areaWidthMm - plan.layout.gapXmm * (4 - 1)) / 4;
-    const bottomWidths = plan.boxes.filter((box) => box.row === "bottom").map((box) => box.position.widthMm);
+    const bottomBoxes = plan.boxes
+      .filter((box) => box.row === "bottom")
+      .sort((a, b) => a.position.xMm - b.position.xMm);
+    const bottomWidths = bottomBoxes.map((box) => box.position.widthMm);
     expect(bottomWidths.every((widthMm) => widthMm > legacyBottomWidthMm)).toBe(true);
+
+    const bottomGutters = bottomBoxes.slice(0, -1).map((box, idx) => {
+      const next = bottomBoxes[idx + 1];
+      return next.position.xMm - (box.position.xMm + box.position.widthMm);
+    });
+    expect(bottomGutters.every((gutterMm) => Math.abs(gutterMm - 4.5) < 0.001)).toBe(true);
 
     const drumsTop = plan.boxes.find((box) => box.slot === "drums");
     const bassTop = plan.boxes.find((box) => box.slot === "bass");
-    expect(drumsTop?.position.xMm).toBeCloseTo(plan.layout.boxWidthMm + plan.layout.gapXmm, 5);
-    expect(drumsTop?.position.widthMm).toBeCloseTo(plan.layout.boxWidthMm, 5);
-    expect(bassTop?.position.xMm).toBeCloseTo(2 * (plan.layout.boxWidthMm + plan.layout.gapXmm), 5);
-    expect(bassTop?.position.widthMm).toBeCloseTo(plan.layout.boxWidthMm, 5);
+    const topRowSnapshot = [
+      { xMm: drumsTop?.position.xMm, widthMm: drumsTop?.position.widthMm },
+      { xMm: bassTop?.position.xMm, widthMm: bassTop?.position.widthMm },
+    ];
+    expect(topRowSnapshot).toEqual([
+      { xMm: plan.layout.boxWidthMm + plan.layout.gapXmm, widthMm: plan.layout.boxWidthMm },
+      { xMm: 2 * (plan.layout.boxWidthMm + plan.layout.gapXmm), widthMm: plan.layout.boxWidthMm },
+    ]);
+
+    const debug = __stageplanTestExports.computeBottomRowGeometry({
+      layoutId: plan.layout.layoutId,
+      defaults: plan.layout,
+      bottomRow: {
+        columns: 4,
+        gutterXmm: 4.5,
+        sideInsetXmm: 2,
+        slots: ["guitar", "lead_voc_1", "lead_voc_2", "keys"],
+        typography: { fontSizeDeltaPt: -1, lineHeightDelta: -0.05, bulletSpacingPx: 4 },
+      },
+      stageAreaLeftMm: 0,
+      stageAreaWidthMm: plan.layout.areaWidthMm,
+      bottomRowYMm: 0,
+      bottomHeightMm: 10,
+    }).debug;
+    expect(debug).toMatchObject({ layoutId: "layout_6_2_vocs", cols: 4, gutterMm: 4.5, insetMm: 2 });
   });
 
   it("keeps stageplan boxes inside stage area and page safe height for layout_6_2_vocs", () => {

@@ -73,6 +73,7 @@ const stageplanLayout = {
   containerMarginTop: "24pt",
   containerPad: "24pt",
   areaWidthMm: 180,
+  sideInsetXmm: 0,
   boxWidthMm: 55,
   gapXmm: 7.5,
   gapYmm: 8,
@@ -138,6 +139,71 @@ type StageplanBoxPlan = {
 };
 
 type StageplanBoxContent = Omit<StageplanBoxPlan, "position">;
+
+type StageplanBoxPosition = { xMm: number; yMm: number; widthMm: number; heightMm: number };
+
+type BottomRowGeometryDebug = {
+  layoutId: StageplanLayoutId;
+  cols: number;
+  gutterMm: number;
+  insetMm: number;
+  availableMm: number;
+  blockWidthMm: number;
+};
+
+function computeTopRowGeometry(args: {
+  layout: typeof stageplanLayout;
+  topRow: StageplanLayoutDefinition["topRow"];
+  topRowYMm: number;
+  topHeightMm: number;
+}): Map<StageplanRoleSlot, StageplanBoxPosition> {
+  const { layout, topRow, topRowYMm, topHeightMm } = args;
+  const topX = [0, layout.boxWidthMm + layout.gapXmm, 2 * (layout.boxWidthMm + layout.gapXmm)] as const;
+  const positions = new Map<StageplanRoleSlot, StageplanBoxPosition>();
+  for (const item of topRow) {
+    positions.set(item.slot, { xMm: topX[item.column], yMm: topRowYMm, widthMm: layout.boxWidthMm, heightMm: topHeightMm });
+  }
+  return positions;
+}
+
+function computeBottomRowGeometry(args: {
+  layoutId: StageplanLayoutId;
+  defaults: typeof stageplanLayout;
+  bottomRow: StageplanLayoutDefinition["bottomRow"];
+  stageAreaLeftMm: number;
+  stageAreaWidthMm: number;
+  bottomRowYMm: number;
+  bottomHeightMm: number;
+}): { positions: Map<StageplanRoleSlot, StageplanBoxPosition>; debug: BottomRowGeometryDebug } {
+  const { layoutId, defaults, bottomRow, stageAreaLeftMm, stageAreaWidthMm, bottomRowYMm, bottomHeightMm } = args;
+  const cols = bottomRow.columns;
+  const gutterMm = bottomRow.gutterXmm ?? defaults.gapXmm;
+  const insetMm = bottomRow.sideInsetXmm ?? defaults.sideInsetXmm;
+  const availableMm = stageAreaWidthMm - 2 * insetMm;
+  const blockWidthMm = (availableMm - (cols - 1) * gutterMm) / cols;
+
+  const positions = new Map<StageplanRoleSlot, StageplanBoxPosition>();
+  bottomRow.slots.forEach((slot, index) => {
+    positions.set(slot, {
+      xMm: stageAreaLeftMm + insetMm + index * (blockWidthMm + gutterMm),
+      yMm: bottomRowYMm,
+      widthMm: blockWidthMm,
+      heightMm: bottomHeightMm,
+    });
+  });
+
+  return {
+    positions,
+    debug: {
+      layoutId,
+      cols,
+      gutterMm,
+      insetMm,
+      availableMm,
+      blockWidthMm,
+    },
+  };
+}
 
 export type StageplanPlan = {
   heading: { text: string; fontSize: string; fontWeight: number };
@@ -374,26 +440,26 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): { layout: Stag
 
   const topRowY = 0;
   const bottomRowY = topHeightMm + stageplanLayout.gapYmm;
-  const topX = [0, stageplanLayout.boxWidthMm + stageplanLayout.gapXmm, 2 * (stageplanLayout.boxWidthMm + stageplanLayout.gapXmm)] as const;
-  const bottomRowGutterXmm = selectedLayout.bottomRow.gutterXmm ?? stageplanLayout.gapXmm;
-  const bottomRowSideInsetXmm = selectedLayout.bottomRow.sideInsetXmm ?? 0;
-  const bottomAvailableWidthMm = stageplanLayout.areaWidthMm - 2 * bottomRowSideInsetXmm;
-  const bottomWidthMm =
-    (bottomAvailableWidthMm - bottomRowGutterXmm * (selectedLayout.bottomRow.columns - 1)) /
-    selectedLayout.bottomRow.columns;
+  const stageAreaLeftMm = 0;
 
-  const positionBySlot = new Map<StageplanRoleSlot, { xMm: number; yMm: number; widthMm: number; heightMm: number }>();
-  for (const item of selectedLayout.topRow) {
-    positionBySlot.set(item.slot, { xMm: topX[item.column], yMm: topRowY, widthMm: stageplanLayout.boxWidthMm, heightMm: topHeightMm });
-  }
-  selectedLayout.bottomRow.slots.forEach((slot, index) => {
-    positionBySlot.set(slot, {
-      xMm: bottomRowSideInsetXmm + index * (bottomWidthMm + bottomRowGutterXmm),
-      yMm: bottomRowY,
-      widthMm: bottomWidthMm,
-      heightMm: bottomHeightMm,
-    });
+  const positionBySlot = new Map<StageplanRoleSlot, StageplanBoxPosition>();
+  const topPositions = computeTopRowGeometry({
+    layout: stageplanLayout,
+    topRow: selectedLayout.topRow,
+    topRowYMm: topRowY,
+    topHeightMm,
   });
+  const bottomGeometry = computeBottomRowGeometry({
+    layoutId: selectedLayout.id,
+    defaults: stageplanLayout,
+    bottomRow: selectedLayout.bottomRow,
+    stageAreaLeftMm,
+    stageAreaWidthMm: stageplanLayout.areaWidthMm,
+    bottomRowYMm: bottomRowY,
+    bottomHeightMm,
+  });
+  for (const [slot, position] of topPositions) positionBySlot.set(slot, position);
+  for (const [slot, position] of bottomGeometry.positions) positionBySlot.set(slot, position);
 
   return {
     layout: selectedLayout,
@@ -493,3 +559,5 @@ export function renderStageplanSection(vm: DocumentViewModel): string {
 }
 
 export { stageplanLayout };
+
+export const __stageplanTestExports = { computeBottomRowGeometry };
