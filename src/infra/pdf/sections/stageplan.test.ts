@@ -142,6 +142,60 @@ describe("stageplan render plan", () => {
     const topCenter = plan.boxes.find((box) => box.slot === "drums");
     expect(topCenter?.position.xMm).toBeCloseTo(62.5, 5);
     expect(topCenter?.row).toBe("top");
+
+    const legacyBottomWidthMm = (plan.layout.areaWidthMm - plan.layout.gapXmm * (4 - 1)) / 4;
+    const bottomWidths = plan.boxes.filter((box) => box.row === "bottom").map((box) => box.position.widthMm);
+    expect(bottomWidths.every((widthMm) => widthMm > legacyBottomWidthMm)).toBe(true);
+
+    const drumsTop = plan.boxes.find((box) => box.slot === "drums");
+    const bassTop = plan.boxes.find((box) => box.slot === "bass");
+    expect(drumsTop?.position.xMm).toBeCloseTo(plan.layout.boxWidthMm + plan.layout.gapXmm, 5);
+    expect(drumsTop?.position.widthMm).toBeCloseTo(plan.layout.boxWidthMm, 5);
+    expect(bassTop?.position.xMm).toBeCloseTo(2 * (plan.layout.boxWidthMm + plan.layout.gapXmm), 5);
+    expect(bassTop?.position.widthMm).toBeCloseTo(plan.layout.boxWidthMm, 5);
+  });
+
+  it("keeps stageplan boxes inside stage area and page safe height for layout_6_2_vocs", () => {
+    const plan = buildStageplanPlan({
+      lineupByRole: {
+        drums: { firstName: "Drummer", isBandLeader: false },
+        bass: { firstName: "Bassist", isBandLeader: false },
+        guitar: { firstName: "Guitarist", isBandLeader: false },
+        keys: { firstName: "Keysman", isBandLeader: false },
+      },
+      leadVocals: [
+        { firstName: "Alice", isBandLeader: false },
+        { firstName: "Bob", isBandLeader: false },
+      ],
+      inputs: [
+        { channelNo: 1, label: "Guitar", group: "guitar" },
+        { channelNo: 2, label: "Lead vocal 1", group: "vocs" },
+        { channelNo: 3, label: "Lead vocal 2", group: "vocs" },
+        { channelNo: 4, label: "Keys", group: "keys" },
+      ],
+      monitorOutputs: [],
+      powerByRole: {},
+    });
+
+    expect(plan.layout.layoutId).toBe("layout_6_2_vocs");
+    for (const box of plan.boxes) {
+      expect(box.position.xMm).toBeGreaterThanOrEqual(0);
+      expect(box.position.yMm).toBeGreaterThanOrEqual(0);
+      expect(box.position.xMm + box.position.widthMm).toBeLessThanOrEqual(plan.layout.areaWidthMm);
+      expect(box.position.yMm + box.position.heightMm).toBeLessThanOrEqual(plan.layout.areaHeightMm);
+    }
+
+    const pageHeightMm = 297;
+    const marginTopMm = Number.parseFloat(pdfLayout.page.margins.top);
+    const marginBottomMm = Number.parseFloat(pdfLayout.page.margins.bottom);
+    const availableHeightMm = pageHeightMm - marginTopMm - marginBottomMm;
+    const sectionMarginTopMm = parsePt(plan.layout.sectionMarginTop) / (72 / 25.4);
+    const headingHeightMm = parsePt(plan.heading.fontSize) / (72 / 25.4);
+    const containerMarginTopMm = parsePt(plan.layout.containerMarginTop) / (72 / 25.4);
+    const containerPadMm = (parsePt(plan.layout.containerPad) / (72 / 25.4)) * 2;
+    const totalHeightMm = sectionMarginTopMm + headingHeightMm + containerMarginTopMm + containerPadMm + plan.layout.areaHeightMm;
+
+    expect(totalHeightMm).toBeLessThanOrEqual(availableHeightMm);
   });
 
   it("collapses stereo inputs and keeps monitor bullets intact", () => {

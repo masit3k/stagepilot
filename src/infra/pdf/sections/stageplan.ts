@@ -20,6 +20,8 @@ type StageplanLayoutDefinition = {
   topRow: ReadonlyArray<{ slot: StageplanRoleSlot; column: 0 | 1 | 2 }>;
   bottomRow: {
     columns: number;
+    gutterXmm?: number;
+    sideInsetXmm?: number;
     slots: ReadonlyArray<StageplanRoleSlot>;
     typography: {
       fontSizeDeltaPt: number;
@@ -102,6 +104,8 @@ const STAGEPLAN_LAYOUTS: Record<StageplanLayoutId, StageplanLayoutDefinition> = 
     ],
     bottomRow: {
       columns: 4,
+      gutterXmm: 4.5,
+      sideInsetXmm: 2,
       slots: ["guitar", "lead_voc_1", "lead_voc_2", "keys"],
       typography: {
         fontSizeDeltaPt: -1,
@@ -371,8 +375,11 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): { layout: Stag
   const topRowY = 0;
   const bottomRowY = topHeightMm + stageplanLayout.gapYmm;
   const topX = [0, stageplanLayout.boxWidthMm + stageplanLayout.gapXmm, 2 * (stageplanLayout.boxWidthMm + stageplanLayout.gapXmm)] as const;
+  const bottomRowGutterXmm = selectedLayout.bottomRow.gutterXmm ?? stageplanLayout.gapXmm;
+  const bottomRowSideInsetXmm = selectedLayout.bottomRow.sideInsetXmm ?? 0;
+  const bottomAvailableWidthMm = stageplanLayout.areaWidthMm - 2 * bottomRowSideInsetXmm;
   const bottomWidthMm =
-    (stageplanLayout.areaWidthMm - stageplanLayout.gapXmm * (selectedLayout.bottomRow.columns - 1)) /
+    (bottomAvailableWidthMm - bottomRowGutterXmm * (selectedLayout.bottomRow.columns - 1)) /
     selectedLayout.bottomRow.columns;
 
   const positionBySlot = new Map<StageplanRoleSlot, { xMm: number; yMm: number; widthMm: number; heightMm: number }>();
@@ -381,7 +388,7 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): { layout: Stag
   }
   selectedLayout.bottomRow.slots.forEach((slot, index) => {
     positionBySlot.set(slot, {
-      xMm: index * (bottomWidthMm + stageplanLayout.gapXmm),
+      xMm: bottomRowSideInsetXmm + index * (bottomWidthMm + bottomRowGutterXmm),
       yMm: bottomRowY,
       widthMm: bottomWidthMm,
       heightMm: bottomHeightMm,
