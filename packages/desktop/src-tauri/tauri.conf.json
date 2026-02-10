@@ -25,11 +25,9 @@
     "active": true,
     "targets": "all",
     "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
+      "../../dist-icons/StagePilot_Icon_StageLayout_CurrentColor/StagePilot_Icon_StageLayout_CurrentColor.ico",
+      "../../dist-icons/StagePilot_Icon_StageLayout_CurrentColor/StagePilot_Icon_StageLayout_CurrentColor.icns",
+      "../../dist-icons/StagePilot_Icon_StageLayout_CurrentColor/png/StagePilot_Icon_StageLayout_CurrentColor-256.png"
     ]
   }
 }
