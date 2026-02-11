@@ -13,6 +13,7 @@ import {
   getCurrentYearLocal,
   getTodayIsoLocal,
   getUniqueSelectedMusicians,
+  getRoleDisplayName,
   isPastIsoDate,
   isValidityYearInPast,
   matchProjectEventPath,
@@ -113,8 +114,8 @@ function formatProjectDate(project: ProjectSummary) {
 }
 
 function getProjectPurposeLabel(purpose?: string | null) {
-  if (purpose === "event") return "Event Project";
-  if (purpose === "generic") return "Generic Template";
+  if (purpose === "event") return "Project type: Event";
+  if (purpose === "generic") return "Project type: Generic";
   return "—";
 }
 
@@ -129,8 +130,10 @@ function getCurrentPath() {
   return window.location.pathname || "/";
 }
 
-function withFrom(path: string, from: string) {
-  return `${path}?from=${encodeURIComponent(from)}`;
+function withFrom(path: string, from: string, fromPath?: string) {
+  const params = new URLSearchParams({ from });
+  if (fromPath) params.set("fromPath", fromPath);
+  return `${path}?${params.toString()}`;
 }
 
 function App() {
@@ -227,6 +230,10 @@ function App() {
     () => new URLSearchParams(search).get("from"),
     [search],
   );
+  const editFromPath = useMemo(
+    () => new URLSearchParams(search).get("fromPath"),
+    [search],
+  );
   const [isAboutOpen, setIsAboutOpen] = useState(false);
 
   return (
@@ -283,6 +290,7 @@ function App() {
           editingProjectId={eventEditProjectId}
           registerNavigationGuard={registerNavigationGuard}
           origin={editOrigin}
+          fromPath={editFromPath}
         />
       ) : null}
       {genericEditProjectId ? (
@@ -293,6 +301,7 @@ function App() {
           editingProjectId={genericEditProjectId}
           registerNavigationGuard={registerNavigationGuard}
           origin={editOrigin}
+          fromPath={editFromPath}
         />
       ) : null}
       {setupProjectId ? (
@@ -587,6 +596,7 @@ function EventDateInput({
   onInput,
   onIsoSelect,
   onBlur,
+  inputId,
 }: {
   value: string;
   isoValue: string;
@@ -594,6 +604,7 @@ function EventDateInput({
   onInput: (value: string) => void;
   onIsoSelect: (iso: string) => void;
   onBlur: () => void;
+  inputId?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [monthCursor, setMonthCursor] = useState(() => {
@@ -637,23 +648,29 @@ function EventDateInput({
 
   return (
     <div className="date-input-wrap" ref={wrapperRef}>
-      <input
-        type="text"
-        inputMode="numeric"
-        lang="en-GB"
-        placeholder="DD/MM/YYYY"
-        value={value}
-        onChange={(e) => onInput(e.target.value)}
-        onBlur={onBlur}
-      />
-      <button
-        type="button"
-        className="date-input-calendar-toggle"
-        aria-label="Toggle calendar"
-        onClick={() => setIsOpen((current) => !current)}
-      >
-        📅
-      </button>
+      <div className="date-input-control">
+        <input
+          id={inputId}
+          type="text"
+          inputMode="numeric"
+          lang="en-GB"
+          placeholder="DD/MM/YYYY"
+          value={value}
+          onChange={(e) => onInput(e.target.value)}
+          onBlur={onBlur}
+        />
+        <button
+          type="button"
+          className="date-input-calendar-toggle"
+          aria-label="Toggle calendar"
+          onClick={() => setIsOpen((current) => !current)}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3.5" y="5.5" width="17" height="15" rx="2.5" />
+            <path d="M7 3.5v4M17 3.5v4M3.5 9.5h17" />
+          </svg>
+        </button>
+      </div>
       {isOpen ? (
         <div className="calendar-popover" role="dialog" aria-label="Calendar">
           <div className="calendar-popover__header">
@@ -662,7 +679,8 @@ function EventDateInput({
               className="button-secondary"
               onClick={() =>
                 setMonthCursor(
-                  (current) => new Date(current.getFullYear(), current.getMonth() - 1, 1),
+                  (current) =>
+                    new Date(current.getFullYear(), current.getMonth() - 1, 1),
                 )
               }
             >
@@ -679,7 +697,8 @@ function EventDateInput({
               className="button-secondary"
               onClick={() =>
                 setMonthCursor(
-                  (current) => new Date(current.getFullYear(), current.getMonth() + 1, 1),
+                  (current) =>
+                    new Date(current.getFullYear(), current.getMonth() + 1, 1),
                 )
               }
             >
@@ -732,6 +751,7 @@ type NewProjectPageProps = {
   editingProjectId?: string;
   registerNavigationGuard: (guard: NavigationGuard | null) => void;
   origin?: string | null;
+  fromPath?: string | null;
 };
 function NewEventProjectPage({
   navigate,
@@ -740,11 +760,14 @@ function NewEventProjectPage({
   editingProjectId,
   registerNavigationGuard,
   origin,
+  fromPath,
 }: NewProjectPageProps) {
   const [existingProject, setExistingProject] =
     useState<NewProjectPayload | null>(null);
   const [eventDateIso, setEventDateIso] = useState("");
   const [eventDateInput, setEventDateInput] = useState("");
+  const [eventDateError, setEventDateError] = useState("");
+  const [eventDateTouched, setEventDateTouched] = useState(false);
   const [eventVenue, setEventVenue] = useState("");
   const [bandRef, setBandRef] = useState("");
   const [status, setStatus] = useState("");
@@ -780,11 +803,20 @@ function NewEventProjectPage({
       .catch(() => setStatus("Failed to load existing event setup."));
   }, [editingProjectId]);
 
+  function getDateValidationMessage(value: string) {
+    const parsed = parseUsDateInput(value);
+    if (!parsed) return "Invalid date. Use DD/MM/YYYY.";
+    if (isPastIsoDate(parsed, todayIso)) return "Date cannot be in the past.";
+    return "";
+  }
+
   function updateDateInput(value: string) {
     const formatted = autoFormatDateInput(value);
     setEventDateInput(formatted);
     const parsed = parseUsDateInput(formatted);
-    setEventDateIso(!parsed || isPastIsoDate(parsed, todayIso) ? "" : parsed);
+    const message = getDateValidationMessage(formatted);
+    if (eventDateTouched) setEventDateError(message);
+    setEventDateIso(!parsed || message ? "" : parsed);
   }
 
   const isDirty = isSetupInfoDirty(initialSnapshotRef.current, {
@@ -841,7 +873,17 @@ function NewEventProjectPage({
   }, [registerNavigationGuard, isDirty, persist, isCommitting]);
 
   async function createProject() {
-    if (!selectedBand || !eventDateIso || !eventVenue.trim())
+    const message = getDateValidationMessage(eventDateInput);
+    if (message) {
+      setEventDateTouched(true);
+      setEventDateError(message);
+    }
+    if (
+      !selectedBand ||
+      !eventDateIso ||
+      !eventVenue.trim() ||
+      Boolean(message)
+    )
       return setStatus("Date, venue, and band are required.");
     const id =
       editingProjectId ??
@@ -856,11 +898,13 @@ function NewEventProjectPage({
   }
 
   const backTarget =
-    editingProjectId && origin === "setup"
-      ? `/projects/${encodeURIComponent(editingProjectId)}/setup`
-      : editingProjectId
-        ? "/"
-        : "/projects/new";
+    editingProjectId && fromPath
+      ? fromPath
+      : editingProjectId && origin === "setup"
+        ? `/projects/${encodeURIComponent(editingProjectId)}/setup`
+        : editingProjectId
+          ? "/"
+          : "/projects/new";
   const exitTarget = editingProjectId ? "/" : "/";
 
   return (
@@ -869,27 +913,38 @@ function NewEventProjectPage({
         <h2>{editingProjectId ? "Edit Event Setup" : "New Event Project"}</h2>
       </div>
       <div className="form-grid">
-        <label>
+        <label htmlFor="event-date-input">
           Date *
           <EventDateInput
             value={eventDateInput}
             isoValue={eventDateIso}
             minIso={todayIso}
             onInput={updateDateInput}
+            inputId="event-date-input"
             onBlur={() => {
-              const parsed = parseUsDateInput(eventDateInput);
-              if (!parsed || isPastIsoDate(parsed, todayIso)) {
+              setEventDateTouched(true);
+              const message = getDateValidationMessage(eventDateInput);
+              if (message) {
+                setEventDateError(message);
                 setEventDateIso("");
                 return;
               }
+              const parsed = parseUsDateInput(eventDateInput);
+              if (!parsed) return;
+              setEventDateError("");
               setEventDateIso(parsed);
               setEventDateInput(formatIsoDateToUs(parsed));
             }}
             onIsoSelect={(iso) => {
+              setEventDateTouched(true);
+              setEventDateError("");
               setEventDateIso(iso);
               setEventDateInput(formatIsoDateToUs(iso));
             }}
           />
+          {eventDateTouched && eventDateError ? (
+            <p className="field-error">{eventDateError}</p>
+          ) : null}
         </label>
         <label>
           Venue *
@@ -947,6 +1002,7 @@ function NewGenericProjectPage({
   editingProjectId,
   registerNavigationGuard,
   origin,
+  fromPath,
 }: NewProjectPageProps) {
   const currentYear = getCurrentYearLocal();
   const [year, setYear] = useState(String(currentYear));
@@ -1023,11 +1079,13 @@ function NewGenericProjectPage({
   }
 
   const backTarget =
-    editingProjectId && origin === "setup"
-      ? `/projects/${encodeURIComponent(editingProjectId)}/setup`
-      : editingProjectId
-        ? "/"
-        : "/projects/new";
+    editingProjectId && fromPath
+      ? fromPath
+      : editingProjectId && origin === "setup"
+        ? `/projects/${encodeURIComponent(editingProjectId)}/setup`
+        : editingProjectId
+          ? "/"
+          : "/projects/new";
 
   return (
     <section className="panel">
@@ -1233,7 +1291,10 @@ function ProjectSetupPage({
   });
   const defaultSnapshot = useMemo(() => {
     if (!setupData) return "";
-    const defaults = buildSetupSnapshot({ ...(setupData.defaultLineup ?? {}) }, setupData);
+    const defaults = buildSetupSnapshot(
+      { ...(setupData.defaultLineup ?? {}) },
+      setupData,
+    );
     return JSON.stringify(defaults);
   }, [setupData, buildSetupSnapshot]);
   const isDirty = Boolean(
@@ -1343,8 +1404,8 @@ function ProjectSetupPage({
               const members = setupData.members[role] || [];
               return (
                 <article key={role} className="lineup-card">
-                  <h3>{role.toUpperCase()}</h3>
-                  <div className="lineup-card__body">
+                  <h3>{getRoleDisplayName(role, setupData.constraints)}</h3>
+                  <div className="lineup-card__body section-divider">
                     <div className="lineup-list lineup-list--single">
                       {(selected.length ? selected : [""]).map(
                         (musicianId, index) => {
@@ -1391,7 +1452,7 @@ function ProjectSetupPage({
         </p>
         <article className="lineup-card">
           <h3>BAND LEADER</h3>
-          <div className="lineup-card__body">
+          <div className="lineup-card__body section-divider">
             <div className="lineup-list__row">
               <span className="lineup-list__name">
                 {selectedOptions.find((m) => m.id === bandLeaderId)?.name ||
@@ -1420,7 +1481,7 @@ function ProjectSetupPage({
         <p className="subtle">Assign talkback microphone owner.</p>
         <article className="lineup-card">
           <h3>TALKBACK</h3>
-          <div className="lineup-card__body">
+          <div className="lineup-card__body section-divider">
             <div className="lineup-list__row">
               <span className="lineup-list__name">
                 {selectedOptions.find((m) => m.id === talkbackCurrentOwnerId)
@@ -1468,7 +1529,9 @@ function ProjectSetupPage({
           type="button"
           className="button-secondary"
           onClick={() => setShowResetConfirmation(true)}
-          disabled={!setupData || !project || currentSnapshot === defaultSnapshot}
+          disabled={
+            !setupData || !project || currentSnapshot === defaultSnapshot
+          }
         >
           Reset to defaults
         </button>
@@ -1555,9 +1618,11 @@ function ProjectSetupPage({
               ×
             </button>
             <div className="panel__header panel__header--stack selector-dialog__title">
-              <h3>Select {editing.role.toUpperCase()}</h3>
+              <h3>
+                Select {getRoleDisplayName(editing.role, setupData.constraints)}
+              </h3>
             </div>
-            <div className="selector-dialog__divider" />
+            <div className="selector-dialog__divider section-divider" />
             <div className="selector-list">
               {(editing.role === "leader"
                 ? selectedOptions
@@ -1749,7 +1814,11 @@ function AboutModal({ open, onClose }: { open: boolean; onClose: () => void }) {
         onClose();
       }}
     >
-      <div className="selector-dialog about-dialog" role="dialog" aria-modal="true">
+      <div
+        className="selector-dialog about-dialog"
+        role="dialog"
+        aria-modal="true"
+      >
         <button
           type="button"
           className="modal-close"
@@ -1760,34 +1829,30 @@ function AboutModal({ open, onClose }: { open: boolean; onClose: () => void }) {
         </button>
         <h3>About StagePilot</h3>
         <div className="about-grid">
-          <div className="about-list">
-            <p className="about-item">
-              <span>StagePilot</span>
-              <strong>Desktop</strong>
-            </p>
-            <p className="about-item">
-              <span>Version</span>
-              <strong>{desktopPackage.version}</strong>
-            </p>
-            <p className="about-item">
-              <span>Channel</span>
-              <strong>Preview</strong>
-            </p>
-            <p className="about-item">
-              <span>Build Date</span>
-              <strong>{new Date().toLocaleDateString()}</strong>
-            </p>
-          </div>
-          <div className="about-list">
-            <p className="about-item">
-              <span>Author</span>
-              <strong>Matěj Krečmer</strong>
-            </p>
-            <p className="about-item">
-              <span>Copyright</span>
-              <strong>© 2026 StagePilot</strong>
-            </p>
-          </div>
+          <p className="about-item">
+            <span>StagePilot</span>
+            <strong>Desktop</strong>
+          </p>
+          <p className="about-item">
+            <span>Author</span>
+            <strong>Matěj Krečmer</strong>
+          </p>
+          <p className="about-item">
+            <span>Version</span>
+            <strong>{desktopPackage.version}</strong>
+          </p>
+          <p className="about-item">
+            <span>Copyright</span>
+            <strong>© 2026 StagePilot</strong>
+          </p>
+          <p className="about-item">
+            <span>Channel</span>
+            <strong>Preview</strong>
+          </p>
+          <p className="about-item">
+            <span>Build Date</span>
+            <strong>{new Date().toLocaleDateString()}</strong>
+          </p>
         </div>
       </div>
     </dialog>
@@ -1809,7 +1874,6 @@ function ProjectPreviewPage({
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [exportModal, setExportModal] = useState<ExportModalState>(null);
   const hasGeneratedOnEntry = useRef(false);
-  const from = useMemo(() => new URLSearchParams(search).get("from"), [search]);
 
   function releasePreviewUrl() {
     setPreviewUrl((current) => {
@@ -1907,10 +1971,11 @@ function ProjectPreviewPage({
     }
   }, [project]);
 
+  const previewRoute = `${window.location.pathname}${search || ""}`;
   const backToEditPath =
     project?.purpose === "generic"
-      ? withFrom(`/projects/${id}/generic`, "setup")
-      : withFrom(`/projects/${id}/event`, from === "setup" ? "setup" : "home");
+      ? withFrom(`/projects/${id}/generic`, "pdfPreview", previewRoute)
+      : withFrom(`/projects/${id}/event`, "pdfPreview", previewRoute);
 
   return (
     <section className="panel panel--preview">

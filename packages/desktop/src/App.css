@@ -9,7 +9,7 @@
   --muted: #64748b;
 
   --primary: #1e2a44;
-  --primary-hover: #243357;
+  --primary-hover: #2f426d;
   --primary-active: #19233a;
   --primary-fg: #ffffff;
 
@@ -83,10 +83,10 @@ button:active:not(:disabled) {
 .button-primary:hover:not(:disabled),
 button:hover:not(:disabled):not(.button-secondary):not(.button-ghost):not(
     .choice-card
-  ):not(.modal-close):not(.selector-option) {
+  ):not(.modal-close):not(.selector-option):not(.date-input-calendar-toggle) {
   background: var(--primary-hover);
-  border-color: var(--primary-hover);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  border-color: #415788;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.24);
 }
 .button-primary--large {
   min-height: 48px;
@@ -325,25 +325,56 @@ select {
 .date-input-wrap {
   position: relative;
 }
-.date-input-wrap input {
-  padding-right: 42px;
+.date-input-control {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+.date-input-control:focus-within {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.date-input-control input {
+  flex: 1;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 8px 10px;
+}
+.date-input-control input:focus-visible {
+  outline: none;
 }
 .date-input-calendar-toggle {
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  min-height: 32px;
-  width: 32px;
-  min-width: 32px;
+  min-height: 40px;
+  width: 40px;
+  min-width: 40px;
   border: none;
-  border-radius: 8px;
-  background: transparent;
+  border-left: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface);
   color: var(--muted);
   box-shadow: none;
+  padding: 0;
+}
+.date-input-calendar-toggle svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .date-input-calendar-toggle:hover {
   background: var(--surface-2);
+}
+.field-error {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 0.86rem;
 }
 .calendar-popover {
   position: absolute;
@@ -480,8 +511,10 @@ select {
   background: var(--surface);
 }
 .lineup-card__body {
-  border-top: 1px solid var(--border);
   margin-top: 12px;
+}
+.section-divider {
+  border-top: 1px solid var(--border);
   padding-top: 12px;
 }
 .lineup-list {
@@ -520,7 +553,7 @@ select {
 .modal-close {
   position: absolute;
   top: 12px;
-  left: 12px;
+  right: 12px;
   width: 36px;
   height: 36px;
   min-height: 36px;
@@ -542,8 +575,6 @@ select {
   margin-bottom: var(--space-2);
 }
 .selector-dialog__divider {
-  height: 1px;
-  background: var(--border);
   margin-bottom: var(--space-2);
 }
 .selector-option {
@@ -618,17 +649,16 @@ select {
 .about-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
+  column-gap: var(--space-3);
+  row-gap: var(--space-2);
   margin-top: var(--space-2);
-}
-.about-list {
-  display: grid;
-  gap: var(--space-2);
+  padding-top: var(--space-1);
 }
 .about-item {
   margin: 0;
   display: grid;
   gap: 4px;
+  align-content: start;
 }
 .about-item span {
   font-size: 0.8rem;

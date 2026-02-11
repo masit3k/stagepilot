@@ -10,7 +10,8 @@ const PROJECT_DETAIL_PATTERN = /^\/projects\/([^/]+)$/;
 const PROJECT_SETUP_PATTERN = /^\/projects\/([^/]+)\/setup$/;
 const PROJECT_EVENT_PATTERN = /^\/projects\/([^/]+)\/event$/;
 const PROJECT_GENERIC_PATTERN = /^\/projects\/([^/]+)\/generic$/;
-const PROJECT_PREVIEW_PATTERN = /^\/projects\/([^/]+)\/(?:preview|pdf-preview)$/;
+const PROJECT_PREVIEW_PATTERN =
+  /^\/projects\/([^/]+)\/(?:preview|pdf-preview)$/;
 const RESERVED_PROJECT_IDS = new Set(["new"]);
 
 function decodeProjectId(match: RegExpMatchArray | null): string | null {
@@ -61,7 +62,9 @@ export function shouldPromptUnsavedChanges(
   trigger: "route-change" | "history-back" | "cancel" | "back" | "home",
 ): boolean {
   if (!isDirty) return false;
-  return ["route-change", "history-back", "cancel", "back", "home"].includes(trigger);
+  return ["route-change", "history-back", "cancel", "back", "home"].includes(
+    trigger,
+  );
 }
 
 export function sanitizeVenueSlug(value: string): string {
@@ -72,8 +75,9 @@ export function sanitizeVenueSlug(value: string): string {
     .replace(/[^\p{L}\p{N}\s-]/gu, "")
     .split(/\s+/)
     .filter(Boolean)
-    .map((segment) =>
-      `${segment.slice(0, 1).toUpperCase()}${segment.slice(1).toLowerCase()}`,
+    .map(
+      (segment) =>
+        `${segment.slice(0, 1).toUpperCase()}${segment.slice(1).toLowerCase()}`,
     )
     .join("-")
     .replace(/-+/g, "-")
@@ -131,7 +135,6 @@ export function formatIsoDateToUs(isoDate: string): string {
   return `${day}/${month}/${year}`;
 }
 
-
 export function formatIsoToDateTimeDisplay(value: string): string {
   const dt = new Date(value);
   if (Number.isNaN(dt.getTime())) return "—";
@@ -182,6 +185,26 @@ export function normalizeRoleConstraint(
   return { min: Math.min(min, max), max };
 }
 
+export function getRoleDisplayName(
+  role: string,
+  constraints?: Record<string, RoleConstraint>,
+): string {
+  if (role === "vocs") {
+    const vocConstraint = normalizeRoleConstraint(role, constraints?.[role]);
+    if (vocConstraint.min === 1 && vocConstraint.max === 1) return "LEAD VOC";
+    return "VOCS";
+  }
+  const names: Record<string, string> = {
+    drums: "DRUMS",
+    bass: "BASS",
+    guitar: "GUITAR",
+    keys: "KEYS",
+    leader: "BAND LEADER",
+    talkback: "TALKBACK",
+  };
+  return names[role] ?? role.toUpperCase();
+}
+
 export function validateLineup(
   lineup: LineupMap,
   constraints: Record<string, RoleConstraint>,
@@ -196,7 +219,7 @@ export function validateLineup(
       selected.length > roleConstraint.max
     ) {
       errors.push(
-        `${role}: expected ${roleConstraint.min === roleConstraint.max ? roleConstraint.min : `${roleConstraint.min}-${roleConstraint.max}`} slot(s), selected ${selected.length}.`,
+        `${getRoleDisplayName(role, constraints)}: expected ${roleConstraint.min === roleConstraint.max ? roleConstraint.min : `${roleConstraint.min}-${roleConstraint.max}`} slot(s), selected ${selected.length}.`,
       );
     }
   }
@@ -224,7 +247,12 @@ export function resolveBandLeaderId(args: {
   bandLeaderId?: string | null;
   defaultContactId?: string | null;
 }): string {
-  const { selectedMusicianIds, storedBandLeaderId, bandLeaderId, defaultContactId } = args;
+  const {
+    selectedMusicianIds,
+    storedBandLeaderId,
+    bandLeaderId,
+    defaultContactId,
+  } = args;
   if (storedBandLeaderId && selectedMusicianIds.includes(storedBandLeaderId)) {
     return storedBandLeaderId;
   }
@@ -243,7 +271,10 @@ export function resolveTalkbackOwnerId(args: {
   storedTalkbackOwnerId?: string;
 }): string {
   const { selectedMusicianIds, bandLeaderId, storedTalkbackOwnerId } = args;
-  if (storedTalkbackOwnerId && selectedMusicianIds.includes(storedTalkbackOwnerId)) {
+  if (
+    storedTalkbackOwnerId &&
+    selectedMusicianIds.includes(storedTalkbackOwnerId)
+  ) {
     return storedTalkbackOwnerId;
   }
   return bandLeaderId;
