@@ -1,10 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import desktopPackage from "../package.json";
 import {
   type LineupMap,
   type LineupValue,
   type RoleConstraint,
+  autoFormatDateInput,
   formatIsoDateToUs,
   getTodayIsoLocal,
   getUniqueSelectedMusicians,
@@ -61,7 +62,7 @@ type NewProjectPayload = {
   talkbackOwnerId?: string;
 };
 
-const ROLE_ORDER = ["drums", "bass", "guitar", "keys", "vocs", "talkback"];
+const ROLE_ORDER = ["drums", "bass", "guitar", "keys", "vocs"];
 
 function sanitizeVenueSlug(value: string) {
   return value
@@ -316,7 +317,6 @@ function ChooseProjectTypePage({
           <span className="choice-card__desc">
             For a specific show with date and venue.
           </span>
-          <span className="choice-card__cta">Continue</span>
         </button>
         <button
           type="button"
@@ -327,7 +327,6 @@ function ChooseProjectTypePage({
           <span className="choice-card__desc">
             Reusable template for a season or tour.
           </span>
-          <span className="choice-card__cta">Continue</span>
         </button>
       </div>
     </section>
@@ -345,18 +344,34 @@ function NewEventProjectPage({
   const [bandRef, setBandRef] = useState<string>("");
   const [status, setStatus] = useState<string>("");
   const todayIso = getTodayIsoLocal();
+  const datePickerRef = useRef<HTMLInputElement | null>(null);
 
   const selectedBand = bands.find((band) => band.id === bandRef);
-  const canSubmit = Boolean(eventDateIso && eventVenue.trim() && selectedBand);
+  const canSubmit = Boolean(
+    eventDateIso &&
+      !isPastIsoDate(eventDateIso, todayIso) &&
+      eventVenue.trim() &&
+      selectedBand,
+  );
 
   function updateDateInput(value: string) {
-    setEventDateInput(value);
-    const parsed = parseUsDateInput(value);
+    const formatted = autoFormatDateInput(value);
+    setEventDateInput(formatted);
+    const parsed = parseUsDateInput(formatted);
     if (!parsed) {
       setEventDateIso("");
       return;
     }
+    if (isPastIsoDate(parsed, todayIso)) {
+      setEventDateIso("");
+      return;
+    }
     setEventDateIso(parsed);
+  }
+
+  function openCalendar() {
+    if (!datePickerRef.current?.showPicker) return;
+    datePickerRef.current.showPicker();
   }
 
   async function createProject() {
@@ -408,10 +423,25 @@ function NewEventProjectPage({
           <input
             type="text"
             inputMode="numeric"
-            lang="en-US"
-            placeholder="MM/DD/YYYY"
+            lang="en-GB"
+            placeholder="DD/MM/YYYY"
             value={eventDateInput}
             onChange={(event) => updateDateInput(event.target.value)}
+            onClick={openCalendar}
+          />
+          <input
+            ref={datePickerRef}
+            className="date-picker-proxy"
+            type="date"
+            lang="en-GB"
+            min={todayIso}
+            value={eventDateIso}
+            onChange={(event) => {
+              setEventDateIso(event.target.value);
+              setEventDateInput(formatIsoDateToUs(event.target.value));
+            }}
+            aria-hidden="true"
+            tabIndex={-1}
           />
           <div className="actions-row">
             <button
@@ -598,18 +628,32 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
   const [talkbackOwnerId, setTalkbackOwnerId] = useState<string>("");
   const [status, setStatus] = useState<string>("");
 
+  const getDefaultBandLeader = useCallback((data: BandSetupData): string => {
+    if (!data.defaultLineup) return "";
+    const preferredOrder = [...ROLE_ORDER, "talkback"];
+    for (const role of preferredOrder) {
+      const constraint = normalizeRoleConstraint(role, data.constraints[role]);
+      const selected = normalizeLineupValue(
+        data.defaultLineup[role],
+        constraint.max,
+      );
+      if (selected[0]) return selected[0];
+    }
+    return "";
+  }, []);
+
   useEffect(() => {
     async function load() {
       const raw = await invoke<string>("read_project", { projectId: id });
       const parsed = JSON.parse(raw) as NewProjectPayload;
       setProject(parsed);
-      setBandLeaderId(parsed.bandLeaderId ?? "");
-      setTalkbackOwnerId(parsed.talkbackOwnerId ?? "");
-
       const data = await invoke<BandSetupData>("get_band_setup_data", {
         bandId: parsed.bandRef,
       });
       setSetupData(data);
+      const defaultBandLeaderId = getDefaultBandLeader(data);
+      setBandLeaderId(parsed.bandLeaderId ?? defaultBandLeaderId);
+      setTalkbackOwnerId(parsed.talkbackOwnerId ?? "");
 
       if (!data.defaultLineup) {
         if (import.meta.env.DEV) {
@@ -632,7 +676,7 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
       });
       setStatus("Failed to load band data. Check application logs.");
     });
-  }, [id]);
+  }, [getDefaultBandLeader, id]);
 
   const errors = useMemo(() => {
     if (!setupData) return [];
@@ -741,17 +785,42 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
     }));
   }
 
+  function resetToDefault() {
+    if (!setupData) return;
+    const confirmed = window.confirm(
+      "Reset lineup, band leader, and talkback owner to band defaults?",
+    );
+    if (!confirmed) return;
+    setLineup({ ...(setupData.defaultLineup ?? {}) });
+    setBandLeaderId(getDefaultBandLeader(setupData));
+    setTalkbackOwnerId("");
+    setStatus("Setup reset to defaults.");
+  }
+
+  const talkbackOptions = selectedOptions.filter(
+    (member) => member.id !== bandLeaderId,
+  );
+
   return (
     <section className="panel">
       <div className="panel__header">
         <h2>Project Setup</h2>
-        <button
-          type="button"
-          className="button-secondary"
-          onClick={() => navigate("/")}
-        >
-          Back to projects
-        </button>
+        <div className="actions-row">
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={resetToDefault}
+          >
+            Reset to default
+          </button>
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={() => navigate("/")}
+          >
+            Back to projects
+          </button>
+        </div>
       </div>
 
       <p className="subtle">Configure lineup for Input List and Stage Plan.</p>
@@ -767,57 +836,61 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
           const isMulti = role === "vocs";
           return (
             <article key={role} className="lineup-card">
-              <h3>
-                {role.toUpperCase()} (
-                {constraint.min === constraint.max
-                  ? constraint.max
-                  : `${constraint.min}-${constraint.max}`}
-                )
-              </h3>
+              <h3>{role.toUpperCase()}</h3>
               {isMulti ? (
                 <div className="lineup-list">
-                  {selected.map((musicianId, index) => (
-                    <div
-                      key={`${role}-${musicianId}`}
-                      className="lineup-list__row"
-                    >
-                      <span>
-                        {members.find((m) => m.id === musicianId)?.name ??
-                          musicianId}
-                      </span>
-                      <div className="actions-row">
-                        <button
-                          type="button"
-                          className="button-secondary"
-                          onClick={() => setEditing({ role, slotIndex: index })}
-                        >
-                          Change
-                        </button>
-                        <button
-                          type="button"
-                          className="button-secondary"
-                          onClick={() => removeSelection(role, index)}
-                        >
-                          Remove
-                        </button>
+                  {(selected.length > 0 ? selected : [""]).map(
+                    (musicianId, index) => (
+                      <div
+                        key={`${role}-${musicianId || index}`}
+                        className="lineup-list__row"
+                      >
+                        <span className="lineup-list__name">
+                          {musicianId
+                            ? (members.find((m) => m.id === musicianId)?.name ??
+                              musicianId)
+                            : "No vocalist selected"}
+                        </span>
+                        <div className="actions-row">
+                          <button
+                            type="button"
+                            className="button-secondary"
+                            onClick={() =>
+                              setEditing({ role, slotIndex: index })
+                            }
+                          >
+                            Change
+                          </button>
+                          {musicianId ? (
+                            <button
+                              type="button"
+                              className="button-secondary"
+                              onClick={() => removeSelection(role, index)}
+                            >
+                              Remove
+                            </button>
+                          ) : null}
+                          {(selected.length === 0 ||
+                            index === selected.length - 1) &&
+                          selected.length < constraint.max ? (
+                            <button
+                              type="button"
+                              className="button-secondary"
+                              onClick={() =>
+                                setEditing({ role, slotIndex: selected.length })
+                              }
+                            >
+                              Add
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                  {selected.length < constraint.max ? (
-                    <button
-                      type="button"
-                      className="button-secondary"
-                      onClick={() =>
-                        setEditing({ role, slotIndex: selected.length })
-                      }
-                    >
-                      + Add vocalist
-                    </button>
-                  ) : null}
+                    ),
+                  )}
                 </div>
               ) : (
                 <div className="lineup-list__row">
-                  <span>
+                  <span className="lineup-list__name">
                     {selected[0]
                       ? (members.find((m) => m.id === selected[0])?.name ??
                         selected[0])
@@ -851,9 +924,11 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
       )}
 
       <article className="lineup-card">
-        <h3>Band leader</h3>
+        <p className="subtle">
+          Select the member responsible for technical communication.
+        </p>
+        <h3>BAND LEADER</h3>
         <label>
-          Band leader *
           <select
             value={bandLeaderId}
             onChange={(event) => setBandLeaderId(event.target.value)}
@@ -869,31 +944,21 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
       </article>
 
       <article className="lineup-card">
-        <h3>Talkback owner</h3>
-        <p className="subtle">Default follows the band leader.</p>
+        <p className="subtle">Assign the talkback microphone owner.</p>
+        <h3>TALKBACK</h3>
         <label>
-          Override talkback owner
           <select
             value={talkbackOwnerId}
             onChange={(event) => setTalkbackOwnerId(event.target.value)}
           >
             <option value="">Use band leader default</option>
-            {selectedOptions.map((member) => (
+            {talkbackOptions.map((member) => (
               <option key={member.id} value={member.id}>
                 {member.name}
               </option>
             ))}
           </select>
         </label>
-        <div className="actions-row">
-          <button
-            type="button"
-            className="button-secondary"
-            onClick={() => setTalkbackOwnerId("")}
-          >
-            Reset to leader
-          </button>
-        </div>
       </article>
 
       {errors.length > 0 ? (
@@ -917,7 +982,7 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
 
       {editing && setupData ? (
         <dialog className="selector-overlay" open>
-          <div className="selector-dialog panel">
+          <div className="selector-dialog">
             <div className="panel__header">
               <h3>Select {editing.role}</h3>
               <button
@@ -933,7 +998,7 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
                 <button
                   type="button"
                   key={member.id}
-                  className="button-secondary"
+                  className="selector-option"
                   onClick={() => {
                     updateSlot(editing.role, editing.slotIndex, member.id);
                     setEditing(null);

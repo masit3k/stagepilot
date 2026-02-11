@@ -38,8 +38,8 @@ export function parseUsDateInput(value: string): string | null {
   const trimmed = value.trim();
   const match = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (!match) return null;
-  const month = Number(match[1]);
-  const day = Number(match[2]);
+  const day = Number(match[1]);
+  const month = Number(match[2]);
   const year = Number(match[3]);
   if (month < 1 || month > 12 || day < 1 || day > 31) return null;
   const dt = new Date(year, month - 1, day);
@@ -58,7 +58,14 @@ export function parseUsDateInput(value: string): string | null {
 export function formatIsoDateToUs(isoDate: string): string {
   const [year, month, day] = isoDate.split("-");
   if (!year || !month || !day) return "";
-  return `${month}/${day}/${year}`;
+  return `${day}/${month}/${year}`;
+}
+
+export function autoFormatDateInput(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
 }
 
 export function isPastIsoDate(isoDate: string, todayIso: string): boolean {

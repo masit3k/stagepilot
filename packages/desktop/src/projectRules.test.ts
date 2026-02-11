@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  autoFormatDateInput,
   getTodayIsoLocal,
   isPastIsoDate,
   matchProjectDetailPath,
@@ -18,12 +19,16 @@ describe("routing guards", () => {
 });
 
 describe("event date rules", () => {
-  it("parses US input into ISO", () => {
-    expect(parseUsDateInput("02/11/2026")).toBe("2026-02-11");
+  it("parses DD/MM/YYYY input into ISO", () => {
+    expect(parseUsDateInput("11/02/2026")).toBe("2026-02-11");
+  });
+
+  it("auto-formats date while typing", () => {
+    expect(autoFormatDateInput("12032026")).toBe("12/03/2026");
   });
 
   it("rejects impossible dates", () => {
-    expect(parseUsDateInput("02/31/2026")).toBeNull();
+    expect(parseUsDateInput("31/02/2026")).toBeNull();
   });
 
   it("marks date before today as past", () => {

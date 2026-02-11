@@ -102,6 +102,7 @@ button {
 .button-secondary {
   background: #ffffff;
   color: #111827;
+  border-color: #d1d5db;
 }
 
 .project-list {
@@ -137,6 +138,14 @@ select {
   padding: 8px;
 }
 
+.date-picker-proxy {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .status {
   margin: 0;
 }
@@ -157,20 +166,16 @@ button:disabled {
 
 .lineup-card {
   border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 12px;
-  background: #f9fafb;
+  border-radius: 12px;
+  padding: 16px;
+  background: #ffffff;
+  box-shadow: 0 2px 10px rgba(17, 24, 39, 0.04);
 }
 
 .lineup-card h3 {
-  margin-top: 0;
-  margin-bottom: 10px;
-}
-
-.lineup-slots {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  margin: 0;
+  margin-bottom: 12px;
+  letter-spacing: 0.02em;
 }
 
 .choice-grid {
@@ -183,38 +188,62 @@ button:disabled {
   background: #f9fafb;
   color: #111827;
   border: 1px solid #d1d5db;
+  border-radius: 12px;
   display: grid;
-  gap: 10px;
-  min-height: 180px;
-  align-content: start;
-  padding: 18px;
+  gap: 14px;
+  min-height: 220px;
+  align-content: center;
+  justify-items: center;
+  padding: 28px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color
+    160ms ease, transform 160ms ease;
+}
+
+.choice-card:hover {
+  border-color: #60a5fa;
+  box-shadow: 0 14px 32px rgba(37, 99, 235, 0.12);
+  background: #f3f7ff;
+  transform: translateY(-1px);
 }
 
 .choice-card__title {
-  font-size: 1.15rem;
+  font-size: 1.35rem;
   font-weight: 700;
 }
 
 .choice-card__desc {
   color: #4b5563;
-}
-
-.choice-card__cta {
-  margin-top: auto;
-  font-weight: 600;
+  max-width: 30ch;
+  line-height: 1.45;
 }
 
 .lineup-list {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .lineup-list__row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
   flex-wrap: wrap;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 10px;
+}
+
+.lineup-list__row:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.lineup-list__name {
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.35;
+  margin-bottom: 4px;
 }
 
 .slot-button {
@@ -224,19 +253,40 @@ button:disabled {
 .selector-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(17, 24, 39, 0.45);
+  background: rgba(17, 24, 39, 0.3);
   display: grid;
   place-items: center;
   padding: 16px;
+  border: none;
 }
 
 .selector-dialog {
   width: min(520px, 95vw);
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 24px 56px rgba(15, 23, 42, 0.2);
+  padding: 16px;
+  border: none;
 }
 
 .selector-list {
   display: grid;
-  gap: 8px;
-  max-height: 300px;
+  max-height: 320px;
   overflow: auto;
+}
+
+.selector-option {
+  width: 100%;
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid #f1f5f9;
+  background: transparent;
+  color: #111827;
+  text-align: left;
+  padding: 12px 4px;
+  min-height: auto;
+}
+
+.selector-option:hover {
+  background: #f8fafc;
 }
