@@ -3,6 +3,12 @@ export type RoleConstraint = {
   max: number;
 };
 
+export type RoleLabelConstraints = {
+  vocs?: {
+    lead?: RoleConstraint;
+  };
+};
+
 export type LineupValue = string | string[];
 export type LineupMap = Record<string, LineupValue | undefined>;
 
@@ -181,10 +187,15 @@ export function normalizeRoleConstraint(
 export function getRoleDisplayName(
   role: string,
   constraints?: Record<string, RoleConstraint>,
+  roleConstraints?: RoleLabelConstraints,
 ): string {
   if (role === "vocs") {
-    const vocConstraint = normalizeRoleConstraint(role, constraints?.[role]);
-    if (vocConstraint.min === 1 && vocConstraint.max === 1) return "LEAD VOC";
+    const leadVocConstraint = roleConstraints?.vocs?.lead;
+    const vocConstraint = normalizeRoleConstraint(
+      role,
+      leadVocConstraint ?? constraints?.[role],
+    );
+    if (vocConstraint.max === 1) return "LEAD VOC";
     return "LEAD VOCS";
   }
   const names: Record<string, string> = {
@@ -202,6 +213,7 @@ export function validateLineup(
   lineup: LineupMap,
   constraints: Record<string, RoleConstraint>,
   roleOrder: string[],
+  roleConstraints?: RoleLabelConstraints,
 ): string[] {
   const errors: string[] = [];
   for (const role of roleOrder) {
@@ -212,7 +224,7 @@ export function validateLineup(
       selected.length > roleConstraint.max
     ) {
       errors.push(
-        `${getRoleDisplayName(role, constraints)}: expected ${roleConstraint.min === roleConstraint.max ? roleConstraint.min : `${roleConstraint.min}-${roleConstraint.max}`} slot(s), selected ${selected.length}.`,
+        `${getRoleDisplayName(role, constraints, roleConstraints)}: expected ${roleConstraint.min === roleConstraint.max ? roleConstraint.min : `${roleConstraint.min}-${roleConstraint.max}`} slot(s), selected ${selected.length}.`,
       );
     }
   }

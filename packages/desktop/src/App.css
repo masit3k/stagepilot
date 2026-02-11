@@ -541,12 +541,17 @@ select {
 .selector-overlay {
   position: fixed;
   inset: 0;
-  background: var(--overlay);
+  background: transparent;
   display: grid;
   place-items: center;
   padding: var(--space-2);
   border: none;
   z-index: 1000;
+}
+.modal-backdrop {
+  background: rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+  backdrop-filter: blur(2px);
 }
 .selector-overlay--topmost {
   z-index: 9999;

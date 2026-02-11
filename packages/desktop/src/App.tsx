@@ -6,6 +6,7 @@ import desktopPackage from "../package.json";
 import {
   type LineupMap,
   type RoleConstraint,
+  type RoleLabelConstraints,
   buildExportFileName,
   formatIsoDateToUs,
   formatIsoToDateTimeDisplay,
@@ -47,6 +48,7 @@ type BandSetupData = {
   bandLeader?: string | null;
   defaultContactId?: string | null;
   constraints: Record<string, RoleConstraint>;
+  roleConstraints?: RoleLabelConstraints;
   defaultLineup?: LineupMap | null;
   members: Record<string, MemberOption[]>;
 };
@@ -377,6 +379,7 @@ function App() {
           id={setupProjectId}
           navigate={navigate}
           registerNavigationGuard={registerNavigationGuard}
+          search={search}
         />
       ) : null}
       {previewProjectId ? (
@@ -1036,13 +1039,6 @@ function NewEventProjectPage({
       </div>
       {status ? <p className="status status--error">{status}</p> : null}
       <div className="setup-action-bar setup-action-bar--equal">
-        <button type="button" onClick={createProject} disabled={!canSubmit}>
-          {editingProjectId
-            ? isDirty
-              ? "Save & Continue"
-              : "Continue"
-            : "Save & Create"}
-        </button>
         <button
           type="button"
           className="button-secondary"
@@ -1056,6 +1052,13 @@ function NewEventProjectPage({
           onClick={() => navigate(exitTarget)}
         >
           Exit
+        </button>
+        <button type="button" onClick={createProject} disabled={!canSubmit}>
+          {editingProjectId
+            ? isDirty
+              ? "Save & Continue"
+              : "Continue"
+            : "Save & Create"}
         </button>
       </div>
     </section>
@@ -1197,9 +1200,6 @@ function NewGenericProjectPage({
       </div>
       {status ? <p className="status status--error">{status}</p> : null}
       <div className="setup-action-bar setup-action-bar--equal">
-        <button type="button" onClick={createProject} disabled={!canSubmit}>
-          {editingProjectId ? "Save & Continue" : "Save & Create"}
-        </button>
         <button
           type="button"
           className="button-secondary"
@@ -1213,6 +1213,9 @@ function NewGenericProjectPage({
           onClick={() => navigate("/")}
         >
           Exit
+        </button>
+        <button type="button" onClick={createProject} disabled={!canSubmit}>
+          {editingProjectId ? "Save & Continue" : "Save & Create"}
         </button>
       </div>
     </section>
@@ -1229,6 +1232,7 @@ function ProjectSetupPage({
   id,
   navigate,
   registerNavigationGuard,
+  search = "",
 }: ProjectRouteProps) {
   const [project, setProject] = useState<NewProjectPayload | null>(null);
   const [setupData, setSetupData] = useState<BandSetupData | null>(null);
@@ -1329,7 +1333,12 @@ function ProjectSetupPage({
     () =>
       !setupData
         ? []
-        : validateLineup(lineup, setupData.constraints, ROLE_ORDER),
+        : validateLineup(
+            lineup,
+            setupData.constraints,
+            ROLE_ORDER,
+            setupData.roleConstraints,
+          ),
     [lineup, setupData],
   );
   const selectedMusicianIds = useMemo(
@@ -1423,6 +1432,10 @@ function ProjectSetupPage({
     project?.purpose === "generic"
       ? `/projects/${encodeURIComponent(id)}/generic`
       : `/projects/${encodeURIComponent(id)}/event`;
+  const fromPath = useMemo(
+    () => new URLSearchParams(search).get("fromPath"),
+    [search],
+  );
   const bandName = setupData?.name ?? project?.bandRef ?? "—";
   const summarySecondary =
     project?.purpose === "event"
@@ -1483,7 +1496,13 @@ function ProjectSetupPage({
               const members = setupData.members[role] || [];
               return (
                 <article key={role} className="lineup-card">
-                  <h3>{getRoleDisplayName(role, setupData.constraints)}</h3>
+                  <h3>
+                    {getRoleDisplayName(
+                      role,
+                      setupData.constraints,
+                      setupData.roleConstraints,
+                    )}
+                  </h3>
                   <div className="lineup-card__body section-divider">
                     <div className="lineup-list lineup-list--single">
                       {(selected.length ? selected : [""]).map(
@@ -1600,9 +1619,16 @@ function ProjectSetupPage({
         <button
           type="button"
           className="button-secondary"
-          onClick={() => navigate(withFrom(backSetupPath, "setup"))}
+          onClick={() => navigate(fromPath || withFrom(backSetupPath, "setup"))}
         >
           Back
+        </button>
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={() => navigate("/")}
+        >
+          Exit
         </button>
         <button
           type="button"
@@ -1618,18 +1644,11 @@ function ProjectSetupPage({
         >
           {isDirty ? "Save & Continue" : "Continue"}
         </button>
-        <button
-          type="button"
-          className="button-secondary"
-          onClick={() => navigate("/")}
-        >
-          Exit
-        </button>
       </div>
 
       {showResetConfirmation ? (
         <dialog
-          className="selector-overlay"
+          className="selector-overlay modal-backdrop"
           open
           onCancel={(event) => {
             event.preventDefault();
@@ -1682,7 +1701,7 @@ function ProjectSetupPage({
 
       {editing && setupData ? (
         <dialog
-          className="selector-overlay"
+          className="selector-overlay modal-backdrop"
           open
           onCancel={(event) => {
             event.preventDefault();
@@ -1705,7 +1724,12 @@ function ProjectSetupPage({
             </button>
             <div className="panel__header panel__header--stack selector-dialog__title">
               <h3>
-                Select {getRoleDisplayName(editing.role, setupData.constraints)}
+                Select{" "}
+                {getRoleDisplayName(
+                  editing.role,
+                  setupData.constraints,
+                  setupData.roleConstraints,
+                )}
               </h3>
             </div>
             <div className="selector-dialog__divider section-divider" />
@@ -1759,7 +1783,7 @@ function ExportResultModal({
   const dialogRef = useModalBehavior(Boolean(state), onClose);
   return (
     <dialog
-      className="selector-overlay"
+      className="selector-overlay modal-backdrop"
       open
       onCancel={(event) => {
         event.preventDefault();
@@ -1853,7 +1877,7 @@ function UnsavedChangesModal({
   if (!open) return null;
   return createPortal(
     <dialog
-      className="selector-overlay selector-overlay--topmost"
+      className="selector-overlay modal-backdrop selector-overlay--topmost"
       open
       onCancel={(event) => {
         event.preventDefault();
@@ -1906,7 +1930,7 @@ function AboutModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   if (!open) return null;
   return (
     <dialog
-      className="selector-overlay"
+      className="selector-overlay modal-backdrop"
       open
       onCancel={(event) => {
         event.preventDefault();
@@ -2129,7 +2153,9 @@ function ProjectPreviewPage({
         <button
           type="button"
           className="button-secondary"
-          onClick={() => navigate(withFrom(`/projects/${id}/setup`, "preview"))}
+          onClick={() =>
+            navigate(withFrom(`/projects/${id}/setup`, "preview", previewRoute))
+          }
         >
           Back to Lineup
         </button>

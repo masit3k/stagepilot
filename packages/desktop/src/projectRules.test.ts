@@ -9,8 +9,10 @@ import {
   matchProjectEventPath,
   matchProjectGenericPath,
   normalizeCity,
+  getRoleDisplayName,
   normalizeRoleConstraint,
   parseUsDateInput,
+  validateLineup,
   resolveBandLeaderId,
   sanitizeVenueSlug,
   shouldPromptUnsavedChanges,
@@ -86,6 +88,31 @@ describe("role constraints", () => {
       min: 0,
       max: 4,
     });
+  });
+
+  it("uses roleConstraints.vocs.lead max to derive vocal label", () => {
+    expect(
+      getRoleDisplayName(
+        "vocs",
+        { vocs: { min: 0, max: 4 } },
+        { vocs: { lead: { min: 0, max: 1 } } },
+      ),
+    ).toBe("LEAD VOC");
+    expect(
+      getRoleDisplayName(
+        "vocs",
+        { vocs: { min: 0, max: 1 } },
+        { vocs: { lead: { min: 0, max: 2 } } },
+      ),
+    ).toBe("LEAD VOCS");
+  });
+
+  it("uses resolved vocal label in lineup validation", () => {
+    expect(
+      validateLineup({ vocs: [] }, { vocs: { min: 1, max: 2 } }, ["vocs"], {
+        vocs: { lead: { min: 1, max: 1 } },
+      }),
+    ).toContain("LEAD VOC: expected 1-2 slot(s), selected 0.");
   });
 
   it("prefers band JSON bandLeader for defaults", () => {
