@@ -11,6 +11,7 @@ import {
   normalizeRoleConstraint,
   parseUsDateInput,
   resolveBandLeaderId,
+  sanitizeVenueSlug,
 } from "./projectRules";
 
 describe("routing guards", () => {
@@ -25,6 +26,16 @@ describe("routing guards", () => {
   it("matches canonical setup back routes", () => {
     expect(matchProjectEventPath("/projects/cos_2026/event")).toBe("cos_2026");
     expect(matchProjectGenericPath("/projects/cos_2026/generic")).toBe("cos_2026");
+  });
+
+  it("does not treat /projects/new/event as edit route", () => {
+    expect(matchProjectEventPath("/projects/new/event")).toBeNull();
+  });
+});
+
+describe("project id venue formatting", () => {
+  it("builds title-cased hyphen venue slug without diacritics", () => {
+    expect(sanitizeVenueSlug("Mladá Boleslav")).toBe("Mlada-Boleslav");
   });
 });
 

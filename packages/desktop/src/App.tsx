@@ -1,4 +1,4 @@
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import desktopPackage from "../package.json";
 import {
@@ -21,6 +21,7 @@ import {
   parseUsDateInput,
   resolveBandLeaderId,
   resolveTalkbackOwnerId,
+  sanitizeVenueSlug,
   validateLineup,
 } from "./projectRules";
 import "./App.css";
@@ -31,11 +32,11 @@ type MemberOption = { id: string; name: string };
 type BandSetupData = { id: string; name: string; bandLeader?: string | null; defaultContactId?: string | null; constraints: Record<string, RoleConstraint>; defaultLineup?: LineupMap | null; members: Record<string, MemberOption[]> };
 type NewProjectPayload = { id: string; purpose: "event" | "generic"; bandRef: string; documentDate: string; eventDate?: string; eventVenue?: string; note?: string; createdAt: string; lineup?: LineupMap; bandLeaderId?: string; talkbackOwnerId?: string };
 type MapySuggestion = { id: string; cityName: string; label: string };
+type MapyKeyStatus = { source: "env" | "config" | "none" };
 type ApiError = { message?: string };
 
 const ROLE_ORDER = ["drums", "bass", "guitar", "keys", "vocs"];
 
-function sanitizeVenueSlug(value: string) { return value.trim().toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "").slice(0, 50); }
 function formatDateForProjectId(eventDate: string) { const [year, month, day] = eventDate.split("-"); if (!year || !month || !day) throw new Error(`Invalid event date: ${eventDate}`); return `${day}-${month}-${year}`; }
 function buildEventProjectId(band: BandOption, eventDate: string, eventVenue: string) { return `${band.code?.trim() || band.id}_Inputlist_Stageplan_${formatDateForProjectId(eventDate)}_${sanitizeVenueSlug(eventVenue) || "venue"}`; }
 function buildGenericProjectId(band: BandOption, year: string) { return `${band.code?.trim() || band.id}_Inputlist_Stageplan_${year}`; }
@@ -92,7 +93,7 @@ function NewEventProjectPage({ navigate, onCreated, bands, editingProjectId }: N
   const [eventVenue, setEventVenue] = useState("");
   const [bandRef, setBandRef] = useState("");
   const [status, setStatus] = useState("");
-  const [mapyEnabled, setMapyEnabled] = useState(false);
+  const [mapyKeySource, setMapyKeySource] = useState<MapyKeyStatus["source"]>("none");
   const [venueSuggestions, setVenueSuggestions] = useState<MapySuggestion[]>([]);
   const [venueLoading, setVenueLoading] = useState(false);
   const [hasQueriedVenue, setHasQueriedVenue] = useState(false);
@@ -103,9 +104,12 @@ function NewEventProjectPage({ navigate, onCreated, bands, editingProjectId }: N
   const canSubmit = Boolean(eventDateIso && !isPastIsoDate(eventDateIso, todayIso) && eventVenue.trim() && selectedBand);
 
   useEffect(() => {
-    invoke<boolean>("has_mapy_api_key")
-      .then((enabled) => { setMapyEnabled(enabled); if (isDev()) console.debug("[mapy] key availability", { enabled }); })
-      .catch(() => setMapyEnabled(false));
+    invoke<MapyKeyStatus>("get_mapy_key_status")
+      .then((result) => {
+        setMapyKeySource(result.source);
+        if (isDev()) console.debug("[mapy] key source", result);
+      })
+      .catch(() => setMapyKeySource("none"));
     if (!editingProjectId) return;
     invoke<string>("read_project", { projectId: editingProjectId })
       .then((raw) => { const project = JSON.parse(raw) as NewProjectPayload; setEventDateIso(project.eventDate ?? ""); setEventDateInput(project.eventDate ? formatIsoDateToUs(project.eventDate) : ""); setEventVenue(project.eventVenue ?? ""); setBandRef(project.bandRef); })
@@ -114,7 +118,7 @@ function NewEventProjectPage({ navigate, onCreated, bands, editingProjectId }: N
 
   useEffect(() => {
     const query = eventVenue.trim();
-    if (!mapyEnabled || query.length < 3) { setVenueSuggestions([]); setVenueLoading(false); setHasQueriedVenue(false); return; }
+    if (mapyKeySource === "none" || query.length < 3) { setVenueSuggestions([]); setVenueLoading(false); setHasQueriedVenue(false); return; }
     const cacheKey = query.toLowerCase();
     const cached = venueCacheRef.current.get(cacheKey);
     if (isDev()) console.debug("[mapy] suggest trigger", { query, length: query.length, cache: cached ? "hit" : "miss" });
@@ -134,7 +138,7 @@ function NewEventProjectPage({ navigate, onCreated, bands, editingProjectId }: N
       }
     }, 350);
     return () => clearTimeout(timer);
-  }, [eventVenue, mapyEnabled]);
+  }, [eventVenue, mapyKeySource]);
 
   function updateDateInput(value: string) {
     const formatted = autoFormatDateInput(value);
@@ -152,11 +156,11 @@ function NewEventProjectPage({ navigate, onCreated, bands, editingProjectId }: N
     navigate(`/projects/${id}/setup`);
   }
 
-  const showSuggestionBox = mapyEnabled && eventVenue.trim().length >= 3;
-  return <section className="panel"><div className="panel__header"><h2>{editingProjectId ? "Edit Event setup" : "New Event project"}</h2><button type="button" className="button-secondary" onClick={() => navigate("/projects/new")}>Back</button></div><div className="form-grid">
+  const showSuggestionBox = mapyKeySource !== "none" && eventVenue.trim().length >= 3;
+  return <section className="panel"><div className="panel__header"><h2>{editingProjectId ? "Edit Event setup" : "New Event project"}</h2><button type="button" className="button-secondary" onClick={() => navigate(editingProjectId ? `/projects/${editingProjectId}/setup` : "/projects/new")}>{editingProjectId ? "Cancel" : "Back"}</button></div><div className="form-grid">
     <label>Date *<input type="text" inputMode="numeric" lang="en-GB" placeholder="DD/MM/YYYY" value={eventDateInput} onChange={(e) => updateDateInput(e.target.value)} onClick={() => datePickerRef.current?.showPicker?.()} /><input ref={datePickerRef} className="date-picker-proxy" type="date" lang="en-GB" min={todayIso} value={eventDateIso} onChange={(e) => { setEventDateIso(e.target.value); setEventDateInput(formatIsoDateToUs(e.target.value)); }} aria-hidden="true" tabIndex={-1} /></label>
     <label className="venue-field">Venue *<input type="text" value={eventVenue} onChange={(e) => setEventVenue(e.target.value)} placeholder="City" autoComplete="off" />
-      {!mapyEnabled ? <span className="field-hint">Autocomplete unavailable (missing MAPY API key).</span> : null}
+      {mapyKeySource === "none" ? <span className="field-hint">Autocomplete unavailable (missing MAPY API key).</span> : null}
       {showSuggestionBox ? <div className="combo-list" role="listbox" aria-label="Venue suggestions">
         {venueSuggestions.map((item) => <button key={item.id} type="button" className="combo-item" onClick={() => { setEventVenue(item.cityName); setVenueSuggestions([]); setHasQueriedVenue(false); }}><strong>{item.cityName}</strong> <span>{item.label}</span></button>)}
         {venueLoading ? <div className="combo-empty">Searching…</div> : null}
@@ -164,7 +168,7 @@ function NewEventProjectPage({ navigate, onCreated, bands, editingProjectId }: N
       </div> : null}
     </label>
     <label>Band *<select value={bandRef} onChange={(e) => setBandRef(e.target.value)}><option value="">Select band</option>{bands.map((band) => <option key={band.id} value={band.id}>{band.name}</option>)}</select></label>
-  </div>{status ? <p className="status status--error">{status}</p> : null}<div className="actions-row"><button type="button" onClick={createProject} disabled={!canSubmit}>{editingProjectId ? "Save setup" : "Create"}</button></div></section>;
+  </div>{status ? <p className="status status--error">{status}</p> : null}<div className="actions-row actions-row--spaced"><button type="button" className="button-secondary" onClick={() => navigate(editingProjectId ? `/projects/${editingProjectId}/setup` : "/projects/new")}>{editingProjectId ? "Cancel" : "Back"}</button><button type="button" onClick={createProject} disabled={!canSubmit}>{editingProjectId ? "Save & Continue" : "Create"}</button></div></section>;
 }
 
 function NewGenericProjectPage({ navigate, onCreated, bands, editingProjectId }: NewProjectPageProps) {
@@ -193,7 +197,7 @@ function NewGenericProjectPage({ navigate, onCreated, bands, editingProjectId }:
     navigate(`/projects/${id}/setup`);
   }
 
-  return <section className="panel"><div className="panel__header"><h2>{editingProjectId ? "Edit Generic setup" : "New Generic project"}</h2><button type="button" className="button-secondary" onClick={() => navigate("/projects/new")}>Back</button></div><div className="form-grid"><label>Band *<select value={bandRef} onChange={(e) => setBandRef(e.target.value)}><option value="">Select band</option>{bands.map((band) => <option key={band.id} value={band.id}>{band.name}</option>)}</select></label><label>Note<input type="text" value={note} onChange={(e) => setNote(e.target.value)} /></label><label>Validity year *<input type="number" min={currentYear} max="2100" value={year} onChange={(e) => { setYear(e.target.value); setStatus(""); }} /></label></div>{status ? <p className="status status--error">{status}</p> : null}<div className="actions-row"><button type="button" onClick={createProject} disabled={!canSubmit}>{editingProjectId ? "Save setup" : "Create"}</button></div></section>;
+  return <section className="panel"><div className="panel__header"><h2>{editingProjectId ? "Edit Generic setup" : "New Generic project"}</h2><button type="button" className="button-secondary" onClick={() => navigate("/projects/new")}>Back</button></div><div className="form-grid"><label>Band *<select value={bandRef} onChange={(e) => setBandRef(e.target.value)}><option value="">Select band</option>{bands.map((band) => <option key={band.id} value={band.id}>{band.name}</option>)}</select></label><label>Note<input type="text" value={note} onChange={(e) => setNote(e.target.value)} /></label><label>Validity year *<input type="number" min={currentYear} max="2100" value={year} onChange={(e) => { setYear(e.target.value); setStatus(""); }} /></label></div>{status ? <p className="status status--error">{status}</p> : null}<div className="actions-row"><button type="button" onClick={createProject} disabled={!canSubmit}>{editingProjectId ? "Save & Continue" : "Create"}</button></div></section>;
 }
 
 type ProjectDetailPageProps = { id: string; navigate: (path: string) => void };
@@ -274,48 +278,56 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
 
 function ProjectPreviewPage({ id, navigate }: ProjectDetailPageProps) {
   const [project, setProject] = useState<NewProjectPayload | null>(null);
-  const [previewUrl, setPreviewUrl] = useState("");
+  const [base64Pdf, setBase64Pdf] = useState("");
   const [status, setStatus] = useState("");
   const [zoom, setZoom] = useState(100);
   const [loadingPreview, setLoadingPreview] = useState(true);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const regeneratePreview = useCallback(async () => {
     setLoadingPreview(true);
     setStatus("");
     try {
-      const result = await invoke<{ previewPdfPath: string }>("generate_preview_pdf", { projectId: id });
-      setPreviewUrl(convertFileSrc(result.previewPdfPath));
+      const result = await invoke<{ base64Pdf: string }>("build_project_pdf_preview", { projectId: id });
+      setBase64Pdf(result.base64Pdf);
     } catch (err) {
       const message = (err as ApiError)?.message ?? "Failed to generate preview.";
+      console.error("Preview generation failed", err);
       setStatus(`Preview failed: ${message}`);
-      setPreviewUrl("");
+      setBase64Pdf("");
     } finally {
       setLoadingPreview(false);
     }
   }, [id]);
 
   useEffect(() => { invoke<string>("read_project", { projectId: id }).then((raw) => setProject(JSON.parse(raw) as NewProjectPayload)).catch(() => setStatus("Failed to load project.")); }, [id]);
-  useEffect(() => { regeneratePreview(); return () => { invoke("cleanup_preview_pdf", { projectId: id }).catch(() => undefined); }; }, [id, regeneratePreview]);
+  useEffect(() => { regeneratePreview(); }, [regeneratePreview]);
 
   return <section className="panel panel--preview"><div className="panel__header"><h2>PDF Preview</h2></div>
-    {loadingPreview ? <p className="subtle">Generating preview…</p> : null}
-    {!loadingPreview && previewUrl ? <div className="pdf-preview-frame" style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top left" }}><iframe title="PDF Preview" src={previewUrl} /></div> : null}
-    {!loadingPreview && !previewUrl ? <div className="status status--error"><p>{status || "Preview failed."}</p><button type="button" className="button-secondary" onClick={regeneratePreview}>Retry</button></div> : null}
+    <div className="pdf-preview-panel">
+      {loadingPreview ? <p className="subtle">Generating preview…</p> : null}
+      {!loadingPreview && base64Pdf ? <div className="pdf-preview-scroll"><div className="pdf-preview-page-wrapper" style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}><object className="pdf-preview-object" data={`data:application/pdf;base64,${base64Pdf}`} type="application/pdf"><p>Unable to render PDF preview.</p></object></div></div> : null}
+      {!loadingPreview && !base64Pdf ? <div className="status status--error"><p>{status || "Preview failed."}</p><button type="button" className="button-secondary" onClick={regeneratePreview}>Retry</button></div> : null}
+    </div>
     <div className="actions-row"><button type="button" className="button-secondary" onClick={() => setZoom((v) => Math.max(50, v - 10))}>Zoom out</button><button type="button" className="button-secondary" onClick={() => setZoom((v) => Math.min(200, v + 10))}>Zoom in</button></div>
-    {status && previewUrl ? <p className="status status--error">{status}</p> : null}
-    <div className="setup-action-bar"><button type="button" className="button-secondary" onClick={() => navigate(`/projects/${id}/setup`)}>Back to lineup setup</button><button type="button" className="button-secondary" onClick={() => setStatus("Project saved.")}>Save project</button><button type="button" onClick={async () => {
+    {status && base64Pdf ? <p className="status status--error">{status}</p> : null}
+    <div className="setup-action-bar"><button type="button" className="button-secondary" onClick={() => navigate(`/projects/${id}/setup`)}>Back to lineup setup</button><button type="button" className="button-secondary" onClick={() => setStatus("Project saved.")}>Save project</button><button type="button" disabled={isGeneratingPdf} onClick={async () => {
       if (!project) return;
       try {
-        const defaultPath = await invoke<string>("default_export_pdf_path", { projectId: project.id });
+        setIsGeneratingPdf(true);
+        const exportsDir = await invoke<string>("get_exports_dir");
+        const defaultPath = `${exportsDir}${exportsDir.endsWith("\\") || exportsDir.endsWith("/") ? "" : "/"}${project.id}.pdf`;
         const selectedPath = await invoke<string | null>("pick_export_pdf_path", { defaultPath });
         if (!selectedPath) return;
         await invoke("export_pdf_to_path", { projectId: project.id, outputPath: selectedPath });
-        setStatus(`PDF saved: ${selectedPath.split(/[\\/]/).pop()}`);
+        setStatus(`Saved: ${selectedPath.split(/[\\/]/).pop()}`);
       } catch (err) {
         console.error("Failed to export PDF", err);
-        setStatus(`Failed to export PDF: ${(err as ApiError)?.message ?? "unknown error"}`);
+        setStatus(`Export failed: ${(err as ApiError)?.message ?? "unknown error"}`);
+      } finally {
+        setIsGeneratingPdf(false);
       }
-    }}>Generate PDF</button></div>
+    }}>{isGeneratingPdf ? "Generating…" : "Generate PDF"}</button></div>
   </section>;
 }
 

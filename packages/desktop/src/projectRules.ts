@@ -13,31 +13,46 @@ const PROJECT_GENERIC_PATTERN = /^\/projects\/([^/]+)\/generic$/;
 const PROJECT_PREVIEW_PATTERN = /^\/projects\/([^/]+)\/(?:preview|pdf-preview)$/;
 const RESERVED_PROJECT_IDS = new Set(["new"]);
 
-export function matchProjectDetailPath(pathname: string): string | null {
-  const match = pathname.match(PROJECT_DETAIL_PATTERN);
+function decodeProjectId(match: RegExpMatchArray | null): string | null {
   if (!match) return null;
   const id = decodeURIComponent(match[1]);
   return RESERVED_PROJECT_IDS.has(id) ? null : id;
 }
 
+export function matchProjectDetailPath(pathname: string): string | null {
+  return decodeProjectId(pathname.match(PROJECT_DETAIL_PATTERN));
+}
+
 export function matchProjectSetupPath(pathname: string): string | null {
-  const match = pathname.match(PROJECT_SETUP_PATTERN);
-  return match ? decodeURIComponent(match[1]) : null;
+  return decodeProjectId(pathname.match(PROJECT_SETUP_PATTERN));
 }
 
 export function matchProjectPreviewPath(pathname: string): string | null {
-  const match = pathname.match(PROJECT_PREVIEW_PATTERN);
-  return match ? decodeURIComponent(match[1]) : null;
+  return decodeProjectId(pathname.match(PROJECT_PREVIEW_PATTERN));
 }
 
 export function matchProjectEventPath(pathname: string): string | null {
-  const match = pathname.match(PROJECT_EVENT_PATTERN);
-  return match ? decodeURIComponent(match[1]) : null;
+  return decodeProjectId(pathname.match(PROJECT_EVENT_PATTERN));
 }
 
 export function matchProjectGenericPath(pathname: string): string | null {
-  const match = pathname.match(PROJECT_GENERIC_PATTERN);
-  return match ? decodeURIComponent(match[1]) : null;
+  return decodeProjectId(pathname.match(PROJECT_GENERIC_PATTERN));
+}
+
+export function sanitizeVenueSlug(value: string): string {
+  return value
+    .trim()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[^\p{L}\p{N}\s-]/gu, "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((segment) =>
+      `${segment.slice(0, 1).toUpperCase()}${segment.slice(1).toLowerCase()}`,
+    )
+    .join("-")
+    .replace(/-+/g, "-")
+    .slice(0, 50);
 }
 
 export function getTodayIsoLocal(now = new Date()): string {

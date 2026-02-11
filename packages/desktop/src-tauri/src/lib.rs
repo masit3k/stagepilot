@@ -11,6 +11,7 @@ use tauri::Manager;
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AppConfig {
+    #[serde(alias = "mapyApiKey", alias = "MAPY_API_KEY")]
     mapy_api_key: Option<String>,
 }
 
@@ -44,6 +45,11 @@ struct CitySuggestion {
     id: String,
     city_name: String,
     label: String,
+}
+
+#[derive(Debug, Serialize)]
+struct MapyKeyStatus {
+    source: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -146,6 +152,33 @@ fn resolve_user_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, ApiError> {
     Ok(app_data_dir)
 }
 
+fn encode_base64(bytes: &[u8]) -> String {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    let mut i = 0;
+    while i < bytes.len() {
+        let b0 = bytes[i];
+        let b1 = if i + 1 < bytes.len() { bytes[i + 1] } else { 0 };
+        let b2 = if i + 2 < bytes.len() { bytes[i + 2] } else { 0 };
+
+        let n = u32::from(b0) << 16 | u32::from(b1) << 8 | u32::from(b2);
+        out.push(TABLE[((n >> 18) & 0x3f) as usize] as char);
+        out.push(TABLE[((n >> 12) & 0x3f) as usize] as char);
+        if i + 1 < bytes.len() {
+            out.push(TABLE[((n >> 6) & 0x3f) as usize] as char);
+        } else {
+            out.push('=');
+        }
+        if i + 2 < bytes.len() {
+            out.push(TABLE[(n & 0x3f) as usize] as char);
+        } else {
+            out.push('=');
+        }
+        i += 3;
+    }
+    out
+}
+
 fn map_io_error(err: std::io::Error, code: &str, message: &str) -> ApiError {
     ApiError {
         code: code.into(),
@@ -177,9 +210,6 @@ fn resolve_mapy_api_key_with_source(app: &tauri::AppHandle) -> (Option<String>, 
     (None, "none")
 }
 
-fn resolve_mapy_api_key(app: &tauri::AppHandle) -> Option<String> {
-    resolve_mapy_api_key_with_source(app).0
-}
 
 #[tauri::command]
 fn get_user_data_dir(app: tauri::AppHandle) -> Result<String, ApiError> {
@@ -472,8 +502,11 @@ fn save_project(app: tauri::AppHandle, project_id: String, json: String) -> Resu
 }
 
 #[tauri::command]
-fn has_mapy_api_key(app: tauri::AppHandle) -> bool {
-    resolve_mapy_api_key(&app).is_some()
+fn get_mapy_key_status(app: tauri::AppHandle) -> MapyKeyStatus {
+    let (_, source) = resolve_mapy_api_key_with_source(&app);
+    MapyKeyStatus {
+        source: source.to_string(),
+    }
 }
 
 #[tauri::command]
@@ -628,17 +661,18 @@ fn export_pdf(app: tauri::AppHandle, project_id: String) -> Result<ExportPdfResu
     })
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct PreviewPdfResult {
-    preview_pdf_path: String,
+struct PreviewPdfBytesResult {
+    base64_pdf: String,
 }
 
 #[tauri::command]
-fn generate_preview_pdf(
+fn build_project_pdf_preview(
     app: tauri::AppHandle,
     project_id: String,
-) -> Result<PreviewPdfResult, ApiError> {
+) -> Result<PreviewPdfBytesResult, ApiError> {
     let user_data_dir = resolve_user_data_dir(&app)?;
     let repo_root = resolve_repo_root();
     let script_path = repo_root.join("scripts").join("desktop_preview.ts");
@@ -681,7 +715,12 @@ fn generate_preview_pdf(
                     version_pdf_path: None,
                 })?
                 .to_string();
-            return Ok(PreviewPdfResult { preview_pdf_path });
+            let bytes = fs::read(&preview_pdf_path).map_err(|err| {
+                map_io_error(err, "PREVIEW_FAILED", "Failed to read preview PDF")
+            })?;
+            return Ok(PreviewPdfBytesResult {
+                base64_pdf: encode_base64(&bytes),
+            });
         }
     }
 
@@ -694,21 +733,12 @@ fn generate_preview_pdf(
 }
 
 #[tauri::command]
-fn cleanup_preview_pdf(app: tauri::AppHandle, project_id: String) -> Result<(), ApiError> {
+fn get_exports_dir(app: tauri::AppHandle) -> Result<String, ApiError> {
     let user_data_dir = resolve_user_data_dir(&app)?;
-    let preview_path = user_data_dir
-        .join("tmp")
-        .join(format!("preview_{}.pdf", project_id));
-    if preview_path.exists() {
-        fs::remove_file(preview_path).map_err(|err| {
-            map_io_error(
-                err,
-                "PREVIEW_CLEANUP_FAILED",
-                "Failed to cleanup preview PDF",
-            )
-        })?;
-    }
-    Ok(())
+    let exports_dir = user_data_dir.join("exports");
+    fs::create_dir_all(&exports_dir)
+        .map_err(|err| map_io_error(err, "EXPORT_FAILED", "Failed to create exports dir"))?;
+    Ok(exports_dir.to_string_lossy().to_string())
 }
 
 #[tauri::command]
@@ -852,11 +882,11 @@ pub fn run() {
             get_band_setup_data,
             read_project,
             save_project,
-            has_mapy_api_key,
+            get_mapy_key_status,
             suggest_cities,
             export_pdf,
-            generate_preview_pdf,
-            cleanup_preview_pdf,
+            build_project_pdf_preview,
+            get_exports_dir,
             default_export_pdf_path,
             export_pdf_to_path,
             pick_export_pdf_path,
