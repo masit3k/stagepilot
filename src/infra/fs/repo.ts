@@ -13,6 +13,7 @@ import type {
   Project,
   PresetEntity,
   NotesTemplate,
+  type LineupValue,
 } from "../../domain/model/types.js";
 
 export interface DataRepository {
@@ -31,7 +32,7 @@ export async function loadRepository(options?: {
   const dataRoot = options?.dataRoot ?? DATA_ROOT;
 
   const projects = await loadMap<Project>(path.join(userDataRoot, "projects"));
-  const bands = await loadMap<Band>(path.join(dataRoot, "bands"));
+  const bands = await loadBandsMap(path.join(dataRoot, "bands"));
   const musicians = await loadMap<Musician>(path.join(dataRoot, "musicians"));
 
   // preset entity = preset | vocal_type | talkback_type | monitor
@@ -39,7 +40,7 @@ export async function loadRepository(options?: {
 
   // notes templates
   const notesTemplates = await loadMap<NotesTemplate>(
-    path.join(dataRoot, "templates", "notes")
+    path.join(dataRoot, "templates", "notes"),
   );
 
   return {
@@ -49,6 +50,27 @@ export async function loadRepository(options?: {
     getPreset: (id: string) => must(presets, id, "PresetEntity"),
     getNotesTemplate: (id: string) => must(notesTemplates, id, "NotesTemplate"),
   };
+}
+
+async function loadBandsMap(absDir: string): Promise<Map<string, Band>> {
+  const map = await loadMap<Band>(absDir);
+  for (const [id, band] of map.entries()) {
+    const defaultLineup = (band.defaultLineup ?? {}) as Record<
+      string,
+      LineupValue | undefined
+    >;
+    const leadVocals = defaultLineup.lead_vocs ?? defaultLineup.lead_voc;
+    if (leadVocals !== undefined) {
+      map.set(id, {
+        ...band,
+        defaultLineup: {
+          ...defaultLineup,
+          vocs: leadVocals,
+        },
+      });
+    }
+  }
+  return map;
 }
 
 async function loadMap<T>(absDir: string): Promise<Map<string, T>> {

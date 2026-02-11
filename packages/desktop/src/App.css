@@ -504,6 +504,16 @@ select {
 .band-meta {
   font-size: 1rem;
 }
+.lineup-helper {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 8px;
+}
+.lineup-helper .subtle {
+  margin: 0;
+}
 .lineup-card {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -678,5 +688,9 @@ select {
   }
   .setup-action-bar {
     flex-wrap: wrap;
+  }
+  .lineup-helper {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

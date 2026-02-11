@@ -84,6 +84,25 @@ struct NodeExportResponse {
     version_pdf_path: Option<String>,
 }
 
+
+fn normalize_default_lineup_keys(default_lineup: Option<Value>) -> Option<Value> {
+    let Some(Value::Object(mut lineup)) = default_lineup else {
+        return default_lineup;
+    };
+
+    if let Some(value) = lineup.remove("lead_vocs") {
+        lineup.insert("vocs".to_string(), value);
+    } else if let Some(value) = lineup.remove("lead_voc") {
+        lineup.insert("vocs".to_string(), value);
+    }
+
+    if let Some(value) = lineup.remove("vocs") {
+        lineup.insert("vocs".to_string(), value);
+    }
+
+    Some(Value::Object(lineup))
+}
+
 fn resolve_repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
@@ -402,7 +421,7 @@ fn get_band_setup_data(band_id: String) -> Result<BandSetupData, ApiError> {
             .map(|v| v.to_string()),
         constraints,
         role_constraints: json.get("roleConstraints").cloned(),
-        default_lineup: json.get("defaultLineup").cloned(),
+        default_lineup: normalize_default_lineup_keys(json.get("defaultLineup").cloned()),
         members,
     })
 }

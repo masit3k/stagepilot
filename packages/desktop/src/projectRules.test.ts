@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  autoFormatDateInput,
   buildExportFileName,
   getCurrentYearLocal,
   getTodayIsoLocal,
@@ -28,7 +27,9 @@ describe("routing guards", () => {
 
   it("matches canonical setup back routes", () => {
     expect(matchProjectEventPath("/projects/cos_2026/event")).toBe("cos_2026");
-    expect(matchProjectGenericPath("/projects/cos_2026/generic")).toBe("cos_2026");
+    expect(matchProjectGenericPath("/projects/cos_2026/generic")).toBe(
+      "cos_2026",
+    );
   });
 
   it("does not treat /projects/new/event as edit route", () => {
@@ -39,7 +40,9 @@ describe("routing guards", () => {
 describe("project id venue formatting", () => {
   it("builds title-cased hyphen venue slug without diacritics", () => {
     expect(normalizeCity("Mladá Boleslav")).toBe("Mlada-Boleslav");
-    expect(normalizeCity("Nové Město nad Metují")).toBe("Nove-Mesto-Nad-Metuji");
+    expect(normalizeCity("Nové Město nad Metují")).toBe(
+      "Nove-Mesto-Nad-Metuji",
+    );
     expect(sanitizeVenueSlug("Mladá Boleslav")).toBe("Mlada-Boleslav");
   });
 });
@@ -47,10 +50,6 @@ describe("project id venue formatting", () => {
 describe("event date rules", () => {
   it("parses DD/MM/YYYY input into ISO", () => {
     expect(parseUsDateInput("11/02/2026")).toBe("2026-02-11");
-  });
-
-  it("auto-formats date while typing", () => {
-    expect(autoFormatDateInput("12032026")).toBe("12/03/2026");
   });
 
   it("rejects impossible dates", () => {
@@ -62,7 +61,9 @@ describe("event date rules", () => {
   });
 
   it("produces local today in ISO", () => {
-    expect(getTodayIsoLocal(new Date("2026-02-11T20:12:00"))).toBe("2026-02-11");
+    expect(getTodayIsoLocal(new Date("2026-02-11T20:12:00"))).toBe(
+      "2026-02-11",
+    );
   });
 
   it("gets local current year", () => {
@@ -100,9 +101,9 @@ describe("role constraints", () => {
 
 describe("export behavior", () => {
   it("uses project id as export PDF filename", () => {
-    expect(buildExportFileName("CoS_Inputlist_Stageplan_11-02-2026_Mlada-Boleslav")).toBe(
-      "CoS_Inputlist_Stageplan_11-02-2026_Mlada-Boleslav.pdf",
-    );
+    expect(
+      buildExportFileName("CoS_Inputlist_Stageplan_11-02-2026_Mlada-Boleslav"),
+    ).toBe("CoS_Inputlist_Stageplan_11-02-2026_Mlada-Boleslav.pdf");
   });
 });
 

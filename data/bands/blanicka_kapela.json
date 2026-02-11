@@ -44,9 +44,6 @@
     "bass": "krecmer_matej",
     "guitar": "pisa_karel",
     "keys": "zidek_jakub",
-    "vocs": [
-      "holoubek_lukas",
-      "krecmerova_eliska"
-    ]
+    "lead_vocs": ["holoubek_lukas", "krecmerova_eliska"]
   }
 }

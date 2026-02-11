@@ -6,7 +6,6 @@ import desktopPackage from "../package.json";
 import {
   type LineupMap,
   type RoleConstraint,
-  autoFormatDateInput,
   buildExportFileName,
   formatIsoDateToUs,
   formatIsoToDateTimeDisplay,
@@ -134,6 +133,75 @@ function withFrom(path: string, from: string, fromPath?: string) {
   const params = new URLSearchParams({ from });
   if (fromPath) params.set("fromPath", fromPath);
   return `${path}?${params.toString()}`;
+}
+
+let modalOpenCount = 0;
+function useModalBehavior(open: boolean, onClose: () => void) {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    modalOpenCount += 1;
+    const previousOverflow = document.body.style.overflow;
+    const previousPaddingRight = document.body.style.paddingRight;
+    const scrollbarWidth =
+      window.innerWidth - document.documentElement.clientWidth;
+    document.body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+
+    const focusable = dialogRef.current?.querySelector<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    );
+    focusable?.focus();
+
+    return () => {
+      modalOpenCount -= 1;
+      if (modalOpenCount <= 0) {
+        document.body.style.overflow = previousOverflow;
+        document.body.style.paddingRight = previousPaddingRight;
+        modalOpenCount = 0;
+      }
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const container = dialogRef.current;
+      if (!container) return;
+      const focusables = Array.from(
+        container.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => !el.hasAttribute("disabled"));
+      if (focusables.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+
+  return dialogRef;
 }
 
 function App() {
@@ -652,7 +720,7 @@ function EventDateInput({
         <input
           id={inputId}
           type="text"
-          inputMode="numeric"
+          inputMode="text"
           lang="en-GB"
           placeholder="DD/MM/YYYY"
           value={value}
@@ -811,10 +879,9 @@ function NewEventProjectPage({
   }
 
   function updateDateInput(value: string) {
-    const formatted = autoFormatDateInput(value);
-    setEventDateInput(formatted);
-    const parsed = parseUsDateInput(formatted);
-    const message = getDateValidationMessage(formatted);
+    setEventDateInput(value);
+    const parsed = parseUsDateInput(value);
+    const message = getDateValidationMessage(value);
     if (eventDateTouched) setEventDateError(message);
     setEventDateIso(!parsed || message ? "" : parsed);
   }
@@ -1368,28 +1435,40 @@ function ProjectSetupPage({
       : [project?.documentDate?.slice(0, 4) ?? "", project?.note ?? ""]
           .filter(Boolean)
           .join(" • ");
+  const resetModalRef = useModalBehavior(showResetConfirmation, () =>
+    setShowResetConfirmation(false),
+  );
+  const musicianSelectorRef = useModalBehavior(
+    Boolean(editing && setupData),
+    () => setEditing(null),
+  );
 
   return (
     <section className="panel panel--setup">
       <div className="panel__header">
         <h1>Lineup Setup</h1>
-        <button
-          type="button"
-          className="button-secondary"
-          onClick={() => navigate("/")}
-        >
-          Exit
-        </button>
       </div>
       <div className="lineup-meta">
         <div className="band-name">{bandName}</div>
         <div className="band-meta">{summarySecondary || "—"}</div>
       </div>
-      <p className="subtle">
-        Configure lineup for Input List and Stage Plan.
-        <br />
-        Defaults are prefilled from the band’s saved lineup settings.
-      </p>
+      <div className="lineup-helper">
+        <p className="subtle">
+          Configure lineup for Input List and Stage Plan.
+          <br />
+          Defaults are prefilled from the band’s saved lineup settings.
+        </p>
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={() => setShowResetConfirmation(true)}
+          disabled={
+            !setupData || !project || currentSnapshot === defaultSnapshot
+          }
+        >
+          Reset to defaults
+        </button>
+      </div>
       <div className="lineup-grid">
         {setupData
           ? ROLE_ORDER.map((role) => {
@@ -1527,16 +1606,6 @@ function ProjectSetupPage({
         </button>
         <button
           type="button"
-          className="button-secondary"
-          onClick={() => setShowResetConfirmation(true)}
-          disabled={
-            !setupData || !project || currentSnapshot === defaultSnapshot
-          }
-        >
-          Reset to defaults
-        </button>
-        <button
-          type="button"
           onClick={async () => {
             if (errors.length > 0) return;
             if (isDirty) {
@@ -1549,6 +1618,13 @@ function ProjectSetupPage({
         >
           {isDirty ? "Save & Continue" : "Continue"}
         </button>
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={() => navigate("/")}
+        >
+          Exit
+        </button>
       </div>
 
       {showResetConfirmation ? (
@@ -1560,7 +1636,12 @@ function ProjectSetupPage({
             setShowResetConfirmation(false);
           }}
         >
-          <div className="selector-dialog" role="alertdialog" aria-modal="true">
+          <div
+            className="selector-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            ref={resetModalRef}
+          >
             <button
               type="button"
               className="modal-close"
@@ -1608,7 +1689,12 @@ function ProjectSetupPage({
             setEditing(null);
           }}
         >
-          <div className="selector-dialog selector-dialog--musician-select">
+          <div
+            className="selector-dialog selector-dialog--musician-select"
+            role="dialog"
+            aria-modal="true"
+            ref={musicianSelectorRef}
+          >
             <button
               type="button"
               className="modal-close"
@@ -1670,6 +1756,7 @@ function ExportResultModal({
 }) {
   if (!state) return null;
   const isSuccess = state.kind === "success";
+  const dialogRef = useModalBehavior(Boolean(state), onClose);
   return (
     <dialog
       className="selector-overlay"
@@ -1679,7 +1766,12 @@ function ExportResultModal({
         onClose();
       }}
     >
-      <div className="selector-dialog" role="dialog" aria-modal="true">
+      <div
+        className="selector-dialog"
+        role="dialog"
+        aria-modal="true"
+        ref={dialogRef}
+      >
         <button
           type="button"
           className="modal-close"
@@ -1757,6 +1849,7 @@ function UnsavedChangesModal({
   onExitWithoutSaving: () => void;
   onStay: () => void;
 }) {
+  const dialogRef = useModalBehavior(open, onStay);
   if (!open) return null;
   return createPortal(
     <dialog
@@ -1767,7 +1860,12 @@ function UnsavedChangesModal({
         onStay();
       }}
     >
-      <div className="selector-dialog" role="alertdialog" aria-modal="true">
+      <div
+        className="selector-dialog"
+        role="alertdialog"
+        aria-modal="true"
+        ref={dialogRef}
+      >
         <button
           type="button"
           className="modal-close"
@@ -1804,6 +1902,7 @@ function UnsavedChangesModal({
 }
 
 function AboutModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const dialogRef = useModalBehavior(open, onClose);
   if (!open) return null;
   return (
     <dialog
@@ -1818,6 +1917,7 @@ function AboutModal({ open, onClose }: { open: boolean; onClose: () => void }) {
         className="selector-dialog about-dialog"
         role="dialog"
         aria-modal="true"
+        ref={dialogRef}
       >
         <button
           type="button"

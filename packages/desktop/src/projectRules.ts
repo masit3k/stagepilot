@@ -146,13 +146,6 @@ export function formatIsoToDateTimeDisplay(value: string): string {
   return `${day}/${month}/${year} ${hours}:${minutes}`;
 }
 
-export function autoFormatDateInput(raw: string): string {
-  const digits = raw.replace(/\D/g, "").slice(0, 8);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-}
-
 export function isPastIsoDate(isoDate: string, todayIso: string): boolean {
   return isoDate < todayIso;
 }
@@ -192,7 +185,7 @@ export function getRoleDisplayName(
   if (role === "vocs") {
     const vocConstraint = normalizeRoleConstraint(role, constraints?.[role]);
     if (vocConstraint.min === 1 && vocConstraint.max === 1) return "LEAD VOC";
-    return "VOCS";
+    return "LEAD VOCS";
   }
   const names: Record<string, string> = {
     drums: "DRUMS",
