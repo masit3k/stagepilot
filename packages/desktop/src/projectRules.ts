@@ -131,6 +131,18 @@ export function formatIsoDateToUs(isoDate: string): string {
   return `${day}/${month}/${year}`;
 }
 
+
+export function formatIsoToDateTimeDisplay(value: string): string {
+  const dt = new Date(value);
+  if (Number.isNaN(dt.getTime())) return "—";
+  const day = String(dt.getDate()).padStart(2, "0");
+  const month = String(dt.getMonth() + 1).padStart(2, "0");
+  const year = dt.getFullYear();
+  const hours = String(dt.getHours()).padStart(2, "0");
+  const minutes = String(dt.getMinutes()).padStart(2, "0");
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
+}
+
 export function autoFormatDateInput(raw: string): string {
   const digits = raw.replace(/\D/g, "").slice(0, 8);
   if (digits.length <= 2) return digits;

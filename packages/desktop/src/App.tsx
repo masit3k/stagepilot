@@ -9,6 +9,7 @@ import {
   autoFormatDateInput,
   buildExportFileName,
   formatIsoDateToUs,
+  formatIsoToDateTimeDisplay,
   getCurrentYearLocal,
   getTodayIsoLocal,
   getUniqueSelectedMusicians,
@@ -105,11 +106,15 @@ function buildGenericProjectId(band: BandOption, year: string) {
 }
 
 function formatProjectDate(project: ProjectSummary) {
-  if (project.updatedAt)
-    return new Date(project.updatedAt).toLocaleDateString();
-  if (project.eventDate) return project.eventDate;
-  if (project.createdAt)
-    return new Date(project.createdAt).toLocaleDateString();
+  if (project.updatedAt) return formatIsoToDateTimeDisplay(project.updatedAt);
+  if (project.eventDate) return `${formatIsoDateToUs(project.eventDate)} 00:00`;
+  if (project.createdAt) return formatIsoToDateTimeDisplay(project.createdAt);
+  return "—";
+}
+
+function getProjectPurposeLabel(purpose?: string | null) {
+  if (purpose === "event") return "Event Project";
+  if (purpose === "generic") return "Generic Template";
   return "—";
 }
 
@@ -362,7 +367,7 @@ function StartPage({ projects, navigate }: StartPageProps) {
 
   return (
     <section className="panel">
-      <div className="panel__header">
+      <div className="panel__header panel__header--hub">
         <h2>Project Hub</h2>
       </div>
       <div className="actions-row actions-row--top">
@@ -423,11 +428,10 @@ function StartPage({ projects, navigate }: StartPageProps) {
                       ? "project-card project-card--list project-surface"
                       : "project-card project-surface"
                   }
-                  onClick={() => navigate(projectEditPath(project))}
                 >
                   <div className="project-main-action project-main-action__content">
                     <strong>{project.displayName || project.id}</strong>
-                    <span>{project.purpose ?? "—"}</span>
+                    <span>{getProjectPurposeLabel(project.purpose)}</span>
                     <span>Last updated: {formatProjectDate(project)}</span>
                   </div>
                   <div className="project-actions">
@@ -481,11 +485,10 @@ function StartPage({ projects, navigate }: StartPageProps) {
                         ? "project-card project-card--list project-surface"
                         : "project-card project-surface"
                     }
-                    onClick={() => navigate(projectEditPath(project))}
                   >
                     <div className="project-main-action project-main-action__content">
                       <strong>{project.displayName || project.id}</strong>
-                      <span>{project.purpose ?? "—"}</span>
+                      <span>{getProjectPurposeLabel(project.purpose)}</span>
                       <span>Last updated: {formatProjectDate(project)}</span>
                     </div>
                     <div className="project-actions">
@@ -533,15 +536,6 @@ function ChooseProjectTypePage({
 }: {
   navigate: (path: string) => void;
 }) {
-  const [selectedType, setSelectedType] = useState<"event" | "generic" | null>(
-    null,
-  );
-
-  function continueToSetup() {
-    if (!selectedType) return;
-    navigate(`/projects/new/${selectedType}`);
-  }
-
   return (
     <section className="panel panel--choice">
       <div className="panel__header">
@@ -557,13 +551,8 @@ function ChooseProjectTypePage({
       <div className="choice-grid" aria-label="Project type options">
         <button
           type="button"
-          aria-pressed={selectedType === "event"}
-          className={
-            selectedType === "event"
-              ? "choice-card choice-card--selected"
-              : "choice-card"
-          }
-          onClick={() => setSelectedType("event")}
+          className="choice-card"
+          onClick={() => navigate("/projects/new/event")}
         >
           <span className="choice-card__check" aria-hidden="true">
             ✓
@@ -575,13 +564,8 @@ function ChooseProjectTypePage({
         </button>
         <button
           type="button"
-          aria-pressed={selectedType === "generic"}
-          className={
-            selectedType === "generic"
-              ? "choice-card choice-card--selected"
-              : "choice-card"
-          }
-          onClick={() => setSelectedType("generic")}
+          className="choice-card"
+          onClick={() => navigate("/projects/new/generic")}
         >
           <span className="choice-card__check" aria-hidden="true">
             ✓
@@ -592,24 +576,152 @@ function ChooseProjectTypePage({
           </span>
         </button>
       </div>
-      <div className="setup-action-bar setup-action-bar--equal">
-        <button
-          type="button"
-          className="button-primary"
-          onClick={continueToSetup}
-          disabled={!selectedType}
-        >
-          Continue
-        </button>
-        <button
-          type="button"
-          className="button-secondary"
-          onClick={() => navigate("/")}
-        >
-          Back
-        </button>
-      </div>
     </section>
+  );
+}
+
+function EventDateInput({
+  value,
+  isoValue,
+  minIso,
+  onInput,
+  onIsoSelect,
+  onBlur,
+}: {
+  value: string;
+  isoValue: string;
+  minIso: string;
+  onInput: (value: string) => void;
+  onIsoSelect: (iso: string) => void;
+  onBlur: () => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [monthCursor, setMonthCursor] = useState(() => {
+    const source = isoValue || minIso;
+    const [y, m] = source.split("-").map(Number);
+    return new Date(y || new Date().getFullYear(), (m || 1) - 1, 1);
+  });
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const source = isoValue || minIso;
+    const [y, m] = source.split("-").map(Number);
+    setMonthCursor(new Date(y || new Date().getFullYear(), (m || 1) - 1, 1));
+  }, [isoValue, minIso]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!wrapperRef.current?.contains(event.target as Node)) setIsOpen(false);
+    };
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => window.removeEventListener("pointerdown", onPointerDown);
+  }, [isOpen]);
+
+  const days = useMemo(() => {
+    const year = monthCursor.getFullYear();
+    const month = monthCursor.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const firstWeekday = (firstDay.getDay() + 6) % 7;
+    const monthStart = new Date(year, month, 1 - firstWeekday);
+    return Array.from({ length: 42 }, (_, idx) => {
+      const day = new Date(monthStart);
+      day.setDate(monthStart.getDate() + idx);
+      const yyyy = day.getFullYear();
+      const mm = String(day.getMonth() + 1).padStart(2, "0");
+      const dd = String(day.getDate()).padStart(2, "0");
+      const iso = `${yyyy}-${mm}-${dd}`;
+      return { iso, label: dd, inMonth: day.getMonth() === month };
+    });
+  }, [monthCursor]);
+
+  return (
+    <div className="date-input-wrap" ref={wrapperRef}>
+      <input
+        type="text"
+        inputMode="numeric"
+        lang="en-GB"
+        placeholder="DD/MM/YYYY"
+        value={value}
+        onChange={(e) => onInput(e.target.value)}
+        onBlur={onBlur}
+      />
+      <button
+        type="button"
+        className="date-input-calendar-toggle"
+        aria-label="Toggle calendar"
+        onClick={() => setIsOpen((current) => !current)}
+      >
+        📅
+      </button>
+      {isOpen ? (
+        <div className="calendar-popover" role="dialog" aria-label="Calendar">
+          <div className="calendar-popover__header">
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={() =>
+                setMonthCursor(
+                  (current) => new Date(current.getFullYear(), current.getMonth() - 1, 1),
+                )
+              }
+            >
+              ←
+            </button>
+            <strong>
+              {new Intl.DateTimeFormat("en-GB", {
+                month: "long",
+                year: "numeric",
+              }).format(monthCursor)}
+            </strong>
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={() =>
+                setMonthCursor(
+                  (current) => new Date(current.getFullYear(), current.getMonth() + 1, 1),
+                )
+              }
+            >
+              →
+            </button>
+          </div>
+          <div className="calendar-grid">
+            {(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const).map(
+              (label) => (
+                <span key={label} className="calendar-grid__weekday">
+                  {label}
+                </span>
+              ),
+            )}
+            {days.map((day) => {
+              const isDisabled = day.iso < minIso;
+              const isSelected = day.iso === isoValue;
+              return (
+                <button
+                  key={day.iso}
+                  type="button"
+                  className={
+                    isSelected
+                      ? "calendar-grid__day is-selected"
+                      : day.inMonth
+                        ? "calendar-grid__day"
+                        : "calendar-grid__day is-outside"
+                  }
+                  disabled={isDisabled}
+                  onClick={() => {
+                    onIsoSelect(day.iso);
+                    setIsOpen(false);
+                  }}
+                >
+                  {day.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -639,7 +751,6 @@ function NewEventProjectPage({
   const [isCommitting, setIsCommitting] = useState(false);
   const initialSnapshotRef = useRef({ date: "", venue: "", bandRef: "" });
   const todayIso = getTodayIsoLocal();
-  const datePickerRef = useRef<HTMLInputElement | null>(null);
   const selectedBand = bands.find((band) => band.id === bandRef);
   const canSubmit = Boolean(
     eventDateIso &&
@@ -760,28 +871,24 @@ function NewEventProjectPage({
       <div className="form-grid">
         <label>
           Date *
-          <input
-            type="text"
-            inputMode="numeric"
-            lang="en-GB"
-            placeholder="DD/MM/YYYY"
+          <EventDateInput
             value={eventDateInput}
-            onChange={(e) => updateDateInput(e.target.value)}
-            onClick={() => datePickerRef.current?.showPicker?.()}
-          />
-          <input
-            ref={datePickerRef}
-            className="date-picker-proxy"
-            type="date"
-            lang="en-GB"
-            min={todayIso}
-            value={eventDateIso}
-            onChange={(e) => {
-              setEventDateIso(e.target.value);
-              setEventDateInput(formatIsoDateToUs(e.target.value));
+            isoValue={eventDateIso}
+            minIso={todayIso}
+            onInput={updateDateInput}
+            onBlur={() => {
+              const parsed = parseUsDateInput(eventDateInput);
+              if (!parsed || isPastIsoDate(parsed, todayIso)) {
+                setEventDateIso("");
+                return;
+              }
+              setEventDateIso(parsed);
+              setEventDateInput(formatIsoDateToUs(parsed));
             }}
-            aria-hidden="true"
-            tabIndex={-1}
+            onIsoSelect={(iso) => {
+              setEventDateIso(iso);
+              setEventDateInput(formatIsoDateToUs(iso));
+            }}
           />
         </label>
         <label>
@@ -1124,6 +1231,11 @@ function ProjectSetupPage({
     bandLeaderId,
     talkbackOwnerId: talkbackCurrentOwnerId,
   });
+  const defaultSnapshot = useMemo(() => {
+    if (!setupData) return "";
+    const defaults = buildSetupSnapshot({ ...(setupData.defaultLineup ?? {}) }, setupData);
+    return JSON.stringify(defaults);
+  }, [setupData, buildSetupSnapshot]);
   const isDirty = Boolean(
     project && currentSnapshot !== initialSnapshotRef.current,
   );
@@ -1356,6 +1468,7 @@ function ProjectSetupPage({
           type="button"
           className="button-secondary"
           onClick={() => setShowResetConfirmation(true)}
+          disabled={!setupData || !project || currentSnapshot === defaultSnapshot}
         >
           Reset to defaults
         </button>
@@ -1432,7 +1545,7 @@ function ProjectSetupPage({
             setEditing(null);
           }}
         >
-          <div className="selector-dialog">
+          <div className="selector-dialog selector-dialog--musician-select">
             <button
               type="button"
               className="modal-close"
@@ -1441,9 +1554,10 @@ function ProjectSetupPage({
             >
               ×
             </button>
-            <div className="panel__header">
+            <div className="panel__header panel__header--stack selector-dialog__title">
               <h3>Select {editing.role.toUpperCase()}</h3>
             </div>
+            <div className="selector-dialog__divider" />
             <div className="selector-list">
               {(editing.role === "leader"
                 ? selectedOptions
@@ -1626,11 +1740,6 @@ function UnsavedChangesModal({
 
 function AboutModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   if (!open) return null;
-  const repository = (
-    desktopPackage as { repository?: { url?: string } | string }
-  ).repository;
-  const repositoryValue =
-    typeof repository === "string" ? repository : repository?.url;
   return (
     <dialog
       className="selector-overlay"
@@ -1640,22 +1749,16 @@ function AboutModal({ open, onClose }: { open: boolean; onClose: () => void }) {
         onClose();
       }}
     >
-      <div
-        className="selector-dialog about-dialog"
-        role="dialog"
-        aria-modal="true"
-      >
-        <div className="panel__header about-dialog__header">
-          <h3>About StagePilot</h3>
-          <button
-            type="button"
-            className="modal-close"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            ×
-          </button>
-        </div>
+      <div className="selector-dialog about-dialog" role="dialog" aria-modal="true">
+        <button
+          type="button"
+          className="modal-close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          ×
+        </button>
+        <h3>About StagePilot</h3>
         <div className="about-grid">
           <div className="about-list">
             <p className="about-item">
@@ -1667,7 +1770,7 @@ function AboutModal({ open, onClose }: { open: boolean; onClose: () => void }) {
               <strong>{desktopPackage.version}</strong>
             </p>
             <p className="about-item">
-              <span>Build</span>
+              <span>Channel</span>
               <strong>Preview</strong>
             </p>
             <p className="about-item">
@@ -1682,14 +1785,8 @@ function AboutModal({ open, onClose }: { open: boolean; onClose: () => void }) {
             </p>
             <p className="about-item">
               <span>Copyright</span>
-              <strong>© StagePilot</strong>
+              <strong>© 2026 StagePilot</strong>
             </p>
-            {repositoryValue ? (
-              <p className="about-item">
-                <span>Repository</span>
-                <strong>{String(repositoryValue)}</strong>
-              </p>
-            ) : null}
           </div>
         </div>
       </div>
@@ -1860,19 +1957,17 @@ function ProjectPreviewPage({
         <button
           type="button"
           className="button-secondary"
+          onClick={() => navigate(backToEditPath)}
+        >
+          Back to Edit Project
+        </button>
+        <button
+          type="button"
+          className="button-secondary"
           onClick={() => navigate(withFrom(`/projects/${id}/setup`, "preview"))}
         >
           Back to Lineup
         </button>
-        {project?.purpose === "event" ? (
-          <button
-            type="button"
-            className="button-secondary"
-            onClick={() => navigate(backToEditPath)}
-          >
-            Back to Edit
-          </button>
-        ) : null}
         <button type="button" disabled={isGeneratingPdf} onClick={runExport}>
           {isGeneratingPdf ? "Generating…" : "Generate PDF"}
         </button>

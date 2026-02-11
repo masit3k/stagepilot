@@ -174,6 +174,9 @@ button:hover:not(:disabled):not(.button-secondary):not(.button-ghost):not(
   align-items: flex-start;
   flex-direction: column;
 }
+.panel__header--hub {
+  margin-bottom: var(--space-2);
+}
 .subtle,
 .band-meta,
 .field-hint {
@@ -189,6 +192,12 @@ button:hover:not(:disabled):not(.button-secondary):not(.button-ghost):not(
 .actions-row--top {
   justify-content: space-between;
   align-items: center;
+  margin-bottom: var(--space-3);
+}
+.actions-row--top .button-primary--large {
+  min-height: 54px;
+  font-size: 1.05rem;
+  padding: 14px 24px;
 }
 .actions-row--cta-group {
   gap: var(--space-2);
@@ -248,7 +257,6 @@ button:hover:not(:disabled):not(.button-secondary):not(.button-ghost):not(
   gap: var(--space-1);
 }
 .project-surface {
-  cursor: pointer;
   transition: background-color 150ms ease, box-shadow 150ms ease, transform
     150ms ease;
 }
@@ -314,12 +322,81 @@ select {
   color: var(--muted);
   font-size: 0.9rem;
 }
-.date-picker-proxy {
+.date-input-wrap {
+  position: relative;
+}
+.date-input-wrap input {
+  padding-right: 42px;
+}
+.date-input-calendar-toggle {
   position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  min-height: 32px;
+  width: 32px;
+  min-width: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  box-shadow: none;
+}
+.date-input-calendar-toggle:hover {
+  background: var(--surface-2);
+}
+.calendar-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 340px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.16);
+  padding: 16px;
+  z-index: 500;
+}
+.calendar-popover__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.calendar-popover__header .button-secondary {
+  min-height: 34px;
+  min-width: 34px;
+  padding: 0;
+}
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+.calendar-grid__weekday {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.calendar-grid__day {
+  min-height: 38px;
+  width: 100%;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 10px;
+  box-shadow: none;
+  padding: 0;
+}
+.calendar-grid__day.is-selected {
+  border-color: var(--primary);
+  background: #e8edf8;
+  color: var(--primary);
+}
+.calendar-grid__day.is-outside {
+  color: var(--muted);
+  opacity: 0.75;
 }
 .status {
   margin: 0;
@@ -390,6 +467,12 @@ select {
 .lineup-list__name {
   font-weight: 600;
 }
+.band-name {
+  font-size: 1.2rem;
+}
+.band-meta {
+  font-size: 1rem;
+}
 .lineup-card {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -430,11 +513,14 @@ select {
   background: var(--surface);
   border-radius: var(--radius-lg);
   box-shadow: 0 24px 56px rgba(15, 23, 42, 0.2);
-  padding: var(--space-2);
+  padding: calc(var(--space-2) + 24px) var(--space-2) var(--space-2);
   border: 1px solid var(--border);
   position: relative;
 }
 .modal-close {
+  position: absolute;
+  top: 12px;
+  left: 12px;
   width: 36px;
   height: 36px;
   min-height: 36px;
@@ -447,6 +533,18 @@ select {
 }
 .modal-close:hover {
   background: rgba(0, 0, 0, 0.05);
+}
+.selector-dialog--musician-select {
+  padding: calc(var(--space-2) + 20px) var(--space-2) var(--space-2);
+}
+.selector-dialog__title {
+  margin-top: 4px;
+  margin-bottom: var(--space-2);
+}
+.selector-dialog__divider {
+  height: 1px;
+  background: var(--border);
+  margin-bottom: var(--space-2);
 }
 .selector-option {
   width: 100%;
@@ -517,13 +615,11 @@ select {
 .about-dialog {
   width: min(700px, 95vw);
 }
-.about-dialog__header {
-  align-items: center;
-}
 .about-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
+  margin-top: var(--space-2);
 }
 .about-list {
   display: grid;
@@ -539,7 +635,7 @@ select {
   color: var(--muted);
 }
 .about-item strong {
-  font-weight: 500;
+  font-weight: 400;
   word-break: break-word;
 }
 @media (max-width: 760px) {
