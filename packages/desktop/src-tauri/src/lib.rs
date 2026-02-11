@@ -8,6 +8,44 @@ use std::{
 };
 use tauri::Manager;
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AppConfig {
+    mapy_api_key: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MapySuggestResponse {
+    items: Vec<MapySuggestItem>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MapySuggestItem {
+    id: String,
+    name: String,
+    #[serde(rename = "type")]
+    item_type: String,
+    #[serde(default)]
+    label: Option<String>,
+    #[serde(default)]
+    regional_structure: Vec<MapyRegionPart>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MapyRegionPart {
+    name: String,
+    #[serde(rename = "type")]
+    item_type: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CitySuggestion {
+    id: String,
+    city_name: String,
+    label: String,
+}
+
 #[derive(Debug, Serialize)]
 struct ApiError {
     code: String,
@@ -115,6 +153,24 @@ fn map_io_error(err: std::io::Error, code: &str, message: &str) -> ApiError {
         export_pdf_path: None,
         version_pdf_path: None,
     }
+}
+
+fn read_app_config(app: &tauri::AppHandle) -> Option<AppConfig> {
+    let user_data_dir = resolve_user_data_dir(app).ok()?;
+    let config_path = user_data_dir.join("config.json");
+    let raw = fs::read_to_string(config_path).ok()?;
+    serde_json::from_str::<AppConfig>(&raw).ok()
+}
+
+fn resolve_mapy_api_key(app: &tauri::AppHandle) -> Option<String> {
+    if let Ok(env_key) = std::env::var("MAPY_API_KEY") {
+        if !env_key.trim().is_empty() {
+            return Some(env_key);
+        }
+    }
+    read_app_config(app)
+        .and_then(|config| config.mapy_api_key)
+        .filter(|key| !key.trim().is_empty())
 }
 
 #[tauri::command]
@@ -408,6 +464,71 @@ fn save_project(app: tauri::AppHandle, project_id: String, json: String) -> Resu
 }
 
 #[tauri::command]
+fn has_mapy_api_key(app: tauri::AppHandle) -> bool {
+    resolve_mapy_api_key(&app).is_some()
+}
+
+#[tauri::command]
+async fn suggest_cities(app: tauri::AppHandle, query: String) -> Result<Vec<CitySuggestion>, ApiError> {
+    let mapy_api_key = match resolve_mapy_api_key(&app) {
+        Some(value) => value,
+        None => return Ok(Vec::new()),
+    };
+
+    let user_query = query.trim();
+    if user_query.chars().count() < 3 {
+        return Ok(Vec::new());
+    }
+
+    let encoded_query = user_query.replace(' ', "%20");
+    let endpoint = format!(
+        "https://api.mapy.com/v1/suggest?query={encoded_query}&limit=5&type=regional.municipality&lang=cs&locality=cz"
+    );
+
+    let output = Command::new("curl")
+        .arg("-sS")
+        .arg("-H")
+        .arg(format!("X-Mapy-Api-Key: {mapy_api_key}"))
+        .arg(endpoint)
+        .output()
+        .map_err(|err| ApiError {
+            code: "MAPY_SUGGEST_FAILED".into(),
+            message: format!("Failed to execute Mapy request: {err}"),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        })?;
+
+    let payload = serde_json::from_slice::<MapySuggestResponse>(&output.stdout).map_err(|err| ApiError {
+        code: "MAPY_SUGGEST_FAILED".into(),
+        message: format!("Failed to parse Mapy API response: {err}"),
+        export_pdf_path: None,
+        version_pdf_path: None,
+    })?;
+
+    let suggestions = payload
+        .items
+        .into_iter()
+        .filter_map(|item| {
+            let city_name = if item.item_type == "regional.municipality" {
+                item.name.clone()
+            } else {
+                item.regional_structure
+                    .iter()
+                    .find(|entry| entry.item_type == "regional.municipality")
+                    .map(|entry| entry.name.clone())?
+            };
+            Some(CitySuggestion {
+                id: item.id,
+                city_name,
+                label: item.label.unwrap_or(item.name),
+            })
+        })
+        .collect();
+
+    Ok(suggestions)
+}
+
+#[tauri::command]
 fn export_pdf(app: tauri::AppHandle, project_id: String) -> Result<ExportPdfResult, ApiError> {
     let user_data_dir = resolve_user_data_dir(&app)?;
     let project_path = user_data_dir
@@ -470,6 +591,59 @@ fn export_pdf(app: tauri::AppHandle, project_id: String) -> Result<ExportPdfResu
         export_pdf_path: response.export_pdf_path,
         version_pdf_path: response.version_pdf_path,
     })
+}
+
+#[tauri::command]
+fn default_export_pdf_path(app: tauri::AppHandle, project_id: String) -> Result<String, ApiError> {
+    let user_data_dir = resolve_user_data_dir(&app)?;
+    let exports_dir = user_data_dir.join("exports");
+    fs::create_dir_all(&exports_dir)
+        .map_err(|err| map_io_error(err, "EXPORT_FAILED", "Failed to create exports dir"))?;
+    Ok(exports_dir
+        .join(format!("{}.pdf", project_id))
+        .to_string_lossy()
+        .to_string())
+}
+
+#[tauri::command]
+fn export_pdf_to_path(app: tauri::AppHandle, project_id: String, output_path: String) -> Result<(), ApiError> {
+    let result = export_pdf(app, project_id)?;
+    fs::copy(result.export_pdf_path, &output_path)
+        .map_err(|err| map_io_error(err, "EXPORT_FAILED", "Failed to copy PDF to selected path"))?;
+    Ok(())
+}
+
+#[tauri::command]
+fn pick_export_pdf_path(default_path: String) -> Option<String> {
+    #[cfg(target_os = "windows")]
+    {
+        let escaped = default_path.replace('\\', "\\\\").replace('"', "\\\"");
+        let script = format!(
+            r#"Add-Type -AssemblyName System.Windows.Forms;
+$dialog = New-Object System.Windows.Forms.SaveFileDialog;
+$dialog.Filter = 'PDF files (*.pdf)|*.pdf';
+$dialog.FileName = [System.IO.Path]::GetFileName(\"{escaped}\");
+$dialog.InitialDirectory = [System.IO.Path]::GetDirectoryName(\"{escaped}\");
+if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {{ Write-Output $dialog.FileName }}"#
+        );
+        let output = Command::new("powershell")
+            .arg("-NoProfile")
+            .arg("-Command")
+            .arg(script)
+            .output()
+            .ok()?;
+        let value = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if value.is_empty() {
+            None
+        } else {
+            Some(value)
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = default_path;
+        None
+    }
 }
 
 #[tauri::command]
@@ -543,7 +717,12 @@ pub fn run() {
             get_band_setup_data,
             read_project,
             save_project,
+            has_mapy_api_key,
+            suggest_cities,
             export_pdf,
+            default_export_pdf_path,
+            export_pdf_to_path,
+            pick_export_pdf_path,
             open_file,
             reveal_in_explorer
         ])

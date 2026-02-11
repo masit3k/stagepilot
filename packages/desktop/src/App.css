@@ -131,6 +131,38 @@ label {
   gap: 6px;
 }
 
+.venue-field {
+  position: relative;
+}
+
+.combo-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  display: grid;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.1);
+}
+
+.combo-item {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid #f1f5f9;
+  background: transparent;
+  color: #111827;
+  text-align: left;
+  min-height: 36px;
+  padding: 8px 10px;
+}
+
+.combo-item:last-child {
+  border-bottom: none;
+}
+
 input,
 select {
   border: 1px solid #d1d5db;
@@ -290,6 +322,40 @@ button:disabled {
   border-radius: 12px;
   box-shadow: 0 24px 56px rgba(15, 23, 42, 0.2);
   padding: 16px;
+  border: none;
+}
+
+.modal-actions {
+  margin-top: 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.setup-action-bar {
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.pdf-preview-frame {
+  width: 100%;
+  min-height: 540px;
+  overflow: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 8px;
+}
+
+.pdf-preview-frame iframe {
+  width: 100%;
+  min-height: 700px;
   border: none;
 }
 

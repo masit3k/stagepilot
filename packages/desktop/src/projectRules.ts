@@ -8,6 +8,7 @@ export type LineupMap = Record<string, LineupValue | undefined>;
 
 const PROJECT_DETAIL_PATTERN = /^\/projects\/([^/]+)$/;
 const PROJECT_SETUP_PATTERN = /^\/projects\/([^/]+)\/setup$/;
+const PROJECT_PREVIEW_PATTERN = /^\/projects\/([^/]+)\/(?:preview|pdf-preview)$/;
 const RESERVED_PROJECT_IDS = new Set(["new"]);
 
 export function matchProjectDetailPath(pathname: string): string | null {
@@ -19,6 +20,11 @@ export function matchProjectDetailPath(pathname: string): string | null {
 
 export function matchProjectSetupPath(pathname: string): string | null {
   const match = pathname.match(PROJECT_SETUP_PATTERN);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+export function matchProjectPreviewPath(pathname: string): string | null {
+  const match = pathname.match(PROJECT_PREVIEW_PATTERN);
   return match ? decodeURIComponent(match[1]) : null;
 }
 
