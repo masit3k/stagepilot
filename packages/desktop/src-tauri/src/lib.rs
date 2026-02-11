@@ -29,6 +29,7 @@ struct ProjectSummary {
     event_venue: Option<String>,
     purpose: Option<String>,
     created_at: Option<String>,
+    updated_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -171,6 +172,16 @@ fn list_projects(app: tauri::AppHandle) -> Result<Vec<ProjectSummary>, ApiError>
             })
             .unwrap_or_else(|| "unknown".to_string());
 
+        let created_at = json
+            .get("createdAt")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let updated_at = json
+            .get("updatedAt")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+                        .or_else(|| json.get("eventDate").and_then(|v| v.as_str()).map(|s| format!("{}T00:00:00Z", s)));
+
         let summary = ProjectSummary {
             id,
             display_name: json
@@ -193,15 +204,14 @@ fn list_projects(app: tauri::AppHandle) -> Result<Vec<ProjectSummary>, ApiError>
                 .get("purpose")
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string()),
-            created_at: json
-                .get("createdAt")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string()),
+            created_at,
+            updated_at,
         };
 
         results.push(summary);
     }
 
+    results.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
     Ok(results)
 }
 
@@ -417,6 +427,7 @@ fn save_project(app: tauri::AppHandle, project_id: String, json: String) -> Resu
 }
 
 
+
 #[tauri::command]
 fn export_pdf(app: tauri::AppHandle, project_id: String) -> Result<ExportPdfResult, ApiError> {
     let user_data_dir = resolve_user_data_dir(&app)?;
@@ -557,6 +568,13 @@ fn build_project_pdf_preview(
     })
 }
 
+
+#[tauri::command]
+fn read_preview_pdf_bytes(preview_pdf_path: String) -> Result<Vec<u8>, ApiError> {
+    fs::read(&preview_pdf_path)
+        .map_err(|err| map_io_error(err, "PREVIEW_FAILED", "Failed to read preview PDF bytes"))
+}
+
 #[tauri::command]
 fn cleanup_preview_pdf(app: tauri::AppHandle, project_id: String) -> Result<(), ApiError> {
     let user_data_dir = resolve_user_data_dir(&app)?;
@@ -596,8 +614,45 @@ fn export_pdf_to_path(
     output_path: String,
 ) -> Result<(), ApiError> {
     let result = export_pdf(app, project_id)?;
-    fs::copy(result.export_pdf_path, &output_path)
-        .map_err(|err| map_io_error(err, "EXPORT_FAILED", "Failed to copy PDF to selected path"))?;
+    let bytes = fs::read(&result.export_pdf_path)
+        .map_err(|err| map_io_error(err, "EXPORT_FAILED", "Failed to read generated PDF"))?;
+
+    let output = PathBuf::from(&output_path);
+    if let Some(parent) = output.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|err| map_io_error(err, "EXPORT_FAILED", "Failed to prepare export directory"))?;
+    }
+
+    let temp_name = format!("{}.tmp", output.file_name().and_then(|v| v.to_str()).unwrap_or("export.pdf"));
+    let temp_path = output.with_file_name(temp_name);
+
+    fs::write(&temp_path, bytes)
+        .map_err(|err| map_io_error(err, "EXPORT_FAILED", "Failed to write export temp file"))?;
+
+    if output.exists() {
+        fs::remove_file(&output).map_err(|err| {
+            let mut mapped = map_io_error(err, "EXPORT_FAILED", "Failed to overwrite existing PDF");
+            if mapped.message.contains("os error 32") {
+                mapped.message = format!(
+                    "{} — File is open in another program (e.g. preview). Close it and retry.",
+                    mapped.message
+                );
+            }
+            mapped
+        })?;
+    }
+
+    fs::rename(&temp_path, &output).map_err(|err| {
+        let mut mapped = map_io_error(err, "EXPORT_FAILED", "Failed to finalize exported PDF");
+        if mapped.message.contains("os error 32") {
+            mapped.message = format!(
+                "{} — File is open in another program (e.g. preview). Close it and retry.",
+                mapped.message
+            );
+        }
+        mapped
+    })?;
+
     Ok(())
 }
 
@@ -702,6 +757,7 @@ pub fn run() {
             save_project,
             export_pdf,
             build_project_pdf_preview,
+            read_preview_pdf_bytes,
             cleanup_preview_pdf,
             get_exports_dir,
             default_export_pdf_path,
