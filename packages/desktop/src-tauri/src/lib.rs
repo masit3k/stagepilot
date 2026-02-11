@@ -45,6 +45,8 @@ struct RoleCountConstraint {
 struct BandSetupData {
     id: String,
     name: String,
+    band_leader: Option<String>,
+    default_contact_id: Option<String>,
     constraints: HashMap<String, RoleCountConstraint>,
     role_constraints: Option<Value>,
     default_lineup: Option<Value>,
@@ -369,6 +371,14 @@ fn get_band_setup_data(band_id: String) -> Result<BandSetupData, ApiError> {
             .and_then(|v| v.as_str())
             .unwrap_or_default()
             .to_string(),
+        band_leader: json
+            .get("bandLeader")
+            .and_then(|v| v.as_str())
+            .map(|v| v.to_string()),
+        default_contact_id: json
+            .get("defaultContactId")
+            .and_then(|v| v.as_str())
+            .map(|v| v.to_string()),
         constraints,
         role_constraints: json.get("roleConstraints").cloned(),
         default_lineup: json.get("defaultLineup").cloned(),

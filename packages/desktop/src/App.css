@@ -239,6 +239,27 @@ button:disabled {
   padding-top: 0;
 }
 
+
+.lineup-list--single .lineup-list__row {
+  border-top: 1px solid #f1f5f9;
+  padding-top: 10px;
+}
+
+.lineup-list--single .lineup-list__row:first-child {
+  border-top: 1px solid #f1f5f9;
+  padding-top: 10px;
+}
+
+.lineup-list--vocs .lineup-list__row {
+  border-top: none;
+  padding-top: 0;
+}
+
+.lineup-list--vocs .lineup-list__row:first-child {
+  border-top: 1px solid #f1f5f9;
+  padding-top: 10px;
+}
+
 .lineup-list__name {
   font-size: 1.05rem;
   font-weight: 600;

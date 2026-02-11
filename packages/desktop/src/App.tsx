@@ -42,6 +42,8 @@ type MemberOption = {
 type BandSetupData = {
   id: string;
   name: string;
+  bandLeader?: string | null;
+  defaultContactId?: string | null;
   constraints: Record<string, RoleConstraint>;
   roleConstraints?: Record<string, unknown> | null;
   defaultLineup?: LineupMap | null;
@@ -623,24 +625,70 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
   const [editing, setEditing] = useState<{
     role: string;
     slotIndex: number;
+    currentSelectedId?: string;
   } | null>(null);
   const [bandLeaderId, setBandLeaderId] = useState<string>("");
   const [talkbackOwnerId, setTalkbackOwnerId] = useState<string>("");
   const [status, setStatus] = useState<string>("");
 
-  const getDefaultBandLeader = useCallback((data: BandSetupData): string => {
-    if (!data.defaultLineup) return "";
-    const preferredOrder = [...ROLE_ORDER, "talkback"];
-    for (const role of preferredOrder) {
-      const constraint = normalizeRoleConstraint(role, data.constraints[role]);
-      const selected = normalizeLineupValue(
-        data.defaultLineup[role],
-        constraint.max,
+  const computeLeaderFromLineup = useCallback(
+    (
+      data: BandSetupData,
+      selectedLineup: LineupMap,
+      currentLeaderId?: string,
+    ): string => {
+      const selectedIds = getUniqueSelectedMusicians(
+        selectedLineup,
+        data.constraints,
+        ROLE_ORDER,
       );
-      if (selected[0]) return selected[0];
-    }
-    return "";
-  }, []);
+      if (selectedIds.length === 0) return "";
+      if (currentLeaderId && selectedIds.includes(currentLeaderId)) {
+        return currentLeaderId;
+      }
+      if (data.bandLeader && selectedIds.includes(data.bandLeader)) {
+        return data.bandLeader;
+      }
+      if (
+        data.defaultContactId &&
+        selectedIds.includes(data.defaultContactId)
+      ) {
+        return data.defaultContactId;
+      }
+      for (const role of ROLE_ORDER) {
+        const constraint = normalizeRoleConstraint(role, data.constraints[role]);
+        for (const memberId of normalizeLineupValue(selectedLineup[role], constraint.max)) {
+          if (selectedIds.includes(memberId)) {
+            return memberId;
+          }
+        }
+      }
+      return selectedIds[0] ?? "";
+    },
+    [],
+  );
+
+  const getCandidates = useCallback(
+    (role: string, selectedLineup: LineupMap): string[] => {
+      if (!setupData) return [];
+      if (role === "leader") {
+        return getUniqueSelectedMusicians(
+          selectedLineup,
+          setupData.constraints,
+          ROLE_ORDER,
+        );
+      }
+      if (role === "talkback") {
+        return getUniqueSelectedMusicians(
+          selectedLineup,
+          setupData.constraints,
+          ROLE_ORDER,
+        ).filter((memberId) => memberId !== bandLeaderId);
+      }
+      return (setupData.members[role] || []).map((member) => member.id);
+    },
+    [bandLeaderId, setupData],
+  );
 
   useEffect(() => {
     async function load() {
@@ -651,8 +699,16 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
         bandId: parsed.bandRef,
       });
       setSetupData(data);
-      const defaultBandLeaderId = getDefaultBandLeader(data);
-      setBandLeaderId(parsed.bandLeaderId ?? defaultBandLeaderId);
+
+      const initialLineup = { ...(parsed.lineup ?? data.defaultLineup ?? {}) };
+      setLineup(initialLineup);
+
+      const initialLeaderId = computeLeaderFromLineup(
+        data,
+        initialLineup,
+        parsed.bandLeaderId,
+      );
+      setBandLeaderId(initialLeaderId);
       setTalkbackOwnerId(parsed.talkbackOwnerId ?? "");
 
       if (!data.defaultLineup) {
@@ -662,9 +718,6 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
         setStatus(
           "Warning: band has no default lineup. Please fill all required roles.",
         );
-        setLineup({});
-      } else {
-        setLineup({ ...data.defaultLineup });
       }
     }
 
@@ -676,25 +729,16 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
       });
       setStatus("Failed to load band data. Check application logs.");
     });
-  }, [getDefaultBandLeader, id]);
+  }, [computeLeaderFromLineup, id]);
 
   const errors = useMemo(() => {
     if (!setupData) return [];
-    const baseErrors = validateLineup(
-      lineup,
-      setupData.constraints,
-      ROLE_ORDER,
-    );
-    return baseErrors;
+    return validateLineup(lineup, setupData.constraints, ROLE_ORDER);
   }, [lineup, setupData]);
 
   const selectedMusicianIds = useMemo(() => {
     if (!setupData) return [];
-    return getUniqueSelectedMusicians(
-      lineup,
-      setupData.constraints,
-      ROLE_ORDER,
-    );
+    return getUniqueSelectedMusicians(lineup, setupData.constraints, ROLE_ORDER);
   }, [lineup, setupData]);
 
   const selectedOptions = useMemo(() => {
@@ -709,15 +753,14 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
       .filter(Boolean) as MemberOption[];
   }, [setupData, selectedMusicianIds]);
 
+  const talkbackCurrentOwnerId = talkbackOwnerId || bandLeaderId;
+
   useEffect(() => {
-    if (!bandLeaderId) return;
-    if (!selectedMusicianIds.includes(bandLeaderId)) {
-      setBandLeaderId("");
-      setStatus(
-        "Band leader was cleared because that musician is no longer in lineup.",
-      );
-    }
-  }, [bandLeaderId, selectedMusicianIds]);
+    if (!setupData) return;
+    setBandLeaderId((current) =>
+      computeLeaderFromLineup(setupData, lineup, current),
+    );
+  }, [computeLeaderFromLineup, lineup, setupData]);
 
   useEffect(() => {
     if (!talkbackOwnerId) return;
@@ -754,10 +797,7 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
   }
 
   function updateSlot(role: string, slotIndex: number, musicianId: string) {
-    const constraint = normalizeRoleConstraint(
-      role,
-      setupData?.constraints[role],
-    );
+    const constraint = normalizeRoleConstraint(role, setupData?.constraints[role]);
     const current = normalizeLineupValue(lineup[role], constraint.max);
     while (current.length < Math.max(constraint.max, slotIndex + 1)) {
       current.push("");
@@ -771,35 +811,25 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
     });
   }
 
-  function removeSelection(role: string, slotIndex: number) {
-    const constraint = normalizeRoleConstraint(
-      role,
-      setupData?.constraints[role],
-    );
-    const current = normalizeLineupValue(lineup[role], constraint.max);
-    current.splice(slotIndex, 1);
-    const next = current.filter(Boolean);
-    setLineup((prev) => ({
-      ...prev,
-      [role]: constraint.max <= 1 ? next[0] : next,
-    }));
-  }
-
   function resetToDefault() {
     if (!setupData) return;
     const confirmed = window.confirm(
       "Reset lineup, band leader, and talkback owner to band defaults?",
     );
     if (!confirmed) return;
-    setLineup({ ...(setupData.defaultLineup ?? {}) });
-    setBandLeaderId(getDefaultBandLeader(setupData));
+    const defaultLineup = { ...(setupData.defaultLineup ?? {}) };
+    setLineup(defaultLineup);
+    setBandLeaderId(computeLeaderFromLineup(setupData, defaultLineup));
     setTalkbackOwnerId("");
     setStatus("Setup reset to defaults.");
   }
 
-  const talkbackOptions = selectedOptions.filter(
-    (member) => member.id !== bandLeaderId,
-  );
+  const hasTalkbackAlternatives =
+    getCandidates("talkback", lineup).filter((idValue) => idValue !== talkbackCurrentOwnerId)
+      .length > 0;
+  const hasLeaderAlternatives =
+    getCandidates("leader", lineup).filter((idValue) => idValue !== bandLeaderId)
+      .length > 0;
 
   return (
     <section className="panel">
@@ -827,10 +857,7 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
 
       {setupData ? (
         ROLE_ORDER.map((role) => {
-          const constraint = normalizeRoleConstraint(
-            role,
-            setupData.constraints[role],
-          );
+          const constraint = normalizeRoleConstraint(role, setupData.constraints[role]);
           const selected = normalizeLineupValue(lineup[role], constraint.max);
           const members = setupData.members[role] || [];
           const isMulti = role === "vocs";
@@ -838,40 +865,32 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
             <article key={role} className="lineup-card">
               <h3>{role.toUpperCase()}</h3>
               {isMulti ? (
-                <div className="lineup-list">
-                  {(selected.length > 0 ? selected : [""]).map(
-                    (musicianId, index) => (
+                <div className="lineup-list lineup-list--vocs">
+                  {(selected.length > 0 ? selected : [""]).map((musicianId, index) => {
+                    const alternatives = members.filter((m) => m.id !== musicianId);
+                    return (
                       <div
                         key={`${role}-${musicianId || index}`}
                         className="lineup-list__row"
                       >
                         <span className="lineup-list__name">
                           {musicianId
-                            ? (members.find((m) => m.id === musicianId)?.name ??
-                              musicianId)
+                            ? (members.find((m) => m.id === musicianId)?.name ?? musicianId)
                             : "No vocalist selected"}
                         </span>
                         <div className="actions-row">
-                          <button
-                            type="button"
-                            className="button-secondary"
-                            onClick={() =>
-                              setEditing({ role, slotIndex: index })
-                            }
-                          >
-                            Change
-                          </button>
-                          {musicianId ? (
+                          {alternatives.length > 0 ? (
                             <button
                               type="button"
                               className="button-secondary"
-                              onClick={() => removeSelection(role, index)}
+                              onClick={() =>
+                                setEditing({ role, slotIndex: index, currentSelectedId: musicianId || undefined })
+                              }
                             >
-                              Remove
+                              Change
                             </button>
                           ) : null}
-                          {(selected.length === 0 ||
-                            index === selected.length - 1) &&
+                          {(selected.length === 0 || index === selected.length - 1) &&
                           selected.length < constraint.max ? (
                             <button
                               type="button"
@@ -885,34 +904,30 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
                           ) : null}
                         </div>
                       </div>
-                    ),
-                  )}
+                    );
+                  })}
                 </div>
               ) : (
-                <div className="lineup-list__row">
-                  <span className="lineup-list__name">
-                    {selected[0]
-                      ? (members.find((m) => m.id === selected[0])?.name ??
-                        selected[0])
-                      : "Not selected"}
-                  </span>
-                  <div className="actions-row">
-                    <button
-                      type="button"
-                      className="button-secondary"
-                      onClick={() => setEditing({ role, slotIndex: 0 })}
-                    >
-                      Change
-                    </button>
-                    {selected[0] ? (
-                      <button
-                        type="button"
-                        className="button-secondary"
-                        onClick={() => removeSelection(role, 0)}
-                      >
-                        Remove
-                      </button>
-                    ) : null}
+                <div className="lineup-list lineup-list--single">
+                  <div className="lineup-list__row">
+                    <span className="lineup-list__name">
+                      {selected[0]
+                        ? (members.find((m) => m.id === selected[0])?.name ?? selected[0])
+                        : "Not selected"}
+                    </span>
+                    <div className="actions-row">
+                      {members.filter((m) => m.id !== selected[0]).length > 0 ? (
+                        <button
+                          type="button"
+                          className="button-secondary"
+                          onClick={() =>
+                            setEditing({ role, slotIndex: 0, currentSelectedId: selected[0] })
+                          }
+                        >
+                          Change
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               )}
@@ -923,42 +938,66 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
         <p className="subtle">Loading setup…</p>
       )}
 
+      <p className="subtle">
+        Select the member responsible on-site and for organizer communication.
+      </p>
       <article className="lineup-card">
-        <p className="subtle">
-          Select the member responsible for technical communication.
-        </p>
         <h3>BAND LEADER</h3>
-        <label>
-          <select
-            value={bandLeaderId}
-            onChange={(event) => setBandLeaderId(event.target.value)}
-          >
-            <option value="">Select lineup member</option>
-            {selectedOptions.map((member) => (
-              <option key={member.id} value={member.id}>
-                {member.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="lineup-list lineup-list--single">
+          <div className="lineup-list__row">
+            <span className="lineup-list__name">
+              {selectedOptions.find((member) => member.id === bandLeaderId)?.name ||
+                "Not selected"}
+            </span>
+            <div className="actions-row">
+              {hasLeaderAlternatives ? (
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={() =>
+                    setEditing({
+                      role: "leader",
+                      slotIndex: 0,
+                      currentSelectedId: bandLeaderId,
+                    })
+                  }
+                >
+                  Change
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
       </article>
 
+      <p className="subtle">Assign who owns the talkback microphone.</p>
       <article className="lineup-card">
-        <p className="subtle">Assign the talkback microphone owner.</p>
         <h3>TALKBACK</h3>
-        <label>
-          <select
-            value={talkbackOwnerId}
-            onChange={(event) => setTalkbackOwnerId(event.target.value)}
-          >
-            <option value="">Use band leader default</option>
-            {talkbackOptions.map((member) => (
-              <option key={member.id} value={member.id}>
-                {member.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="lineup-list lineup-list--single">
+          <div className="lineup-list__row">
+            <span className="lineup-list__name">
+              {selectedOptions.find((member) => member.id === talkbackCurrentOwnerId)
+                ?.name || "Use band leader default"}
+            </span>
+            <div className="actions-row">
+              {hasTalkbackAlternatives ? (
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={() =>
+                    setEditing({
+                      role: "talkback",
+                      slotIndex: 0,
+                      currentSelectedId: talkbackCurrentOwnerId,
+                    })
+                  }
+                >
+                  Change
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
       </article>
 
       {errors.length > 0 ? (
@@ -984,7 +1023,7 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
         <dialog className="selector-overlay" open>
           <div className="selector-dialog">
             <div className="panel__header">
-              <h3>Select {editing.role}</h3>
+              <h3>Select {editing.role.toUpperCase()}</h3>
               <button
                 type="button"
                 className="button-secondary"
@@ -994,17 +1033,39 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
               </button>
             </div>
             <div className="selector-list">
-              {(setupData.members[editing.role] || []).map((member) => (
+              {(editing.role === "leader"
+                ? selectedOptions
+                    .map((member) => member.id)
+                    .filter((memberId) => memberId !== editing.currentSelectedId)
+                    .map((memberId) =>
+                      selectedOptions.find((member) => member.id === memberId),
+                    )
+                    .filter(Boolean)
+                : editing.role === "talkback"
+                  ? selectedOptions
+                      .filter((member) => member.id !== bandLeaderId)
+                      .filter((member) => member.id !== editing.currentSelectedId)
+                  : (setupData.members[editing.role] || []).filter(
+                      (member) => member.id !== editing.currentSelectedId,
+                    )
+              ).map((member) => (
                 <button
                   type="button"
-                  key={member.id}
+                  key={member?.id}
                   className="selector-option"
                   onClick={() => {
-                    updateSlot(editing.role, editing.slotIndex, member.id);
+                    if (!member) return;
+                    if (editing.role === "leader") {
+                      setBandLeaderId(member.id);
+                    } else if (editing.role === "talkback") {
+                      setTalkbackOwnerId(member.id);
+                    } else {
+                      updateSlot(editing.role, editing.slotIndex, member.id);
+                    }
                     setEditing(null);
                   }}
                 >
-                  {member.name}
+                  {member?.name}
                 </button>
               ))}
             </div>
@@ -1014,5 +1075,6 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
     </section>
   );
 }
+
 
 export default App;
