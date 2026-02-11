@@ -1,6 +1,21 @@
-import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import desktopPackage from "../package.json";
+import {
+  type LineupMap,
+  type LineupValue,
+  type RoleConstraint,
+  formatIsoDateToUs,
+  getTodayIsoLocal,
+  getUniqueSelectedMusicians,
+  isPastIsoDate,
+  matchProjectDetailPath,
+  matchProjectSetupPath,
+  normalizeLineupValue,
+  normalizeRoleConstraint,
+  parseUsDateInput,
+  validateLineup,
+} from "./projectRules";
 import "./App.css";
 
 type ProjectSummary = {
@@ -18,18 +33,10 @@ type BandOption = {
   code?: string | null;
 };
 
-type RoleConstraint = {
-  min: number;
-  max: number;
-};
-
 type MemberOption = {
   id: string;
   name: string;
 };
-
-type LineupValue = string | string[];
-type LineupMap = Record<string, LineupValue | undefined>;
 
 type BandSetupData = {
   id: string;
@@ -50,6 +57,8 @@ type NewProjectPayload = {
   note?: string;
   createdAt: string;
   lineup?: LineupMap;
+  bandLeaderId?: string;
+  talkbackOwnerId?: string;
 };
 
 const ROLE_ORDER = ["drums", "bass", "guitar", "keys", "vocs", "talkback"];
@@ -59,7 +68,7 @@ function sanitizeVenueSlug(value: string) {
     .trim()
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\p{M}/gu, "")
     .replace(/[^a-z0-9\s-]/g, "")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
@@ -75,7 +84,11 @@ function formatDateForProjectId(eventDate: string): string {
   return `${day}-${month}-${year}`;
 }
 
-function buildEventProjectId(band: BandOption, eventDate: string, eventVenue: string): string {
+function buildEventProjectId(
+  band: BandOption,
+  eventDate: string,
+  eventVenue: string,
+): string {
   const code = band.code?.trim() || band.id;
   const date = formatDateForProjectId(eventDate);
   const venueSlug = sanitizeVenueSlug(eventVenue) || "venue";
@@ -97,37 +110,6 @@ function getCurrentPath() {
   return window.location.pathname || "/";
 }
 
-function matchProjectDetailPath(pathname: string) {
-  const match = pathname.match(/^\/projects\/([^/]+)$/);
-  return match ? decodeURIComponent(match[1]) : null;
-}
-
-function matchProjectSetupPath(pathname: string) {
-  const match = pathname.match(/^\/projects\/([^/]+)\/setup$/);
-  return match ? decodeURIComponent(match[1]) : null;
-}
-
-function normalizeLineupValue(value: LineupValue | undefined, maxSlots: number): string[] {
-  if (!value) return [];
-  const ids = Array.isArray(value) ? value : [value];
-  return ids.slice(0, Math.max(maxSlots, 0));
-}
-
-function validateLineup(lineup: LineupMap, constraints: Record<string, RoleConstraint>): string[] {
-  const errors: string[] = [];
-  for (const role of ROLE_ORDER) {
-    const roleConstraint = constraints[role];
-    if (!roleConstraint) continue;
-    const selected = normalizeLineupValue(lineup[role], roleConstraint.max);
-    if (selected.length < roleConstraint.min || selected.length > roleConstraint.max) {
-      errors.push(
-        `${role}: expected ${roleConstraint.min === roleConstraint.max ? roleConstraint.min : `${roleConstraint.min}-${roleConstraint.max}`} slot(s), selected ${selected.length}.`,
-      );
-    }
-  }
-  return errors;
-}
-
 function App() {
   const [userDataDir, setUserDataDir] = useState<string>("");
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
@@ -140,6 +122,16 @@ function App() {
     setPathname(path);
   }
 
+  const refreshProjects = useCallback(async () => {
+    const list = await invoke<ProjectSummary[]>("list_projects");
+    setProjects(list);
+  }, []);
+
+  const refreshBands = useCallback(async () => {
+    const list = await invoke<BandOption[]>("list_bands");
+    setBands(list);
+  }, []);
+
   useEffect(() => {
     const handlePopState = () => setPathname(getCurrentPath());
     window.addEventListener("popstate", handlePopState);
@@ -147,16 +139,6 @@ function App() {
       window.removeEventListener("popstate", handlePopState);
     };
   }, []);
-
-  async function refreshProjects() {
-    const list = await invoke<ProjectSummary[]>("list_projects");
-    setProjects(list);
-  }
-
-  async function refreshBands() {
-    const list = await invoke<BandOption[]>("list_bands");
-    setBands(list);
-  }
 
   useEffect(() => {
     async function bootstrap() {
@@ -168,15 +150,18 @@ function App() {
     bootstrap().catch((err) => {
       console.error("bootstrap failed", {
         command: "get_user_data_dir/list_projects/list_bands",
-        resolvedPath: userDataDir,
+        resolvedPath: "unknown",
         originalError: err,
       });
       setStatus("Failed to load band data. Check application logs.");
     });
-  }, []);
+  }, [refreshBands, refreshProjects]);
 
   const projectId = useMemo(() => matchProjectDetailPath(pathname), [pathname]);
-  const setupProjectId = useMemo(() => matchProjectSetupPath(pathname), [pathname]);
+  const setupProjectId = useMemo(
+    () => matchProjectSetupPath(pathname),
+    [pathname],
+  );
 
   return (
     <main className="app-shell">
@@ -203,7 +188,9 @@ function App() {
         />
       ) : null}
 
-      {pathname === "/projects/new" ? <ChooseProjectTypePage navigate={navigate} /> : null}
+      {pathname === "/projects/new" ? (
+        <ChooseProjectTypePage navigate={navigate} />
+      ) : null}
 
       {pathname === "/projects/new/event" ? (
         <NewEventProjectPage
@@ -225,9 +212,13 @@ function App() {
         />
       ) : null}
 
-      {setupProjectId ? <ProjectSetupPage id={setupProjectId} navigate={navigate} /> : null}
+      {setupProjectId ? (
+        <ProjectSetupPage id={setupProjectId} navigate={navigate} />
+      ) : null}
 
-      {projectId && !setupProjectId ? <ProjectDetailPage id={projectId} navigate={navigate} /> : null}
+      {projectId && !setupProjectId ? (
+        <ProjectDetailPage id={projectId} navigate={navigate} />
+      ) : null}
     </main>
   );
 }
@@ -239,21 +230,34 @@ type StartPageProps = {
   onOpenExisting: () => void;
 };
 
-function StartPage({ projects, userDataDir, navigate, onOpenExisting }: StartPageProps) {
+function StartPage({
+  projects,
+  userDataDir,
+  navigate,
+  onOpenExisting,
+}: StartPageProps) {
   return (
     <section className="panel">
       <div className="panel__header">
         <h2>Project Hub</h2>
         {import.meta.env.DEV ? (
-          <p className="subtle">{userDataDir ? `Data: ${userDataDir}` : "Loading user_data…"}</p>
+          <p className="subtle">
+            {userDataDir ? `Data: ${userDataDir}` : "Loading user_data…"}
+          </p>
         ) : null}
       </div>
 
       <h3>Projects</h3>
 
       <div className="actions-row">
-        <button type="button" onClick={() => navigate("/projects/new")}>+ New Project</button>
-        <button type="button" className="button-secondary" onClick={onOpenExisting}>
+        <button type="button" onClick={() => navigate("/projects/new")}>
+          + New Project
+        </button>
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={onOpenExisting}
+        >
           Open Existing
         </button>
       </div>
@@ -286,50 +290,93 @@ type NewProjectPageProps = {
   bands: BandOption[];
 };
 
-function ChooseProjectTypePage({ navigate }: Pick<NewProjectPageProps, "navigate">) {
+function ChooseProjectTypePage({
+  navigate,
+}: Pick<NewProjectPageProps, "navigate">) {
   return (
-    <section className="panel">
-      <div className="panel__header">
+    <section className="panel panel--choice">
+      <div className="panel__header panel__header--stack">
         <h2>New Project</h2>
-        <button type="button" className="button-secondary" onClick={() => navigate("/")}>
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={() => navigate("/")}
+        >
           Back to projects
         </button>
       </div>
 
-      <div className="actions-row">
-        <button type="button" onClick={() => navigate("/projects/new/event")}>Event</button>
-        <button type="button" onClick={() => navigate("/projects/new/generic")}>Generic</button>
+      <div className="choice-grid" aria-label="Project type options">
+        <button
+          type="button"
+          className="choice-card"
+          onClick={() => navigate("/projects/new/event")}
+        >
+          <span className="choice-card__title">Event project</span>
+          <span className="choice-card__desc">
+            For a specific show with date and venue.
+          </span>
+          <span className="choice-card__cta">Continue</span>
+        </button>
+        <button
+          type="button"
+          className="choice-card"
+          onClick={() => navigate("/projects/new/generic")}
+        >
+          <span className="choice-card__title">Generic template</span>
+          <span className="choice-card__desc">
+            Reusable template for a season or tour.
+          </span>
+          <span className="choice-card__cta">Continue</span>
+        </button>
       </div>
-
-      <p className="subtle">For a specific show with date and venue.</p>
-      <p className="subtle">Reusable template for a season or tour.</p>
     </section>
   );
 }
 
-function NewEventProjectPage({ navigate, onCreated, bands }: NewProjectPageProps) {
-  const [eventDate, setEventDate] = useState<string>("");
+function NewEventProjectPage({
+  navigate,
+  onCreated,
+  bands,
+}: NewProjectPageProps) {
+  const [eventDateIso, setEventDateIso] = useState<string>("");
+  const [eventDateInput, setEventDateInput] = useState<string>("");
   const [eventVenue, setEventVenue] = useState<string>("");
   const [bandRef, setBandRef] = useState<string>("");
   const [status, setStatus] = useState<string>("");
+  const todayIso = getTodayIsoLocal();
 
   const selectedBand = bands.find((band) => band.id === bandRef);
-  const canSubmit = Boolean(eventDate && eventVenue.trim() && selectedBand);
+  const canSubmit = Boolean(eventDateIso && eventVenue.trim() && selectedBand);
+
+  function updateDateInput(value: string) {
+    setEventDateInput(value);
+    const parsed = parseUsDateInput(value);
+    if (!parsed) {
+      setEventDateIso("");
+      return;
+    }
+    setEventDateIso(parsed);
+  }
 
   async function createProject() {
-    if (!selectedBand || !eventDate || !eventVenue.trim()) {
+    if (!selectedBand || !eventDateIso || !eventVenue.trim()) {
       setStatus("Date, venue, and band are required.");
       return;
     }
+    if (isPastIsoDate(eventDateIso, todayIso)) {
+      setStatus("Date cannot be in the past.");
+      return;
+    }
 
-    const id = buildEventProjectId(selectedBand, eventDate, eventVenue);
+    const id = buildEventProjectId(selectedBand, eventDateIso, eventVenue);
     const payload: NewProjectPayload = {
       id,
       purpose: "event",
-      eventDate,
+      eventDate: eventDateIso,
       eventVenue: eventVenue.trim(),
       bandRef: selectedBand.id,
-      documentDate: eventDate,
+      documentDate: eventDateIso,
       createdAt: new Date().toISOString(),
     };
 
@@ -346,7 +393,11 @@ function NewEventProjectPage({ navigate, onCreated, bands }: NewProjectPageProps
     <section className="panel">
       <div className="panel__header">
         <h2>New Event Project</h2>
-        <button type="button" className="button-secondary" onClick={() => navigate("/projects/new")}>
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={() => navigate("/projects/new")}
+        >
           Back
         </button>
       </div>
@@ -354,7 +405,30 @@ function NewEventProjectPage({ navigate, onCreated, bands }: NewProjectPageProps
       <div className="form-grid">
         <label>
           Date *
-          <input type="date" value={eventDate} onChange={(event) => setEventDate(event.target.value)} />
+          <input
+            type="text"
+            inputMode="numeric"
+            lang="en-US"
+            placeholder="MM/DD/YYYY"
+            value={eventDateInput}
+            onChange={(event) => updateDateInput(event.target.value)}
+          />
+          <div className="actions-row">
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={() => updateDateInput(formatIsoDateToUs(todayIso))}
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={() => updateDateInput("")}
+            >
+              Clear
+            </button>
+          </div>
         </label>
 
         <label>
@@ -369,7 +443,10 @@ function NewEventProjectPage({ navigate, onCreated, bands }: NewProjectPageProps
 
         <label>
           Band *
-          <select value={bandRef} onChange={(event) => setBandRef(event.target.value)}>
+          <select
+            value={bandRef}
+            onChange={(event) => setBandRef(event.target.value)}
+          >
             <option value="">Select band</option>
             {bands.map((band) => (
               <option key={band.id} value={band.id}>
@@ -383,13 +460,19 @@ function NewEventProjectPage({ navigate, onCreated, bands }: NewProjectPageProps
       {status ? <p className="status status--error">{status}</p> : null}
 
       <div className="actions-row">
-        <button type="button" onClick={createProject} disabled={!canSubmit}>Create</button>
+        <button type="button" onClick={createProject} disabled={!canSubmit}>
+          Create
+        </button>
       </div>
     </section>
   );
 }
 
-function NewGenericProjectPage({ navigate, onCreated, bands }: NewProjectPageProps) {
+function NewGenericProjectPage({
+  navigate,
+  onCreated,
+  bands,
+}: NewProjectPageProps) {
   const [year, setYear] = useState<string>(String(new Date().getFullYear()));
   const [note, setNote] = useState<string>("");
   const [bandRef, setBandRef] = useState<string>("");
@@ -428,7 +511,11 @@ function NewGenericProjectPage({ navigate, onCreated, bands }: NewProjectPagePro
     <section className="panel">
       <div className="panel__header">
         <h2>New Generic Project</h2>
-        <button type="button" className="button-secondary" onClick={() => navigate("/projects/new")}>
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={() => navigate("/projects/new")}
+        >
           Back
         </button>
       </div>
@@ -436,7 +523,10 @@ function NewGenericProjectPage({ navigate, onCreated, bands }: NewProjectPagePro
       <div className="form-grid">
         <label>
           Band *
-          <select value={bandRef} onChange={(event) => setBandRef(event.target.value)}>
+          <select
+            value={bandRef}
+            onChange={(event) => setBandRef(event.target.value)}
+          >
             <option value="">Select band</option>
             {bands.map((band) => (
               <option key={band.id} value={band.id}>
@@ -471,7 +561,9 @@ function NewGenericProjectPage({ navigate, onCreated, bands }: NewProjectPagePro
       {status ? <p className="status status--error">{status}</p> : null}
 
       <div className="actions-row">
-        <button type="button" onClick={createProject} disabled={!canSubmit}>Create</button>
+        <button type="button" onClick={createProject} disabled={!canSubmit}>
+          Create
+        </button>
       </div>
     </section>
   );
@@ -487,7 +579,9 @@ function ProjectDetailPage({ id, navigate }: ProjectDetailPageProps) {
     <section className="panel">
       <h2>Project Detail</h2>
       <p>Project ID: {id}</p>
-      <button type="button" onClick={() => navigate("/")}>Back to projects</button>
+      <button type="button" onClick={() => navigate("/")}>
+        Back to projects
+      </button>
     </section>
   );
 }
@@ -496,7 +590,12 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
   const [project, setProject] = useState<NewProjectPayload | null>(null);
   const [setupData, setSetupData] = useState<BandSetupData | null>(null);
   const [lineup, setLineup] = useState<LineupMap>({});
-  const [editing, setEditing] = useState<{ role: string; slotIndex: number } | null>(null);
+  const [editing, setEditing] = useState<{
+    role: string;
+    slotIndex: number;
+  } | null>(null);
+  const [bandLeaderId, setBandLeaderId] = useState<string>("");
+  const [talkbackOwnerId, setTalkbackOwnerId] = useState<string>("");
   const [status, setStatus] = useState<string>("");
 
   useEffect(() => {
@@ -504,15 +603,21 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
       const raw = await invoke<string>("read_project", { projectId: id });
       const parsed = JSON.parse(raw) as NewProjectPayload;
       setProject(parsed);
+      setBandLeaderId(parsed.bandLeaderId ?? "");
+      setTalkbackOwnerId(parsed.talkbackOwnerId ?? "");
 
-      const data = await invoke<BandSetupData>("get_band_setup_data", { bandId: parsed.bandRef });
+      const data = await invoke<BandSetupData>("get_band_setup_data", {
+        bandId: parsed.bandRef,
+      });
       setSetupData(data);
 
       if (!data.defaultLineup) {
         if (import.meta.env.DEV) {
           throw new Error(`Band ${parsed.bandRef} has no defaultLineup`);
         }
-        setStatus("Warning: band has no default lineup. Please fill all required roles.");
+        setStatus(
+          "Warning: band has no default lineup. Please fill all required roles.",
+        );
         setLineup({});
       } else {
         setLineup({ ...data.defaultLineup });
@@ -531,8 +636,51 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
 
   const errors = useMemo(() => {
     if (!setupData) return [];
-    return validateLineup(lineup, setupData.constraints);
+    const baseErrors = validateLineup(
+      lineup,
+      setupData.constraints,
+      ROLE_ORDER,
+    );
+    return baseErrors;
   }, [lineup, setupData]);
+
+  const selectedMusicianIds = useMemo(() => {
+    if (!setupData) return [];
+    return getUniqueSelectedMusicians(
+      lineup,
+      setupData.constraints,
+      ROLE_ORDER,
+    );
+  }, [lineup, setupData]);
+
+  const selectedOptions = useMemo(() => {
+    if (!setupData) return [] as MemberOption[];
+    const all = Object.values(setupData.members).flat();
+    const byId = new Map<string, MemberOption>();
+    for (const member of all) {
+      byId.set(member.id, member);
+    }
+    return selectedMusicianIds
+      .map((idValue) => byId.get(idValue))
+      .filter(Boolean) as MemberOption[];
+  }, [setupData, selectedMusicianIds]);
+
+  useEffect(() => {
+    if (!bandLeaderId) return;
+    if (!selectedMusicianIds.includes(bandLeaderId)) {
+      setBandLeaderId("");
+      setStatus(
+        "Band leader was cleared because that musician is no longer in lineup.",
+      );
+    }
+  }, [bandLeaderId, selectedMusicianIds]);
+
+  useEffect(() => {
+    if (!talkbackOwnerId) return;
+    if (!selectedMusicianIds.includes(talkbackOwnerId)) {
+      setTalkbackOwnerId("");
+    }
+  }, [selectedMusicianIds, talkbackOwnerId]);
 
   async function saveAndContinue() {
     if (!project || !setupData) return;
@@ -540,7 +688,19 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
       setStatus("Lineup is incomplete or violates role constraints.");
       return;
     }
-    const payload: NewProjectPayload = { ...project, lineup: { ...lineup } };
+    if (!bandLeaderId) {
+      setStatus("Band leader is required.");
+      return;
+    }
+    const effectiveTalkbackOwnerId = talkbackOwnerId || bandLeaderId;
+    const payload: NewProjectPayload = {
+      ...project,
+      lineup: { ...lineup },
+      bandLeaderId,
+      ...(effectiveTalkbackOwnerId !== bandLeaderId
+        ? { talkbackOwnerId: effectiveTalkbackOwnerId }
+        : {}),
+    };
     await invoke("save_project", {
       projectId: id,
       json: JSON.stringify(payload, null, 2),
@@ -550,70 +710,223 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
   }
 
   function updateSlot(role: string, slotIndex: number, musicianId: string) {
-    const constraint = setupData?.constraints[role];
-    if (!constraint) return;
+    const constraint = normalizeRoleConstraint(
+      role,
+      setupData?.constraints[role],
+    );
     const current = normalizeLineupValue(lineup[role], constraint.max);
-    while (current.length < constraint.max) {
+    while (current.length < Math.max(constraint.max, slotIndex + 1)) {
       current.push("");
     }
     current[slotIndex] = musicianId;
     const next = current.filter((entry) => entry);
     setLineup((prev) => {
-      const value: LineupValue | undefined = constraint.max <= 1 ? next[0] : next;
+      const value: LineupValue | undefined =
+        constraint.max <= 1 ? next[0] : next;
       return { ...prev, [role]: value };
     });
+  }
+
+  function removeSelection(role: string, slotIndex: number) {
+    const constraint = normalizeRoleConstraint(
+      role,
+      setupData?.constraints[role],
+    );
+    const current = normalizeLineupValue(lineup[role], constraint.max);
+    current.splice(slotIndex, 1);
+    const next = current.filter(Boolean);
+    setLineup((prev) => ({
+      ...prev,
+      [role]: constraint.max <= 1 ? next[0] : next,
+    }));
   }
 
   return (
     <section className="panel">
       <div className="panel__header">
         <h2>Project Setup</h2>
-        <button type="button" className="button-secondary" onClick={() => navigate("/")}>Back to projects</button>
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={() => navigate("/")}
+        >
+          Back to projects
+        </button>
       </div>
 
       <p className="subtle">Configure lineup for Input List and Stage Plan.</p>
 
-      {setupData ? ROLE_ORDER.map((role) => {
-        const constraint = setupData.constraints[role];
-        if (!constraint) return null;
-        const slots = Math.max(constraint.max, 0);
-        const selected = normalizeLineupValue(lineup[role], slots);
-        return (
-          <article key={role} className="lineup-card">
-            <h3>{role.toUpperCase()} ({slots})</h3>
-            <div className="lineup-slots">
-              {Array.from({ length: slots }).map((_, index) => (
-                <button
-                  type="button"
-                  key={`${role}-${index}`}
-                  className="slot-button button-secondary"
-                  onClick={() => setEditing({ role, slotIndex: index })}
-                >
-                  {selected[index] ? (setupData.members[role] || []).find((m) => m.id === selected[index])?.name ?? selected[index] : "+ Change"}
-                </button>
-              ))}
-            </div>
-          </article>
-        );
-      }) : <p className="subtle">Loading setup…</p>}
+      {setupData ? (
+        ROLE_ORDER.map((role) => {
+          const constraint = normalizeRoleConstraint(
+            role,
+            setupData.constraints[role],
+          );
+          const selected = normalizeLineupValue(lineup[role], constraint.max);
+          const members = setupData.members[role] || [];
+          const isMulti = role === "vocs";
+          return (
+            <article key={role} className="lineup-card">
+              <h3>
+                {role.toUpperCase()} (
+                {constraint.min === constraint.max
+                  ? constraint.max
+                  : `${constraint.min}-${constraint.max}`}
+                )
+              </h3>
+              {isMulti ? (
+                <div className="lineup-list">
+                  {selected.map((musicianId, index) => (
+                    <div
+                      key={`${role}-${musicianId}`}
+                      className="lineup-list__row"
+                    >
+                      <span>
+                        {members.find((m) => m.id === musicianId)?.name ??
+                          musicianId}
+                      </span>
+                      <div className="actions-row">
+                        <button
+                          type="button"
+                          className="button-secondary"
+                          onClick={() => setEditing({ role, slotIndex: index })}
+                        >
+                          Change
+                        </button>
+                        <button
+                          type="button"
+                          className="button-secondary"
+                          onClick={() => removeSelection(role, index)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {selected.length < constraint.max ? (
+                    <button
+                      type="button"
+                      className="button-secondary"
+                      onClick={() =>
+                        setEditing({ role, slotIndex: selected.length })
+                      }
+                    >
+                      + Add vocalist
+                    </button>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="lineup-list__row">
+                  <span>
+                    {selected[0]
+                      ? (members.find((m) => m.id === selected[0])?.name ??
+                        selected[0])
+                      : "Not selected"}
+                  </span>
+                  <div className="actions-row">
+                    <button
+                      type="button"
+                      className="button-secondary"
+                      onClick={() => setEditing({ role, slotIndex: 0 })}
+                    >
+                      Change
+                    </button>
+                    {selected[0] ? (
+                      <button
+                        type="button"
+                        className="button-secondary"
+                        onClick={() => removeSelection(role, 0)}
+                      >
+                        Remove
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+            </article>
+          );
+        })
+      ) : (
+        <p className="subtle">Loading setup…</p>
+      )}
+
+      <article className="lineup-card">
+        <h3>Band leader</h3>
+        <label>
+          Band leader *
+          <select
+            value={bandLeaderId}
+            onChange={(event) => setBandLeaderId(event.target.value)}
+          >
+            <option value="">Select lineup member</option>
+            {selectedOptions.map((member) => (
+              <option key={member.id} value={member.id}>
+                {member.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </article>
+
+      <article className="lineup-card">
+        <h3>Talkback owner</h3>
+        <p className="subtle">Default follows the band leader.</p>
+        <label>
+          Override talkback owner
+          <select
+            value={talkbackOwnerId}
+            onChange={(event) => setTalkbackOwnerId(event.target.value)}
+          >
+            <option value="">Use band leader default</option>
+            {selectedOptions.map((member) => (
+              <option key={member.id} value={member.id}>
+                {member.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="actions-row">
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={() => setTalkbackOwnerId("")}
+          >
+            Reset to leader
+          </button>
+        </div>
+      </article>
 
       {errors.length > 0 ? (
         <div className="status status--error">
-          {errors.map((error) => <p key={error}>{error}</p>)}
+          {errors.map((error) => (
+            <p key={error}>{error}</p>
+          ))}
         </div>
       ) : null}
       {status ? <p className="status status--error">{status}</p> : null}
 
       <div className="actions-row">
-        <button type="button" onClick={saveAndContinue} disabled={errors.length > 0}>Continue</button>
+        <button
+          type="button"
+          onClick={saveAndContinue}
+          disabled={errors.length > 0}
+        >
+          Continue
+        </button>
       </div>
 
       {editing && setupData ? (
-        <div className="selector-overlay" role="dialog" aria-modal="true">
+        <dialog className="selector-overlay" open>
           <div className="selector-dialog panel">
             <div className="panel__header">
               <h3>Select {editing.role}</h3>
-              <button type="button" className="button-secondary" onClick={() => setEditing(null)}>Close</button>
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => setEditing(null)}
+              >
+                Close
+              </button>
             </div>
             <div className="selector-list">
               {(setupData.members[editing.role] || []).map((member) => (
@@ -631,7 +944,7 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
               ))}
             </div>
           </div>
-        </div>
+        </dialog>
       ) : null}
     </section>
   );

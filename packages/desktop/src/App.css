@@ -1,5 +1,6 @@
 :root {
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
   color: #111827;
   background: #f3f4f6;
 }
@@ -66,6 +67,15 @@ select {
   gap: 12px;
 }
 
+.panel__header--stack {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.panel--choice {
+  gap: 20px;
+}
+
 .subtle {
   margin: 0;
   color: #6b7280;
@@ -83,7 +93,8 @@ button {
   border-radius: 8px;
   background: #111827;
   color: #ffffff;
-  padding: 8px 12px;
+  padding: 10px 14px;
+  min-height: 44px;
   cursor: pointer;
   text-align: left;
 }
@@ -160,6 +171,50 @@ button:disabled {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.choice-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.choice-card {
+  background: #f9fafb;
+  color: #111827;
+  border: 1px solid #d1d5db;
+  display: grid;
+  gap: 10px;
+  min-height: 180px;
+  align-content: start;
+  padding: 18px;
+}
+
+.choice-card__title {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.choice-card__desc {
+  color: #4b5563;
+}
+
+.choice-card__cta {
+  margin-top: auto;
+  font-weight: 600;
+}
+
+.lineup-list {
+  display: grid;
+  gap: 8px;
+}
+
+.lineup-list__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .slot-button {
