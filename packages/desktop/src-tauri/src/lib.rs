@@ -111,7 +111,7 @@ struct ExportPdfResult {
 #[serde(rename_all = "camelCase")]
 struct NodeExportResponse {
     ok: bool,
-    result: Option<ExportPdfResult>,
+    result: Option<Value>,
     code: Option<String>,
     message: Option<String>,
     export_pdf_path: Option<String>,
@@ -162,15 +162,23 @@ fn read_app_config(app: &tauri::AppHandle) -> Option<AppConfig> {
     serde_json::from_str::<AppConfig>(&raw).ok()
 }
 
-fn resolve_mapy_api_key(app: &tauri::AppHandle) -> Option<String> {
+fn resolve_mapy_api_key_with_source(app: &tauri::AppHandle) -> (Option<String>, &'static str) {
     if let Ok(env_key) = std::env::var("MAPY_API_KEY") {
         if !env_key.trim().is_empty() {
-            return Some(env_key);
+            return (Some(env_key), "env");
         }
     }
-    read_app_config(app)
+    let config_key = read_app_config(app)
         .and_then(|config| config.mapy_api_key)
-        .filter(|key| !key.trim().is_empty())
+        .filter(|key| !key.trim().is_empty());
+    if config_key.is_some() {
+        return (config_key, "config");
+    }
+    (None, "none")
+}
+
+fn resolve_mapy_api_key(app: &tauri::AppHandle) -> Option<String> {
+    resolve_mapy_api_key_with_source(app).0
 }
 
 #[tauri::command]
@@ -469,11 +477,26 @@ fn has_mapy_api_key(app: tauri::AppHandle) -> bool {
 }
 
 #[tauri::command]
-async fn suggest_cities(app: tauri::AppHandle, query: String) -> Result<Vec<CitySuggestion>, ApiError> {
-    let mapy_api_key = match resolve_mapy_api_key(&app) {
+async fn suggest_cities(
+    app: tauri::AppHandle,
+    query: String,
+) -> Result<Vec<CitySuggestion>, ApiError> {
+    let (mapy_api_key, key_source) = resolve_mapy_api_key_with_source(&app);
+    let mapy_api_key = match mapy_api_key {
         Some(value) => value,
-        None => return Ok(Vec::new()),
+        None => {
+            if cfg!(debug_assertions) {
+                println!("[mapy] suggest skipped (key source: {})", key_source);
+            }
+            return Ok(Vec::new());
+        }
     };
+    if cfg!(debug_assertions) {
+        println!(
+            "[mapy] suggest query='{}' key source={} ",
+            query, key_source
+        );
+    }
 
     let user_query = query.trim();
     if user_query.chars().count() < 3 {
@@ -498,14 +521,15 @@ async fn suggest_cities(app: tauri::AppHandle, query: String) -> Result<Vec<City
             version_pdf_path: None,
         })?;
 
-    let payload = serde_json::from_slice::<MapySuggestResponse>(&output.stdout).map_err(|err| ApiError {
-        code: "MAPY_SUGGEST_FAILED".into(),
-        message: format!("Failed to parse Mapy API response: {err}"),
-        export_pdf_path: None,
-        version_pdf_path: None,
-    })?;
+    let payload =
+        serde_json::from_slice::<MapySuggestResponse>(&output.stdout).map_err(|err| ApiError {
+            code: "MAPY_SUGGEST_FAILED".into(),
+            message: format!("Failed to parse Mapy API response: {err}"),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        })?;
 
-    let suggestions = payload
+    let suggestions: Vec<CitySuggestion> = payload
         .items
         .into_iter()
         .filter_map(|item| {
@@ -524,6 +548,10 @@ async fn suggest_cities(app: tauri::AppHandle, query: String) -> Result<Vec<City
             })
         })
         .collect();
+
+    if cfg!(debug_assertions) {
+        println!("[mapy] suggest returned {} items", suggestions.len());
+    }
 
     Ok(suggestions)
 }
@@ -574,12 +602,19 @@ fn export_pdf(app: tauri::AppHandle, project_id: String) -> Result<ExportPdfResu
         })?;
 
     if response.ok {
-        return response.result.ok_or(ApiError {
+        let result = response.result.ok_or(ApiError {
             code: "EXPORT_FAILED".into(),
             message: "Export succeeded but no result returned.".into(),
             export_pdf_path: None,
             version_pdf_path: None,
-        });
+        })?;
+        let parsed: ExportPdfResult = serde_json::from_value(result).map_err(|err| ApiError {
+            code: "EXPORT_FAILED".into(),
+            message: format!("Export payload is invalid: {}", err),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        })?;
+        return Ok(parsed);
     }
 
     let code = response.code.unwrap_or_else(|| "EXPORT_FAILED".into());
@@ -591,6 +626,89 @@ fn export_pdf(app: tauri::AppHandle, project_id: String) -> Result<ExportPdfResu
         export_pdf_path: response.export_pdf_path,
         version_pdf_path: response.version_pdf_path,
     })
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PreviewPdfResult {
+    preview_pdf_path: String,
+}
+
+#[tauri::command]
+fn generate_preview_pdf(
+    app: tauri::AppHandle,
+    project_id: String,
+) -> Result<PreviewPdfResult, ApiError> {
+    let user_data_dir = resolve_user_data_dir(&app)?;
+    let repo_root = resolve_repo_root();
+    let script_path = repo_root.join("scripts").join("desktop_preview.ts");
+
+    let output = Command::new("node")
+        .arg("--import")
+        .arg("tsx")
+        .arg(script_path.as_os_str())
+        .arg("--project-id")
+        .arg(&project_id)
+        .arg("--user-data-dir")
+        .arg(user_data_dir.as_os_str())
+        .current_dir(&repo_root)
+        .output()
+        .map_err(|err| map_io_error(err, "PREVIEW_FAILED", "Failed to execute preview"))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let response: NodeExportResponse =
+        serde_json::from_str(stdout.trim()).map_err(|err| ApiError {
+            code: "PREVIEW_FAILED".into(),
+            message: format!(
+                "Failed to parse preview response: {} (stdout: {}, stderr: {})",
+                err,
+                stdout,
+                String::from_utf8_lossy(&output.stderr)
+            ),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        })?;
+
+    if response.ok {
+        if let Some(result) = response.result {
+            let preview_pdf_path = result
+                .get("previewPdfPath")
+                .and_then(|v| v.as_str())
+                .ok_or(ApiError {
+                    code: "PREVIEW_FAILED".into(),
+                    message: "Preview succeeded but no preview path was returned.".into(),
+                    export_pdf_path: None,
+                    version_pdf_path: None,
+                })?
+                .to_string();
+            return Ok(PreviewPdfResult { preview_pdf_path });
+        }
+    }
+
+    Err(ApiError {
+        code: response.code.unwrap_or_else(|| "PREVIEW_FAILED".into()),
+        message: response.message.unwrap_or_else(|| "Preview failed.".into()),
+        export_pdf_path: response.export_pdf_path,
+        version_pdf_path: response.version_pdf_path,
+    })
+}
+
+#[tauri::command]
+fn cleanup_preview_pdf(app: tauri::AppHandle, project_id: String) -> Result<(), ApiError> {
+    let user_data_dir = resolve_user_data_dir(&app)?;
+    let preview_path = user_data_dir
+        .join("tmp")
+        .join(format!("preview_{}.pdf", project_id));
+    if preview_path.exists() {
+        fs::remove_file(preview_path).map_err(|err| {
+            map_io_error(
+                err,
+                "PREVIEW_CLEANUP_FAILED",
+                "Failed to cleanup preview PDF",
+            )
+        })?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -606,7 +724,11 @@ fn default_export_pdf_path(app: tauri::AppHandle, project_id: String) -> Result<
 }
 
 #[tauri::command]
-fn export_pdf_to_path(app: tauri::AppHandle, project_id: String, output_path: String) -> Result<(), ApiError> {
+fn export_pdf_to_path(
+    app: tauri::AppHandle,
+    project_id: String,
+    output_path: String,
+) -> Result<(), ApiError> {
     let result = export_pdf(app, project_id)?;
     fs::copy(result.export_pdf_path, &output_path)
         .map_err(|err| map_io_error(err, "EXPORT_FAILED", "Failed to copy PDF to selected path"))?;
@@ -614,7 +736,7 @@ fn export_pdf_to_path(app: tauri::AppHandle, project_id: String, output_path: St
 }
 
 #[tauri::command]
-fn pick_export_pdf_path(default_path: String) -> Option<String> {
+fn pick_export_pdf_path(default_path: String) -> Result<Option<String>, ApiError> {
     #[cfg(target_os = "windows")]
     {
         let escaped = default_path.replace('\\', "\\\\").replace('"', "\\\"");
@@ -622,8 +744,8 @@ fn pick_export_pdf_path(default_path: String) -> Option<String> {
             r#"Add-Type -AssemblyName System.Windows.Forms;
 $dialog = New-Object System.Windows.Forms.SaveFileDialog;
 $dialog.Filter = 'PDF files (*.pdf)|*.pdf';
-$dialog.FileName = [System.IO.Path]::GetFileName(\"{escaped}\");
-$dialog.InitialDirectory = [System.IO.Path]::GetDirectoryName(\"{escaped}\");
+$dialog.FileName = [System.IO.Path]::GetFileName("{escaped}");
+$dialog.InitialDirectory = [System.IO.Path]::GetDirectoryName("{escaped}");
 if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {{ Write-Output $dialog.FileName }}"#
         );
         let output = Command::new("powershell")
@@ -631,18 +753,31 @@ if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {{ Write-O
             .arg("-Command")
             .arg(script)
             .output()
-            .ok()?;
+            .map_err(|err| {
+                map_io_error(err, "EXPORT_DIALOG_FAILED", "Failed to open save dialog")
+            })?;
+        if !output.status.success() {
+            return Err(ApiError {
+                code: "EXPORT_DIALOG_FAILED".into(),
+                message: format!(
+                    "Save dialog failed: {}",
+                    String::from_utf8_lossy(&output.stderr)
+                ),
+                export_pdf_path: None,
+                version_pdf_path: None,
+            });
+        }
         let value = String::from_utf8_lossy(&output.stdout).trim().to_string();
         if value.is_empty() {
-            None
+            Ok(None)
         } else {
-            Some(value)
+            Ok(Some(value))
         }
     }
     #[cfg(not(target_os = "windows"))]
     {
         let _ = default_path;
-        None
+        Ok(None)
     }
 }
 
@@ -720,6 +855,8 @@ pub fn run() {
             has_mapy_api_key,
             suggest_cities,
             export_pdf,
+            generate_preview_pdf,
+            cleanup_preview_pdf,
             default_export_pdf_path,
             export_pdf_to_path,
             pick_export_pdf_path,

@@ -8,6 +8,8 @@ export type LineupMap = Record<string, LineupValue | undefined>;
 
 const PROJECT_DETAIL_PATTERN = /^\/projects\/([^/]+)$/;
 const PROJECT_SETUP_PATTERN = /^\/projects\/([^/]+)\/setup$/;
+const PROJECT_EVENT_PATTERN = /^\/projects\/([^/]+)\/event$/;
+const PROJECT_GENERIC_PATTERN = /^\/projects\/([^/]+)\/generic$/;
 const PROJECT_PREVIEW_PATTERN = /^\/projects\/([^/]+)\/(?:preview|pdf-preview)$/;
 const RESERVED_PROJECT_IDS = new Set(["new"]);
 
@@ -25,6 +27,16 @@ export function matchProjectSetupPath(pathname: string): string | null {
 
 export function matchProjectPreviewPath(pathname: string): string | null {
   const match = pathname.match(PROJECT_PREVIEW_PATTERN);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+export function matchProjectEventPath(pathname: string): string | null {
+  const match = pathname.match(PROJECT_EVENT_PATTERN);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+export function matchProjectGenericPath(pathname: string): string | null {
+  const match = pathname.match(PROJECT_GENERIC_PATTERN);
   return match ? decodeURIComponent(match[1]) : null;
 }
 
@@ -152,4 +164,35 @@ export function getUniqueSelectedMusicians(
     }
   }
   return Array.from(ids);
+}
+
+export function resolveBandLeaderId(args: {
+  selectedMusicianIds: string[];
+  storedBandLeaderId?: string;
+  bandLeaderId?: string | null;
+  defaultContactId?: string | null;
+}): string {
+  const { selectedMusicianIds, storedBandLeaderId, bandLeaderId, defaultContactId } = args;
+  if (storedBandLeaderId && selectedMusicianIds.includes(storedBandLeaderId)) {
+    return storedBandLeaderId;
+  }
+  if (bandLeaderId && selectedMusicianIds.includes(bandLeaderId)) {
+    return bandLeaderId;
+  }
+  if (defaultContactId && selectedMusicianIds.includes(defaultContactId)) {
+    return defaultContactId;
+  }
+  return selectedMusicianIds[0] ?? "";
+}
+
+export function resolveTalkbackOwnerId(args: {
+  selectedMusicianIds: string[];
+  bandLeaderId: string;
+  storedTalkbackOwnerId?: string;
+}): string {
+  const { selectedMusicianIds, bandLeaderId, storedTalkbackOwnerId } = args;
+  if (storedTalkbackOwnerId && selectedMusicianIds.includes(storedTalkbackOwnerId)) {
+    return storedTalkbackOwnerId;
+  }
+  return bandLeaderId;
 }

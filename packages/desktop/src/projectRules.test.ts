@@ -3,11 +3,14 @@ import {
   autoFormatDateInput,
   getCurrentYearLocal,
   getTodayIsoLocal,
+  matchProjectEventPath,
+  matchProjectGenericPath,
   isValidityYearInPast,
   isPastIsoDate,
   matchProjectDetailPath,
   normalizeRoleConstraint,
   parseUsDateInput,
+  resolveBandLeaderId,
 } from "./projectRules";
 
 describe("routing guards", () => {
@@ -17,6 +20,11 @@ describe("routing guards", () => {
 
   it("matches normal project detail route", () => {
     expect(matchProjectDetailPath("/projects/cos_2026")).toBe("cos_2026");
+  });
+
+  it("matches canonical setup back routes", () => {
+    expect(matchProjectEventPath("/projects/cos_2026/event")).toBe("cos_2026");
+    expect(matchProjectGenericPath("/projects/cos_2026/generic")).toBe("cos_2026");
   });
 });
 
@@ -70,5 +78,15 @@ describe("role constraints", () => {
       min: 0,
       max: 4,
     });
+  });
+
+  it("prefers band JSON bandLeader for Couple of Sounds defaults", () => {
+    expect(
+      resolveBandLeaderId({
+        selectedMusicianIds: ["krecmer_matej", "plasil_pavel"],
+        bandLeaderId: "krecmer_matej",
+        defaultContactId: "plasil_pavel",
+      }),
+    ).toBe("krecmer_matej");
   });
 });
