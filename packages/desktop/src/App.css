@@ -6,10 +6,15 @@
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-  color: #111827;
+  color: #0f172a;
   background: #f3f4f6;
-  --foreground: #111827;
+  --foreground: #0f172a;
   --background: #f3f4f6;
+  --surface: #ffffff;
+  --border-subtle: #cbd5e1;
+  --button-primary: #0f172a;
+  --button-primary-hover: #1e293b;
+  --button-secondary: #f1f5f9;
 }
 * {
   box-sizing: border-box;
@@ -43,7 +48,7 @@ select {
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  background: color-mix(in oklab, var(--foreground) 8%, var(--background));
+  background: #e2e8f0;
   color: var(--foreground);
   display: grid;
   place-items: center;
@@ -57,9 +62,9 @@ select {
   margin: 0;
 }
 .panel {
-  background: #fff;
+  background: var(--surface);
   border-radius: 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #e2e8f0;
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -102,20 +107,28 @@ select {
   align-items: center;
 }
 button {
-  border: 1px solid #111827;
+  border: 1px solid var(--button-primary);
   border-radius: 8px;
-  background: #111827;
+  background: var(--button-primary);
   color: #fff;
   padding: 10px 14px;
-  min-height: 42px;
+  min-height: 44px;
   font-size: 0.95rem;
   cursor: pointer;
-  text-align: left;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 .button-primary {
-  background: #111827;
+  background: var(--button-primary);
   color: #fff;
-  border-color: #111827;
+  border-color: var(--button-primary);
+}
+.button-primary:hover:not(:disabled),
+button:hover:not(:disabled):not(.button-secondary):not(.button-ghost) {
+  background: var(--button-primary-hover);
+  border-color: var(--button-primary-hover);
 }
 .button-primary--large {
   min-height: 48px;
@@ -123,16 +136,16 @@ button {
   font-weight: 600;
 }
 .button-secondary.is-active {
-  border-color: #111827;
+  border-color: var(--button-primary);
 }
 .button-secondary {
-  background: #fff;
-  color: #111827;
-  border-color: #d1d5db;
+  background: var(--button-secondary);
+  color: var(--button-primary);
+  border-color: var(--border-subtle);
 }
 .button-ghost {
   background: transparent;
-  color: #111827;
+  color: var(--button-primary);
   border-color: transparent;
 }
 .project-list {
@@ -160,18 +173,18 @@ button {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background: #f9fafb;
-  color: #111827;
-  border-color: #d1d5db;
+  background: var(--surface);
+  color: var(--foreground);
+  border-color: var(--border-subtle);
 }
 .project-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-subtle);
   border-radius: 10px;
-  background: #f9fafb;
+  background: var(--surface);
   padding: 10px;
 }
 .project-surface {
@@ -179,7 +192,7 @@ button {
   transition: background-color 150ms ease;
 }
 .project-surface:hover {
-  background: #f3f4f6;
+  background: #f8fafc;
 }
 .project-main-action {
   flex: 1;
@@ -190,6 +203,9 @@ button {
   color: #111827;
   padding: 0;
   min-height: auto;
+  align-items: flex-start;
+  justify-content: flex-start;
+  text-align: left;
 }
 .project-actions {
   display: flex;
@@ -278,9 +294,9 @@ button:disabled {
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 .choice-card {
-  background: #f9fafb;
-  color: #111827;
-  border: 1px solid #d1d5db;
+  background: var(--surface);
+  color: var(--foreground);
+  border: 1px solid var(--border-subtle);
   border-radius: 12px;
   display: grid;
   gap: 14px;
@@ -425,23 +441,7 @@ button:disabled {
 }
 .setup-action-bar button {
   min-width: 140px;
-  min-height: 42px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground: #f9fafb;
-    --background: #111827;
-  }
-
-  body {
-    color: var(--foreground);
-    background: var(--background);
-  }
-
-  .app-header__icon-slot {
-    color: #f9fafb;
-  }
+  min-height: 44px;
 }
 .panel--preview {
   min-height: calc(100vh - 140px);
