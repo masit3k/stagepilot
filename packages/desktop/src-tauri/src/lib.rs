@@ -7,52 +7,7 @@ use std::{
     process::Command,
     sync::mpsc,
 };
-use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct AppConfig {
-    #[serde(alias = "mapyApiKey", alias = "MAPY_API_KEY")]
-    mapy_api_key: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct MapySuggestResponse {
-    items: Vec<MapySuggestItem>,
-}
-
-#[derive(Debug, Deserialize)]
-struct MapySuggestItem {
-    id: String,
-    name: String,
-    #[serde(rename = "type")]
-    item_type: String,
-    #[serde(default)]
-    label: Option<String>,
-    #[serde(default)]
-    regional_structure: Vec<MapyRegionPart>,
-}
-
-#[derive(Debug, Deserialize)]
-struct MapyRegionPart {
-    name: String,
-    #[serde(rename = "type")]
-    item_type: String,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct CitySuggestion {
-    id: String,
-    city_name: String,
-    label: String,
-}
-
-#[derive(Debug, Serialize)]
-struct MapyKeyStatus {
-    source: String,
-}
 
 #[derive(Debug, Serialize)]
 struct ApiError {
@@ -62,11 +17,6 @@ struct ApiError {
     version_pdf_path: Option<String>,
 }
 
-#[derive(Clone)]
-struct AppState {
-    mapy_api_key: Option<String>,
-    mapy_key_source: String,
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -170,35 +120,6 @@ fn map_io_error(err: std::io::Error, code: &str, message: &str) -> ApiError {
     }
 }
 
-fn read_app_config(app: &tauri::AppHandle) -> Option<AppConfig> {
-    let user_data_dir = resolve_user_data_dir(app).ok()?;
-    let config_path = user_data_dir.join("config.json");
-    let raw = fs::read_to_string(config_path).ok()?;
-    serde_json::from_str::<AppConfig>(&raw).ok()
-}
-
-fn resolve_mapy_api_key_with_source(app: &tauri::AppHandle) -> (Option<String>, &'static str) {
-    if let Ok(env_key) = std::env::var("MAPY_API_KEY") {
-        if !env_key.trim().is_empty() {
-            return (Some(env_key), "env");
-        }
-    }
-    let config_key = read_app_config(app)
-        .and_then(|config| config.mapy_api_key)
-        .filter(|key| !key.trim().is_empty());
-    if config_key.is_some() {
-        return (config_key, "config");
-    }
-    (None, "none")
-}
-
-fn resolve_mapy_state(app: &tauri::AppHandle) -> AppState {
-    let (mapy_api_key, mapy_key_source) = resolve_mapy_api_key_with_source(app);
-    AppState {
-        mapy_api_key,
-        mapy_key_source: mapy_key_source.to_string(),
-    }
-}
 
 #[tauri::command]
 fn get_user_data_dir(app: tauri::AppHandle) -> Result<String, ApiError> {
@@ -494,92 +415,6 @@ fn save_project(app: tauri::AppHandle, project_id: String, json: String) -> Resu
         .map_err(|err| map_io_error(err, "PROJECT_SAVE_FAILED", "Failed to save project"))
 }
 
-#[tauri::command]
-fn get_mapy_key_status(state: tauri::State<'_, AppState>) -> MapyKeyStatus {
-    MapyKeyStatus {
-        source: state.mapy_key_source.clone(),
-    }
-}
-
-#[tauri::command]
-async fn suggest_cities(
-    state: tauri::State<'_, AppState>,
-    query: String,
-) -> Result<Vec<CitySuggestion>, ApiError> {
-    let key_source = state.mapy_key_source.as_str();
-    let mapy_api_key = match state.mapy_api_key.clone() {
-        Some(value) => value,
-        None => {
-            if cfg!(debug_assertions) {
-                println!("[mapy] suggest skipped (key source: {})", key_source);
-            }
-            return Ok(Vec::new());
-        }
-    };
-    if cfg!(debug_assertions) {
-        println!(
-            "[mapy] suggest query='{}' key source={} ",
-            query, key_source
-        );
-    }
-
-    let user_query = query.trim();
-    if user_query.chars().count() < 3 {
-        return Ok(Vec::new());
-    }
-
-    let encoded_query = user_query.replace(' ', "%20");
-    let endpoint = format!(
-        "https://api.mapy.com/v1/suggest?query={encoded_query}&limit=5&type=regional.municipality&lang=cs&locality=cz"
-    );
-
-    let output = Command::new("curl")
-        .arg("-sS")
-        .arg("-H")
-        .arg(format!("X-Mapy-Api-Key: {mapy_api_key}"))
-        .arg(endpoint)
-        .output()
-        .map_err(|err| ApiError {
-            code: "MAPY_SUGGEST_FAILED".into(),
-            message: format!("Failed to execute Mapy request: {err}"),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        })?;
-
-    let payload =
-        serde_json::from_slice::<MapySuggestResponse>(&output.stdout).map_err(|err| ApiError {
-            code: "MAPY_SUGGEST_FAILED".into(),
-            message: format!("Failed to parse Mapy API response: {err}"),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        })?;
-
-    let suggestions: Vec<CitySuggestion> = payload
-        .items
-        .into_iter()
-        .filter_map(|item| {
-            let city_name = if item.item_type == "regional.municipality" {
-                item.name.clone()
-            } else {
-                item.regional_structure
-                    .iter()
-                    .find(|entry| entry.item_type == "regional.municipality")
-                    .map(|entry| entry.name.clone())?
-            };
-            Some(CitySuggestion {
-                id: item.id,
-                city_name,
-                label: item.label.unwrap_or(item.name),
-            })
-        })
-        .collect();
-
-    if cfg!(debug_assertions) {
-        println!("[mapy] suggest returned {} items", suggestions.len());
-    }
-
-    Ok(suggestions)
-}
 
 #[tauri::command]
 fn export_pdf(app: tauri::AppHandle, project_id: String) -> Result<ExportPdfResult, ApiError> {
@@ -855,11 +690,6 @@ fn open_path(path: &str, reveal: bool) -> Result<(), ApiError> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .setup(|app| {
-            let state = resolve_mapy_state(&app.handle());
-            app.manage(state);
-            Ok(())
-        })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
@@ -869,8 +699,6 @@ pub fn run() {
             get_band_setup_data,
             read_project,
             save_project,
-            get_mapy_key_status,
-            suggest_cities,
             export_pdf,
             build_project_pdf_preview,
             cleanup_preview_pdf,

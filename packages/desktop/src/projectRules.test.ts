@@ -1,18 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
   autoFormatDateInput,
+  buildExportFileName,
   getCurrentYearLocal,
   getTodayIsoLocal,
+  isPastIsoDate,
+  isValidityYearInPast,
+  matchProjectDetailPath,
   matchProjectEventPath,
   matchProjectGenericPath,
-  isValidityYearInPast,
-  isPastIsoDate,
-  matchProjectDetailPath,
   normalizeCity,
   normalizeRoleConstraint,
   parseUsDateInput,
   resolveBandLeaderId,
   sanitizeVenueSlug,
+  shouldPromptUnsavedChanges,
 } from "./projectRules";
 
 describe("routing guards", () => {
@@ -60,9 +62,7 @@ describe("event date rules", () => {
   });
 
   it("produces local today in ISO", () => {
-    expect(getTodayIsoLocal(new Date("2026-02-11T20:12:00"))).toBe(
-      "2026-02-11",
-    );
+    expect(getTodayIsoLocal(new Date("2026-02-11T20:12:00"))).toBe("2026-02-11");
   });
 
   it("gets local current year", () => {
@@ -77,13 +77,6 @@ describe("event date rules", () => {
     expect(isValidityYearInPast("2026", 2026)).toBe(false);
     expect(isValidityYearInPast("2027", 2026)).toBe(false);
   });
-
-  it("derives event document date from today instead of event date", () => {
-    const documentDate = getTodayIsoLocal(new Date("2026-02-11T09:00:00"));
-    const eventDate = "2026-03-02";
-    expect(documentDate).toBe("2026-02-11");
-    expect(documentDate).not.toBe(eventDate);
-  });
 });
 
 describe("role constraints", () => {
@@ -94,7 +87,7 @@ describe("role constraints", () => {
     });
   });
 
-  it("prefers band JSON bandLeader for Couple of Sounds defaults", () => {
+  it("prefers band JSON bandLeader for defaults", () => {
     expect(
       resolveBandLeaderId({
         selectedMusicianIds: ["krecmer_matej", "plasil_pavel"],
@@ -102,5 +95,27 @@ describe("role constraints", () => {
         defaultContactId: "plasil_pavel",
       }),
     ).toBe("krecmer_matej");
+  });
+});
+
+describe("export behavior", () => {
+  it("uses project id as export PDF filename", () => {
+    expect(buildExportFileName("CoS_Inputlist_Stageplan_11-02-2026_Mlada-Boleslav")).toBe(
+      "CoS_Inputlist_Stageplan_11-02-2026_Mlada-Boleslav.pdf",
+    );
+  });
+});
+
+describe("unsaved changes", () => {
+  it("prompts on route changes when form is dirty", () => {
+    expect(shouldPromptUnsavedChanges(true, "route-change")).toBe(true);
+  });
+
+  it("prompts on browser history back when form is dirty", () => {
+    expect(shouldPromptUnsavedChanges(true, "history-back")).toBe(true);
+  });
+
+  it("does not prompt when clean", () => {
+    expect(shouldPromptUnsavedChanges(false, "route-change")).toBe(false);
   });
 });

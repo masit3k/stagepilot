@@ -52,6 +52,18 @@ export function normalizeCity(city: string): string {
     .join("-");
 }
 
+export function buildExportFileName(projectId: string): string {
+  return `${projectId}.pdf`;
+}
+
+export function shouldPromptUnsavedChanges(
+  isDirty: boolean,
+  trigger: "route-change" | "history-back" | "cancel" | "back" | "home",
+): boolean {
+  if (!isDirty) return false;
+  return ["route-change", "history-back", "cancel", "back", "home"].includes(trigger);
+}
+
 export function sanitizeVenueSlug(value: string): string {
   return value
     .trim()
