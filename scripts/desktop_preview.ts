@@ -31,7 +31,7 @@ async function run(): Promise<Response> {
   const vm = buildDocument(project, repo);
   validateDocument(vm);
 
-  const tmpDir = path.join(userDataDir, "tmp");
+  const tmpDir = path.join(userDataDir, "temp");
   await mkdir(tmpDir, { recursive: true });
   const previewPdfPath = path.join(tmpDir, `preview_${projectId}.pdf`);
   await renderPdf(vm, { outFile: previewPdfPath });

@@ -39,6 +39,19 @@ export function matchProjectGenericPath(pathname: string): string | null {
   return decodeProjectId(pathname.match(PROJECT_GENERIC_PATTERN));
 }
 
+export function removeDiacritics(value: string): string {
+  return value.normalize("NFD").replace(/\p{M}/gu, "");
+}
+
+export function normalizeCity(city: string): string {
+  const noDiacritics = removeDiacritics(city.trim());
+  return noDiacritics
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => `${w.charAt(0).toUpperCase()}${w.slice(1).toLowerCase()}`)
+    .join("-");
+}
+
 export function sanitizeVenueSlug(value: string): string {
   return value
     .trim()

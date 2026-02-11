@@ -17,8 +17,11 @@ button, input, select { font: inherit; }
 .panel__header--stack { align-items: flex-start; flex-direction: column; }
 .subtle { margin: 0; color: #6b7280; font-size: 0.9rem; }
 .actions-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.actions-row--cta-group { gap: 16px; }
+.actions-row--edit-event { margin-top: 24px; justify-content: space-between; align-items: center; }
 button { border: 1px solid #111827; border-radius: 8px; background: #111827; color: #fff; padding: 10px 14px; min-height: 44px; cursor: pointer; text-align: left; }
 .button-secondary { background: #fff; color: #111827; border-color: #d1d5db; }
+.button-ghost { background: transparent; color: #111827; border-color: transparent; }
 .project-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
 .project-card { display: flex; flex-direction: column; gap: 4px; background: #f9fafb; color: #111827; border-color: #d1d5db; }
 .form-grid { display: grid; gap: 12px; max-width: 420px; }
@@ -38,8 +41,9 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 .choice-card:hover { border-color: #60a5fa; box-shadow: 0 14px 32px rgba(37,99,235,.12); background: #f3f7ff; transform: translateY(-1px); }
 .choice-card__title { font-size: 1.35rem; font-weight: 700; }
 .choice-card__desc { color: #4b5563; max-width: 40ch; font-size: .95rem; line-height: 1.4; }
-.context-header { display: grid; gap: 2px; padding: 0; border: none; background: transparent; margin-top: -4px; }
-.context-header span { color: #6b7280; font-size: 0.9rem; }
+.lineup-meta { margin: 12px 0 32px 0; }
+.band-name { font-weight: 600; }
+.band-meta { opacity: 0.7; }
 .lineup-grid { display: grid; gap: 12px; }
 .lineup-card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; background: #fff; box-shadow: 0 2px 10px rgba(17,24,39,.04); }
 .lineup-card h3 { margin: 0 0 12px; letter-spacing: .02em; }
@@ -48,14 +52,13 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 .lineup-list__row:first-child { border-top: none; padding-top: 0; }
 .lineup-list__name { font-size: 1.05rem; font-weight: 600; line-height: 1.35; }
 .selector-overlay { position: fixed; inset: 0; background: rgba(17,24,39,.3); display: grid; place-items: center; padding: 16px; border: none; }
-.selector-dialog { width: min(520px, 95vw); background: #fff; border-radius: 12px; box-shadow: 0 24px 56px rgba(15,23,42,.2); padding: 16px; border: none; }
+.selector-dialog { width: min(520px, 95vw); background: #fff; border-radius: 12px; box-shadow: 0 24px 56px rgba(15,23,42,.2); padding: 16px; border: none; position: relative; }
+.modal-close { position: absolute; right: 10px; top: 10px; width: 32px; height: 32px; min-height: 32px; border-radius: 999px; border: 1px solid #d1d5db; background: #fff; color: #111827; text-align: center; padding: 0; }
 .selector-list { display: grid; gap: 8px; }
 .selector-option { width: 100%; }
 .modal-actions { margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px; }
 .setup-action-bar { position: sticky; bottom: 0; background: #fff; border-top: 1px solid #e5e7eb; box-shadow: 0 -6px 18px rgba(15,23,42,.08); margin: 0 -16px; padding: 12px 16px; display: flex; gap: 12px; justify-content: space-between; z-index: 50; }
-.actions-row--spaced { margin-top: 24px; }
 .panel--preview { min-height: calc(100vh - 140px); display: flex; }
-.pdf-preview-panel { flex: 1; min-height: 0; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; background: #f8fafc; }
-.pdf-preview-scroll { height: min(68vh, 900px); overflow: auto; padding: 16px; display: flex; justify-content: center; }
-.pdf-preview-page-wrapper { width: fit-content; }
-.pdf-preview-object { width: min(820px, 100%); height: 1100px; border: none; background: #fff; box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12); }
+.pdf-preview-panel { flex: 1; min-height: 0; border: 1px solid #e5e7eb; border-radius: 12px; overflow: auto; background: #f8fafc; }
+.preview-container { width: 100%; max-width: 1200px; margin: 0 auto; min-height: 75vh; padding: 16px; }
+.pdf-preview-object { width: 100%; height: 75vh; border: none; background: #fff; }

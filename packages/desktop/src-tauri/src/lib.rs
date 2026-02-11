@@ -5,8 +5,10 @@ use std::{
     fs,
     path::{Path, PathBuf},
     process::Command,
+    sync::mpsc,
 };
 use tauri::Manager;
+use tauri_plugin_dialog::DialogExt;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -60,10 +62,17 @@ struct ApiError {
     version_pdf_path: Option<String>,
 }
 
+#[derive(Clone)]
+struct AppState {
+    mapy_api_key: Option<String>,
+    mapy_key_source: String,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ProjectSummary {
     id: String,
+    display_name: Option<String>,
     band_ref: Option<String>,
     event_date: Option<String>,
     event_venue: Option<String>,
@@ -152,33 +161,6 @@ fn resolve_user_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, ApiError> {
     Ok(app_data_dir)
 }
 
-fn encode_base64(bytes: &[u8]) -> String {
-    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
-    let mut i = 0;
-    while i < bytes.len() {
-        let b0 = bytes[i];
-        let b1 = if i + 1 < bytes.len() { bytes[i + 1] } else { 0 };
-        let b2 = if i + 2 < bytes.len() { bytes[i + 2] } else { 0 };
-
-        let n = u32::from(b0) << 16 | u32::from(b1) << 8 | u32::from(b2);
-        out.push(TABLE[((n >> 18) & 0x3f) as usize] as char);
-        out.push(TABLE[((n >> 12) & 0x3f) as usize] as char);
-        if i + 1 < bytes.len() {
-            out.push(TABLE[((n >> 6) & 0x3f) as usize] as char);
-        } else {
-            out.push('=');
-        }
-        if i + 2 < bytes.len() {
-            out.push(TABLE[(n & 0x3f) as usize] as char);
-        } else {
-            out.push('=');
-        }
-        i += 3;
-    }
-    out
-}
-
 fn map_io_error(err: std::io::Error, code: &str, message: &str) -> ApiError {
     ApiError {
         code: code.into(),
@@ -210,6 +192,13 @@ fn resolve_mapy_api_key_with_source(app: &tauri::AppHandle) -> (Option<String>, 
     (None, "none")
 }
 
+fn resolve_mapy_state(app: &tauri::AppHandle) -> AppState {
+    let (mapy_api_key, mapy_key_source) = resolve_mapy_api_key_with_source(app);
+    AppState {
+        mapy_api_key,
+        mapy_key_source: mapy_key_source.to_string(),
+    }
+}
 
 #[tauri::command]
 fn get_user_data_dir(app: tauri::AppHandle) -> Result<String, ApiError> {
@@ -262,6 +251,10 @@ fn list_projects(app: tauri::AppHandle) -> Result<Vec<ProjectSummary>, ApiError>
 
         let summary = ProjectSummary {
             id,
+            display_name: json
+                .get("displayName")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
             band_ref: json
                 .get("bandRef")
                 .and_then(|v| v.as_str())
@@ -502,20 +495,19 @@ fn save_project(app: tauri::AppHandle, project_id: String, json: String) -> Resu
 }
 
 #[tauri::command]
-fn get_mapy_key_status(app: tauri::AppHandle) -> MapyKeyStatus {
-    let (_, source) = resolve_mapy_api_key_with_source(&app);
+fn get_mapy_key_status(state: tauri::State<AppState>) -> MapyKeyStatus {
     MapyKeyStatus {
-        source: source.to_string(),
+        source: state.mapy_key_source.clone(),
     }
 }
 
 #[tauri::command]
 async fn suggest_cities(
-    app: tauri::AppHandle,
+    state: tauri::State<AppState>,
     query: String,
 ) -> Result<Vec<CitySuggestion>, ApiError> {
-    let (mapy_api_key, key_source) = resolve_mapy_api_key_with_source(&app);
-    let mapy_api_key = match mapy_api_key {
+    let key_source = state.mapy_key_source.as_str();
+    let mapy_api_key = match state.mapy_api_key.clone() {
         Some(value) => value,
         None => {
             if cfg!(debug_assertions) {
@@ -664,15 +656,15 @@ fn export_pdf(app: tauri::AppHandle, project_id: String) -> Result<ExportPdfResu
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct PreviewPdfBytesResult {
-    base64_pdf: String,
+struct PreviewPdfPathResult {
+    preview_pdf_path: String,
 }
 
 #[tauri::command]
 fn build_project_pdf_preview(
     app: tauri::AppHandle,
     project_id: String,
-) -> Result<PreviewPdfBytesResult, ApiError> {
+) -> Result<PreviewPdfPathResult, ApiError> {
     let user_data_dir = resolve_user_data_dir(&app)?;
     let repo_root = resolve_repo_root();
     let script_path = repo_root.join("scripts").join("desktop_preview.ts");
@@ -715,11 +707,8 @@ fn build_project_pdf_preview(
                     version_pdf_path: None,
                 })?
                 .to_string();
-            let bytes = fs::read(&preview_pdf_path).map_err(|err| {
-                map_io_error(err, "PREVIEW_FAILED", "Failed to read preview PDF")
-            })?;
-            return Ok(PreviewPdfBytesResult {
-                base64_pdf: encode_base64(&bytes),
+            return Ok(PreviewPdfPathResult {
+                preview_pdf_path,
             });
         }
     }
@@ -730,6 +719,17 @@ fn build_project_pdf_preview(
         export_pdf_path: response.export_pdf_path,
         version_pdf_path: response.version_pdf_path,
     })
+}
+
+#[tauri::command]
+fn cleanup_preview_pdf(app: tauri::AppHandle, project_id: String) -> Result<(), ApiError> {
+    let user_data_dir = resolve_user_data_dir(&app)?;
+    let preview_path = user_data_dir.join("temp").join(format!("preview_{}.pdf", project_id));
+    if preview_path.exists() {
+        fs::remove_file(&preview_path)
+            .map_err(|err| map_io_error(err, "PREVIEW_FAILED", "Failed to remove preview PDF"))?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -766,50 +766,31 @@ fn export_pdf_to_path(
 }
 
 #[tauri::command]
-fn pick_export_pdf_path(default_path: String) -> Result<Option<String>, ApiError> {
-    #[cfg(target_os = "windows")]
-    {
-        let escaped = default_path.replace('\\', "\\\\").replace('"', "\\\"");
-        let script = format!(
-            r#"Add-Type -AssemblyName System.Windows.Forms;
-$dialog = New-Object System.Windows.Forms.SaveFileDialog;
-$dialog.Filter = 'PDF files (*.pdf)|*.pdf';
-$dialog.FileName = [System.IO.Path]::GetFileName("{escaped}");
-$dialog.InitialDirectory = [System.IO.Path]::GetDirectoryName("{escaped}");
-if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {{ Write-Output $dialog.FileName }}"#
-        );
-        let output = Command::new("powershell")
-            .arg("-NoProfile")
-            .arg("-Command")
-            .arg(script)
-            .output()
-            .map_err(|err| {
-                map_io_error(err, "EXPORT_DIALOG_FAILED", "Failed to open save dialog")
-            })?;
-        if !output.status.success() {
-            return Err(ApiError {
-                code: "EXPORT_DIALOG_FAILED".into(),
-                message: format!(
-                    "Save dialog failed: {}",
-                    String::from_utf8_lossy(&output.stderr)
-                ),
-                export_pdf_path: None,
-                version_pdf_path: None,
-            });
-        }
-        let value = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if value.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(value))
-        }
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        let _ = default_path;
-        Ok(None)
-    }
+fn pick_export_pdf_path(app: tauri::AppHandle, default_file_name: String) -> Result<Option<String>, ApiError> {
+    let default_dir = PathBuf::from(r"C:\Users\mkrecmer\dev\stagepilot\user_data\exports");
+    fs::create_dir_all(&default_dir)
+        .map_err(|err| map_io_error(err, "EXPORT_DIALOG_FAILED", "Failed to create default export dir"))?;
+
+    let (tx, rx) = mpsc::channel::<Option<PathBuf>>();
+    app.dialog()
+        .file()
+        .set_directory(default_dir)
+        .set_file_name(default_file_name)
+        .add_filter("PDF", &["pdf"])
+        .save_file(move |file_path| {
+            let _ = tx.send(file_path.and_then(|path| path.as_path().map(|p| p.to_path_buf())));
+        });
+
+    let selected = rx.recv().map_err(|err| ApiError {
+        code: "EXPORT_DIALOG_FAILED".into(),
+        message: format!("Failed to receive selected file path: {}", err),
+        export_pdf_path: None,
+        version_pdf_path: None,
+    })?;
+
+    Ok(selected.map(|path| path.to_string_lossy().to_string()))
 }
+
 
 #[tauri::command]
 fn open_file(path: String) -> Result<(), ApiError> {
@@ -874,7 +855,13 @@ fn open_path(path: &str, reveal: bool) -> Result<(), ApiError> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .setup(|app| {
+            let state = resolve_mapy_state(&app.handle());
+            app.manage(state);
+            Ok(())
+        })
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             get_user_data_dir,
             list_projects,
@@ -886,6 +873,7 @@ pub fn run() {
             suggest_cities,
             export_pdf,
             build_project_pdf_preview,
+            cleanup_preview_pdf,
             get_exports_dir,
             default_export_pdf_path,
             export_pdf_to_path,

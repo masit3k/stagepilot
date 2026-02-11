@@ -8,6 +8,7 @@ import {
   isValidityYearInPast,
   isPastIsoDate,
   matchProjectDetailPath,
+  normalizeCity,
   normalizeRoleConstraint,
   parseUsDateInput,
   resolveBandLeaderId,
@@ -35,6 +36,8 @@ describe("routing guards", () => {
 
 describe("project id venue formatting", () => {
   it("builds title-cased hyphen venue slug without diacritics", () => {
+    expect(normalizeCity("Mladá Boleslav")).toBe("Mlada-Boleslav");
+    expect(normalizeCity("Nové Město nad Metují")).toBe("Nove-Mesto-Nad-Metuji");
     expect(sanitizeVenueSlug("Mladá Boleslav")).toBe("Mlada-Boleslav");
   });
 });

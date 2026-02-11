@@ -30,51 +30,6 @@ type ContactEntity = {
   email?: string;
 };
 
-function sanitizeFileName(name: string): string {
-  const normalized = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  const withoutSpaces = normalized.replace(/\s+/g, "_");
-  const sanitized = withoutSpaces.replace(/[^A-Za-z0-9._-]/g, "_").replace(/_+/g, "_");
-  const withExt = sanitized.toLowerCase().endsWith(".pdf") ? sanitized : `${sanitized}.pdf`;
-
-  if (withExt.length <= 80) return withExt;
-
-  const ext = ".pdf";
-  const base = withExt.slice(0, Math.max(0, withExt.length - ext.length));
-  return `${base.slice(0, 80 - ext.length)}${ext}`;
-}
-
-function formatDateForFileName(iso: string): string {
-  const [year, month, day] = iso.split("-");
-  if (!year || !month || !day) {
-    throw new Error(`Invalid ISO date for filename: ${iso}`);
-  }
-  return `${day}-${month}-${year}`;
-}
-
-type ProjectDateSource = {
-  purpose?: "event" | "generic";
-  eventDate?: string;
-  documentDate?: string;
-  date?: string;
-};
-
-function resolveProjectDate(project: ProjectDateSource): string {
-  if (project.purpose === "event") {
-    if (project.eventDate) return project.eventDate;
-    throw new Error("Missing eventDate for event project");
-  }
-
-  if (project.purpose === "generic") {
-    if (project.documentDate) return project.documentDate;
-    throw new Error("Missing documentDate for generic project");
-  }
-
-  if (project.date) return project.date;
-  if (project.documentDate) return project.documentDate;
-
-  throw new Error("Missing project date");
-}
-
 function formatCzPhone(phoneRaw: string): string {
   const s = phoneRaw.trim();
 
@@ -192,17 +147,7 @@ async function exportPdfFromProject(
 
   const contactLine = await loadDefaultContactLine(band.defaultContactId, band, repo);
 
-  const bandCode = band.code?.trim() || project.bandRef;
-  let pdfFileName: string;
-  if (project.purpose === "generic") {
-    const year = project.documentDate.slice(0, 4);
-    pdfFileName = sanitizeFileName(`${bandCode}_Inputlist_Stageplan_${year}.pdf`);
-  } else {
-    const pdfDate = formatDateForFileName(project.eventDate ?? resolveProjectDate(project));
-    const pdfVenue = project.eventVenue?.trim() || "event";
-    const pdfBaseName = `${bandCode}_Inputlist_Stageplan_${pdfDate}_${pdfVenue}`;
-    pdfFileName = sanitizeFileName(`${pdfBaseName}.pdf`);
-  }
+  const pdfFileName = `${project.id}.pdf`;
 
   const { versionId, versionDir } = await prepareVersionDir(projectId, outDir);
   const pdfPath = path.join(versionDir, pdfFileName);
