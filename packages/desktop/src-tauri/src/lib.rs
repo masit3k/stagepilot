@@ -7,6 +7,7 @@ use std::{
     process::Command,
     sync::mpsc,
 };
+use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
 #[derive(Debug, Serialize)]
