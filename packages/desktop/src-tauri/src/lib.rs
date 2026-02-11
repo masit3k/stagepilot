@@ -18,7 +18,6 @@ struct ApiError {
     version_pdf_path: Option<String>,
 }
 
-
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ProjectSummary {
@@ -122,7 +121,6 @@ fn map_io_error(err: std::io::Error, code: &str, message: &str) -> ApiError {
     }
 }
 
-
 #[tauri::command]
 fn get_user_data_dir(app: tauri::AppHandle) -> Result<String, ApiError> {
     let dir = resolve_user_data_dir(&app)?;
@@ -180,7 +178,11 @@ fn list_projects(app: tauri::AppHandle) -> Result<Vec<ProjectSummary>, ApiError>
             .get("updatedAt")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string())
-                        .or_else(|| json.get("eventDate").and_then(|v| v.as_str()).map(|s| format!("{}T00:00:00Z", s)));
+            .or_else(|| {
+                json.get("eventDate")
+                    .and_then(|v| v.as_str())
+                    .map(|s| format!("{}T00:00:00Z", s))
+            });
 
         let summary = ProjectSummary {
             id,
@@ -426,8 +428,6 @@ fn save_project(app: tauri::AppHandle, project_id: String, json: String) -> Resu
         .map_err(|err| map_io_error(err, "PROJECT_SAVE_FAILED", "Failed to save project"))
 }
 
-
-
 #[tauri::command]
 fn export_pdf(app: tauri::AppHandle, project_id: String) -> Result<ExportPdfResult, ApiError> {
     let user_data_dir = resolve_user_data_dir(&app)?;
@@ -500,7 +500,6 @@ fn export_pdf(app: tauri::AppHandle, project_id: String) -> Result<ExportPdfResu
     })
 }
 
-
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct PreviewPdfPathResult {
@@ -554,9 +553,8 @@ fn build_project_pdf_preview(
                     version_pdf_path: None,
                 })?
                 .to_string();
-            return Ok(PreviewPdfPathResult {
-                preview_pdf_path,
-            });
+            eprintln!("[preview] write success path={}", preview_pdf_path);
+            return Ok(PreviewPdfPathResult { preview_pdf_path });
         }
     }
 
@@ -568,9 +566,14 @@ fn build_project_pdf_preview(
     })
 }
 
-
 #[tauri::command]
 fn read_preview_pdf_bytes(preview_pdf_path: String) -> Result<Vec<u8>, ApiError> {
+    eprintln!("[preview] read attempt path={}", preview_pdf_path);
+    eprintln!(
+        "[preview] exists={} path={}",
+        Path::new(&preview_pdf_path).exists(),
+        preview_pdf_path
+    );
     fs::read(&preview_pdf_path)
         .map_err(|err| map_io_error(err, "PREVIEW_FAILED", "Failed to read preview PDF bytes"))
 }
@@ -578,7 +581,9 @@ fn read_preview_pdf_bytes(preview_pdf_path: String) -> Result<Vec<u8>, ApiError>
 #[tauri::command]
 fn cleanup_preview_pdf(app: tauri::AppHandle, project_id: String) -> Result<(), ApiError> {
     let user_data_dir = resolve_user_data_dir(&app)?;
-    let preview_path = user_data_dir.join("temp").join(format!("preview_{}.pdf", project_id));
+    let preview_path = user_data_dir
+        .join("temp")
+        .join(format!("preview_{}.pdf", project_id));
     if preview_path.exists() {
         fs::remove_file(&preview_path)
             .map_err(|err| map_io_error(err, "PREVIEW_FAILED", "Failed to remove preview PDF"))?;
@@ -619,11 +624,18 @@ fn export_pdf_to_path(
 
     let output = PathBuf::from(&output_path);
     if let Some(parent) = output.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|err| map_io_error(err, "EXPORT_FAILED", "Failed to prepare export directory"))?;
+        fs::create_dir_all(parent).map_err(|err| {
+            map_io_error(err, "EXPORT_FAILED", "Failed to prepare export directory")
+        })?;
     }
 
-    let temp_name = format!("{}.tmp", output.file_name().and_then(|v| v.to_str()).unwrap_or("export.pdf"));
+    let temp_name = format!(
+        "{}.tmp",
+        output
+            .file_name()
+            .and_then(|v| v.to_str())
+            .unwrap_or("export.pdf")
+    );
     let temp_path = output.with_file_name(temp_name);
 
     fs::write(&temp_path, bytes)
@@ -657,10 +669,18 @@ fn export_pdf_to_path(
 }
 
 #[tauri::command]
-fn pick_export_pdf_path(app: tauri::AppHandle, default_file_name: String) -> Result<Option<String>, ApiError> {
+fn pick_export_pdf_path(
+    app: tauri::AppHandle,
+    default_file_name: String,
+) -> Result<Option<String>, ApiError> {
     let default_dir = PathBuf::from(r"C:\Users\mkrecmer\dev\stagepilot\user_data\exports");
-    fs::create_dir_all(&default_dir)
-        .map_err(|err| map_io_error(err, "EXPORT_DIALOG_FAILED", "Failed to create default export dir"))?;
+    fs::create_dir_all(&default_dir).map_err(|err| {
+        map_io_error(
+            err,
+            "EXPORT_DIALOG_FAILED",
+            "Failed to create default export dir",
+        )
+    })?;
 
     let (tx, rx) = mpsc::channel::<Option<PathBuf>>();
     app.dialog()
@@ -681,7 +701,6 @@ fn pick_export_pdf_path(app: tauri::AppHandle, default_file_name: String) -> Res
 
     Ok(selected.map(|path| path.to_string_lossy().to_string()))
 }
-
 
 #[tauri::command]
 fn open_file(path: String) -> Result<(), ApiError> {
