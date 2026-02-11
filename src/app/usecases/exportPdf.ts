@@ -1,18 +1,21 @@
-import path from "node:path";
 import { access, mkdir } from "node:fs/promises";
-import { loadRepository } from "../../infra/fs/repo.js";
-import { DATA_ROOT, USER_DATA_ROOT } from "../../infra/fs/dataRoot.js";
-import { loadJsonFile } from "../../infra/fs/loadJson.js";
-import { createProjectVersion, prepareVersionDir } from "../../infra/fs/versionStore.js";
-import { getGeneratedAtUtc } from "../../infra/time/today.js";
-import { buildDocument } from "../../domain/pipeline/buildDocument.js";
-import { validateDocument } from "../../domain/rules/validateDocument.js";
-import { renderPdf } from "../../infra/pdf/pdf.js";
-import { publishExportPdf } from "./publishExportPdf.js";
-import { normalizeProject } from "./normalizeProject.js";
+import path from "node:path";
 import { isBandLeader } from "../../domain/model/bandLeader.js";
 import type { Band, Project, ProjectJson } from "../../domain/model/types.js";
+import { buildDocument } from "../../domain/pipeline/buildDocument.js";
+import { validateDocument } from "../../domain/rules/validateDocument.js";
+import { DATA_ROOT, USER_DATA_ROOT } from "../../infra/fs/dataRoot.js";
+import { loadJsonFile } from "../../infra/fs/loadJson.js";
+import { loadRepository } from "../../infra/fs/repo.js";
 import type { DataRepository } from "../../infra/fs/repo.js";
+import {
+  createProjectVersion,
+  prepareVersionDir,
+} from "../../infra/fs/versionStore.js";
+import { renderPdf } from "../../infra/pdf/pdf.js";
+import { getGeneratedAtUtc } from "../../infra/time/today.js";
+import { normalizeProject } from "./normalizeProject.js";
+import { publishExportPdf } from "./publishExportPdf.js";
 
 export interface ExportPdfResult {
   versionPdfPath: string;
@@ -54,7 +57,9 @@ export function formatContactLine(args: {
   const first = (contact.firstName ?? "").trim();
   const last = (contact.lastName ?? "").trim();
   if (!first && !last) {
-    throw new Error(`Invalid contact (missing firstName/lastName): ${contact.id}`);
+    throw new Error(
+      `Invalid contact (missing firstName/lastName): ${contact.id}`,
+    );
   }
 
   const name = `${first} ${last}`.trim();
@@ -71,13 +76,15 @@ export function formatContactLine(args: {
 
   const tail = parts.length ? `, ${parts.join(", ")}` : "";
   const leaderSuffix =
-    contactMusicianId && isBandLeader(band, contactMusicianId) ? " (band leader)" : "";
+    contactMusicianId && isBandLeader(band, contactMusicianId)
+      ? " (band leader)"
+      : "";
   return `Kontaktní osoba –${leaderSuffix} ${name}${tail}`;
 }
 
 function resolveContactMusicianId(
   contactId: string,
-  repo: DataRepository
+  repo: DataRepository,
 ): string | undefined {
   try {
     repo.getMusician(contactId);
@@ -87,14 +94,18 @@ function resolveContactMusicianId(
   }
 }
 
-async function loadDefaultContactLine(
+export async function loadDefaultContactLine(
   defaultContactId: string | undefined,
   band: Band,
-  repo: DataRepository
+  repo: DataRepository,
 ): Promise<string | undefined> {
   if (!defaultContactId) return undefined;
 
-  const contactPath = path.resolve(DATA_ROOT, "contacts", `${defaultContactId}.json`);
+  const contactPath = path.resolve(
+    DATA_ROOT,
+    "contacts",
+    `${defaultContactId}.json`,
+  );
   const contact = await loadJsonFile<ContactEntity>(contactPath);
   const contactMusicianId = resolveContactMusicianId(defaultContactId, repo);
 
@@ -108,7 +119,7 @@ export async function exportPdf(projectId: string): Promise<ExportPdfResult> {
 }
 export async function exportPdfFromProjectFile(
   projectPath: string,
-  outDir: string
+  outDir: string,
 ): Promise<ExportPdfResult> {
   const rawProject = await loadJsonFile<ProjectJson>(projectPath);
   const project = normalizeProject(rawProject);
@@ -125,7 +136,7 @@ export async function exportProjectPdf(args: {
 async function exportPdfFromProject(
   projectId: string,
   project: Project,
-  outDir: string
+  outDir: string,
 ): Promise<ExportPdfResult> {
   if (project.id !== projectId) {
     throw new Error(`Project id mismatch: ${projectId} vs ${project.id}`);
@@ -145,7 +156,11 @@ async function exportPdfFromProject(
     }
   }
 
-  const contactLine = await loadDefaultContactLine(band.defaultContactId, band, repo);
+  const contactLine = await loadDefaultContactLine(
+    band.defaultContactId,
+    band,
+    repo,
+  );
 
   const pdfFileName = `${project.id}.pdf`;
 

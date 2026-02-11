@@ -1,12 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import desktopPackage from "../package.json";
 import stagePilotIcon from "../assets/icons/StagePilot_Icon_StageLayout_CurrentColor.svg";
+import desktopPackage from "../package.json";
 import {
   type LineupMap,
   type RoleConstraint,
   autoFormatDateInput,
+  buildExportFileName,
   formatIsoDateToUs,
   getCurrentYearLocal,
   getTodayIsoLocal,
@@ -21,7 +22,6 @@ import {
   normalizeLineupValue,
   normalizeRoleConstraint,
   parseUsDateInput,
-  buildExportFileName,
   resolveBandLeaderId,
   resolveTalkbackOwnerId,
   validateLineup,
@@ -420,12 +420,12 @@ function StartPage({ projects, navigate }: StartPageProps) {
                   key={project.id}
                   className={
                     viewMode === "list"
-                      ? "project-row project-surface"
+                      ? "project-card project-card--list project-surface"
                       : "project-card project-surface"
                   }
                   onClick={() => navigate(projectEditPath(project))}
                 >
-                  <div className="project-main-action">
+                  <div className="project-main-action project-main-action__content">
                     <strong>{project.displayName || project.id}</strong>
                     <span>{project.purpose ?? "—"}</span>
                     <span>Last updated: {formatProjectDate(project)}</span>
@@ -478,12 +478,12 @@ function StartPage({ projects, navigate }: StartPageProps) {
                     key={project.id}
                     className={
                       viewMode === "list"
-                        ? "project-row project-surface"
+                        ? "project-card project-card--list project-surface"
                         : "project-card project-surface"
                     }
                     onClick={() => navigate(projectEditPath(project))}
                   >
-                    <div className="project-main-action">
+                    <div className="project-main-action project-main-action__content">
                       <strong>{project.displayName || project.id}</strong>
                       <span>{project.purpose ?? "—"}</span>
                       <span>Last updated: {formatProjectDate(project)}</span>
@@ -533,10 +533,19 @@ function ChooseProjectTypePage({
 }: {
   navigate: (path: string) => void;
 }) {
+  const [selectedType, setSelectedType] = useState<"event" | "generic" | null>(
+    null,
+  );
+
+  function continueToSetup() {
+    if (!selectedType) return;
+    navigate(`/projects/new/${selectedType}`);
+  }
+
   return (
     <section className="panel panel--choice">
       <div className="panel__header">
-        <h2>New project</h2>
+        <h2>New Project</h2>
         <button
           type="button"
           className="button-secondary"
@@ -548,23 +557,56 @@ function ChooseProjectTypePage({
       <div className="choice-grid" aria-label="Project type options">
         <button
           type="button"
-          className="choice-card"
-          onClick={() => navigate("/projects/new/event")}
+          aria-pressed={selectedType === "event"}
+          className={
+            selectedType === "event"
+              ? "choice-card choice-card--selected"
+              : "choice-card"
+          }
+          onClick={() => setSelectedType("event")}
         >
-          <span className="choice-card__title">Event project</span>
+          <span className="choice-card__check" aria-hidden="true">
+            ✓
+          </span>
+          <span className="choice-card__title">Event Project</span>
           <span className="choice-card__desc">
             For a specific show with date and venue.
           </span>
         </button>
         <button
           type="button"
-          className="choice-card"
-          onClick={() => navigate("/projects/new/generic")}
+          aria-pressed={selectedType === "generic"}
+          className={
+            selectedType === "generic"
+              ? "choice-card choice-card--selected"
+              : "choice-card"
+          }
+          onClick={() => setSelectedType("generic")}
         >
-          <span className="choice-card__title">Generic template</span>
+          <span className="choice-card__check" aria-hidden="true">
+            ✓
+          </span>
+          <span className="choice-card__title">Generic Template</span>
           <span className="choice-card__desc">
             Reusable template for a season or tour.
           </span>
+        </button>
+      </div>
+      <div className="setup-action-bar setup-action-bar--equal">
+        <button
+          type="button"
+          className="button-primary"
+          onClick={continueToSetup}
+          disabled={!selectedType}
+        >
+          Continue
+        </button>
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={() => navigate("/")}
+        >
+          Back
         </button>
       </div>
     </section>
@@ -601,9 +643,9 @@ function NewEventProjectPage({
   const selectedBand = bands.find((band) => band.id === bandRef);
   const canSubmit = Boolean(
     eventDateIso &&
-    !isPastIsoDate(eventDateIso, todayIso) &&
-    eventVenue.trim() &&
-    selectedBand,
+      !isPastIsoDate(eventDateIso, todayIso) &&
+      eventVenue.trim() &&
+      selectedBand,
   );
 
   useEffect(() => {
@@ -713,7 +755,7 @@ function NewEventProjectPage({
   return (
     <section className="panel">
       <div className="panel__header">
-        <h2>{editingProjectId ? "Edit Event setup" : "New Event project"}</h2>
+        <h2>{editingProjectId ? "Edit Event Setup" : "New Event Project"}</h2>
       </div>
       <div className="form-grid">
         <label>
@@ -809,8 +851,8 @@ function NewGenericProjectPage({
   const selectedBand = bands.find((band) => band.id === bandRef);
   const canSubmit = Boolean(
     selectedBand &&
-    /^\d{4}$/.test(year) &&
-    !isValidityYearInPast(year, currentYear),
+      /^\d{4}$/.test(year) &&
+      !isValidityYearInPast(year, currentYear),
   );
 
   useEffect(() => {
@@ -884,7 +926,7 @@ function NewGenericProjectPage({
     <section className="panel">
       <div className="panel__header">
         <h2>
-          {editingProjectId ? "Edit Generic setup" : "New Generic project"}
+          {editingProjectId ? "Edit Generic Setup" : "New Generic Project"}
         </h2>
       </div>
       <div className="form-grid">
@@ -1190,41 +1232,43 @@ function ProjectSetupPage({
               return (
                 <article key={role} className="lineup-card">
                   <h3>{role.toUpperCase()}</h3>
-                  <div className="lineup-list lineup-list--single">
-                    {(selected.length ? selected : [""]).map(
-                      (musicianId, index) => {
-                        const alternatives = members.filter(
-                          (m) => m.id !== musicianId,
-                        );
-                        return (
-                          <div
-                            key={`${role}-${index}`}
-                            className="lineup-list__row"
-                          >
-                            <span className="lineup-list__name">
-                              {musicianId
-                                ? (members.find((m) => m.id === musicianId)
-                                    ?.name ?? musicianId)
-                                : "Not selected"}
-                            </span>
-                            <button
-                              type="button"
-                              className="button-secondary"
-                              disabled={alternatives.length === 0}
-                              onClick={() =>
-                                setEditing({
-                                  role,
-                                  slotIndex: index,
-                                  currentSelectedId: musicianId || undefined,
-                                })
-                              }
+                  <div className="lineup-card__body">
+                    <div className="lineup-list lineup-list--single">
+                      {(selected.length ? selected : [""]).map(
+                        (musicianId, index) => {
+                          const alternatives = members.filter(
+                            (m) => m.id !== musicianId,
+                          );
+                          return (
+                            <div
+                              key={`${role}-${index}`}
+                              className="lineup-list__row"
                             >
-                              Change
-                            </button>
-                          </div>
-                        );
-                      },
-                    )}
+                              <span className="lineup-list__name">
+                                {musicianId
+                                  ? (members.find((m) => m.id === musicianId)
+                                      ?.name ?? musicianId)
+                                  : "Not selected"}
+                              </span>
+                              <button
+                                type="button"
+                                className="button-secondary"
+                                disabled={alternatives.length === 0}
+                                onClick={() =>
+                                  setEditing({
+                                    role,
+                                    slotIndex: index,
+                                    currentSelectedId: musicianId || undefined,
+                                  })
+                                }
+                              >
+                                Change
+                              </button>
+                            </div>
+                          );
+                        },
+                      )}
+                    </div>
                   </div>
                 </article>
               );
@@ -1235,55 +1279,59 @@ function ProjectSetupPage({
         </p>
         <article className="lineup-card">
           <h3>BAND LEADER</h3>
-          <div className="lineup-list__row">
-            <span className="lineup-list__name">
-              {selectedOptions.find((m) => m.id === bandLeaderId)?.name ||
-                "Not selected"}
-            </span>
-            <button
-              type="button"
-              className="button-secondary"
-              disabled={
-                selectedOptions.filter((m) => m.id !== bandLeaderId).length ===
-                0
-              }
-              onClick={() =>
-                setEditing({
-                  role: "leader",
-                  slotIndex: 0,
-                  currentSelectedId: bandLeaderId,
-                })
-              }
-            >
-              Change
-            </button>
+          <div className="lineup-card__body">
+            <div className="lineup-list__row">
+              <span className="lineup-list__name">
+                {selectedOptions.find((m) => m.id === bandLeaderId)?.name ||
+                  "Not selected"}
+              </span>
+              <button
+                type="button"
+                className="button-secondary"
+                disabled={
+                  selectedOptions.filter((m) => m.id !== bandLeaderId)
+                    .length === 0
+                }
+                onClick={() =>
+                  setEditing({
+                    role: "leader",
+                    slotIndex: 0,
+                    currentSelectedId: bandLeaderId,
+                  })
+                }
+              >
+                Change
+              </button>
+            </div>
           </div>
         </article>
         <p className="subtle">Assign talkback microphone owner.</p>
         <article className="lineup-card">
           <h3>TALKBACK</h3>
-          <div className="lineup-list__row">
-            <span className="lineup-list__name">
-              {selectedOptions.find((m) => m.id === talkbackCurrentOwnerId)
-                ?.name || "Use band leader default"}
-            </span>
-            <button
-              type="button"
-              className="button-secondary"
-              disabled={
-                selectedOptions.filter((m) => m.id !== talkbackCurrentOwnerId)
-                  .length === 0
-              }
-              onClick={() =>
-                setEditing({
-                  role: "talkback",
-                  slotIndex: 0,
-                  currentSelectedId: talkbackCurrentOwnerId,
-                })
-              }
-            >
-              Change
-            </button>
+          <div className="lineup-card__body">
+            <div className="lineup-list__row">
+              <span className="lineup-list__name">
+                {selectedOptions.find((m) => m.id === talkbackCurrentOwnerId)
+                  ?.name || "Use band leader default"}
+              </span>
+              <button
+                type="button"
+                className="button-secondary"
+                disabled={
+                  selectedOptions.filter((m) => m.id !== talkbackCurrentOwnerId)
+                    .length === 0
+                }
+                onClick={() =>
+                  setEditing({
+                    role: "talkback",
+                    slotIndex: 0,
+                    currentSelectedId: talkbackCurrentOwnerId,
+                  })
+                }
+              >
+                Change
+              </button>
+            </div>
           </div>
         </article>
       </div>
@@ -1398,21 +1446,19 @@ function ProjectSetupPage({
             </div>
             <div className="selector-list">
               {(editing.role === "leader"
-                ? selectedOptions.filter(
-                    (m) => m.id !== editing.currentSelectedId,
-                  )
+                ? selectedOptions
                 : editing.role === "talkback"
-                  ? selectedOptions.filter(
-                      (m) => m.id !== talkbackCurrentOwnerId,
-                    )
-                  : (setupData.members[editing.role] || []).filter(
-                      (m) => m.id !== editing.currentSelectedId,
-                    )
+                  ? selectedOptions
+                  : setupData.members[editing.role] || []
               ).map((member) => (
                 <button
                   type="button"
                   key={member.id}
-                  className="selector-option"
+                  className={
+                    member.id === editing.currentSelectedId
+                      ? "selector-option selector-option--selected"
+                      : "selector-option"
+                  }
                   onClick={() => {
                     if (editing.role === "leader") setBandLeaderId(member.id);
                     else if (editing.role === "talkback")
@@ -1580,6 +1626,11 @@ function UnsavedChangesModal({
 
 function AboutModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   if (!open) return null;
+  const repository = (
+    desktopPackage as { repository?: { url?: string } | string }
+  ).repository;
+  const repositoryValue =
+    typeof repository === "string" ? repository : repository?.url;
   return (
     <dialog
       className="selector-overlay"
@@ -1589,18 +1640,58 @@ function AboutModal({ open, onClose }: { open: boolean; onClose: () => void }) {
         onClose();
       }}
     >
-      <div className="selector-dialog" role="dialog" aria-modal="true">
-        <button
-          type="button"
-          className="modal-close"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          ×
-        </button>
-        <h3>About StagePilot</h3>
-        <p>StagePilot v{desktopPackage.version}</p>
-        <p className="subtle">Created by Matěj Krečmer</p>
+      <div
+        className="selector-dialog about-dialog"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="panel__header about-dialog__header">
+          <h3>About StagePilot</h3>
+          <button
+            type="button"
+            className="modal-close"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+        <div className="about-grid">
+          <div className="about-list">
+            <p className="about-item">
+              <span>StagePilot</span>
+              <strong>Desktop</strong>
+            </p>
+            <p className="about-item">
+              <span>Version</span>
+              <strong>{desktopPackage.version}</strong>
+            </p>
+            <p className="about-item">
+              <span>Build</span>
+              <strong>Preview</strong>
+            </p>
+            <p className="about-item">
+              <span>Build Date</span>
+              <strong>{new Date().toLocaleDateString()}</strong>
+            </p>
+          </div>
+          <div className="about-list">
+            <p className="about-item">
+              <span>Author</span>
+              <strong>Matěj Krečmer</strong>
+            </p>
+            <p className="about-item">
+              <span>Copyright</span>
+              <strong>© StagePilot</strong>
+            </p>
+            {repositoryValue ? (
+              <p className="about-item">
+                <span>Repository</span>
+                <strong>{String(repositoryValue)}</strong>
+              </p>
+            ) : null}
+          </div>
+        </div>
       </div>
     </dialog>
   );
@@ -1771,15 +1862,17 @@ function ProjectPreviewPage({
           className="button-secondary"
           onClick={() => navigate(withFrom(`/projects/${id}/setup`, "preview"))}
         >
-          Back to lineup setup
+          Back to Lineup
         </button>
-        <button
-          type="button"
-          className="button-secondary"
-          onClick={() => navigate(backToEditPath)}
-        >
-          Back to Edit
-        </button>
+        {project?.purpose === "event" ? (
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={() => navigate(backToEditPath)}
+          >
+            Back to Edit
+          </button>
+        ) : null}
         <button type="button" disabled={isGeneratingPdf} onClick={runExport}>
           {isGeneratingPdf ? "Generating…" : "Generate PDF"}
         </button>
