@@ -495,7 +495,7 @@ fn save_project(app: tauri::AppHandle, project_id: String, json: String) -> Resu
 }
 
 #[tauri::command]
-fn get_mapy_key_status(state: tauri::State<AppState>) -> MapyKeyStatus {
+fn get_mapy_key_status(state: tauri::State<'_, AppState>) -> MapyKeyStatus {
     MapyKeyStatus {
         source: state.mapy_key_source.clone(),
     }
@@ -503,7 +503,7 @@ fn get_mapy_key_status(state: tauri::State<AppState>) -> MapyKeyStatus {
 
 #[tauri::command]
 async fn suggest_cities(
-    state: tauri::State<AppState>,
+    state: tauri::State<'_, AppState>,
     query: String,
 ) -> Result<Vec<CitySuggestion>, ApiError> {
     let key_source = state.mapy_key_source.as_str();
