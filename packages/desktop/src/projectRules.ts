@@ -34,6 +34,18 @@ export function getTodayIsoLocal(now = new Date()): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+export function getCurrentYearLocal(now = new Date()): number {
+  return now.getFullYear();
+}
+
+export function isValidityYearInPast(
+  yearValue: string,
+  currentYear = getCurrentYearLocal(),
+): boolean {
+  if (!/^\d{4}$/.test(yearValue)) return false;
+  return Number(yearValue) < currentYear;
+}
+
 export function parseUsDateInput(value: string): string | null {
   const trimmed = value.trim();
   const match = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);

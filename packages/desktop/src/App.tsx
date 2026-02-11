@@ -7,9 +7,11 @@ import {
   type RoleConstraint,
   autoFormatDateInput,
   formatIsoDateToUs,
+  getCurrentYearLocal,
   getTodayIsoLocal,
   getUniqueSelectedMusicians,
   isPastIsoDate,
+  isValidityYearInPast,
   matchProjectDetailPath,
   matchProjectSetupPath,
   normalizeLineupValue,
@@ -393,7 +395,7 @@ function NewEventProjectPage({
       eventDate: eventDateIso,
       eventVenue: eventVenue.trim(),
       bandRef: selectedBand.id,
-      documentDate: eventDateIso,
+      documentDate: todayIso,
       createdAt: new Date().toISOString(),
     };
 
@@ -505,18 +507,23 @@ function NewGenericProjectPage({
   onCreated,
   bands,
 }: NewProjectPageProps) {
-  const [year, setYear] = useState<string>(String(new Date().getFullYear()));
+  const currentYear = getCurrentYearLocal();
+  const [year, setYear] = useState<string>(String(currentYear));
   const [note, setNote] = useState<string>("");
   const [bandRef, setBandRef] = useState<string>("");
   const [status, setStatus] = useState<string>("");
 
   const selectedBand = bands.find((band) => band.id === bandRef);
-  const yearOk = /^\d{4}$/.test(year);
+  const yearOk = /^\d{4}$/.test(year) && !isValidityYearInPast(year, currentYear);
   const canSubmit = Boolean(selectedBand && yearOk);
 
   async function createProject() {
-    if (!selectedBand || !yearOk) {
+    if (!selectedBand || !/^\d{4}$/.test(year)) {
       setStatus("Band and validity year are required.");
+      return;
+    }
+    if (isValidityYearInPast(year, currentYear)) {
+      setStatus("Validity year cannot be in the past.");
       return;
     }
 
@@ -542,7 +549,7 @@ function NewGenericProjectPage({
   return (
     <section className="panel">
       <div className="panel__header">
-        <h2>New Generic Project</h2>
+        <h2>New Generic project</h2>
         <button
           type="button"
           className="button-secondary"
@@ -582,10 +589,18 @@ function NewGenericProjectPage({
           Validity year *
           <input
             type="number"
-            min="2000"
+            min={currentYear}
             max="2100"
             value={year}
-            onChange={(event) => setYear(event.target.value)}
+            onChange={(event) => {
+              setYear(event.target.value);
+              setStatus("");
+            }}
+            onBlur={(event) => {
+              if (isValidityYearInPast(event.target.value, currentYear)) {
+                setStatus("Validity year cannot be in the past.");
+              }
+            }}
           />
         </label>
       </div>
@@ -630,6 +645,7 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
   const [bandLeaderId, setBandLeaderId] = useState<string>("");
   const [talkbackOwnerId, setTalkbackOwnerId] = useState<string>("");
   const [status, setStatus] = useState<string>("");
+  const [showResetConfirmation, setShowResetConfirmation] = useState(false);
 
   const computeLeaderFromLineup = useCallback(
     (
@@ -683,7 +699,7 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
           selectedLineup,
           setupData.constraints,
           ROLE_ORDER,
-        ).filter((memberId) => memberId !== bandLeaderId);
+        );
       }
       return (setupData.members[role] || []).map((member) => member.id);
     },
@@ -812,16 +828,20 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
   }
 
   function resetToDefault() {
-    if (!setupData) return;
-    const confirmed = window.confirm(
-      "Reset lineup, band leader, and talkback owner to band defaults?",
-    );
-    if (!confirmed) return;
+    setShowResetConfirmation(true);
+  }
+
+  function confirmResetToDefault() {
+    if (!setupData) {
+      setShowResetConfirmation(false);
+      return;
+    }
     const defaultLineup = { ...(setupData.defaultLineup ?? {}) };
     setLineup(defaultLineup);
     setBandLeaderId(computeLeaderFromLineup(setupData, defaultLineup));
     setTalkbackOwnerId("");
     setStatus("Setup reset to defaults.");
+    setShowResetConfirmation(false);
   }
 
   const hasTalkbackAlternatives =
@@ -834,14 +854,14 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
   return (
     <section className="panel">
       <div className="panel__header">
-        <h2>Project Setup</h2>
+        <h2>Lineup Setup</h2>
         <div className="actions-row">
           <button
             type="button"
             className="button-secondary"
             onClick={resetToDefault}
           >
-            Reset to default
+            Reset to defaults
           </button>
           <button
             type="button"
@@ -1019,6 +1039,49 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
         </button>
       </div>
 
+
+      {showResetConfirmation ? (
+        <dialog
+          className="selector-overlay"
+          open
+          onCancel={(event) => {
+            event.preventDefault();
+            setShowResetConfirmation(false);
+          }}
+        >
+          <div
+            className="selector-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                confirmResetToDefault();
+              }
+            }}
+          >
+            <div className="panel__header panel__header--stack">
+              <h3>Reset to defaults?</h3>
+              <p className="subtle">
+                This will reset lineup, band leader, and talkback to the band defaults.
+              </p>
+            </div>
+            <div className="actions-row">
+              <button type="button" onClick={confirmResetToDefault} autoFocus>
+                Reset
+              </button>
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => setShowResetConfirmation(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </dialog>
+      ) : null}
+
       {editing && setupData ? (
         <dialog className="selector-overlay" open>
           <div className="selector-dialog">
@@ -1042,9 +1105,9 @@ function ProjectSetupPage({ id, navigate }: ProjectDetailPageProps) {
                     )
                     .filter(Boolean)
                 : editing.role === "talkback"
-                  ? selectedOptions
-                      .filter((member) => member.id !== bandLeaderId)
-                      .filter((member) => member.id !== editing.currentSelectedId)
+                  ? selectedOptions.filter(
+                      (member) => member.id !== (talkbackOwnerId || bandLeaderId),
+                    )
                   : (setupData.members[editing.role] || []).filter(
                       (member) => member.id !== editing.currentSelectedId,
                     )

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   autoFormatDateInput,
+  getCurrentYearLocal,
   getTodayIsoLocal,
+  isValidityYearInPast,
   isPastIsoDate,
   matchProjectDetailPath,
   normalizeRoleConstraint,
@@ -39,6 +41,26 @@ describe("event date rules", () => {
     expect(getTodayIsoLocal(new Date("2026-02-11T20:12:00"))).toBe(
       "2026-02-11",
     );
+  });
+
+  it("gets local current year", () => {
+    expect(getCurrentYearLocal(new Date("2026-02-11T20:12:00"))).toBe(2026);
+  });
+
+  it("flags validity year in the past", () => {
+    expect(isValidityYearInPast("2025", 2026)).toBe(true);
+  });
+
+  it("allows current and future validity years", () => {
+    expect(isValidityYearInPast("2026", 2026)).toBe(false);
+    expect(isValidityYearInPast("2027", 2026)).toBe(false);
+  });
+
+  it("derives event document date from today instead of event date", () => {
+    const documentDate = getTodayIsoLocal(new Date("2026-02-11T09:00:00"));
+    const eventDate = "2026-03-02";
+    expect(documentDate).toBe("2026-02-11");
+    expect(documentDate).not.toBe(eventDate);
   });
 });
 

@@ -181,7 +181,7 @@ button:disabled {
 .choice-grid {
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 
 .choice-card {
@@ -215,8 +215,11 @@ button:disabled {
 
 .choice-card__desc {
   color: #4b5563;
-  max-width: 30ch;
-  line-height: 1.45;
+  width: 100%;
+  max-width: 40ch;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  text-wrap: balance;
 }
 
 .lineup-list {
@@ -310,4 +313,14 @@ button:disabled {
 
 .selector-option:hover {
   background: #f8fafc;
+}
+
+@media (max-width: 760px) {
+  .choice-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .choice-card__desc {
+    max-width: 30ch;
+  }
 }
