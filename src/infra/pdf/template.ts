@@ -29,15 +29,6 @@ function renderMetaLine(metaLine: MetaLineModel, esc: (s: string) => string): st
   `.trim();
 }
 
-function formatDateCZ(iso: string): string {
-  // ISO "YYYY-MM-DD" -> "D. M. YYYY"
-  const d = new Date(iso);
-  const day = d.getDate();
-  const month = d.getMonth() + 1;
-  const year = d.getFullYear();
-  return `${day}. ${month}. ${year}`;
-}
-
 function renderNotesBlock(title: string | null, lines: Array<{ text: string }> | undefined): string {
   const items = (lines ?? []).filter((x) => x.text && x.text.trim() !== "");
   if (items.length === 0) return "";

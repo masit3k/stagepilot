@@ -20,35 +20,27 @@ import { reorderAcousticGuitars } from "./reorderAcousticGuitars.js";
 import { validateBandLeader } from "../rules/validateBandLeader.js";
 import { resolveStageplanPerson } from "../stageplan/resolveStageplanPerson.js";
 import { resolvePowerForStageplan } from "../stageplan/resolvePowerForStageplan.js";
+import {
+  formatInputListLabel,
+  formatInputListNote,
+  formatMonitorLabel,
+  formatProjectMetaLine,
+  formatVocalLabel,
+  resolveStereoPair,
+} from "../formatters/index.js";
 
 /* ============================================================
  * Helpers
  * ============================================================ */
 
-function formatDateCZShort(iso: string): string {
-  // ISO "YYYY-MM-DD" -> "D. M. YYYY"
-  const d = new Date(iso);
-  return `${d.getDate()}. ${d.getMonth() + 1}. ${d.getFullYear()}`;
-}
-
 function buildMetaLine(project: Project): MetaLineModel {
-  if (project.purpose === "event") {
-    const d = formatDateCZShort(project.eventDate!);
-    const v = project.eventVenue!.trim();
-    const docDate = formatDateCZShort(project.documentDate);
-    return {
-      kind: "labeled",
-      label: "Datum akce a místo konání:",
-      value: `${d}, ${v} (datum aktualizace: ${docDate})`,
-    };
-  }
-
-  const note = project.note?.trim() || "Stage plan";
-  const d = formatDateCZShort(project.documentDate);
-  return {
-    kind: "plain",
-    value: `${note} (datum aktualizace: ${d})`,
-  };
+  return formatProjectMetaLine({
+    purpose: project.purpose,
+    eventDate: project.eventDate,
+    eventVenue: project.eventVenue,
+    documentDate: project.documentDate,
+    note: project.note,
+  });
 }
 
 function groupRank(group: Group): number {
@@ -61,48 +53,6 @@ function normalizeLineupValue(v: LineupValue | undefined): string[] {
   return Array.isArray(v) ? v : [v];
 }
 
-function normalizeWs(s: string): string {
-  return s.replace(/\s+/g, " ").trim();
-}
-
-function isSameNote(a?: string, b?: string): boolean {
-  return normalizeWs(a ?? "") === normalizeWs(b ?? "");
-}
-
-function prefix2x(note?: string): string | undefined {
-  const n = normalizeWs(note ?? "");
-  if (n === "") return undefined;
-  if (/^2x\s+/i.test(n)) return n;
-  return `2x ${n}`;
-}
-
-function stereoDisplayLabel(leftLabel: string, rightLabel: string): string {
-  const clean = (s: string): string => {
-    let x = normalizeWs(s);
-
-    // 1) odstraň trailing " L" / " R"
-    x = x.replace(/\s+(L|R)\s*$/i, "").trim();
-
-    // 2) sjednoť "(... L)" / "(... R)" na "(...)"
-    x = x.replace(/\(([^()]*)\b(L|R)\b([^()]*)\)\s*$/i, "($1$3)");
-
-    // 2b) odstraní mezeru před zavírací závorkou: "(main out )" → "(main out)"
-    x = x.replace(/\s+\)/g, ")");
-
-    x = normalizeWs(x);
-
-    // 3) pojistka: " ... L (" – odstraní poslední standalone L/R před závorkou
-    x = x.replace(/\s+(L|R)\s*\(/i, " (");
-
-    return normalizeWs(x);
-  };
-
-  const l = clean(leftLabel);
-  const r = clean(rightLabel);
-
-  if (l !== "" && l === r) return l;
-  return l || normalizeWs(leftLabel);
-}
 
 /* ============================================================
  * Notes filtering (no eval, strict predicates)
@@ -168,70 +118,6 @@ function drumRankByKey(input: BuiltInput): number {
 }
 
 /* ============================================================
- * Stereo detection (robust for "Sample pad L (main out L)")
- * ============================================================ */
-
-function isOverheadsBase(baseLabel: string): boolean {
-  const b = normalizeWs(baseLabel).toLowerCase();
-  return b === "overhead" || b === "overheads" || b === "oh";
-}
-
-function parseStereoLabel(label: string): { base: string; side: "L" | "R" } | null {
-  const s = normalizeWs(label);
-
-  {
-    const m = s.match(/^(.*?)\s+(L|R)\s*(?=\(|$)/i);
-    if (m) return { base: normalizeWs(m[1]), side: m[2].toUpperCase() as "L" | "R" };
-  }
-
-  {
-    const m = s.match(/^(.*)\((L|R)\)$/i);
-    if (m) return { base: normalizeWs(m[1]), side: m[2].toUpperCase() as "L" | "R" };
-  }
-
-  {
-    const m = s.match(/^(.*)\s+[-–—]\s*(L|R)\s*$/i);
-    if (m) return { base: normalizeWs(m[1]), side: m[2].toUpperCase() as "L" | "R" };
-  }
-
-  {
-    const m = s.match(/^(.*?)\s+(Left|Right)\s*(?=\(|$)/i);
-    if (m) {
-      return {
-        base: normalizeWs(m[1]),
-        side: m[2].toLowerCase() === "left" ? "L" : "R",
-      };
-    }
-  }
-
-  return null;
-}
-
-function stereoBaseLabel(a: BuiltInput, b: BuiltInput): { base: string; aSide: "L" | "R" } | null {
-  if (a.group !== b.group) return null;
-  if (!isSameNote(a.note, b.note)) return null;
-
-  const pa = parseStereoLabel(a.label);
-  const pb = parseStereoLabel(b.label);
-  if (pa && pb && pa.base === pb.base && pa.side !== pb.side) {
-    return { base: pa.base, aSide: pa.side };
-  }
-
-  const ka = a.key.toLowerCase();
-  const kb = b.key.toLowerCase();
-  const aIsL = ka.endsWith("_l");
-  const aIsR = ka.endsWith("_r");
-  const bIsL = kb.endsWith("_l");
-  const bIsR = kb.endsWith("_r");
-  if ((aIsL && bIsR) || (aIsR && bIsL)) {
-    const base = a.key.replace(/_l$/i, "").replace(/_r$/i, "");
-    return { base: base, aSide: aIsL ? "L" : "R" };
-  }
-
-  return null;
-}
-
-/* ============================================================
  * 1) Assign channels with odd-start stereo (except overheads)
  * ============================================================ */
 
@@ -243,10 +129,10 @@ function assignChannelsWithOddStereoRule(sorted: BuiltInput[]): BuiltInputWithCh
     const a = sorted[i];
     const b = sorted[i + 1];
 
-    const stereo = b ? stereoBaseLabel(a, b) : null;
+    const stereo = b ? resolveStereoPair(a, b) : null;
 
     if (stereo) {
-      const mustStartOdd = !isOverheadsBase(stereo.base);
+      const mustStartOdd = stereo.shouldCollapse;
 
       if (mustStartOdd && nextCh % 2 === 0) {
         out.push({
@@ -289,16 +175,16 @@ function buildInputRows(inputsWithCh: BuiltInputWithCh[]): DisplayRow[] {
     const a = sorted[i];
     const b = sorted[i + 1];
 
-    const stereo = b && b.ch === a.ch + 1 ? stereoBaseLabel(a, b) : null;
+    const stereo = b && b.ch === a.ch + 1 ? resolveStereoPair(a, b) : null;
 
-    if (stereo && !isOverheadsBase(stereo.base)) {
+    if (stereo && stereo.shouldCollapse) {
       const leftLabel = stereo.aSide === "L" ? a.label : b.label;
       const rightLabel = stereo.aSide === "L" ? b.label : a.label;
 
       rows.push({
         no: `${a.ch}+${b.ch}`,
-        label: stereoDisplayLabel(leftLabel, rightLabel),
-        note: prefix2x(a.note),
+        label: formatInputListLabel(leftLabel, rightLabel),
+        note: formatInputListNote(a.note, 2),
       });
       i++;
       continue;
@@ -421,21 +307,6 @@ function guitarRankByKey(input: BuiltInput): number {
   const key = input.key.toLowerCase();
   if (key.startsWith("ac_guitar")) return 100;
   return 0;
-}
-
-function formatLeadVocalLabel(
-  leadVocalCount: number,
-  index: number,
-  gender?: string
-): string {
-  const base = "Lead vocal";
-
-  if (leadVocalCount <= 1) {
-    return base;
-  }
-
-  const genderSuffix = gender && gender !== "x" ? ` (${gender})` : "";
-  return `${base} ${index}${genderSuffix}`;
 }
 
 /* ============================================================
@@ -573,10 +444,6 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
     isBandLeader: m.id === band.bandLeader,
   }));
   const leadVocalCount = inputs.filter((input) => input.key.startsWith("voc_lead")).length;
-  const leadLabel = (index: number, gender?: string): string => {
-    return formatLeadVocalLabel(leadVocalCount, index, gender);
-  };
-
   const pushRow = (output: string, musician?: Musician | undefined) => {
     monitorTableRows.push({
       no: String(monitorTableRows.length + 1),
@@ -586,15 +453,18 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
   };
 
   // Base order
-  pushRow("Guitar", guitarM);
+  pushRow(formatMonitorLabel({ kind: "guitar" }, { leadCount: leadResolved.length }), guitarM);
 
   leadResolved.forEach((m, index) => {
-    pushRow(leadLabel(index + 1, m.gender), m);
+    pushRow(
+      formatMonitorLabel({ kind: "lead", index: index + 1, gender: m.gender }, { leadCount: leadResolved.length }),
+      m
+    );
   });
 
-  pushRow("Keys", keysM);
-  pushRow("Bass", bassM);
-  pushRow("Drums", drumsM);
+  pushRow(formatMonitorLabel({ kind: "keys" }, { leadCount: leadResolved.length }), keysM);
+  pushRow(formatMonitorLabel({ kind: "bass" }, { leadCount: leadResolved.length }), bassM);
+  pushRow(formatMonitorLabel({ kind: "drums" }, { leadCount: leadResolved.length }), drumsM);
 
   inputs.sort((a, b) => {
     const g = groupRank(a.group) - groupRank(b.group);
@@ -630,7 +500,7 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
 
     const indexMatch = /voc_lead_(\d+)/i.exec(input.key);
     const index = indexMatch ? Number(indexMatch[1]) : 1;
-    const label = formatLeadVocalLabel(leadVocalCount, index, leadGenderByIndex[index - 1]);
+    const label = formatVocalLabel({ role: "lead", index, gender: leadGenderByIndex[index - 1], leadCount: leadVocalCount });
 
     return { ...input, label };
   });

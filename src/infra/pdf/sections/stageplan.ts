@@ -4,7 +4,7 @@ import type {
   StageplanInstrumentKey,
 } from "../../../domain/model/types.js";
 import type { DocumentViewModel } from "../../../domain/model/types.js";
-import { formatStageplanBoxHeader } from "../../../domain/formatters/formatStageplanBoxHeader.js";
+import { formatMonitorBullet, formatStageplanBoxHeader } from "../../../domain/formatters/index.js";
 import type { StageplanLine } from "../../../domain/stageplan/stereoCollapse.js";
 import { collapseStereoForStageplan } from "../../../domain/stageplan/stereoCollapse.js";
 import { resolveStageplanRoleForInput } from "../../../domain/stageplan/resolveStageplanRoleForInput.js";
@@ -221,12 +221,6 @@ function resolveMonitorInstrument(output: string): StageplanInstrument | null {
   if (normalized.startsWith("bass")) return "Bass";
   if (normalized.startsWith("drums")) return "Drums";
   return null;
-}
-
-function formatMonitorBullet(note: string, no: number): string {
-  const label = note && note.trim() ? note.trim() : "";
-  if (label === "") return `(${no})`;
-  return `${label} (${no})`;
 }
 
 function resolveLeadVocalSlotLabel(label: string): "lead_voc_1" | "lead_voc_2" {
