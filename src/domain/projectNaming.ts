@@ -2,7 +2,6 @@ export type NamingProject = {
   id?: string;
   slug?: string;
   displayName?: string;
-  legacyId?: string;
   purpose?: "event" | "generic";
   eventDate?: string;
   eventVenue?: string;
@@ -16,19 +15,19 @@ export type NamingBand = {
   name: string;
 };
 
-export function formatEventDateForSlug(iso: string): string {
+export function formatDateForSlug(iso: string): string {
   const [year, month, day] = iso.split("-");
   if (!year || !month || !day) return "00-00-0000";
   return `${day}-${month}-${year}`;
 }
 
-export function formatEventDateForDisplayName(iso: string): string {
+export function formatDateForDisplayName(iso: string): string {
   const [year, month, day] = iso.split("-");
   if (!year || !month || !day) return "00/00/0000";
   return `${day}/${month}/${year}`;
 }
 
-export function sanitizeSlugSegment(value: string): string {
+export function sanitizeVenueForSlug(value: string): string {
   return value
     .trim()
     .normalize("NFD")
@@ -48,8 +47,8 @@ export function sanitizeSlugSegment(value: string): string {
 export function formatProjectSlug(project: NamingProject, band: NamingBand): string {
   const bandCode = band.code?.trim() || band.id;
   if (project.purpose === "event") {
-    const eventDate = formatEventDateForSlug(project.eventDate ?? "");
-    const venue = sanitizeSlugSegment(project.eventVenue ?? "") || "Venue";
+    const eventDate = formatDateForSlug(project.eventDate ?? "");
+    const venue = sanitizeVenueForSlug(project.eventVenue ?? "") || "Venue";
     return `${bandCode}_Inputlist_Stageplan_${eventDate}_${venue}`;
   }
   const year = (project.documentDate ?? "").slice(0, 4) || "0000";
@@ -58,7 +57,7 @@ export function formatProjectSlug(project: NamingProject, band: NamingBand): str
 
 export function formatProjectDisplayName(project: NamingProject, band: NamingBand): string {
   if (project.purpose === "event") {
-    const eventDate = formatEventDateForDisplayName(project.eventDate ?? "");
+    const eventDate = formatDateForDisplayName(project.eventDate ?? "");
     const venue = (project.eventVenue ?? "").trim() || "Venue";
     return `${band.name} – ${eventDate} – ${venue}`;
   }
@@ -101,10 +100,7 @@ export function generateUuidV7(date = new Date()): string {
 export function migrateProjectIdentity(project: NamingProject, band: NamingBand): NamingProject {
   const candidateId = project.id?.trim() || "";
   const nextId = isUuidV7(candidateId) ? candidateId : generateUuidV7();
-  const legacyId = isUuidV7(candidateId) ? project.legacyId : candidateId;
-  const slug =
-    project.slug ||
-    (legacyId && legacyId.includes("_Inputlist_Stageplan_") ? legacyId : formatProjectSlug(project, band));
+  const slug = project.slug || formatProjectSlug(project, band);
   const displayName = project.displayName || formatProjectDisplayName(project, band);
 
   return {
@@ -112,6 +108,9 @@ export function migrateProjectIdentity(project: NamingProject, band: NamingBand)
     id: nextId,
     slug,
     displayName,
-    ...(legacyId ? { legacyId } : {}),
   };
 }
+
+export const formatEventDateForSlug = formatDateForSlug;
+export const formatEventDateForDisplayName = formatDateForDisplayName;
+export const sanitizeSlugSegment = sanitizeVenueForSlug;

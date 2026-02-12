@@ -3,7 +3,6 @@ export type Project =
     id: string;
     slug?: string;
     displayName?: string;
-    legacyId?: string;
     bandRef: string;
     purpose: "event";
     eventDate: string;
@@ -14,7 +13,6 @@ export type Project =
     id: string;
     slug?: string;
     displayName?: string;
-    legacyId?: string;
     bandRef: string;
     purpose: "generic";
     documentDate: string;

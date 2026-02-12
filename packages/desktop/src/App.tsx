@@ -30,14 +30,13 @@ import {
   resolveTalkbackOwnerId,
   validateLineup,
 } from "./projectRules";
-import { generateUuidV7, isUuidV7, migrateProjectIdentity } from "../../../src/domain/projectNaming";
+import { generateUuidV7, isUuidV7 } from "../../../src/domain/projectNaming";
 import "./App.css";
 
 type ProjectSummary = {
   id: string;
   slug?: string | null;
   displayName?: string | null;
-  legacyId?: string | null;
   bandRef?: string | null;
   eventDate?: string | null;
   eventVenue?: string | null;
@@ -91,7 +90,6 @@ type NewProjectPayload = {
   id: string;
   slug?: string;
   displayName?: string;
-  legacyId?: string;
   purpose: "event" | "generic";
   bandRef: string;
   documentDate: string;
@@ -105,6 +103,42 @@ type NewProjectPayload = {
   talkbackOwnerId?: string;
 };
 type ApiError = { message?: string };
+
+function toPersistableProject(project: NewProjectPayload): NewProjectPayload {
+  const {
+    id,
+    slug,
+    displayName,
+    purpose,
+    eventDate,
+    eventVenue,
+    bandRef,
+    documentDate,
+    createdAt,
+    updatedAt,
+    lineup,
+    bandLeaderId,
+    talkbackOwnerId,
+    note,
+  } = project;
+
+  return {
+    id,
+    slug,
+    displayName,
+    purpose,
+    ...(eventDate ? { eventDate } : {}),
+    ...(eventVenue ? { eventVenue } : {}),
+    bandRef,
+    documentDate,
+    createdAt,
+    ...(updatedAt ? { updatedAt } : {}),
+    ...(lineup ? { lineup } : {}),
+    ...(bandLeaderId ? { bandLeaderId } : {}),
+    ...(talkbackOwnerId ? { talkbackOwnerId } : {}),
+    ...(note ? { note } : {}),
+  };
+}
 
 type PreviewState =
   | { kind: "idle" }
@@ -301,31 +335,60 @@ function App() {
   }, []);
 
   const refreshProjects = useCallback(async () => {
+    const availableBands = await invoke<BandOption[]>("list_bands");
+    const bandsById = new Map(availableBands.map((band) => [band.id, band]));
+    const bandsByCode = new Map(
+      availableBands
+        .filter((band) => Boolean(band.code?.trim()))
+        .map((band) => [band.code!.trim().toLowerCase(), band]),
+    );
     const listed = await invoke<ProjectSummary[]>("list_projects");
     const migratedIds = new Map<string, string>();
     for (const summary of listed) {
-      const needsIdMigration = !isUuidV7(summary.id);
-      const needsNameMigration = !summary.slug || !summary.displayName;
-      if (!needsIdMigration && !needsNameMigration) continue;
+      const raw = await invoke<string>("read_project", { projectId: summary.id });
+      const parsedRaw = JSON.parse(raw) as NewProjectPayload & Record<string, unknown>;
+      const { legacyId: _legacyId, ...withoutLegacy } = parsedRaw as NewProjectPayload & {
+        legacyId?: unknown;
+      };
+      const project = withoutLegacy as NewProjectPayload;
 
-      const legacyId = summary.id;
-      const raw = await invoke<string>("read_project", { projectId: legacyId });
-      const project = JSON.parse(raw) as NewProjectPayload;
-      const band = bands.find((candidate) => candidate.id === project.bandRef);
+      const needsIdMigration = !isUuidV7(project.id);
+      const normalizedBandRef = project.bandRef?.trim() || "";
+      const band =
+        bandsById.get(normalizedBandRef) ||
+        bandsByCode.get(normalizedBandRef.toLowerCase());
       if (!band) continue;
 
-      const migratedIdentity = migrateProjectIdentity(project, band);
+      const canonicalBandRef = band.id;
+      const needsBandRefMigration = canonicalBandRef !== project.bandRef;
+      const namingSource = {
+        purpose: project.purpose,
+        eventDate: project.eventDate,
+        eventVenue: project.eventVenue,
+        documentDate: project.documentDate,
+        note: project.note,
+      };
+      const slug = formatProjectSlug(namingSource, band);
+      const displayName = formatProjectDisplayName(namingSource, band);
+      const needsNameMigration = project.slug !== slug || project.displayName !== displayName;
+      const hasLegacyId = Object.prototype.hasOwnProperty.call(parsedRaw, "legacyId");
+      if (!needsIdMigration && !needsBandRefMigration && !needsNameMigration && !hasLegacyId) continue;
+
+      const legacyId = summary.id;
+      const nextId = needsIdMigration ? generateUuidV7() : project.id;
       const migrated: NewProjectPayload = {
-        ...project,
-        ...migratedIdentity,
+        ...(project as Omit<NewProjectPayload, "id" | "slug" | "displayName" | "bandRef">),
+        id: nextId,
+        slug,
+        displayName,
+        bandRef: canonicalBandRef,
         updatedAt: new Date().toISOString(),
       };
-      const nextId = migrated.id;
       const nextSlug = migrated.slug || "";
       await invoke("save_project", {
         projectId: nextId,
-        legacyProjectId: needsIdMigration ? legacyId : null,
-        json: JSON.stringify(migrated, null, 2),
+        legacyProjectId: legacyId,
+        json: JSON.stringify(toPersistableProject(migrated), null, 2),
       });
       migratedIds.set(legacyId, nextId);
       console.info(`project=${nextId} slug=${nextSlug} migrated=true`);
@@ -346,7 +409,7 @@ function App() {
         navigateImmediate(`${rerouted}${window.location.search || ""}`, true);
       }
     }
-  }, [bands, navigateImmediate]);
+  }, [navigateImmediate]);
 
   const refreshBands = useCallback(async () => {
     setBands(await invoke<BandOption[]>("list_bands"));
@@ -1124,7 +1187,7 @@ function NewEventProjectPage({
     };
     await invoke("save_project", {
       projectId: id,
-      json: JSON.stringify(payload, null, 2),
+      json: JSON.stringify(toPersistableProject(payload), null, 2),
     });
     await onCreated();
   }, [
@@ -1333,7 +1396,7 @@ function NewGenericProjectPage({
     };
     await invoke("save_project", {
       projectId: id,
-      json: JSON.stringify(payload, null, 2),
+      json: JSON.stringify(toPersistableProject(payload), null, 2),
     });
     await onCreated();
   }, [editingProjectId, note, onCreated, selectedBand, year]);
@@ -1600,7 +1663,7 @@ function ProjectSetupPage({
     };
     await invoke("save_project", {
       projectId: id,
-      json: JSON.stringify(payload, null, 2),
+      json: JSON.stringify(toPersistableProject(payload), null, 2),
     });
     setProject(payload);
     initialSnapshotRef.current = JSON.stringify({

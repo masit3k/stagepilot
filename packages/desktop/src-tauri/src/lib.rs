@@ -6,6 +6,7 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
     sync::mpsc,
+    sync::{Mutex, OnceLock},
 };
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
@@ -24,7 +25,6 @@ struct ProjectSummary {
     id: String,
     slug: Option<String>,
     display_name: Option<String>,
-    legacy_id: Option<String>,
     band_ref: Option<String>,
     event_date: Option<String>,
     event_venue: Option<String>,
@@ -38,6 +38,12 @@ struct BandOption {
     id: String,
     name: String,
     code: Option<String>,
+}
+
+static PROJECT_FILE_MAP: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
+
+fn project_file_map() -> &'static Mutex<HashMap<String, String>> {
+    PROJECT_FILE_MAP.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 
@@ -201,6 +207,71 @@ fn map_io_error(err: std::io::Error, code: &str, message: &str) -> ApiError {
     }
 }
 
+fn resolve_project_path_by_id(projects_dir: &Path, project_id: &str) -> Result<Option<PathBuf>, ApiError> {
+    if !projects_dir.exists() {
+        return Ok(None);
+    }
+
+    if let Some(file_name) = project_file_map()
+        .lock()
+        .ok()
+        .and_then(|map| map.get(project_id).cloned())
+    {
+        let candidate = projects_dir.join(file_name);
+        if candidate.exists() {
+            return Ok(Some(candidate));
+        }
+    }
+
+    let entries = fs::read_dir(projects_dir)
+        .map_err(|err| map_io_error(err, "PROJECT_READ_FAILED", "Failed to list projects"))?;
+    for entry in entries {
+        let path = entry
+            .map_err(|err| map_io_error(err, "PROJECT_READ_FAILED", "Failed to read projects"))?
+            .path();
+        if path.extension().and_then(|s| s.to_str()) != Some("json") {
+            continue;
+        }
+        let contents = fs::read_to_string(&path)
+            .map_err(|err| map_io_error(err, "PROJECT_READ_FAILED", "Failed to read project file"))?;
+        let json: Value = serde_json::from_str(&contents).map_err(|err| ApiError {
+            code: "PROJECT_READ_FAILED".into(),
+            message: format!("Invalid project JSON: {}", err),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        })?;
+        if json.get("id").and_then(|v| v.as_str()) == Some(project_id) {
+            if let Some(file_name) = path.file_name().and_then(|v| v.to_str()) {
+                if let Ok(mut map) = project_file_map().lock() {
+                    map.insert(project_id.to_string(), file_name.to_string());
+                }
+            }
+            return Ok(Some(path));
+        }
+    }
+
+    Ok(None)
+}
+
+fn project_file_name_from_slug(slug: &str) -> String {
+    format!("{}.json", slug)
+}
+
+fn reserve_project_file_name(projects_dir: &Path, preferred_slug: &str) -> Result<String, ApiError> {
+    let mut suffix = 1usize;
+    loop {
+        let file_name = if suffix == 1 {
+            project_file_name_from_slug(preferred_slug)
+        } else {
+            format!("{}__{}.json", preferred_slug, suffix)
+        };
+        if !projects_dir.join(&file_name).exists() {
+            return Ok(file_name);
+        }
+        suffix += 1;
+    }
+}
+
 
 fn library_dir(app: &tauri::AppHandle) -> Result<PathBuf, ApiError> {
     Ok(resolve_user_data_dir(app)?.join("library"))
@@ -322,6 +393,12 @@ fn list_projects(app: tauri::AppHandle) -> Result<Vec<ProjectSummary>, ApiError>
                     .map(|s| format!("{}T00:00:00Z", s))
             });
 
+        if let Some(file_name) = path.file_name().and_then(|v| v.to_str()) {
+            if let Ok(mut map) = project_file_map().lock() {
+                map.insert(id.clone(), file_name.to_string());
+            }
+        }
+
         let summary = ProjectSummary {
             id,
             slug: json
@@ -330,10 +407,6 @@ fn list_projects(app: tauri::AppHandle) -> Result<Vec<ProjectSummary>, ApiError>
                 .map(|s| s.to_string()),
             display_name: json
                 .get("displayName")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string()),
-            legacy_id: json
-                .get("legacyId")
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string()),
             band_ref: json
@@ -556,9 +629,13 @@ fn get_band_setup_data(band_id: String) -> Result<BandSetupData, ApiError> {
 #[tauri::command]
 fn read_project(app: tauri::AppHandle, project_id: String) -> Result<String, ApiError> {
     let user_data_dir = resolve_user_data_dir(&app)?;
-    let project_path = user_data_dir
-        .join("projects")
-        .join(format!("{}.json", project_id));
+    let projects_dir = user_data_dir.join("projects");
+    let project_path = resolve_project_path_by_id(&projects_dir, &project_id)?.ok_or(ApiError {
+        code: "PROJECT_READ_FAILED".into(),
+        message: format!("Project not found: {}", project_id),
+        export_pdf_path: None,
+        version_pdf_path: None,
+    })?;
     fs::read_to_string(&project_path)
         .map_err(|err| map_io_error(err, "PROJECT_READ_FAILED", "Failed to read project"))
 }
@@ -574,17 +651,64 @@ fn save_project(
     let projects_dir = user_data_dir.join("projects");
     fs::create_dir_all(&projects_dir)
         .map_err(|err| map_io_error(err, "PROJECT_SAVE_FAILED", "Failed to create projects dir"))?;
-    let project_path = projects_dir.join(format!("{}.json", project_id));
-    fs::write(&project_path, json)
-        .map_err(|err| map_io_error(err, "PROJECT_SAVE_FAILED", "Failed to save project"))?;
+    let parsed: Value = serde_json::from_str(&json).map_err(|err| ApiError {
+        code: "PROJECT_SAVE_FAILED".into(),
+        message: format!("Invalid project JSON payload ({})", err),
+        export_pdf_path: None,
+        version_pdf_path: None,
+    })?;
+    let slug = parsed
+        .get("slug")
+        .and_then(|v| v.as_str())
+        .ok_or(ApiError {
+            code: "PROJECT_SAVE_FAILED".into(),
+            message: "Project slug is required.".into(),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        })?;
+
+    let existing_path = resolve_project_path_by_id(&projects_dir, &project_id)?;
+    let preferred_file_name = project_file_name_from_slug(slug);
+    let target_file_name = if let Some(existing) = &existing_path {
+        let existing_name = existing
+            .file_name()
+            .and_then(|v| v.to_str())
+            .unwrap_or_default()
+            .to_string();
+        if existing_name == preferred_file_name || existing_name.starts_with(&format!("{}__", slug)) {
+            existing_name
+        } else {
+            reserve_project_file_name(&projects_dir, slug)?
+        }
+    } else {
+        reserve_project_file_name(&projects_dir, slug)?
+    };
+    let project_path = projects_dir.join(&target_file_name);
+    let temp_path = projects_dir.join(format!("{}.tmp", target_file_name));
+
+    fs::write(&temp_path, json)
+        .map_err(|err| map_io_error(err, "PROJECT_SAVE_FAILED", "Failed to write project temp file"))?;
+    fs::rename(&temp_path, &project_path)
+        .map_err(|err| map_io_error(err, "PROJECT_SAVE_FAILED", "Failed to finalize project save"))?;
+
+    if let Some(old_path) = existing_path {
+        if old_path != project_path && old_path.exists() {
+            let _ = fs::remove_file(old_path);
+        }
+    }
 
     if let Some(legacy_id) = legacy_project_id {
         if legacy_id != project_id {
-            let legacy_path = projects_dir.join(format!("{}.json", legacy_id));
-            if legacy_path.exists() {
-                let _ = fs::remove_file(legacy_path);
+            if let Some(legacy_path) = resolve_project_path_by_id(&projects_dir, &legacy_id)? {
+                if legacy_path.exists() {
+                    let _ = fs::remove_file(legacy_path);
+                }
             }
         }
+    }
+
+    if let Ok(mut map) = project_file_map().lock() {
+        map.insert(project_id, target_file_name);
     }
 
     Ok(())
@@ -593,9 +717,13 @@ fn save_project(
 #[tauri::command]
 fn export_pdf(app: tauri::AppHandle, project_id: String) -> Result<ExportPdfResult, ApiError> {
     let user_data_dir = resolve_user_data_dir(&app)?;
-    let project_path = user_data_dir
-        .join("projects")
-        .join(format!("{}.json", project_id));
+    let projects_dir = user_data_dir.join("projects");
+    let project_path = resolve_project_path_by_id(&projects_dir, &project_id)?.ok_or(ApiError {
+        code: "PROJECT_NOT_FOUND".into(),
+        message: format!("Project file not found for id: {}", project_id),
+        export_pdf_path: None,
+        version_pdf_path: None,
+    })?;
 
     if !project_path.exists() {
         return Err(ApiError {

@@ -13,7 +13,7 @@ import type {
   Project,
   PresetEntity,
   NotesTemplate,
-  type LineupValue,
+  LineupValue,
 } from "../../domain/model/types.js";
 
 export interface DataRepository {

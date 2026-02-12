@@ -1,4 +1,5 @@
 import { mkdir } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { argv, exit } from "node:process";
 import { loadDefaultContactLine } from "../src/app/usecases/exportPdf.js";
@@ -30,7 +31,8 @@ function parseArgs(args: string[]): Args {
 
 async function run(): Promise<Response> {
   const { projectId, userDataDir } = parseArgs(argv.slice(2));
-  const projectPath = path.join(userDataDir, "projects", `${projectId}.json`);
+  const projectsDir = path.join(userDataDir, "projects");
+  const projectPath = await resolveProjectPathById(projectsDir, projectId);
   const rawProject = await loadJsonFile<ProjectJson>(projectPath);
   const project = normalizeProject(rawProject);
   const repo = await loadRepository({ userDataRoot: userDataDir });
@@ -50,6 +52,17 @@ async function run(): Promise<Response> {
   const previewPdfPath = path.join(tmpDir, `preview_${slug}.pdf`);
   await renderPdf(vm, { outFile: previewPdfPath, contactLine });
   return { ok: true, result: { previewPdfPath } };
+}
+
+async function resolveProjectPathById(projectsDir: string, projectId: string): Promise<string> {
+  const files = await readdir(projectsDir);
+  for (const fileName of files) {
+    if (!fileName.endsWith(".json")) continue;
+    const candidatePath = path.join(projectsDir, fileName);
+    const json = await loadJsonFile<ProjectJson>(candidatePath);
+    if (json.id === projectId) return candidatePath;
+  }
+  throw new Error(`Project not found: ${projectId}`);
 }
 
 run()

@@ -32,7 +32,6 @@ export interface Project {
   id: string;
   slug?: string;
   displayName?: string;
-  legacyId?: string;
   bandRef: string; // band.id
 
   purpose: StagePlanPurpose;
@@ -81,7 +80,6 @@ export interface ProjectJsonV2 {
   id: string;
   slug?: string;
   displayName?: string;
-  legacyId?: string;
   bandRef: string;
 
   purpose: StagePlanPurpose;

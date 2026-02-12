@@ -6,7 +6,7 @@ import {
   formatProjectSlug,
   isUuidV7,
   migrateProjectIdentity,
-  sanitizeSlugSegment,
+  sanitizeVenueForSlug,
 } from "./projectNaming.js";
 
 describe("project naming", () => {
@@ -33,10 +33,10 @@ describe("project naming", () => {
   it("formats date variants and sanitizes slug segment", () => {
     expect(formatEventDateForSlug("2026-02-20")).toBe("20-02-2026");
     expect(formatEventDateForDisplayName("2026-02-20")).toBe("20/02/2026");
-    expect(sanitizeSlugSegment(" Nové Město / Praha? ")).toBe("Nove-Mesto-Praha");
+    expect(sanitizeVenueForSlug(" Nové Město / Praha? ")).toBe("Nove-Mesto-Praha");
   });
 
-  it("migrates legacy id to uuidv7 + preserves slug + displayName", () => {
+  it("migrates legacy id to uuidv7 and computes canonical naming", () => {
     const migrated = migrateProjectIdentity(
       {
         id: "CoS_Inputlist_Stageplan_20-02-2026_Praha",
@@ -47,7 +47,6 @@ describe("project naming", () => {
       band,
     );
     expect(isUuidV7(migrated.id || "")).toBe(true);
-    expect(migrated.legacyId).toBe("CoS_Inputlist_Stageplan_20-02-2026_Praha");
     expect(migrated.slug).toBe("CoS_Inputlist_Stageplan_20-02-2026_Praha");
     expect(migrated.displayName).toBe("Couple of Sounds – 20/02/2026 – Praha");
   });
