@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import stagePilotIcon from "../assets/icons/StagePilot_Icon_StageLayout_CurrentColor.svg";
 import desktopPackage from "../package.json";
@@ -41,9 +41,14 @@ type ProjectSummary = {
   bandRef?: string | null;
   eventDate?: string | null;
   eventVenue?: string | null;
-  purpose?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
+  templateType?: "event" | "generic" | null;
+  status?: "active" | "archived" | "trashed" | null;
+  archivedAt?: string | null;
+  trashedAt?: string | null;
+  purgeAt?: string | null;
+  purpose?: "event" | "generic" | null;
 };
 type BandOption = { id: string; name: string; code?: string | null };
 type MemberOption = { id: string; name: string };
@@ -115,6 +120,11 @@ type NewProjectPayload = {
   note?: string;
   createdAt: string;
   updatedAt?: string;
+  templateType?: "event" | "generic";
+  status?: "active" | "archived" | "trashed";
+  archivedAt?: string;
+  trashedAt?: string;
+  purgeAt?: string;
   lineup?: LineupMap;
   bandLeaderId?: string;
   talkbackOwnerId?: string;
@@ -133,6 +143,11 @@ function toPersistableProject(project: NewProjectPayload): NewProjectPayload {
     documentDate,
     createdAt,
     updatedAt,
+    templateType,
+    status,
+    archivedAt,
+    trashedAt,
+    purgeAt,
     lineup,
     bandLeaderId,
     talkbackOwnerId,
@@ -150,6 +165,11 @@ function toPersistableProject(project: NewProjectPayload): NewProjectPayload {
     documentDate,
     createdAt,
     ...(updatedAt ? { updatedAt } : {}),
+    ...(templateType ? { templateType } : {}),
+    ...(status ? { status } : {}),
+    ...(archivedAt ? { archivedAt } : {}),
+    ...(trashedAt ? { trashedAt } : {}),
+    ...(purgeAt ? { purgeAt } : {}),
     ...(lineup ? { lineup } : {}),
     ...(bandLeaderId ? { bandLeaderId } : {}),
     ...(talkbackOwnerId ? { talkbackOwnerId } : {}),
@@ -383,10 +403,15 @@ function App() {
     const bandsByCode = new Map(
       availableBands
         .filter((band) => Boolean(band.code?.trim()))
-        .map((band) => [band.code!.trim().toLowerCase(), band]),
+        .map((band) => [band.code?.trim().toLowerCase() ?? "", band]),
     );
     const listed = await invoke<ProjectSummary[]>("list_projects");
     const migratedIds = new Map<string, string>();
+    const maintainedProjects: ProjectSummary[] = [];
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const todayIso = getTodayIsoLocal(now);
+
     for (const summary of listed) {
       const raw = await invoke<string>("read_project", { projectId: summary.id });
       const parsedRaw = JSON.parse(raw) as NewProjectPayload & Record<string, unknown>;
@@ -395,6 +420,13 @@ function App() {
       };
       const project = withoutLegacy as NewProjectPayload;
 
+      if (project.status === "trashed" && project.purgeAt && new Date(project.purgeAt).getTime() < now.getTime()) {
+        await invoke("delete_project_permanently", { projectId: project.id });
+        continue;
+      }
+
+      const templateType = project.templateType ?? project.purpose;
+      const needsTemplateTypeMigration = project.templateType !== templateType;
       const needsIdMigration = !isUuidV7(project.id);
       const normalizedBandRef = project.bandRef?.trim() || "";
       const band =
@@ -415,7 +447,22 @@ function App() {
       const displayName = formatProjectDisplayName(namingSource, band);
       const needsNameMigration = project.slug !== slug || project.displayName !== displayName;
       const hasLegacyId = Object.prototype.hasOwnProperty.call(parsedRaw, "legacyId");
-      if (!needsIdMigration && !needsBandRefMigration && !needsNameMigration && !hasLegacyId) continue;
+      const currentStatus = project.status ?? "active";
+      const eventDate = project.eventDate;
+      const shouldAutoArchive =
+        templateType === "event" &&
+        currentStatus === "active" &&
+        Boolean(eventDate) &&
+        isPastIsoDate(eventDate ?? "", todayIso);
+
+      const needsMaintenance =
+        shouldAutoArchive ||
+        hasLegacyId ||
+        needsIdMigration ||
+        needsBandRefMigration ||
+        needsNameMigration ||
+        needsTemplateTypeMigration ||
+        !project.status;
 
       const legacyId = summary.id;
       const nextId = needsIdMigration ? generateUuidV7() : project.id;
@@ -425,20 +472,39 @@ function App() {
         slug,
         displayName,
         bandRef: canonicalBandRef,
-        updatedAt: new Date().toISOString(),
+        templateType: templateType ?? "generic",
+        status: shouldAutoArchive ? "archived" : currentStatus,
+        archivedAt: shouldAutoArchive ? nowIso : project.archivedAt,
+        updatedAt: needsMaintenance ? nowIso : project.updatedAt,
       };
-      const nextSlug = migrated.slug || "";
-      await invoke("save_project", {
-        projectId: nextId,
-        legacyProjectId: legacyId,
-        json: JSON.stringify(toPersistableProject(migrated), null, 2),
+
+      if (needsMaintenance) {
+        await invoke("save_project", {
+          projectId: nextId,
+          legacyProjectId: legacyId,
+          json: JSON.stringify(toPersistableProject(migrated), null, 2),
+        });
+        if (legacyId !== nextId) migratedIds.set(legacyId, nextId);
+      }
+
+      maintainedProjects.push({
+        ...summary,
+        id: nextId,
+        slug: migrated.slug,
+        displayName: migrated.displayName,
+        bandRef: migrated.bandRef,
+        purpose: migrated.purpose,
+        templateType: migrated.templateType,
+        status: migrated.status,
+        eventDate: migrated.eventDate,
+        updatedAt: migrated.updatedAt ?? summary.updatedAt,
+        archivedAt: migrated.archivedAt,
+        trashedAt: migrated.trashedAt,
+        purgeAt: migrated.purgeAt,
       });
-      migratedIds.set(legacyId, nextId);
-      console.info(`project=${nextId} slug=${nextSlug} migrated=true`);
     }
 
-    const refreshed = await invoke<ProjectSummary[]>("list_projects");
-    setProjects(refreshed);
+    setProjects(maintainedProjects);
     const activePath = window.location.pathname;
     const match = activePath.match(/^\/projects\/([^/]+)/);
     if (match) {
@@ -458,11 +524,80 @@ function App() {
     setBands(await invoke<BandOption[]>("list_bands"));
   }, []);
 
-  const deleteProject = useCallback(async (projectId: string) => {
-    await invoke("delete_project", { projectId });
-    setProjects((current) => current.filter((project) => project.id !== projectId));
-    setStatus("Project deleted.");
-  }, []);
+  const updateProjectLifecycle = useCallback(async (projectId: string, updater: (project: NewProjectPayload, now: Date) => NewProjectPayload) => {
+    const raw = await invoke<string>("read_project", { projectId });
+    const project = JSON.parse(raw) as NewProjectPayload;
+    const now = new Date();
+    const updatedProject = updater(project, now);
+    await invoke("save_project", {
+      projectId,
+      json: JSON.stringify(toPersistableProject(updatedProject), null, 2),
+    });
+    await refreshProjects();
+  }, [refreshProjects]);
+
+  const archiveProject = useCallback(async (project: ProjectSummary) => {
+    await updateProjectLifecycle(project.id, (source, now) => ({
+      ...source,
+      templateType: source.templateType ?? source.purpose,
+      status: "archived",
+      archivedAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    }));
+    setStatus("Project archived.");
+  }, [updateProjectLifecycle]);
+
+  const unarchiveProject = useCallback(async (project: ProjectSummary) => {
+    await updateProjectLifecycle(project.id, (source, now) => ({
+      ...source,
+      templateType: source.templateType ?? source.purpose,
+      status: "active",
+      updatedAt: now.toISOString(),
+    }));
+    setStatus("Project moved to Active.");
+  }, [updateProjectLifecycle]);
+
+  const moveProjectToTrash = useCallback(async (project: ProjectSummary) => {
+    await updateProjectLifecycle(project.id, (source, now) => {
+      const purgeAt = new Date(now);
+      purgeAt.setDate(purgeAt.getDate() + 30);
+      return {
+        ...source,
+        templateType: source.templateType ?? source.purpose,
+        status: "trashed",
+        trashedAt: now.toISOString(),
+        purgeAt: purgeAt.toISOString(),
+        updatedAt: now.toISOString(),
+      };
+    });
+    setStatus("Project moved to Trash.");
+  }, [updateProjectLifecycle]);
+
+  const restoreProject = useCallback(async (project: ProjectSummary) => {
+    await updateProjectLifecycle(project.id, (source, now) => {
+      const todayIso = getTodayIsoLocal(now);
+      const templateType = source.templateType ?? source.purpose;
+      const restoreStatus =
+        templateType === "event" && source.eventDate && isPastIsoDate(source.eventDate, todayIso)
+          ? "archived"
+          : "active";
+      return {
+        ...source,
+        templateType,
+        status: restoreStatus,
+        trashedAt: undefined,
+        purgeAt: undefined,
+        updatedAt: now.toISOString(),
+      };
+    });
+    setStatus("Project restored.");
+  }, [updateProjectLifecycle]);
+
+  const deleteProjectPermanently = useCallback(async (project: ProjectSummary) => {
+    await invoke("delete_project_permanently", { projectId: project.id });
+    await refreshProjects();
+    setStatus("Project permanently deleted.");
+  }, [refreshProjects]);
 
   useEffect(() => {
     (async () => {
@@ -527,7 +662,7 @@ function App() {
       <TopTabs pathname={pathname} navigate={navigate} />
       {status ? <p className="status status--error">{status}</p> : null}
       {pathname === "/" ? (
-        <StartPage projects={projects} navigate={navigate} onDeleteProject={deleteProject} />
+        <StartPage projects={projects} navigate={navigate} onArchiveProject={archiveProject} onUnarchiveProject={unarchiveProject} onMoveProjectToTrash={moveProjectToTrash} onRestoreProject={restoreProject} onDeleteProjectPermanently={deleteProjectPermanently} />
       ) : null}
       {pathname === "/projects/new" ? (
         <ChooseProjectTypePage navigate={navigate} />
@@ -723,23 +858,40 @@ function LibraryHomePage({ navigate }: { navigate: (path: string) => void }) {
   );
 }
 
+type ProjectStatusTab = "active" | "archived" | "trashed";
+
 type StartPageProps = {
   projects: ProjectSummary[];
   navigate: (path: string) => void;
-  onDeleteProject: (projectId: string) => Promise<void>;
+  onArchiveProject: (project: ProjectSummary) => Promise<void>;
+  onUnarchiveProject: (project: ProjectSummary) => Promise<void>;
+  onMoveProjectToTrash: (project: ProjectSummary) => Promise<void>;
+  onRestoreProject: (project: ProjectSummary) => Promise<void>;
+  onDeleteProjectPermanently: (project: ProjectSummary) => Promise<void>;
 };
-function StartPage({ projects, navigate, onDeleteProject }: StartPageProps) {
+function StartPage({
+  projects,
+  navigate,
+  onArchiveProject,
+  onUnarchiveProject,
+  onMoveProjectToTrash,
+  onRestoreProject,
+  onDeleteProjectPermanently,
+}: StartPageProps) {
   const [viewMode, setViewMode] = useState<"list" | "tiles">(() =>
     localStorage.getItem("project-hub-view") === "tiles" ? "tiles" : "list",
   );
+  const [activeTab, setActiveTab] = useState<ProjectStatusTab>("active");
   const [openMenuProjectId, setOpenMenuProjectId] = useState<string | null>(null);
-  const [projectPendingDelete, setProjectPendingDelete] =
-    useState<ProjectSummary | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const deleteDialogRef = useModalBehavior(
-    Boolean(projectPendingDelete),
-    () => setProjectPendingDelete(null),
-  );
+  const [modalState, setModalState] = useState<
+    | { kind: "trash"; project: ProjectSummary }
+    | { kind: "archive"; project: ProjectSummary }
+    | { kind: "unarchive"; project: ProjectSummary }
+    | { kind: "deletePermanent"; project: ProjectSummary }
+    | null
+  >(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const confirmDialogRef = useModalBehavior(Boolean(modalState), () => setModalState(null));
 
   useEffect(() => {
     localStorage.setItem("project-hub-view", viewMode);
@@ -754,15 +906,21 @@ function StartPage({ projects, navigate, onDeleteProject }: StartPageProps) {
       ),
     [projects],
   );
-  const recentProjects = sortedProjects.slice(0, 5);
-  const olderProjects = sortedProjects.slice(5);
+  const projectsByTab = useMemo(
+    () => ({
+      active: sortedProjects.filter((project) => (project.status ?? "active") === "active"),
+      archived: sortedProjects.filter((project) => project.status === "archived"),
+      trashed: sortedProjects.filter((project) => project.status === "trashed"),
+    }),
+    [sortedProjects],
+  );
+
+  const visibleProjects = projectsByTab[activeTab];
 
   function projectEditPath(project: ProjectSummary) {
     const encodedId = encodeURIComponent(project.id);
-    const route =
-      project.purpose === "event"
-        ? `/projects/${encodedId}/event`
-        : `/projects/${encodedId}/generic`;
+    const templateType = project.templateType ?? project.purpose ?? "generic";
+    const route = templateType === "event" ? `/projects/${encodedId}/event` : `/projects/${encodedId}/generic`;
     return `${route}?from=home`;
   }
 
@@ -770,7 +928,7 @@ function StartPage({ projects, navigate, onDeleteProject }: StartPageProps) {
     const onDocumentMouseDown = (event: MouseEvent) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
-      if (target.closest(".project-context-menu-shell")) return;
+      if (target.closest(".project-context-menu-shell") || target.closest(".project-context-menu")) return;
       setOpenMenuProjectId(null);
     };
     document.addEventListener("mousedown", onDocumentMouseDown);
@@ -786,21 +944,139 @@ function StartPage({ projects, navigate, onDeleteProject }: StartPageProps) {
     return () => document.removeEventListener("keydown", onDocumentKeyDown);
   }, []);
 
-  async function confirmDeleteProject() {
-    if (!projectPendingDelete || isDeleting) return;
-    setIsDeleting(true);
+  async function confirmModalAction() {
+    if (!modalState || isSubmitting) return;
+    setIsSubmitting(true);
     try {
-      await onDeleteProject(projectPendingDelete.id);
-      setProjectPendingDelete(null);
+      if (modalState.kind === "trash") await onMoveProjectToTrash(modalState.project);
+      if (modalState.kind === "archive") await onArchiveProject(modalState.project);
+      if (modalState.kind === "unarchive") await onUnarchiveProject(modalState.project);
+      if (modalState.kind === "deletePermanent") {
+        await onDeleteProjectPermanently(modalState.project);
+      }
+      setModalState(null);
       setOpenMenuProjectId(null);
     } finally {
-      setIsDeleting(false);
+      setIsSubmitting(false);
     }
+  }
+
+  function restoreProject(project: ProjectSummary) {
+    onRestoreProject(project).catch(() => undefined);
+    setOpenMenuProjectId(null);
+  }
+
+  function buildMenuItems(project: ProjectSummary) {
+    const status = project.status ?? "active";
+    if (status === "active") {
+      return [
+        {
+          label: "Edit",
+          onClick: () => navigate(projectEditPath(project)),
+          danger: false,
+        },
+        {
+          label: "Preview",
+          onClick: () =>
+            navigate(
+              withFrom(`/projects/${encodeURIComponent(project.id)}/preview`, "home"),
+            ),
+          danger: false,
+        },
+        {
+          label: "Archive",
+          onClick: () => setModalState({ kind: "archive", project }),
+          danger: false,
+        },
+        {
+          label: "Delete",
+          onClick: () => setModalState({ kind: "trash", project }),
+          danger: true,
+        },
+      ];
+    }
+
+    if (status === "archived") {
+      return [
+        {
+          label: "Preview",
+          onClick: () =>
+            navigate(
+              withFrom(`/projects/${encodeURIComponent(project.id)}/preview`, "home"),
+            ),
+          danger: false,
+        },
+        {
+          label: "Unarchive",
+          onClick: () => setModalState({ kind: "unarchive", project }),
+          danger: false,
+        },
+        {
+          label: "Delete",
+          onClick: () => setModalState({ kind: "trash", project }),
+          danger: true,
+        },
+      ];
+    }
+
+    return [
+      {
+        label: "Restore",
+        onClick: () => restoreProject(project),
+        danger: false,
+      },
+      {
+        label: "Delete permanently",
+        onClick: () => setModalState({ kind: "deletePermanent", project }),
+        danger: true,
+      },
+    ];
   }
 
   function renderProjectCard(project: ProjectSummary) {
     const isMenuOpen = openMenuProjectId === project.id;
     const projectLabel = project.displayName || project.slug || project.id;
+
+    const onCardClick = () => {
+      if (activeTab === "active") {
+        navigate(projectEditPath(project));
+        return;
+      }
+      if (activeTab === "archived") {
+        navigate(withFrom(`/projects/${encodeURIComponent(project.id)}/preview`, "home"));
+      }
+    };
+
+    const onCardKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      if (activeTab === "trashed") return;
+      onCardClick();
+    };
+
+    const cardMenu = isMenuOpen ? (
+      <ProjectContextMenuPortal
+        project={project}
+        projectLabel={projectLabel}
+        onClose={() => setOpenMenuProjectId(null)}
+      >
+        {buildMenuItems(project).map((item) => (
+          <button
+            key={item.label}
+            type="button"
+            role="menuitem"
+            className={item.danger ? "project-context-menu__item project-context-menu__item--danger" : "project-context-menu__item"}
+            onClick={(event) => {
+              event.stopPropagation();
+              setOpenMenuProjectId(null);
+              item.onClick();
+            }}
+          >
+            {item.label}
+          </button>
+        ))}
+      </ProjectContextMenuPortal>
+    ) : null;
 
     return (
       <article
@@ -810,25 +1086,21 @@ function StartPage({ projects, navigate, onDeleteProject }: StartPageProps) {
             ? "project-card project-card--list project-surface"
             : "project-card project-surface"
         }
-        role="button"
-        tabIndex={0}
-        onClick={() => navigate(projectEditPath(project))}
-        onKeyDown={(event) => {
-          if (event.key !== "Enter" && event.key !== " ") return;
-          event.preventDefault();
-          navigate(projectEditPath(project));
-        }}
-        aria-label={`Edit ${projectLabel}`}
+        role={activeTab === "trashed" ? undefined : "button"}
+        tabIndex={activeTab === "trashed" ? -1 : 0}
+        onClick={onCardClick}
+        onKeyDown={onCardKeyDown}
+        aria-label={activeTab === "archived" ? `Preview ${projectLabel}` : `Edit ${projectLabel}`}
       >
         <div className="project-main-action__content">
           <strong>{projectLabel}</strong>
-          <span>{getProjectPurposeLabel(project.purpose)}</span>
+          <span>{getProjectPurposeLabel(project.templateType ?? project.purpose)}</span>
           <span>Last updated: {formatProjectDate(project)}</span>
+          {activeTab === "trashed" && project.purgeAt ? (
+            <span>Scheduled for deletion on: {formatIsoToDateTimeDisplay(project.purgeAt)}</span>
+          ) : null}
         </div>
-        <div
-          className="project-context-menu-shell"
-          onClick={(event) => event.stopPropagation()}
-        >
+        <div className="project-context-menu-shell">
           <button
             type="button"
             className="project-kebab"
@@ -838,65 +1110,21 @@ function StartPage({ projects, navigate, onDeleteProject }: StartPageProps) {
             aria-label={`Open actions for ${projectLabel}`}
             onClick={(event) => {
               event.stopPropagation();
-              setOpenMenuProjectId((current) =>
-                current === project.id ? null : project.id,
-              );
+              setOpenMenuProjectId((current) => (current === project.id ? null : project.id));
             }}
           >
             ⋯
           </button>
-          {isMenuOpen ? (
-            <div
-              id={`project-menu-${project.id}`}
-              className="project-context-menu"
-              role="menu"
-              aria-label={`Project actions for ${projectLabel}`}
-            >
-              <button
-                type="button"
-                role="menuitem"
-                className="project-context-menu__item"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setOpenMenuProjectId(null);
-                  navigate(projectEditPath(project));
-                }}
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                className="project-context-menu__item"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setOpenMenuProjectId(null);
-                  navigate(
-                    withFrom(
-                      `/projects/${encodeURIComponent(project.id)}/preview`,
-                      "home",
-                    ),
-                  );
-                }}
-              >
-                Preview
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                className="project-context-menu__item project-context-menu__item--danger"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setProjectPendingDelete(project);
-                }}
-              >
-                Delete
-              </button>
-            </div>
-          ) : null}
+          {cardMenu}
         </div>
       </article>
     );
+  }
+
+  function getEmptyStateCopy(tab: ProjectStatusTab) {
+    if (tab === "active") return "No active projects.";
+    if (tab === "archived") return "No archived projects.";
+    return "Trash is empty.";
   }
 
   return (
@@ -941,72 +1169,141 @@ function StartPage({ projects, navigate, onDeleteProject }: StartPageProps) {
           </button>
         </div>
       </div>
-      {sortedProjects.length === 0 ? (
-        <p className="subtle">No projects found.</p>
+      <div className="hub-tabs" role="tablist" aria-label="Project status tabs">
+        {(["active", "archived", "trashed"] as ProjectStatusTab[]).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab}
+            className={activeTab === tab ? "button-secondary is-active" : "button-secondary"}
+            onClick={() => {
+              setActiveTab(tab);
+              setOpenMenuProjectId(null);
+            }}
+          >
+            {tab === "active" ? "Active" : tab === "archived" ? "Archived" : "Trash"}
+          </button>
+        ))}
+      </div>
+      {visibleProjects.length === 0 ? (
+        <p className="subtle">{getEmptyStateCopy(activeTab)}</p>
       ) : (
         <div className="project-sections">
           <section className="project-section">
-            <p className="subtle project-section__label">Recent</p>
-            <div
-              className={
-                viewMode === "list"
-                  ? "project-list project-list--rows"
-                  : "project-list"
-              }
-            >
-              {recentProjects.map(renderProjectCard)}
+            <div className={viewMode === "list" ? "project-list project-list--rows" : "project-list"}>
+              {visibleProjects.map(renderProjectCard)}
             </div>
           </section>
-          {olderProjects.length > 0 ? (
-            <section className="project-section">
-              <p className="subtle project-section__label">Older</p>
-              <div
-                className={
-                  viewMode === "list"
-                    ? "project-list project-list--rows"
-                    : "project-list"
-                }
-              >
-                {olderProjects.map(renderProjectCard)}
-              </div>
-            </section>
-          ) : null}
         </div>
       )}
-      <ModalOverlay
-        open={Boolean(projectPendingDelete)}
-        onClose={() => setProjectPendingDelete(null)}
-      >
+      <ModalOverlay open={Boolean(modalState)} onClose={() => setModalState(null)}>
         <div
           className="selector-dialog"
           role="alertdialog"
           aria-modal="true"
-          aria-labelledby="delete-project-title"
-          aria-describedby="delete-project-body"
-          ref={deleteDialogRef}
+          aria-labelledby="project-action-title"
+          aria-describedby="project-action-body"
+          ref={confirmDialogRef}
         >
-          <h3 id="delete-project-title">Delete project?</h3>
-          <p id="delete-project-body">This action cannot be undone.</p>
+          <h3 id="project-action-title">
+            {modalState?.kind === "trash"
+              ? "Delete project?"
+              : modalState?.kind === "archive"
+                ? "Archive project?"
+                : modalState?.kind === "unarchive"
+                  ? "Unarchive project?"
+                  : "Delete permanently?"}
+          </h3>
+          <p id="project-action-body">
+            {modalState?.kind === "trash"
+              ? "This will move the project to Trash. It will be permanently deleted after 30 days."
+              : modalState?.kind === "archive"
+                ? "You can restore it anytime from Archived."
+                : modalState?.kind === "unarchive"
+                  ? "The project will return to Active."
+                  : "This action cannot be undone."}
+          </p>
           <div className="modal-actions">
-            <button
-              type="button"
-              className="button-secondary"
-              onClick={() => setProjectPendingDelete(null)}
-            >
+            <button type="button" className="button-secondary" onClick={() => setModalState(null)}>
               Cancel
             </button>
             <button
               type="button"
-              className="button-danger"
-              onClick={confirmDeleteProject}
-              disabled={isDeleting}
+              className={modalState?.kind === "archive" || modalState?.kind === "unarchive" ? "button-primary" : "button-danger"}
+              onClick={confirmModalAction}
+              disabled={isSubmitting}
             >
-              Delete
+              {modalState?.kind === "trash"
+                ? "Delete"
+                : modalState?.kind === "archive"
+                  ? "Archive"
+                  : modalState?.kind === "unarchive"
+                    ? "Unarchive"
+                    : "Delete permanently"}
             </button>
           </div>
         </div>
       </ModalOverlay>
     </section>
+  );
+}
+
+function ProjectContextMenuPortal({
+  project,
+  projectLabel,
+  onClose,
+  children,
+}: {
+  project: ProjectSummary;
+  projectLabel: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const anchorRef = useRef<HTMLButtonElement | null>(null);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    const anchor = document.querySelector<HTMLButtonElement>(
+      `[aria-controls="project-menu-${project.id}"]`,
+    );
+    anchorRef.current = anchor;
+
+    const update = () => {
+      const rect = anchorRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const menuWidth = 180;
+      const left = Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.right - menuWidth));
+      setPosition({ top: rect.bottom + 6, left });
+    };
+
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [project.id]);
+
+  return createPortal(
+    <div
+      id={`project-menu-${project.id}`}
+      className="project-context-menu"
+      style={{ position: "fixed", top: position.top, left: position.left, zIndex: 2000 }}
+      role="menu"
+      aria-label={`Project actions for ${projectLabel}`}
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.stopPropagation();
+          onClose();
+        }
+      }}
+    >
+      {children}
+    </div>,
+    document.body,
   );
 }
 
@@ -1343,6 +1640,8 @@ function NewEventProjectPage({
       slug,
       displayName,
       purpose: "event",
+      templateType: "event",
+      status: "active",
       eventDate: eventDateIso,
       eventVenue: eventVenue.trim(),
       bandRef: selectedBand.id,
@@ -1601,6 +1900,8 @@ function NewGenericProjectPage({
       slug: formatProjectSlug({ purpose: "generic", documentDate: `${validityYear}-01-01`, note }, selectedBand),
       displayName: formatProjectDisplayName({ purpose: "generic", documentDate: `${validityYear}-01-01`, note }, selectedBand),
       purpose: "generic",
+      templateType: "generic",
+      status: "active",
       bandRef: selectedBand.id,
       documentDate: `${validityYear}-01-01`,
       ...(note.trim() ? { note: note.trim() } : {}),

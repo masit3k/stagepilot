@@ -804,8 +804,41 @@ fn save_project(
     Ok(())
 }
 
+fn remove_export_artifacts(user_data_dir: &Path, project_path: &Path, project_id: &str) {
+    let versions_dir = user_data_dir.join("versions").join(project_id);
+    if versions_dir.exists() {
+        let _ = fs::remove_dir_all(versions_dir);
+    }
+
+    if let Ok(contents) = fs::read_to_string(project_path) {
+        if let Ok(json) = serde_json::from_str::<Value>(&contents) {
+            if let Some(slug) = json.get("slug").and_then(|v| v.as_str()) {
+                let exports_dir = user_data_dir.join("exports");
+                if exports_dir.exists() {
+                    if let Ok(entries) = fs::read_dir(&exports_dir) {
+                        for entry in entries.flatten() {
+                            let path = entry.path();
+                            if path.extension().and_then(|v| v.to_str()) != Some("pdf") {
+                                continue;
+                            }
+                            if let Some(file_name) = path.file_name().and_then(|v| v.to_str()) {
+                                if file_name == format!("{}.pdf", slug)
+                                    || (file_name.starts_with(&format!("{}__", slug))
+                                        && file_name.ends_with(".pdf"))
+                                {
+                                    let _ = fs::remove_file(path);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 #[tauri::command]
-fn delete_project(app: tauri::AppHandle, project_id: String) -> Result<(), ApiError> {
+fn delete_project_permanently(app: tauri::AppHandle, project_id: String) -> Result<(), ApiError> {
     let user_data_dir = resolve_user_data_dir(&app)?;
     let projects_dir = user_data_dir.join("projects");
     let project_path = resolve_project_path_by_id(&projects_dir, &project_id)?.ok_or(ApiError {
@@ -815,6 +848,8 @@ fn delete_project(app: tauri::AppHandle, project_id: String) -> Result<(), ApiEr
         version_pdf_path: None,
     })?;
 
+    remove_export_artifacts(&user_data_dir, &project_path, &project_id);
+
     fs::remove_file(&project_path)
         .map_err(|err| map_io_error(err, "PROJECT_DELETE_FAILED", "Failed to delete project"))?;
 
@@ -823,6 +858,11 @@ fn delete_project(app: tauri::AppHandle, project_id: String) -> Result<(), ApiEr
     }
 
     Ok(())
+}
+
+#[tauri::command]
+fn delete_project(app: tauri::AppHandle, project_id: String) -> Result<(), ApiError> {
+    delete_project_permanently(app, project_id)
 }
 
 #[tauri::command]
@@ -1341,6 +1381,7 @@ pub fn run() {
             read_project,
             save_project,
             delete_project,
+            delete_project_permanently,
             export_pdf,
             build_project_pdf_preview,
             read_preview_pdf_bytes,

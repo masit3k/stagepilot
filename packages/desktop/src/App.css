@@ -326,41 +326,43 @@ button:hover:not(:disabled):not(.button-secondary):not(.button-ghost):not(
 
 .project-context-menu-shell {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 8px;
+  right: 8px;
 }
 .project-kebab {
-  min-height: 30px;
-  min-width: 30px;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  min-width: 36px;
   padding: 0;
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid transparent;
   background: transparent;
   color: #475467;
-  font-size: 18px;
+  font-size: 20px;
   line-height: 1;
 }
 .project-kebab:hover:not(:disabled) {
-  background: rgba(15, 23, 42, 0.06);
-  border-color: rgba(15, 23, 42, 0.1);
+  background: rgba(15, 23, 42, 0.04);
+  border-color: rgba(15, 23, 42, 0.08);
   box-shadow: none;
 }
+.project-kebab:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.5);
+  outline-offset: 2px;
+}
 .project-context-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
   display: grid;
-  min-width: 132px;
-  padding: 4px;
+  min-width: 180px;
+  padding: 6px;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--surface);
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.16);
-  z-index: 3;
 }
 .project-context-menu__item {
   width: 100%;
-  min-height: 34px;
+  min-height: 36px;
   border: none;
   border-radius: 8px;
   background: transparent;
@@ -370,12 +372,28 @@ button:hover:not(:disabled):not(.button-secondary):not(.button-ghost):not(
   box-shadow: none;
 }
 .project-context-menu__item:hover:not(:disabled) {
-  background: var(--surface-2);
+  background: rgba(59, 130, 246, 0.1);
   border-color: transparent;
+  color: var(--text);
   box-shadow: none;
+}
+.project-context-menu__item:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.45);
+  outline-offset: 1px;
 }
 .project-context-menu__item--danger {
   color: #b42318;
+}
+.project-context-menu__item--danger:hover:not(:disabled) {
+  background: rgba(180, 35, 24, 0.1);
+  color: #b42318;
+}
+
+
+.hub-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .page-context {
