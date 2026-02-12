@@ -1219,12 +1219,12 @@ function NewEventProjectPage({
     bandRef,
   });
 
-  const persist = useCallback(async () => {
+  const persist = useCallback(async (targetId?: string) => {
     if (!selectedBand || !eventDateIso || !eventVenue.trim()) return;
     const namingSource = { purpose: "event" as const, eventDate: eventDateIso, eventVenue, documentDate: todayIso };
     const slug = formatProjectSlug(namingSource, selectedBand);
     const displayName = formatProjectDisplayName(namingSource, selectedBand);
-    const id = editingProjectId ?? generateUuidV7();
+    const id = targetId ?? editingProjectId ?? generateUuidV7();
     const nowIso = new Date().toISOString();
     let defaultLineup = existingProject?.lineup;
     let defaultBandLeaderId = existingProject?.bandLeaderId;
@@ -1234,6 +1234,11 @@ function NewEventProjectPage({
           bandId: selectedBand.id,
         });
         defaultLineup = { ...(setupDefaults.defaultLineup ?? {}) };
+        if (!Object.keys(defaultLineup).length) {
+          console.error("Band default lineup is empty during event project creation", {
+            bandRef: selectedBand.id,
+          });
+        }
         defaultBandLeaderId = setupDefaults.bandLeader ?? "";
       } catch (error) {
         console.error("Failed to load setup defaults for new event project", {
@@ -1265,6 +1270,7 @@ function NewEventProjectPage({
       json: JSON.stringify(toPersistableProject(payload), null, 2),
     });
     await onCreated();
+    return id;
   }, [
     selectedBand,
     eventDateIso,
@@ -1278,7 +1284,7 @@ function NewEventProjectPage({
   useEffect(() => {
     registerNavigationGuard({
       isDirty: () => !isCommitting && isDirty,
-      save: persist,
+      save: () => persist().then(() => undefined),
     });
     return () => registerNavigationGuard(null);
   }, [registerNavigationGuard, isDirty, persist, isCommitting]);
@@ -1302,7 +1308,7 @@ function NewEventProjectPage({
       navigate(`/projects/${encodeURIComponent(id)}/setup`);
       return;
     }
-    await persist();
+    await persist(id);
     navigate(`/projects/${encodeURIComponent(id)}/setup`);
   }
 
@@ -1475,9 +1481,9 @@ function NewGenericProjectPage({
     bandRef,
   });
 
-  const persist = useCallback(async () => {
+  const persist = useCallback(async (targetId?: string) => {
     if (!selectedBand) return;
-    const id = editingProjectId ?? generateUuidV7();
+    const id = targetId ?? editingProjectId ?? generateUuidV7();
     const nowIso = new Date().toISOString();
     let defaultLineup: LineupMap | undefined;
     let defaultBandLeaderId = "";
@@ -1487,6 +1493,11 @@ function NewGenericProjectPage({
           bandId: selectedBand.id,
         });
         defaultLineup = { ...(setupDefaults.defaultLineup ?? {}) };
+        if (!Object.keys(defaultLineup).length) {
+          console.error("Band default lineup is empty during generic project creation", {
+            bandRef: selectedBand.id,
+          });
+        }
         defaultBandLeaderId = setupDefaults.bandLeader ?? "";
       } catch (error) {
         console.error("Failed to load setup defaults for new generic project", {
@@ -1514,12 +1525,13 @@ function NewGenericProjectPage({
       json: JSON.stringify(toPersistableProject(payload), null, 2),
     });
     await onCreated();
+    return id;
   }, [editingProjectId, note, onCreated, selectedBand, validityYear]);
 
   useEffect(() => {
     registerNavigationGuard({
       isDirty: () => !isCommitting && isDirty,
-      save: persist,
+      save: () => persist().then(() => undefined),
     });
     return () => registerNavigationGuard(null);
   }, [registerNavigationGuard, isDirty, persist, isCommitting]);
@@ -1528,7 +1540,7 @@ function NewGenericProjectPage({
     if (!selectedBand) return;
     const id = editingProjectId ?? generateUuidV7();
     setIsCommitting(true);
-    await persist();
+    await persist(id);
     navigate(`/projects/${encodeURIComponent(id)}/setup`);
   }
 
@@ -1729,21 +1741,44 @@ function ProjectSetupPage({
         setStatus(data.loadWarnings.join("\n"));
       }
       setSetupData(data);
-      const initialLineup = { ...(parsed.lineup ?? data.defaultLineup ?? {}) };
+      const hasStoredLineup = Boolean(parsed.lineup && Object.keys(parsed.lineup).length > 0);
+      const fallbackLineup = { ...(data.defaultLineup ?? {}) };
+      if (!hasStoredLineup && !Object.keys(fallbackLineup).length) {
+        console.error("Band default lineup is empty during setup initialization", {
+          projectId: id,
+          bandRef: parsed.bandRef,
+        });
+      }
+      const initialLineup = { ...(hasStoredLineup ? parsed.lineup : fallbackLineup) };
+      const initialState = buildSetupSnapshot(
+        initialLineup,
+        data,
+        parsed.bandLeaderId,
+        parsed.talkbackOwnerId,
+      );
       applyState(
         initialLineup,
         data,
         parsed.bandLeaderId,
         parsed.talkbackOwnerId,
       );
-      initialSnapshotRef.current = JSON.stringify(
-        buildSetupSnapshot(
-          initialLineup,
-          data,
-          parsed.bandLeaderId,
-          parsed.talkbackOwnerId,
-        ),
-      );
+      if (!hasStoredLineup) {
+        const updatedProject: NewProjectPayload = {
+          ...parsed,
+          lineup: initialState.lineup,
+          bandLeaderId: initialState.bandLeaderId || undefined,
+          ...(initialState.talkbackOwnerId && initialState.talkbackOwnerId !== initialState.bandLeaderId
+            ? { talkbackOwnerId: initialState.talkbackOwnerId }
+            : {}),
+          updatedAt: new Date().toISOString(),
+        };
+        await invoke("save_project", {
+          projectId: id,
+          json: JSON.stringify(toPersistableProject(updatedProject), null, 2),
+        });
+        setProject(updatedProject);
+      }
+      initialSnapshotRef.current = JSON.stringify(initialState);
     })().catch((error) => {
       console.error("Failed to initialize setup page", { projectId: id, error });
       setStatus("Failed to load setup.");

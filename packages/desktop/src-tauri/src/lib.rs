@@ -894,6 +894,12 @@ fn build_project_pdf_preview(
     let user_data_dir = resolve_user_data_dir(&app)?;
     let repo_root = resolve_repo_root();
     let script_path = repo_root.join("scripts").join("desktop_preview.ts");
+    eprintln!(
+        "[preview] command start project_id={} cwd={} script={}",
+        project_id,
+        repo_root.display(),
+        script_path.display()
+    );
 
     let output = Command::new("node")
         .arg("--import")
@@ -908,14 +914,20 @@ fn build_project_pdf_preview(
         .map_err(|err| map_io_error(err, "PREVIEW_FAILED", "Failed to execute preview"))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    eprintln!(
+        "[preview] node exit status={} stdout={} stderr={}",
+        output.status,
+        stdout,
+        stderr
+    );
+
     let response: NodeExportResponse =
         serde_json::from_str(stdout.trim()).map_err(|err| ApiError {
             code: "PREVIEW_FAILED".into(),
             message: format!(
                 "Failed to parse preview response: {} (stdout: {}, stderr: {})",
-                err,
-                stdout,
-                String::from_utf8_lossy(&output.stderr)
+                err, stdout, stderr
             ),
             export_pdf_path: None,
             version_pdf_path: None,
@@ -938,9 +950,19 @@ fn build_project_pdf_preview(
         }
     }
 
+    eprintln!(
+        "[preview] command failed project_id={} code={} message={}",
+        project_id,
+        response.code.clone().unwrap_or_else(|| "PREVIEW_FAILED".into()),
+        response
+            .message
+            .clone()
+            .unwrap_or_else(|| "Preview failed.".into())
+    );
+
     Err(ApiError {
         code: response.code.unwrap_or_else(|| "PREVIEW_FAILED".into()),
-        message: response.message.unwrap_or_else(|| "Preview failed.".into()),
+        message: "Preview could not be generated. Please retry. Check desktop logs for Chromium diagnostics.".into(),
         export_pdf_path: response.export_pdf_path,
         version_pdf_path: response.version_pdf_path,
     })

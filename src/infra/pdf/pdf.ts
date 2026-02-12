@@ -7,6 +7,37 @@ import type { DocumentViewModel } from "../../domain/model/types.js";
 import { renderInputlistHtml } from "./template.js";
 import { pdfLayout } from "./layout.js";
 
+const DESKTOP_CHROMIUM_ARGS = [
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+    "--no-sandbox",
+    "--no-zygote",
+    "--font-render-hinting=none",
+];
+
+function describeError(error: unknown) {
+    if (error instanceof Error) {
+        return {
+            name: error.name,
+            message: error.message,
+            stack: error.stack,
+            cause: error.cause,
+        };
+    }
+    return { message: String(error) };
+}
+
+function resolveChromiumExecutablePath(): string | undefined {
+    const explicit = process.env.PUPPETEER_EXECUTABLE_PATH?.trim();
+    if (explicit) return explicit;
+    try {
+        const bundled = puppeteer.executablePath();
+        return bundled?.trim() ? bundled : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
 export interface RenderPdfOptions {
     outFile: string;         // absolutní nebo relativní
     contactLine?: string;    // volitelné (doplníš z usecase)
@@ -38,7 +69,35 @@ export async function renderPdf(vm: DocumentViewModel, opts: RenderPdfOptions): 
 
     await fs.mkdir(path.dirname(opts.outFile), { recursive: true });
 
-    const browser = await puppeteer.launch({ headless: true });
+    const executablePath = resolveChromiumExecutablePath();
+    const launchOptions = {
+        headless: true,
+        dumpio: true,
+        args: DESKTOP_CHROMIUM_ARGS,
+        ...(executablePath ? { executablePath } : {}),
+    } as const;
+
+    console.error("[pdf] launching chromium", {
+        executablePath: executablePath ?? "<puppeteer default>",
+        cwd: process.cwd(),
+        args: DESKTOP_CHROMIUM_ARGS,
+    });
+
+    let browser;
+    try {
+        browser = await puppeteer.launch(launchOptions);
+    } catch (error) {
+        console.error("[pdf] puppeteer launch failed", {
+            executablePath: executablePath ?? "<puppeteer default>",
+            cwd: process.cwd(),
+            args: DESKTOP_CHROMIUM_ARGS,
+            error: describeError(error),
+        });
+        throw new Error(
+            "PDF preview failed to launch browser. Please retry. If the problem persists, check desktop logs for Chromium diagnostics.",
+            { cause: error instanceof Error ? error : undefined },
+        );
+    }
 
     try {
         const page = await browser.newPage();
@@ -92,6 +151,6 @@ export async function renderPdf(vm: DocumentViewModel, opts: RenderPdfOptions): 
             preferCSSPageSize: true,
         });
     } finally {
-        await browser.close();
+        await browser?.close();
     }
 }

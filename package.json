@@ -13,7 +13,8 @@
     "lint": "biome check .",
     "format": "biome format --write .",
     "dev": "npm --prefix packages/desktop run dev",
-    "build:desktop": "npm --prefix packages/desktop run build"
+    "build:desktop": "npm --prefix packages/desktop run build",
+    "smoke:pdf-preview": "node --enable-source-maps --import tsx scripts/smoke_pdf_preview.ts"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.10.0",

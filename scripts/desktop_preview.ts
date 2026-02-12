@@ -71,6 +71,16 @@ run()
     exit(0);
   })
   .catch((err) => {
+    if (err instanceof Error) {
+      console.error("[preview-script] failed", {
+        cwd: process.cwd(),
+        message: err.message,
+        stack: err.stack,
+        cause: err.cause,
+      });
+    } else {
+      console.error("[preview-script] failed", { cwd: process.cwd(), error: String(err) });
+    }
     console.log(
       JSON.stringify({
         ok: false,
