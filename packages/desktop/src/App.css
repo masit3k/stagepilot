@@ -270,6 +270,16 @@ button:hover:not(:disabled):not(.button-secondary):not(.button-ghost):not(
   min-width: 42px;
   padding: 8px 10px;
 }
+
+.project-actions .button-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.page-context {
+  margin-top: -4px;
+}
 .form-grid {
   display: grid;
   gap: 12px;

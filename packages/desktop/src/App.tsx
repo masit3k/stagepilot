@@ -137,6 +137,14 @@ function withFrom(path: string, from: string, fromPath?: string) {
   return `${path}?${params.toString()}`;
 }
 
+function getNavigationContextLabel(origin?: string | null) {
+  if (origin === "home") return "Project Hub";
+  if (origin === "setup") return "Lineup Setup";
+  if (origin === "preview") return "PDF Preview";
+  if (origin === "pdfPreview") return "PDF Preview";
+  return null;
+}
+
 let modalOpenCount = 0;
 function useModalBehavior(open: boolean, onClose: () => void) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
@@ -524,7 +532,8 @@ function StartPage({ projects, navigate }: StartPageProps) {
                         navigate(projectEditPath(project));
                       }}
                     >
-                      ✏️
+                      <span aria-hidden="true">✏️</span>
+                      <span>Edit</span>
                     </button>
                     <button
                       type="button"
@@ -540,7 +549,8 @@ function StartPage({ projects, navigate }: StartPageProps) {
                         );
                       }}
                     >
-                      📄
+                      <span aria-hidden="true">📄</span>
+                      <span>Preview</span>
                     </button>
                   </div>
                 </article>
@@ -581,7 +591,8 @@ function StartPage({ projects, navigate }: StartPageProps) {
                           navigate(projectEditPath(project));
                         }}
                       >
-                        ✏️
+                        <span aria-hidden="true">✏️</span>
+                        <span>Edit</span>
                       </button>
                       <button
                         type="button"
@@ -597,7 +608,8 @@ function StartPage({ projects, navigate }: StartPageProps) {
                           );
                         }}
                       >
-                        📄
+                        <span aria-hidden="true">📄</span>
+                        <span>Preview</span>
                       </button>
                     </div>
                   </article>
@@ -625,7 +637,7 @@ function ChooseProjectTypePage({
           className="button-secondary"
           onClick={() => navigate("/")}
         >
-          Cancel
+          Back to Hub
         </button>
       </div>
       <div className="choice-grid" aria-label="Project type options">
@@ -976,12 +988,16 @@ function NewEventProjectPage({
           ? "/"
           : "/projects/new";
   const exitTarget = editingProjectId ? "/" : "/";
+  const navigationContext = getNavigationContextLabel(origin);
 
   return (
     <section className="panel">
       <div className="panel__header">
         <h2>{editingProjectId ? "Edit Event Setup" : "New Event Project"}</h2>
       </div>
+      {navigationContext ? (
+        <p className="subtle page-context">Opened from: {navigationContext}</p>
+      ) : null}
       <div className="form-grid">
         <label htmlFor="event-date-input">
           Date *
@@ -1051,7 +1067,7 @@ function NewEventProjectPage({
           className="button-secondary"
           onClick={() => navigate(exitTarget)}
         >
-          Exit
+          Back to Hub
         </button>
         <button type="button" onClick={createProject} disabled={!canSubmit}>
           {editingProjectId
@@ -1156,6 +1172,7 @@ function NewGenericProjectPage({
         : editingProjectId
           ? "/"
           : "/projects/new";
+  const navigationContext = getNavigationContextLabel(origin);
 
   return (
     <section className="panel">
@@ -1164,6 +1181,9 @@ function NewGenericProjectPage({
           {editingProjectId ? "Edit Generic Setup" : "New Generic Project"}
         </h2>
       </div>
+      {navigationContext ? (
+        <p className="subtle page-context">Opened from: {navigationContext}</p>
+      ) : null}
       <div className="form-grid">
         <label>
           Band *
@@ -1212,7 +1232,7 @@ function NewGenericProjectPage({
           className="button-secondary"
           onClick={() => navigate("/")}
         >
-          Exit
+          Back to Hub
         </button>
         <button type="button" onClick={createProject} disabled={!canSubmit}>
           {editingProjectId ? "Save & Continue" : "Save & Create"}
@@ -1436,6 +1456,12 @@ function ProjectSetupPage({
     () => new URLSearchParams(search).get("fromPath"),
     [search],
   );
+  const navigationContext = useMemo(
+    () =>
+      getNavigationContextLabel(new URLSearchParams(search).get("from")) ||
+      "Project Setup",
+    [search],
+  );
   const bandName = setupData?.name ?? project?.bandRef ?? "—";
   const summarySecondary =
     project?.purpose === "event"
@@ -1461,6 +1487,7 @@ function ProjectSetupPage({
       <div className="panel__header">
         <h1>Lineup Setup</h1>
       </div>
+      <p className="subtle page-context">Opened from: {navigationContext}</p>
       <div className="lineup-meta">
         <div className="band-name">{bandName}</div>
         <div className="band-meta">{summarySecondary || "—"}</div>
@@ -1628,7 +1655,7 @@ function ProjectSetupPage({
           className="button-secondary"
           onClick={() => navigate("/")}
         >
-          Exit
+          Back to Hub
         </button>
         <button
           type="button"
@@ -2100,6 +2127,10 @@ function ProjectPreviewPage({
     project?.purpose === "generic"
       ? withFrom(`/projects/${id}/generic`, "pdfPreview", previewRoute)
       : withFrom(`/projects/${id}/event`, "pdfPreview", previewRoute);
+  const navigationContext = useMemo(
+    () => getNavigationContextLabel(new URLSearchParams(search).get("from")),
+    [search],
+  );
 
   return (
     <section className="panel panel--preview">
@@ -2110,9 +2141,12 @@ function ProjectPreviewPage({
           className="button-secondary"
           onClick={() => navigate("/")}
         >
-          Exit
+          Back to Hub
         </button>
       </div>
+      {navigationContext ? (
+        <p className="subtle page-context">Opened from: {navigationContext}</p>
+      ) : null}
       <div className="pdf-preview-panel">
         <div className="preview-container">
           {previewState.kind === "generating" ||
