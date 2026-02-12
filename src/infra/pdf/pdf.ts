@@ -1,7 +1,9 @@
 import fs from "node:fs/promises";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import puppeteer from "puppeteer";
+import type { Browser, LaunchOptions } from "puppeteer";
 
 import type { DocumentViewModel } from "../../domain/model/types.js";
 import { renderInputlistHtml } from "./template.js";
@@ -37,6 +39,98 @@ function resolveChromiumExecutablePath(): string | undefined {
     }
 }
 
+type LaunchStrategy = {
+    name: string;
+    launchOptions: LaunchOptions;
+    executablePath?: string;
+};
+
+function getIcuDataPath(chromeExecutablePath: string): string {
+    return path.join(path.dirname(chromeExecutablePath), "icudtl.dat");
+}
+
+function getSystemBrowserFallbacks(baseLaunchOptions: LaunchOptions): LaunchStrategy[] {
+    if (process.platform === "linux") {
+        const linuxExecutables = [
+            "/usr/bin/google-chrome",
+            "/usr/bin/google-chrome-stable",
+            "/usr/bin/chromium-browser",
+            "/usr/bin/chromium",
+            "/snap/bin/chromium",
+        ];
+
+        const foundExecutable = linuxExecutables.find((candidate) => existsSync(candidate));
+        return foundExecutable
+            ? [
+                {
+                    name: "system-browser:linux-executable",
+                    executablePath: foundExecutable,
+                    launchOptions: {
+                        ...baseLaunchOptions,
+                        executablePath: foundExecutable,
+                    },
+                },
+            ]
+            : [];
+    }
+
+    return [
+        {
+            name: "system-browser:chrome-channel",
+            launchOptions: {
+                ...baseLaunchOptions,
+                channel: "chrome",
+            },
+        },
+    ];
+}
+
+async function launchWithFallback(strategies: LaunchStrategy[]): Promise<Browser> {
+    let previousError: unknown;
+
+    for (let index = 0; index < strategies.length; index += 1) {
+        const strategy = strategies[index];
+        const isFallbackAttempt = index > 0;
+
+        if (isFallbackAttempt) {
+            console.error("[pdf] retrying chromium launch with fallback strategy", {
+                strategy: strategy.name,
+            });
+        }
+
+        try {
+            const browser = await puppeteer.launch(strategy.launchOptions);
+            console.error("[pdf] chromium launch succeeded", {
+                strategy: strategy.name,
+                fallback: isFallbackAttempt,
+            });
+            return browser;
+        } catch (error) {
+            previousError = error;
+            console.error("[pdf] chromium launch failed", {
+                strategy: strategy.name,
+                fallback: isFallbackAttempt,
+                error: describeError(error),
+            });
+
+            if (strategy.executablePath) {
+                console.error("[pdf] cached/bundled Chromium remediation", {
+                    strategy: strategy.name,
+                    chromiumExecutablePath: strategy.executablePath,
+                    expectedIcuDataPath: getIcuDataPath(strategy.executablePath),
+                    remediation:
+                        "Delete Puppeteer cache and reinstall browsers, e.g. remove ~/.cache/puppeteer (or %USERPROFILE%\\.cache\\puppeteer on Windows) and run `npx puppeteer browsers install chrome`.",
+                });
+            }
+        }
+    }
+
+    throw new Error(
+        "PDF preview failed to launch browser. Please retry. If the problem persists, check desktop logs for Chromium diagnostics.",
+        { cause: previousError instanceof Error ? previousError : undefined },
+    );
+}
+
 export interface RenderPdfOptions {
     outFile: string;         // absolutní nebo relativní
     contactLine?: string;    // volitelné (doplníš z usecase)
@@ -70,40 +164,54 @@ export async function renderPdf(vm: DocumentViewModel, opts: RenderPdfOptions): 
 
     const executablePath = resolveChromiumExecutablePath();
     const dumpio = process.env.STAGEPILOT_PDF_DUMPIO === "1";
-    const launchOptions = {
+    const baseLaunchOptions = {
         headless: true,
         dumpio,
         args: DESKTOP_CHROMIUM_ARGS,
-        ...(executablePath ? { executablePath } : {}),
-    } as const;
+    } as const satisfies LaunchOptions;
 
-    console.error("[pdf] launching chromium", {
+    const launchStrategies: LaunchStrategy[] = [];
+
+    if (executablePath) {
+        launchStrategies.push({
+            name: process.env.PUPPETEER_EXECUTABLE_PATH?.trim()
+                ? "env:PUPPETEER_EXECUTABLE_PATH"
+                : "puppeteer.executablePath()",
+            executablePath,
+            launchOptions: {
+                ...baseLaunchOptions,
+                executablePath,
+            },
+        });
+    } else {
+        launchStrategies.push({
+            name: "puppeteer default resolution",
+            launchOptions: {
+                ...baseLaunchOptions,
+            },
+        });
+    }
+
+    if (!process.env.PUPPETEER_EXECUTABLE_PATH?.trim()) {
+        launchStrategies.push(...getSystemBrowserFallbacks(baseLaunchOptions));
+    }
+
+    console.error("[pdf] chromium launch plan", {
         platform: process.platform,
         nodeVersion: process.versions.node,
         executablePath: executablePath ?? "<puppeteer default>",
         cwd: process.cwd(),
         dumpio,
         args: DESKTOP_CHROMIUM_ARGS,
+        strategies: launchStrategies.map((strategy) => ({
+            name: strategy.name,
+            executablePath: strategy.executablePath ?? null,
+            channel: strategy.launchOptions.channel ?? null,
+        })),
     });
 
     let browser;
-    try {
-        browser = await puppeteer.launch(launchOptions);
-    } catch (error) {
-        console.error("[pdf] puppeteer launch failed", {
-            platform: process.platform,
-            nodeVersion: process.versions.node,
-            executablePath: executablePath ?? "<puppeteer default>",
-            cwd: process.cwd(),
-            dumpio,
-            args: DESKTOP_CHROMIUM_ARGS,
-            error: describeError(error),
-        });
-        throw new Error(
-            "PDF preview failed to launch browser. Please retry. If the problem persists, check desktop logs for Chromium diagnostics.",
-            { cause: error instanceof Error ? error : undefined },
-        );
-    }
+    browser = await launchWithFallback(launchStrategies);
 
     try {
         const page = await browser.newPage();
