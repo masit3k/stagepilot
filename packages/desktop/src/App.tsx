@@ -1413,7 +1413,9 @@ function NewGenericProjectPage({
   origin,
   fromPath,
 }: NewProjectPageProps) {
-  const [validityYear, setValidityYear] = useState(String(new Date().getFullYear()));
+  const currentYear = new Date().getFullYear();
+  const maxYear = currentYear + 10;
+  const [validityYear, setValidityYear] = useState<string>(String(currentYear));
   const [validityYearTouched, setValidityYearTouched] = useState(false);
   const [note, setNote] = useState("");
   const [bandRef, setBandRef] = useState("");
@@ -1421,20 +1423,20 @@ function NewGenericProjectPage({
   const [isCommitting, setIsCommitting] = useState(false);
   const initialSnapshotRef = useRef({ date: "", venue: "", bandRef: "" });
   function validateValidityYear(raw: string): string | null {
-    const trimmed = raw.trim();
+    const value = raw.trim();
 
-    if (!trimmed) return "Year is required.";
+    if (!value) return "Year is required.";
 
-    if (!/^\d{4}$/.test(trimmed)) {
+    if (!/^\d{4}$/.test(value)) {
       return "Enter a valid year (YYYY).";
     }
 
-    const year = Number(trimmed);
-    const min = new Date().getFullYear();
-    const max = min + 10;
+    const year = Number(value);
 
-    if (year < min) return "Year cannot be in the past.";
-    if (year > max) return `Year must be between ${min} and ${max}.`;
+    if (Number.isNaN(year)) return "Enter a valid year (YYYY).";
+
+    if (year < currentYear) return "Year cannot be in the past.";
+    if (year > maxYear) return `Year must be between ${currentYear} and ${maxYear}.`;
 
     return null;
   }
@@ -1565,10 +1567,13 @@ function NewGenericProjectPage({
         <label>
           Validity year *
           <input
-            type="text"
+            type="number"
             inputMode="numeric"
+            min={currentYear}
+            max={maxYear}
+            step={1}
             value={validityYear}
-            placeholder={String(new Date().getFullYear())}
+            placeholder={String(currentYear)}
             onChange={(e) => {
               setValidityYear(e.target.value);
               setStatus("");
