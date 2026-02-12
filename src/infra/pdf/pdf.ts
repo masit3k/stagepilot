@@ -11,7 +11,6 @@ const DESKTOP_CHROMIUM_ARGS = [
     "--disable-dev-shm-usage",
     "--disable-gpu",
     "--no-sandbox",
-    "--no-zygote",
     "--font-render-hinting=none",
 ];
 
@@ -70,16 +69,20 @@ export async function renderPdf(vm: DocumentViewModel, opts: RenderPdfOptions): 
     await fs.mkdir(path.dirname(opts.outFile), { recursive: true });
 
     const executablePath = resolveChromiumExecutablePath();
+    const dumpio = process.env.STAGEPILOT_PDF_DUMPIO === "1";
     const launchOptions = {
         headless: true,
-        dumpio: true,
+        dumpio,
         args: DESKTOP_CHROMIUM_ARGS,
         ...(executablePath ? { executablePath } : {}),
     } as const;
 
     console.error("[pdf] launching chromium", {
+        platform: process.platform,
+        nodeVersion: process.versions.node,
         executablePath: executablePath ?? "<puppeteer default>",
         cwd: process.cwd(),
+        dumpio,
         args: DESKTOP_CHROMIUM_ARGS,
     });
 
@@ -88,8 +91,11 @@ export async function renderPdf(vm: DocumentViewModel, opts: RenderPdfOptions): 
         browser = await puppeteer.launch(launchOptions);
     } catch (error) {
         console.error("[pdf] puppeteer launch failed", {
+            platform: process.platform,
+            nodeVersion: process.versions.node,
             executablePath: executablePath ?? "<puppeteer default>",
             cwd: process.cwd(),
+            dumpio,
             args: DESKTOP_CHROMIUM_ARGS,
             error: describeError(error),
         });
