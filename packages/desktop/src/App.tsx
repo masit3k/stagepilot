@@ -1159,9 +1159,9 @@ function NewEventProjectPage({
   const selectedBand = bands.find((band) => band.id === bandRef);
   const canSubmit = Boolean(
     eventDateIso &&
-      !isPastIsoDate(eventDateIso, todayIso) &&
-      eventVenue.trim() &&
-      selectedBand,
+    !isPastIsoDate(eventDateIso, todayIso) &&
+    eventVenue.trim() &&
+    selectedBand,
   );
 
   useEffect(() => {
@@ -1413,8 +1413,8 @@ function NewGenericProjectPage({
   const selectedBand = bands.find((band) => band.id === bandRef);
   const canSubmit = Boolean(
     selectedBand &&
-      /^\d{4}$/.test(year) &&
-      !isValidityYearInPast(year, currentYear),
+    /^\d{4}$/.test(year) &&
+    !isValidityYearInPast(year, currentYear),
   );
 
   useEffect(() => {
@@ -1530,6 +1530,7 @@ function NewGenericProjectPage({
           <input
             type="text"
             value={note}
+            placeholder="e.g. tour name or version"
             onChange={(e) => setNote(e.target.value)}
           />
         </label>
@@ -1691,11 +1692,11 @@ function ProjectSetupPage({
       !setupData
         ? []
         : validateLineup(
-            lineup,
-            setupData.constraints,
-            ROLE_ORDER,
-            setupData.roleConstraints,
-          ),
+          lineup,
+          setupData.constraints,
+          ROLE_ORDER,
+          setupData.roleConstraints,
+        ),
     [lineup, setupData],
   );
   const selectedMusicianIds = useMemo(
@@ -1797,14 +1798,14 @@ function ProjectSetupPage({
   const summarySecondary =
     project?.purpose === "event"
       ? [
-          project.eventDate ? formatIsoDateToUs(project.eventDate) : "",
-          project.eventVenue ?? "",
-        ]
-          .filter(Boolean)
-          .join(" • ")
+        project.eventDate ? formatIsoDateToUs(project.eventDate) : "",
+        project.eventVenue ?? "",
+      ]
+        .filter(Boolean)
+        .join(" • ")
       : [project?.documentDate?.slice(0, 4) ?? "", project?.note ?? ""]
-          .filter(Boolean)
-          .join(" • ");
+        .filter(Boolean)
+        .join(" • ");
   const resetModalRef = useModalBehavior(showResetConfirmation, () =>
     setShowResetConfirmation(false),
   );
@@ -1842,87 +1843,87 @@ function ProjectSetupPage({
       <div className="lineup-grid">
         {setupData
           ? ROLE_ORDER.map((role) => {
-              const constraint = normalizeRoleConstraint(
-                role,
-                setupData.constraints[role],
-              );
-              const selected = normalizeLineupValue(
-                lineup[role],
-                constraint.max,
-              );
-              const members = setupData.members[role] || [];
-              return (
-                <article key={role} className="lineup-card">
-                  <h3>
-                    {getRoleDisplayName(
-                      role,
-                      setupData.constraints,
-                      setupData.roleConstraints,
-                    )}
-                  </h3>
-                  <div className="lineup-card__body section-divider">
-                    <div className="lineup-list lineup-list--single">
-                      {(selected.length ? selected : [""]).map(
-                        (musicianId, index) => {
-                          const alternatives = members.filter(
-                            (m) => m.id !== musicianId,
-                          );
-                          return (
-                            <div
-                              key={`${role}-${index}`}
-                              className="lineup-list__row"
+            const constraint = normalizeRoleConstraint(
+              role,
+              setupData.constraints[role],
+            );
+            const selected = normalizeLineupValue(
+              lineup[role],
+              constraint.max,
+            );
+            const members = setupData.members[role] || [];
+            return (
+              <article key={role} className="lineup-card">
+                <h3>
+                  {getRoleDisplayName(
+                    role,
+                    setupData.constraints,
+                    setupData.roleConstraints,
+                  )}
+                </h3>
+                <div className="lineup-card__body section-divider">
+                  <div className="lineup-list lineup-list--single">
+                    {(selected.length ? selected : [""]).map(
+                      (musicianId, index) => {
+                        const alternatives = members.filter(
+                          (m) => m.id !== musicianId,
+                        );
+                        return (
+                          <div
+                            key={`${role}-${index}`}
+                            className="lineup-list__row"
+                          >
+                            <span className="lineup-list__name">
+                              {musicianId
+                                ? (members.find((m) => m.id === musicianId)
+                                  ?.name ?? musicianId)
+                                : "Not selected"}
+                            </span>
+                            <button
+                              type="button"
+                              className="button-secondary"
+                              disabled={alternatives.length === 0}
+                              onClick={() =>
+                                setEditing({
+                                  role,
+                                  slotIndex: index,
+                                  currentSelectedId: musicianId || undefined,
+                                })
+                              }
                             >
-                              <span className="lineup-list__name">
-                                {musicianId
-                                  ? (members.find((m) => m.id === musicianId)
-                                      ?.name ?? musicianId)
-                                  : "Not selected"}
-                              </span>
-                              <button
-                                type="button"
-                                className="button-secondary"
-                                disabled={alternatives.length === 0}
-                                onClick={() =>
-                                  setEditing({
-                                    role,
-                                    slotIndex: index,
-                                    currentSelectedId: musicianId || undefined,
-                                  })
-                                }
-                              >
-                                Change
-                              </button>
-                            </div>
-                          );
-                        },
-                      )}
-                    </div>
-                  </div>
-                </article>
-              );
-            })
-          : ROLE_ORDER.map((role) => {
-              const constraint = normalizeRoleConstraint(role);
-              return (
-                <article key={role} className="lineup-card">
-                  <h3>{getRoleDisplayName(role)}</h3>
-                  <div className="lineup-card__body section-divider">
-                    <div className="lineup-list lineup-list--single">
-                      {Array.from({ length: Math.max(1, constraint.max) }).map(
-                        (_, index) => (
-                          <div key={`${role}-${index}`} className="lineup-list__row">
-                            <span className="lineup-list__name">Not selected</span>
-                            <button type="button" className="button-secondary" disabled>
                               Change
                             </button>
                           </div>
-                        ),
-                      )}
-                    </div>
+                        );
+                      },
+                    )}
                   </div>
-                </article>
-              );
-            })}
+                </div>
+              </article>
+            );
+          })
+          : ROLE_ORDER.map((role) => {
+            const constraint = normalizeRoleConstraint(role);
+            return (
+              <article key={role} className="lineup-card">
+                <h3>{getRoleDisplayName(role)}</h3>
+                <div className="lineup-card__body section-divider">
+                  <div className="lineup-list lineup-list--single">
+                    {Array.from({ length: Math.max(1, constraint.max) }).map(
+                      (_, index) => (
+                        <div key={`${role}-${index}`} className="lineup-list__row">
+                          <span className="lineup-list__name">Not selected</span>
+                          <button type="button" className="button-secondary" disabled>
+                            Change
+                          </button>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                </div>
+              </article>
+            );
+          })}
         <p className="subtle">
           Select the on-site band lead for coordination and decisions.
         </p>
@@ -2028,47 +2029,47 @@ function ProjectSetupPage({
         open={showResetConfirmation}
         onClose={() => setShowResetConfirmation(false)}
       >
-          <div
-            className="selector-dialog"
-            role="alertdialog"
-            aria-modal="true"
-            ref={resetModalRef}
+        <div
+          className="selector-dialog"
+          role="alertdialog"
+          aria-modal="true"
+          ref={resetModalRef}
+        >
+          <button
+            type="button"
+            className="modal-close"
+            onClick={() => setShowResetConfirmation(false)}
+            aria-label="Close"
           >
+            ×
+          </button>
+          <div className="panel__header panel__header--stack">
+            <h3>Reset to defaults?</h3>
+            <p className="subtle">
+              This will reset lineup, band leader, and talkback to the band
+              defaults.
+            </p>
+          </div>
+          <div className="modal-actions">
             <button
               type="button"
-              className="modal-close"
+              className="button-secondary"
               onClick={() => setShowResetConfirmation(false)}
-              aria-label="Close"
             >
-              ×
+              Cancel
             </button>
-            <div className="panel__header panel__header--stack">
-              <h3>Reset to defaults?</h3>
-              <p className="subtle">
-                This will reset lineup, band leader, and talkback to the band
-                defaults.
-              </p>
-            </div>
-            <div className="modal-actions">
-              <button
-                type="button"
-                className="button-secondary"
-                onClick={() => setShowResetConfirmation(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!setupData) return;
-                  applyState({ ...(setupData.defaultLineup ?? {}) }, setupData);
-                  setShowResetConfirmation(false);
-                }}
-              >
-                Reset
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (!setupData) return;
+                applyState({ ...(setupData.defaultLineup ?? {}) }, setupData);
+                setShowResetConfirmation(false);
+              }}
+            >
+              Reset
+            </button>
           </div>
+        </div>
       </ModalOverlay>
 
       <ModalOverlay open={Boolean(editing && setupData)} onClose={() => setEditing(null)}>
@@ -2218,26 +2219,26 @@ function LibraryBandDetailPage({ bandId, navigate, registerNavigationGuard }: Li
         const first = musicians[0]; if (!first) return;
         setBand({ ...band, members: [...band.members, { musicianId: first.id, roles: ['vocs'], isDefault: false }] });
       }}>+ Add member</button></div>
-      <div className="lineup-list">{band.members.map((member, index) => (
-        <div key={`${member.musicianId}-${index}`} className="lineup-list__row"><span>{musicians.find((m) => m.id === member.musicianId)?.name ?? member.musicianId}</span><span>{member.roles.join(', ')}</span><button type="button" className="button-secondary" onClick={() => setBand({ ...band, members: band.members.filter((_, idx) => idx !== index) })}>Remove</button></div>
-      ))}</div></article>
+        <div className="lineup-list">{band.members.map((member, index) => (
+          <div key={`${member.musicianId}-${index}`} className="lineup-list__row"><span>{musicians.find((m) => m.id === member.musicianId)?.name ?? member.musicianId}</span><span>{member.roles.join(', ')}</span><button type="button" className="button-secondary" onClick={() => setBand({ ...band, members: band.members.filter((_, idx) => idx !== index) })}>Remove</button></div>
+        ))}</div></article>
       <article className="lineup-card"><div className="panel__header"><h3>Default lineup</h3></div>
-      <div className="lineup-grid">{ROLE_ORDER.map((role) => {
-        const constraint = normalizeRoleConstraint(role, band.constraints[role]);
-        const slots = normalizeLineupValue((band.defaultLineup ?? {})[role], constraint.max);
-        return <div key={role} className="lineup-card"><strong>{getRoleDisplayName(role, band.constraints, band.roleConstraints)}</strong>{Array.from({ length: Math.max(constraint.max, 1) }).map((_, idx) => <div key={idx} className="lineup-list__row"><span>{musicians.find((m) => m.id === slots[idx])?.name ?? 'Not set'}</span><button type="button" className="button-secondary" onClick={() => {
-          const selected = musicians[idx % Math.max(musicians.length, 1)];
-          if (!selected) return;
-          const current = normalizeLineupValue((band.defaultLineup ?? {})[role], constraint.max);
-          while (current.length < Math.max(constraint.max, idx + 1)) current.push('');
-          current[idx] = selected.id;
-          setBand({ ...band, defaultLineup: { ...(band.defaultLineup ?? {}), [role]: constraint.max === 1 ? current[0] : current.filter(Boolean) } });
-        }}>Change</button></div>)}</div>;
-      })}</div></article>
+        <div className="lineup-grid">{ROLE_ORDER.map((role) => {
+          const constraint = normalizeRoleConstraint(role, band.constraints[role]);
+          const slots = normalizeLineupValue((band.defaultLineup ?? {})[role], constraint.max);
+          return <div key={role} className="lineup-card"><strong>{getRoleDisplayName(role, band.constraints, band.roleConstraints)}</strong>{Array.from({ length: Math.max(constraint.max, 1) }).map((_, idx) => <div key={idx} className="lineup-list__row"><span>{musicians.find((m) => m.id === slots[idx])?.name ?? 'Not set'}</span><button type="button" className="button-secondary" onClick={() => {
+            const selected = musicians[idx % Math.max(musicians.length, 1)];
+            if (!selected) return;
+            const current = normalizeLineupValue((band.defaultLineup ?? {})[role], constraint.max);
+            while (current.length < Math.max(constraint.max, idx + 1)) current.push('');
+            current[idx] = selected.id;
+            setBand({ ...band, defaultLineup: { ...(band.defaultLineup ?? {}), [role]: constraint.max === 1 ? current[0] : current.filter(Boolean) } });
+          }}>Change</button></div>)}</div>;
+        })}</div></article>
       <article className="lineup-card"><div className="panel__header"><h3>Contacts</h3><button type="button" className="button-secondary" onClick={() => setBand({ ...band, contacts: [...band.contacts, { id: crypto.randomUUID(), name: 'New Contact' }] })}>+ Add contact</button></div>
-      {band.contacts.map((contact) => <div key={contact.id} className="lineup-list__row"><input value={contact.name} onChange={(e) => setBand({ ...band, contacts: band.contacts.map((item) => item.id === contact.id ? { ...item, name: e.target.value } : item) })} /><button type="button" className="button-secondary" onClick={() => setBand({ ...band, contacts: band.contacts.filter((item) => item.id !== contact.id) })}>Remove</button></div>)}</article>
+        {band.contacts.map((contact) => <div key={contact.id} className="lineup-list__row"><input value={contact.name} onChange={(e) => setBand({ ...band, contacts: band.contacts.map((item) => item.id === contact.id ? { ...item, name: e.target.value } : item) })} /><button type="button" className="button-secondary" onClick={() => setBand({ ...band, contacts: band.contacts.filter((item) => item.id !== contact.id) })}>Remove</button></div>)}</article>
       <article className="lineup-card"><div className="panel__header"><h3>Messages</h3><button type="button" className="button-secondary" onClick={() => setBand({ ...band, messages: [...band.messages, { id: crypto.randomUUID(), name: 'New Message', body: '' }] })}>+ Add message</button></div>
-      {band.messages.map((message) => <label key={message.id}>{message.name}<textarea value={message.body} onChange={(e) => setBand({ ...band, messages: band.messages.map((item) => item.id === message.id ? { ...item, body: e.target.value } : item) })} /></label>)}</article>
+        {band.messages.map((message) => <label key={message.id}>{message.name}<textarea value={message.body} onChange={(e) => setBand({ ...band, messages: band.messages.map((item) => item.id === message.id ? { ...item, body: e.target.value } : item) })} /></label>)}</article>
       {status ? <p className="status status--error">{status}</p> : null}
       <div className="setup-action-bar"><button type="button" className="button-secondary" onClick={() => navigate('/library/bands')}>Back</button><button type="button" className="button-secondary" onClick={() => navigate('/library/bands')}>Cancel</button><button type="button" onClick={async () => { await saveBand(); navigate('/library/bands'); }}>Save</button></div>
     </section>
@@ -2647,7 +2648,7 @@ function ProjectPreviewPage({
       <div className="pdf-preview-panel">
         <div className="preview-container">
           {previewState.kind === "generating" ||
-          previewState.kind === "idle" ? (
+            previewState.kind === "idle" ? (
             <p className="subtle">Generating preview…</p>
           ) : null}
           {previewState.kind === "ready" && previewUrl ? (
