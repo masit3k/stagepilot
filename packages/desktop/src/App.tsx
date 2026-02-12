@@ -14,12 +14,10 @@ import {
   formatDateDigitsToDDMMYYYY,
   formatIsoDateToUs,
   formatIsoToDateTimeDisplay,
-  getCurrentYearLocal,
   getTodayIsoLocal,
   getUniqueSelectedMusicians,
   getRoleDisplayName,
   isPastIsoDate,
-  isValidityYearInPast,
   matchLibraryBandDetailPath,
   matchProjectEventPath,
   matchProjectGenericPath,
@@ -975,6 +973,7 @@ function EventDateInput({
   value,
   isoValue,
   minIso,
+  maxIso,
   onInput,
   onIsoSelect,
   onBlur,
@@ -983,6 +982,7 @@ function EventDateInput({
   value: string;
   isoValue: string;
   minIso: string;
+  maxIso: string;
   onInput: (value: string) => void;
   onIsoSelect: (iso: string) => void;
   onBlur: () => void;
@@ -1096,7 +1096,7 @@ function EventDateInput({
               ),
             )}
             {days.map((day) => {
-              const isDisabled = day.iso < minIso;
+              const isDisabled = day.iso < minIso || day.iso > maxIso;
               const isSelected = day.iso === isoValue;
               return (
                 <button
@@ -1156,10 +1156,16 @@ function NewEventProjectPage({
   const [isCommitting, setIsCommitting] = useState(false);
   const initialSnapshotRef = useRef({ date: "", venue: "", bandRef: "" });
   const todayIso = getTodayIsoLocal();
+  const maxEventDateIso = useMemo(() => {
+    const base = new Date(`${todayIso}T00:00:00`);
+    base.setFullYear(base.getFullYear() + 10);
+    return getTodayIsoLocal(base);
+  }, [todayIso]);
   const selectedBand = bands.find((band) => band.id === bandRef);
   const canSubmit = Boolean(
     eventDateIso &&
     !isPastIsoDate(eventDateIso, todayIso) &&
+    eventDateIso <= maxEventDateIso &&
     eventVenue.trim() &&
     selectedBand,
   );
@@ -1189,6 +1195,9 @@ function NewEventProjectPage({
     const parsed = parseDDMMYYYYToISO(value);
     if (!parsed) return "Invalid date. Use DD/MM/YYYY.";
     if (isPastIsoDate(parsed, todayIso)) return "Date cannot be in the past.";
+    if (parsed > maxEventDateIso) {
+      return `Date must be between today and ${formatIsoDateToUs(maxEventDateIso)}.`;
+    }
     return "";
   }
 
@@ -1318,6 +1327,7 @@ function NewEventProjectPage({
             value={eventDateInput}
             isoValue={eventDateIso}
             minIso={todayIso}
+            maxIso={maxEventDateIso}
             onInput={updateDateInput}
             inputId="event-date-input"
             onBlur={() => {
@@ -1403,19 +1413,37 @@ function NewGenericProjectPage({
   origin,
   fromPath,
 }: NewProjectPageProps) {
-  const currentYear = getCurrentYearLocal();
-  const [year, setYear] = useState(String(currentYear));
+  const [validityYear, setValidityYear] = useState(String(new Date().getFullYear()));
+  const [validityYearTouched, setValidityYearTouched] = useState(false);
   const [note, setNote] = useState("");
   const [bandRef, setBandRef] = useState("");
   const [status, setStatus] = useState("");
   const [isCommitting, setIsCommitting] = useState(false);
   const initialSnapshotRef = useRef({ date: "", venue: "", bandRef: "" });
+  function validateValidityYear(raw: string): string | null {
+    const trimmed = raw.trim();
+
+    if (!trimmed) return "Year is required.";
+
+    if (!/^\d{4}$/.test(trimmed)) {
+      return "Enter a valid year (YYYY).";
+    }
+
+    const year = Number(trimmed);
+    const min = new Date().getFullYear();
+    const max = min + 10;
+
+    if (year < min) return "Year cannot be in the past.";
+    if (year > max) return `Year must be between ${min} and ${max}.`;
+
+    return null;
+  }
+
+  const validityYearError = validityYearTouched
+    ? validateValidityYear(validityYear)
+    : null;
   const selectedBand = bands.find((band) => band.id === bandRef);
-  const canSubmit = Boolean(
-    selectedBand &&
-    /^\d{4}$/.test(year) &&
-    !isValidityYearInPast(year, currentYear),
-  );
+  const canSubmit = Boolean(selectedBand && !validateValidityYear(validityYear));
 
   useEffect(() => {
     if (!editingProjectId) return;
@@ -1424,7 +1452,7 @@ function NewGenericProjectPage({
         const project = JSON.parse(raw) as NewProjectPayload;
         setBandRef(project.bandRef);
         setNote(project.note ?? "");
-        setYear(project.documentDate.slice(0, 4));
+        setValidityYear(project.documentDate.slice(0, 4));
         initialSnapshotRef.current = {
           date: project.eventDate ?? "",
           venue: (project.eventVenue ?? "").trim(),
@@ -1459,11 +1487,11 @@ function NewGenericProjectPage({
     }
     const payload: NewProjectPayload = {
       id,
-      slug: formatProjectSlug({ purpose: "generic", documentDate: `${year}-01-01`, note }, selectedBand),
-      displayName: formatProjectDisplayName({ purpose: "generic", documentDate: `${year}-01-01`, note }, selectedBand),
+      slug: formatProjectSlug({ purpose: "generic", documentDate: `${validityYear}-01-01`, note }, selectedBand),
+      displayName: formatProjectDisplayName({ purpose: "generic", documentDate: `${validityYear}-01-01`, note }, selectedBand),
       purpose: "generic",
       bandRef: selectedBand.id,
-      documentDate: `${year}-01-01`,
+      documentDate: `${validityYear}-01-01`,
       ...(note.trim() ? { note: note.trim() } : {}),
       createdAt: nowIso,
       updatedAt: nowIso,
@@ -1475,7 +1503,7 @@ function NewGenericProjectPage({
       json: JSON.stringify(toPersistableProject(payload), null, 2),
     });
     await onCreated();
-  }, [editingProjectId, note, onCreated, selectedBand, year]);
+  }, [editingProjectId, note, onCreated, selectedBand, validityYear]);
 
   useEffect(() => {
     registerNavigationGuard({
@@ -1537,15 +1565,20 @@ function NewGenericProjectPage({
         <label>
           Validity year *
           <input
-            type="number"
-            min={currentYear}
-            max="2100"
-            value={year}
+            type="text"
+            inputMode="numeric"
+            value={validityYear}
+            placeholder={String(new Date().getFullYear())}
             onChange={(e) => {
-              setYear(e.target.value);
+              setValidityYear(e.target.value);
               setStatus("");
             }}
+            onBlur={() => setValidityYearTouched(true)}
+            aria-invalid={Boolean(validityYearError)}
           />
+          {validityYearError ? (
+            <p className="field-error">{validityYearError}</p>
+          ) : null}
         </label>
       </div>
       {status ? <p className="status status--error">{status}</p> : null}

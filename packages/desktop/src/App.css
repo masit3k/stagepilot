@@ -450,6 +450,10 @@ select {
   color: #b91c1c;
   font-size: 0.86rem;
 }
+
+input[aria-invalid="true"] {
+  border-color: #c62828;
+}
 .calendar-popover {
   position: absolute;
   top: calc(100% + 8px);
