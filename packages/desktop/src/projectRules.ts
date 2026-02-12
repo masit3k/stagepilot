@@ -20,6 +20,14 @@ const PROJECT_PREVIEW_PATTERN =
   /^\/projects\/([^/]+)\/(?:preview|pdf-preview)$/;
 const RESERVED_PROJECT_IDS = new Set(["new"]);
 
+const LIBRARY_BAND_DETAIL_PATTERN = /^\/library\/bands\/([^/]+)$/;
+
+export function matchLibraryBandDetailPath(pathname: string): string | null {
+  const match = pathname.match(LIBRARY_BAND_DETAIL_PATTERN);
+  if (!match) return null;
+  return decodeURIComponent(match[1]);
+}
+
 function decodeProjectId(match: RegExpMatchArray | null): string | null {
   if (!match) return null;
   const id = decodeURIComponent(match[1]);

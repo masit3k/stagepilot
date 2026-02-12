@@ -40,6 +40,40 @@ body {
 }
 button,
 input,
+select,
+textarea {
+  font: inherit;
+}
+textarea {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  padding: 8px 10px;
+  min-height: 96px;
+  resize: vertical;
+}
+.top-tabs {
+  display: flex;
+  gap: 10px;
+}
+.top-tabs .button-secondary {
+  min-width: 120px;
+}
+.library-table {
+  display: grid;
+  gap: 8px;
+}
+.library-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.2fr) minmax(90px, 1fr) minmax(90px, 0.7fr) minmax(120px, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px;
+}
+input,
 select {
   font: inherit;
 }
@@ -288,6 +322,36 @@ button:hover:not(:disabled):not(.button-secondary):not(.button-ghost):not(
 label {
   display: grid;
   gap: 6px;
+}
+
+textarea {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  padding: 8px 10px;
+  min-height: 96px;
+  resize: vertical;
+}
+.top-tabs {
+  display: flex;
+  gap: 10px;
+}
+.top-tabs .button-secondary {
+  min-width: 120px;
+}
+.library-table {
+  display: grid;
+  gap: 8px;
+}
+.library-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.2fr) minmax(90px, 1fr) minmax(90px, 0.7fr) minmax(120px, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px;
 }
 input,
 select {
