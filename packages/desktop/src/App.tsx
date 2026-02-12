@@ -2679,7 +2679,7 @@ function ProjectPreviewPage({
           className="button-secondary"
           onClick={() => navigate(backToEditPath)}
         >
-          Edit project
+          Edit Project
         </button>
         <button
           type="button"
@@ -2688,7 +2688,7 @@ function ProjectPreviewPage({
             navigate(withFrom(`/projects/${id}/setup`, "preview", previewRoute))
           }
         >
-          Edit lineup
+          Edit Lineup
         </button>
         <button type="button" disabled={isGeneratingPdf} onClick={runExport}>
           {isGeneratingPdf ? "Generating…" : "Generate PDF"}
