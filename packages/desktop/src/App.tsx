@@ -293,6 +293,32 @@ function useModalBehavior(open: boolean, onClose: () => void) {
   return dialogRef;
 }
 
+function ModalOverlay({
+  open,
+  onClose,
+  children,
+  className,
+}: {
+  open: boolean;
+  onClose: () => void;
+  children: ReactNode;
+  className?: string;
+}) {
+  if (!open) return null;
+  return createPortal(
+    <div
+      className={className ? `selector-overlay ${className}` : "selector-overlay"}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+      role="presentation"
+    >
+      {children}
+    </div>,
+    document.body,
+  );
+}
+
 function App() {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [bands, setBands] = useState<BandOption[]>([]);
@@ -1767,16 +1793,7 @@ function ProjectSetupPage({
     () => new URLSearchParams(search).get("fromPath"),
     [search],
   );
-  const navigationContext = useMemo(
-    () =>
-      getNavigationContextLabel(new URLSearchParams(search).get("from")) ||
-      "Project Setup",
-    [search],
-  );
   const bandName = project?.displayName ?? setupData?.name ?? project?.bandRef ?? "—";
-  const projectContext = project
-    ? `${project.displayName || project.id}${project.slug ? ` · ${project.slug}` : ""}`
-    : "";
   const summarySecondary =
     project?.purpose === "event"
       ? [
@@ -1801,10 +1818,6 @@ function ProjectSetupPage({
       <div className="panel__header">
         <h1>Lineup Setup</h1>
       </div>
-      {projectContext ? (
-        <p className="subtle page-context">Project: {projectContext}</p>
-      ) : null}
-      <p className="subtle page-context">Opened from: {navigationContext}</p>
       <div className="lineup-meta">
         <div className="band-name">{bandName}</div>
         <div className="band-meta">{summarySecondary || "—"}</div>
@@ -2011,15 +2024,10 @@ function ProjectSetupPage({
         </button>
       </div>
 
-      {showResetConfirmation ? (
-        <dialog
-          className="selector-overlay modal-backdrop"
-          open
-          onCancel={(event) => {
-            event.preventDefault();
-            setShowResetConfirmation(false);
-          }}
-        >
+      <ModalOverlay
+        open={showResetConfirmation}
+        onClose={() => setShowResetConfirmation(false)}
+      >
           <div
             className="selector-dialog"
             role="alertdialog"
@@ -2061,18 +2069,10 @@ function ProjectSetupPage({
               </button>
             </div>
           </div>
-        </dialog>
-      ) : null}
+      </ModalOverlay>
 
-      {editing && setupData ? (
-        <dialog
-          className="selector-overlay modal-backdrop"
-          open
-          onCancel={(event) => {
-            event.preventDefault();
-            setEditing(null);
-          }}
-        >
+      <ModalOverlay open={Boolean(editing && setupData)} onClose={() => setEditing(null)}>
+        {editing && setupData ? (
           <div
             className="selector-dialog selector-dialog--musician-select"
             role="dialog"
@@ -2126,8 +2126,8 @@ function ProjectSetupPage({
               ))}
             </div>
           </div>
-        </dialog>
-      ) : null}
+        ) : null}
+      </ModalOverlay>
     </section>
   );
 }
@@ -2283,7 +2283,7 @@ function LibrarySimpleEntityPage({
           <div key={row.id} className="library-row"><span>{row.name}</span><span>{row.detail || '—'}</span><div className="project-actions"><button type="button" className="button-secondary" onClick={() => onEdit(row.id)}>Edit</button><button type="button" className="button-secondary" onClick={() => onDelete(row.id)}>Delete</button></div></div>
         ))}
       </div>
-      {modal ? <dialog className="selector-overlay modal-backdrop" open onCancel={(e)=>{e.preventDefault(); onCloseModal();}}><div className="selector-dialog"><button type="button" className="modal-close" onClick={onCloseModal}>×</button>{modal}</div></dialog> : null}
+      <ModalOverlay open={Boolean(modal)} onClose={onCloseModal}><div className="selector-dialog"><button type="button" className="modal-close" onClick={onCloseModal}>×</button>{modal}</div></ModalOverlay>
     </section>
   );
 }
@@ -2335,14 +2335,7 @@ function ExportResultModal({
   const isSuccess = state.kind === "success";
   const dialogRef = useModalBehavior(Boolean(state), onClose);
   return (
-    <dialog
-      className="selector-overlay modal-backdrop"
-      open
-      onCancel={(event) => {
-        event.preventDefault();
-        onClose();
-      }}
-    >
+    <ModalOverlay open={Boolean(state)} onClose={onClose}>
       <div
         className="selector-dialog"
         role="dialog"
@@ -2411,7 +2404,7 @@ function ExportResultModal({
           )}
         </div>
       </div>
-    </dialog>
+    </ModalOverlay>
   );
 }
 
@@ -2427,16 +2420,8 @@ function UnsavedChangesModal({
   onStay: () => void;
 }) {
   const dialogRef = useModalBehavior(open, onStay);
-  if (!open) return null;
-  return createPortal(
-    <dialog
-      className="selector-overlay modal-backdrop selector-overlay--topmost"
-      open
-      onCancel={(event) => {
-        event.preventDefault();
-        onStay();
-      }}
-    >
+  return (
+    <ModalOverlay open={open} onClose={onStay} className="selector-overlay--topmost">
       <div
         className="selector-dialog"
         role="alertdialog"
@@ -2473,23 +2458,14 @@ function UnsavedChangesModal({
           </button>
         </div>
       </div>
-    </dialog>,
-    document.body,
+    </ModalOverlay>
   );
 }
 
 function AboutModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const dialogRef = useModalBehavior(open, onClose);
-  if (!open) return null;
   return (
-    <dialog
-      className="selector-overlay modal-backdrop"
-      open
-      onCancel={(event) => {
-        event.preventDefault();
-        onClose();
-      }}
-    >
+    <ModalOverlay open={open} onClose={onClose}>
       <div
         className="selector-dialog about-dialog"
         role="dialog"
@@ -2532,7 +2508,7 @@ function AboutModal({ open, onClose }: { open: boolean; onClose: () => void }) {
           </p>
         </div>
       </div>
-    </dialog>
+    </ModalOverlay>
   );
 }
 
@@ -2655,10 +2631,6 @@ function ProjectPreviewPage({
     project?.purpose === "generic"
       ? withFrom(`/projects/${id}/generic`, "pdfPreview", previewRoute)
       : withFrom(`/projects/${id}/event`, "pdfPreview", previewRoute);
-  const navigationContext = useMemo(
-    () => getNavigationContextLabel(new URLSearchParams(search).get("from")),
-    [search],
-  );
 
   return (
     <section className="panel panel--preview">
@@ -2672,10 +2644,6 @@ function ProjectPreviewPage({
           Back to Hub
         </button>
       </div>
-      {navigationContext ? (
-        <p className="subtle page-context">Opened from: {navigationContext}</p>
-      ) : null}
-      <p className="subtle">{project?.slug || id}</p>
       <div className="pdf-preview-panel">
         <div className="preview-container">
           {previewState.kind === "generating" ||
@@ -2711,7 +2679,7 @@ function ProjectPreviewPage({
           className="button-secondary"
           onClick={() => navigate(backToEditPath)}
         >
-          Back to Edit Project
+          Edit project
         </button>
         <button
           type="button"
@@ -2720,7 +2688,7 @@ function ProjectPreviewPage({
             navigate(withFrom(`/projects/${id}/setup`, "preview", previewRoute))
           }
         >
-          Back to Lineup
+          Edit lineup
         </button>
         <button type="button" disabled={isGeneratingPdf} onClick={runExport}>
           {isGeneratingPdf ? "Generating…" : "Generate PDF"}
