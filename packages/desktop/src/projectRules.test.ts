@@ -14,6 +14,8 @@ import {
   parseUsDateInput,
   validateLineup,
   resolveBandLeaderId,
+  formatProjectDisplayName,
+  formatProjectSlug,
   sanitizeVenueSlug,
   shouldPromptUnsavedChanges,
 } from "./projectRules";
@@ -39,13 +41,29 @@ describe("routing guards", () => {
   });
 });
 
-describe("project id venue formatting", () => {
+describe("project naming formatting", () => {
   it("builds title-cased hyphen venue slug without diacritics", () => {
     expect(normalizeCity("Mladá Boleslav")).toBe("Mlada-Boleslav");
     expect(normalizeCity("Nové Město nad Metují")).toBe(
       "Nove-Mesto-Nad-Metuji",
     );
     expect(sanitizeVenueSlug("Mladá Boleslav")).toBe("Mlada-Boleslav");
+  });
+
+  it("builds event slug and displayName from canonical formatter", () => {
+    const band = { id: "cos", code: "CoS", name: "Couple of Sounds" };
+    const project = {
+      purpose: "event" as const,
+      eventDate: "2026-02-11",
+      eventVenue: "Praha",
+      documentDate: "2026-02-01",
+    };
+    expect(formatProjectSlug(project, band)).toBe(
+      "CoS_Inputlist_Stageplan_11-02-2026_Praha",
+    );
+    expect(formatProjectDisplayName(project, band)).toBe(
+      "Couple of Sounds – 11/02/2026 – Praha",
+    );
   });
 });
 
@@ -127,7 +145,7 @@ describe("role constraints", () => {
 });
 
 describe("export behavior", () => {
-  it("uses project id as export PDF filename", () => {
+  it("uses project slug as export PDF filename", () => {
     expect(
       buildExportFileName("CoS_Inputlist_Stageplan_11-02-2026_Mlada-Boleslav"),
     ).toBe("CoS_Inputlist_Stageplan_11-02-2026_Mlada-Boleslav.pdf");

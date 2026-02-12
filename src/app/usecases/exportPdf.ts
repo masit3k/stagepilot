@@ -2,6 +2,9 @@ import { access, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { isBandLeader } from "../../domain/model/bandLeader.js";
 import type { Band, Project, ProjectJson } from "../../domain/model/types.js";
+import {
+  formatProjectSlug,
+} from "../../domain/projectNaming.js";
 import { buildDocument } from "../../domain/pipeline/buildDocument.js";
 import { validateDocument } from "../../domain/rules/validateDocument.js";
 import { DATA_ROOT, USER_DATA_ROOT } from "../../infra/fs/dataRoot.js";
@@ -162,7 +165,10 @@ async function exportPdfFromProject(
     repo,
   );
 
-  const pdfFileName = `${project.id}.pdf`;
+  const slug = project.slug ?? formatProjectSlug(project, band);
+  console.info(`project=${projectId} slug=${slug}`);
+  // Uses slug (human doc key), not id (UUID).
+  const pdfFileName = `${slug}.pdf`;
 
   const { versionId, versionDir } = await prepareVersionDir(projectId, outDir);
   const pdfPath = path.join(versionDir, pdfFileName);
@@ -180,6 +186,7 @@ async function exportPdfFromProject(
     userDataRoot: outDir,
     meta: {
       projectId,
+      slug,
       generatedAt: getGeneratedAtUtc(),
       documentDate: project.documentDate,
       bandRef: project.bandRef,

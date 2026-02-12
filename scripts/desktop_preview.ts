@@ -4,6 +4,7 @@ import { argv, exit } from "node:process";
 import { loadDefaultContactLine } from "../src/app/usecases/exportPdf.js";
 import { normalizeProject } from "../src/app/usecases/normalizeProject.js";
 import type { ProjectJson } from "../src/domain/model/types.js";
+import { formatProjectSlug } from "../src/domain/projectNaming.js";
 import { buildDocument } from "../src/domain/pipeline/buildDocument.js";
 import { validateDocument } from "../src/domain/rules/validateDocument.js";
 import { loadJsonFile } from "../src/infra/fs/loadJson.js";
@@ -44,7 +45,9 @@ async function run(): Promise<Response> {
 
   const tmpDir = path.join(userDataDir, "temp");
   await mkdir(tmpDir, { recursive: true });
-  const previewPdfPath = path.join(tmpDir, `preview_${projectId}.pdf`);
+  const slug = project.slug ?? formatProjectSlug(project, band);
+  // Uses slug (human doc key), not id (UUID).
+  const previewPdfPath = path.join(tmpDir, `preview_${slug}.pdf`);
   await renderPdf(vm, { outFile: previewPdfPath, contactLine });
   return { ok: true, result: { previewPdfPath } };
 }

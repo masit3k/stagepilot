@@ -14,6 +14,7 @@ export type ProjectSnapshotMeta = {
   note?: string | null;
   eventDate?: string;
   eventVenue?: string;
+  slug?: string;
   pdfFileName: string;
   paths: {
     versionDir: string;

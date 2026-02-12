@@ -22,7 +22,9 @@ struct ApiError {
 #[serde(rename_all = "camelCase")]
 struct ProjectSummary {
     id: String,
+    slug: Option<String>,
     display_name: Option<String>,
+    legacy_id: Option<String>,
     band_ref: Option<String>,
     event_date: Option<String>,
     event_venue: Option<String>,
@@ -322,8 +324,16 @@ fn list_projects(app: tauri::AppHandle) -> Result<Vec<ProjectSummary>, ApiError>
 
         let summary = ProjectSummary {
             id,
+            slug: json
+                .get("slug")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
             display_name: json
                 .get("displayName")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
+            legacy_id: json
+                .get("legacyId")
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string()),
             band_ref: json
@@ -554,14 +564,30 @@ fn read_project(app: tauri::AppHandle, project_id: String) -> Result<String, Api
 }
 
 #[tauri::command]
-fn save_project(app: tauri::AppHandle, project_id: String, json: String) -> Result<(), ApiError> {
+fn save_project(
+    app: tauri::AppHandle,
+    project_id: String,
+    json: String,
+    legacy_project_id: Option<String>,
+) -> Result<(), ApiError> {
     let user_data_dir = resolve_user_data_dir(&app)?;
     let projects_dir = user_data_dir.join("projects");
     fs::create_dir_all(&projects_dir)
         .map_err(|err| map_io_error(err, "PROJECT_SAVE_FAILED", "Failed to create projects dir"))?;
     let project_path = projects_dir.join(format!("{}.json", project_id));
     fs::write(&project_path, json)
-        .map_err(|err| map_io_error(err, "PROJECT_SAVE_FAILED", "Failed to save project"))
+        .map_err(|err| map_io_error(err, "PROJECT_SAVE_FAILED", "Failed to save project"))?;
+
+    if let Some(legacy_id) = legacy_project_id {
+        if legacy_id != project_id {
+            let legacy_path = projects_dir.join(format!("{}.json", legacy_id));
+            if legacy_path.exists() {
+                let _ = fs::remove_file(legacy_path);
+            }
+        }
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -715,11 +741,11 @@ fn read_preview_pdf_bytes(preview_pdf_path: String) -> Result<Vec<u8>, ApiError>
 }
 
 #[tauri::command]
-fn cleanup_preview_pdf(app: tauri::AppHandle, project_id: String) -> Result<(), ApiError> {
+fn cleanup_preview_pdf(app: tauri::AppHandle, preview_key: String) -> Result<(), ApiError> {
     let user_data_dir = resolve_user_data_dir(&app)?;
     let preview_path = user_data_dir
         .join("temp")
-        .join(format!("preview_{}.pdf", project_id));
+        .join(format!("preview_{}.pdf", preview_key));
     if preview_path.exists() {
         fs::remove_file(&preview_path)
             .map_err(|err| map_io_error(err, "PREVIEW_FAILED", "Failed to remove preview PDF"))?;
@@ -737,13 +763,13 @@ fn get_exports_dir(app: tauri::AppHandle) -> Result<String, ApiError> {
 }
 
 #[tauri::command]
-fn default_export_pdf_path(app: tauri::AppHandle, project_id: String) -> Result<String, ApiError> {
+fn default_export_pdf_path(app: tauri::AppHandle, project_slug: String) -> Result<String, ApiError> {
     let user_data_dir = resolve_user_data_dir(&app)?;
     let exports_dir = user_data_dir.join("exports");
     fs::create_dir_all(&exports_dir)
         .map_err(|err| map_io_error(err, "EXPORT_FAILED", "Failed to create exports dir"))?;
     Ok(exports_dir
-        .join(format!("{}.pdf", project_id))
+        .join(format!("{}.pdf", project_slug))
         .to_string_lossy()
         .to_string())
 }

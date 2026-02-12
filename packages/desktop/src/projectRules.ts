@@ -1,3 +1,11 @@
+import {
+  formatEventDateForDisplayName,
+  formatEventDateForSlug,
+  formatProjectDisplayName as formatProjectDisplayNameFromDomain,
+  formatProjectSlug as formatProjectSlugFromDomain,
+  sanitizeSlugSegment,
+} from "../../../src/domain/projectNaming";
+
 export type RoleConstraint = {
   min: number;
   max: number;
@@ -67,8 +75,35 @@ export function normalizeCity(city: string): string {
     .join("-");
 }
 
-export function buildExportFileName(projectId: string): string {
-  return `${projectId}.pdf`;
+export function buildExportFileName(projectSlug: string): string {
+  // Uses slug (human doc key), not id (UUID).
+  return `${projectSlug}.pdf`;
+}
+
+export {
+  formatEventDateForDisplayName,
+  formatEventDateForSlug,
+  sanitizeSlugSegment,
+};
+
+export function formatProjectSlug(project: {
+  purpose?: "event" | "generic";
+  eventDate?: string;
+  eventVenue?: string;
+  documentDate?: string;
+  note?: string;
+}, band: { id: string; code?: string | null; name: string }): string {
+  return formatProjectSlugFromDomain(project, band);
+}
+
+export function formatProjectDisplayName(project: {
+  purpose?: "event" | "generic";
+  eventDate?: string;
+  eventVenue?: string;
+  documentDate?: string;
+  note?: string;
+}, band: { id: string; code?: string | null; name: string }): string {
+  return formatProjectDisplayNameFromDomain(project, band);
 }
 
 export function shouldPromptUnsavedChanges(
@@ -82,20 +117,7 @@ export function shouldPromptUnsavedChanges(
 }
 
 export function sanitizeVenueSlug(value: string): string {
-  return value
-    .trim()
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .replace(/[^\p{L}\p{N}\s-]/gu, "")
-    .split(/\s+/)
-    .filter(Boolean)
-    .map(
-      (segment) =>
-        `${segment.slice(0, 1).toUpperCase()}${segment.slice(1).toLowerCase()}`,
-    )
-    .join("-")
-    .replace(/-+/g, "-")
-    .slice(0, 50);
+  return sanitizeSlugSegment(value);
 }
 
 export function getTodayIsoLocal(now = new Date()): string {

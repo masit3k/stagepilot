@@ -8,6 +8,8 @@ import {
   type RoleConstraint,
   type RoleLabelConstraints,
   buildExportFileName,
+  formatProjectDisplayName,
+  formatProjectSlug,
   formatIsoDateToUs,
   formatIsoToDateTimeDisplay,
   getCurrentYearLocal,
@@ -21,7 +23,6 @@ import {
   matchProjectGenericPath,
   matchProjectPreviewPath,
   matchProjectSetupPath,
-  normalizeCity,
   normalizeLineupValue,
   normalizeRoleConstraint,
   parseUsDateInput,
@@ -29,11 +30,14 @@ import {
   resolveTalkbackOwnerId,
   validateLineup,
 } from "./projectRules";
+import { generateUuidV7, isUuidV7, migrateProjectIdentity } from "../../../src/domain/projectNaming";
 import "./App.css";
 
 type ProjectSummary = {
   id: string;
+  slug?: string | null;
   displayName?: string | null;
+  legacyId?: string | null;
   bandRef?: string | null;
   eventDate?: string | null;
   eventVenue?: string | null;
@@ -85,7 +89,9 @@ type BandSetupData = {
 };
 type NewProjectPayload = {
   id: string;
+  slug?: string;
   displayName?: string;
+  legacyId?: string;
   purpose: "event" | "generic";
   bandRef: string;
   documentDate: string;
@@ -118,25 +124,6 @@ type NavigationGuard = {
 };
 
 const ROLE_ORDER = ["drums", "bass", "guitar", "keys", "vocs"];
-
-function formatDateForProjectId(eventDate: string) {
-  const [year, month, day] = eventDate.split("-");
-  if (!year || !month || !day)
-    throw new Error(`Invalid event date: ${eventDate}`);
-  return `${day}-${month}-${year}`;
-}
-
-function buildEventDisplayName(
-  band: BandOption,
-  eventDate: string,
-  eventVenue: string,
-) {
-  return `${band.code?.trim() || band.id}_Inputlist_Stageplan_${formatDateForProjectId(eventDate)}_${normalizeCity(eventVenue) || "Venue"}`;
-}
-
-function buildGenericProjectId(band: BandOption, year: string) {
-  return `${band.code?.trim() || band.id}_Inputlist_Stageplan_${year}`;
-}
 
 function formatProjectDate(project: ProjectSummary) {
   if (project.updatedAt) return formatIsoToDateTimeDisplay(project.updatedAt);
@@ -314,8 +301,52 @@ function App() {
   }, []);
 
   const refreshProjects = useCallback(async () => {
-    setProjects(await invoke<ProjectSummary[]>("list_projects"));
-  }, []);
+    const listed = await invoke<ProjectSummary[]>("list_projects");
+    const migratedIds = new Map<string, string>();
+    for (const summary of listed) {
+      const needsIdMigration = !isUuidV7(summary.id);
+      const needsNameMigration = !summary.slug || !summary.displayName;
+      if (!needsIdMigration && !needsNameMigration) continue;
+
+      const legacyId = summary.id;
+      const raw = await invoke<string>("read_project", { projectId: legacyId });
+      const project = JSON.parse(raw) as NewProjectPayload;
+      const band = bands.find((candidate) => candidate.id === project.bandRef);
+      if (!band) continue;
+
+      const migratedIdentity = migrateProjectIdentity(project, band);
+      const migrated: NewProjectPayload = {
+        ...project,
+        ...migratedIdentity,
+        updatedAt: new Date().toISOString(),
+      };
+      const nextId = migrated.id;
+      const nextSlug = migrated.slug || "";
+      await invoke("save_project", {
+        projectId: nextId,
+        legacyProjectId: needsIdMigration ? legacyId : null,
+        json: JSON.stringify(migrated, null, 2),
+      });
+      migratedIds.set(legacyId, nextId);
+      console.info(`project=${nextId} slug=${nextSlug} migrated=true`);
+    }
+
+    const refreshed = await invoke<ProjectSummary[]>("list_projects");
+    setProjects(refreshed);
+    const activePath = window.location.pathname;
+    const match = activePath.match(/^\/projects\/([^/]+)/);
+    if (match) {
+      const activeId = decodeURIComponent(match[1]);
+      const migratedId = migratedIds.get(activeId);
+      if (migratedId) {
+        const rerouted = activePath.replace(
+          `/projects/${encodeURIComponent(activeId)}`,
+          `/projects/${encodeURIComponent(migratedId)}`,
+        );
+        navigateImmediate(`${rerouted}${window.location.search || ""}`, true);
+      }
+    }
+  }, [bands, navigateImmediate]);
 
   const refreshBands = useCallback(async () => {
     setBands(await invoke<BandOption[]>("list_bands"));
@@ -679,7 +710,7 @@ function StartPage({ projects, navigate }: StartPageProps) {
                   }
                 >
                   <div className="project-main-action project-main-action__content">
-                    <strong>{project.displayName || project.id}</strong>
+                    <strong>{project.displayName || project.slug || project.id}</strong>
                     <span>{getProjectPurposeLabel(project.purpose)}</span>
                     <span>Last updated: {formatProjectDate(project)}</span>
                   </div>
@@ -687,7 +718,7 @@ function StartPage({ projects, navigate }: StartPageProps) {
                     <button
                       type="button"
                       className="button-secondary"
-                      aria-label={`Edit ${project.displayName || project.id}`}
+                      aria-label={`Edit ${project.displayName || project.slug || project.id}`}
                       onClick={(event) => {
                         event.stopPropagation();
                         navigate(projectEditPath(project));
@@ -699,7 +730,7 @@ function StartPage({ projects, navigate }: StartPageProps) {
                     <button
                       type="button"
                       className="button-secondary"
-                      aria-label={`Open PDF preview for ${project.displayName || project.id}`}
+                      aria-label={`Open PDF preview for ${project.displayName || project.slug || project.id}`}
                       onClick={(event) => {
                         event.stopPropagation();
                         navigate(
@@ -738,7 +769,7 @@ function StartPage({ projects, navigate }: StartPageProps) {
                     }
                   >
                     <div className="project-main-action project-main-action__content">
-                      <strong>{project.displayName || project.id}</strong>
+                      <strong>{project.displayName || project.slug || project.id}</strong>
                       <span>{getProjectPurposeLabel(project.purpose)}</span>
                       <span>Last updated: {formatProjectDate(project)}</span>
                     </div>
@@ -746,7 +777,7 @@ function StartPage({ projects, navigate }: StartPageProps) {
                       <button
                         type="button"
                         className="button-secondary"
-                        aria-label={`Edit ${project.displayName || project.id}`}
+                        aria-label={`Edit ${project.displayName || project.slug || project.id}`}
                         onClick={(event) => {
                           event.stopPropagation();
                           navigate(projectEditPath(project));
@@ -758,7 +789,7 @@ function StartPage({ projects, navigate }: StartPageProps) {
                       <button
                         type="button"
                         className="button-secondary"
-                        aria-label={`Open PDF preview for ${project.displayName || project.id}`}
+                        aria-label={`Open PDF preview for ${project.displayName || project.slug || project.id}`}
                         onClick={(event) => {
                           event.stopPropagation();
                           navigate(
@@ -1070,15 +1101,14 @@ function NewEventProjectPage({
 
   const persist = useCallback(async () => {
     if (!selectedBand || !eventDateIso || !eventVenue.trim()) return;
-    const displayName = buildEventDisplayName(
-      selectedBand,
-      eventDateIso,
-      eventVenue,
-    );
-    const id = editingProjectId ?? displayName;
+    const namingSource = { purpose: "event" as const, eventDate: eventDateIso, eventVenue, documentDate: todayIso };
+    const slug = formatProjectSlug(namingSource, selectedBand);
+    const displayName = formatProjectDisplayName(namingSource, selectedBand);
+    const id = editingProjectId ?? generateUuidV7();
     const nowIso = new Date().toISOString();
     const payload: NewProjectPayload = {
       id,
+      slug,
       displayName,
       purpose: "event",
       eventDate: eventDateIso,
@@ -1128,9 +1158,7 @@ function NewEventProjectPage({
       Boolean(message)
     )
       return setStatus("Date, venue, and band are required.");
-    const id =
-      editingProjectId ??
-      buildEventDisplayName(selectedBand, eventDateIso, eventVenue);
+    const id = editingProjectId ?? generateUuidV7();
     setIsCommitting(true);
     if (editingProjectId && !isDirty) {
       navigate(`/projects/${encodeURIComponent(id)}/setup`);
@@ -1290,11 +1318,12 @@ function NewGenericProjectPage({
 
   const persist = useCallback(async () => {
     if (!selectedBand) return;
-    const id = editingProjectId ?? buildGenericProjectId(selectedBand, year);
+    const id = editingProjectId ?? generateUuidV7();
     const nowIso = new Date().toISOString();
     const payload: NewProjectPayload = {
       id,
-      displayName: buildGenericProjectId(selectedBand, year),
+      slug: formatProjectSlug({ purpose: "generic", documentDate: `${year}-01-01`, note }, selectedBand),
+      displayName: formatProjectDisplayName({ purpose: "generic", documentDate: `${year}-01-01`, note }, selectedBand),
       purpose: "generic",
       bandRef: selectedBand.id,
       documentDate: `${year}-01-01`,
@@ -1319,7 +1348,7 @@ function NewGenericProjectPage({
 
   async function createProject() {
     if (!selectedBand) return;
-    const id = editingProjectId ?? buildGenericProjectId(selectedBand, year);
+    const id = editingProjectId ?? generateUuidV7();
     setIsCommitting(true);
     await persist();
     navigate(`/projects/${encodeURIComponent(id)}/setup`);
@@ -1623,7 +1652,7 @@ function ProjectSetupPage({
       "Project Setup",
     [search],
   );
-  const bandName = setupData?.name ?? project?.bandRef ?? "—";
+  const bandName = project?.displayName ?? setupData?.name ?? project?.bandRef ?? "—";
   const summarySecondary =
     project?.purpose === "event"
       ? [
@@ -2446,7 +2475,8 @@ function ProjectPreviewPage({
     }
     return () => {
       releasePreviewUrl();
-      invoke("cleanup_preview_pdf", { projectId: id }).catch(() => undefined);
+      // Uses slug (human doc key), not id (UUID).
+      invoke("cleanup_preview_pdf", { previewKey: project?.slug || id }).catch(() => undefined);
     };
   }, [id, regeneratePreview]);
 
@@ -2455,7 +2485,8 @@ function ProjectPreviewPage({
     try {
       setIsGeneratingPdf(true);
       const selectedPath = await invoke<string | null>("pick_export_pdf_path", {
-        defaultFileName: buildExportFileName(project.id),
+        // Uses slug (human doc key), not id (UUID).
+        defaultFileName: buildExportFileName(project.slug || project.id),
       });
       if (!selectedPath) return;
       await invoke("export_pdf_to_path", {
@@ -2496,6 +2527,7 @@ function ProjectPreviewPage({
       {navigationContext ? (
         <p className="subtle page-context">Opened from: {navigationContext}</p>
       ) : null}
+      <p className="subtle">{project?.slug || id}</p>
       <div className="pdf-preview-panel">
         <div className="preview-container">
           {previewState.kind === "generating" ||

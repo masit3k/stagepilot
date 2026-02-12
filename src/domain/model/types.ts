@@ -30,6 +30,9 @@ export type StageplanPerson = {
  */
 export interface Project {
   id: string;
+  slug?: string;
+  displayName?: string;
+  legacyId?: string;
   bandRef: string; // band.id
 
   purpose: StagePlanPurpose;
@@ -45,6 +48,8 @@ export interface Project {
 
   /** Poznámka k projektu (tour/sezóna/poznámka), typicky pro purpose="generic" */
   note?: string;
+  createdAt?: string;
+  updatedAt?: string;
 
   /** Volitelně: volba template/layoutu */
   template?: string;
@@ -74,6 +79,9 @@ export interface LegacyProjectJson {
  */
 export interface ProjectJsonV2 {
   id: string;
+  slug?: string;
+  displayName?: string;
+  legacyId?: string;
   bandRef: string;
 
   purpose: StagePlanPurpose;
@@ -83,6 +91,8 @@ export interface ProjectJsonV2 {
 
   documentDate: string;
   note?: string;
+  createdAt?: string;
+  updatedAt?: string;
   /** Legacy read-compat only. */
   title?: string;
   template?: string;
@@ -168,6 +178,8 @@ export interface InputChannel {
   label: string;
   group?: Group; // když chybí, doplní se podle lineup group
   note?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 /** FOH preset: sada inputů pro jednu část setupu (např. drums standard 9). */
@@ -207,6 +219,8 @@ export interface TalkbackType {
     key: string; // např. "tb_{ownerKey}"
     label: string; // např. "Talkback ({ownerLabel})"
     note?: string;
+  createdAt?: string;
+  updatedAt?: string;
   };
 }
 
@@ -281,6 +295,8 @@ export interface DocumentViewModel {
     eventVenue?: string;
     documentDate: string;
     note?: string;
+  createdAt?: string;
+  updatedAt?: string;
 
     /** Už připravený meta řádek k vytištění */
     metaLine: MetaLineModel;
@@ -299,6 +315,8 @@ export interface DocumentViewModel {
     label: string;
     group: Group;
     note?: string;
+  createdAt?: string;
+  updatedAt?: string;
   }>;
 
   /**
@@ -309,6 +327,8 @@ export interface DocumentViewModel {
     no: string;
     label: string;
     note?: string;
+  createdAt?: string;
+  updatedAt?: string;
   }>;
 
   /**
