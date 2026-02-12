@@ -33,6 +33,13 @@ export async function loadRepository(options?: {
 
   const projects = await loadMap<Project>(path.join(userDataRoot, "projects"));
   const bands = await loadBandsMap(path.join(dataRoot, "bands"));
+  const bandRefs = new Map<string, Band>();
+  for (const band of bands.values()) {
+    bandRefs.set(band.id, band);
+    if (typeof (band as { code?: unknown }).code === "string") {
+      bandRefs.set((band as { code: string }).code.trim().toLowerCase(), band);
+    }
+  }
   const musicians = await loadMap<Musician>(path.join(dataRoot, "musicians"));
 
   // preset entity = preset | vocal_type | talkback_type | monitor
@@ -44,7 +51,11 @@ export async function loadRepository(options?: {
   );
 
   return {
-    getBand: (id: string) => must(bands, id, "Band"),
+    getBand: (id: string) => {
+      const byRef = bandRefs.get(id) ?? bandRefs.get(id.trim().toLowerCase());
+      if (byRef) return byRef;
+      throw new Error(`Band not found: ${id}`);
+    },
     getMusician: (id: string) => must(musicians, id, "Musician"),
     getProject: (id: string) => must(projects, id, "Project"),
     getPreset: (id: string) => must(presets, id, "PresetEntity"),

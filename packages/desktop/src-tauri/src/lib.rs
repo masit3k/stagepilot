@@ -122,6 +122,7 @@ struct BandSetupData {
     role_constraints: Option<Value>,
     default_lineup: Option<Value>,
     members: HashMap<String, Vec<MemberOption>>,
+    load_warnings: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -504,6 +505,8 @@ fn get_band_setup_data(band_id: String) -> Result<BandSetupData, ApiError> {
     })?;
 
     let mut selected: Option<Value> = None;
+    let requested = band_id.trim().to_string();
+    let requested_lower = requested.to_lowercase();
     for entry in entries {
         let path = entry
             .map_err(|err| map_io_error(err, "BAND_SETUP_LOAD_FAILED", "Failed to read bands"))?
@@ -521,7 +524,21 @@ fn get_band_setup_data(band_id: String) -> Result<BandSetupData, ApiError> {
             version_pdf_path: None,
         })?;
 
-        if json.get("id").and_then(|v| v.as_str()) == Some(band_id.as_str()) {
+        let candidate_id = json
+            .get("id")
+            .and_then(|v| v.as_str())
+            .map(|v| v.trim().to_string())
+            .unwrap_or_default();
+        let candidate_code = json
+            .get("code")
+            .and_then(|v| v.as_str())
+            .map(|v| v.trim().to_string())
+            .unwrap_or_default();
+
+        if candidate_id == requested
+            || candidate_code.eq_ignore_ascii_case(&requested)
+            || candidate_id.to_lowercase() == requested_lower
+        {
             selected = Some(json);
             break;
         }
@@ -529,13 +546,18 @@ fn get_band_setup_data(band_id: String) -> Result<BandSetupData, ApiError> {
 
     let json = selected.ok_or(ApiError {
         code: "BAND_NOT_FOUND".into(),
-        message: format!("Band not found: {}", band_id),
+        message: format!(
+            "Band not found for reference '{}' in {} (checked id and code)",
+            requested,
+            bands_dir.display()
+        ),
         export_pdf_path: None,
         version_pdf_path: None,
     })?;
 
     let members_root = repo_root.join("data").join("musicians");
     let mut members: HashMap<String, Vec<MemberOption>> = HashMap::new();
+    let mut musicians_by_id: HashMap<String, (String, String)> = HashMap::new();
     for role in ["drums", "bass", "guitar", "keys", "vocs", "talkback"] {
         let role_dir = members_root.join(role);
         let mut role_members: Vec<MemberOption> = Vec::new();
@@ -578,6 +600,7 @@ fn get_band_setup_data(band_id: String) -> Result<BandSetupData, ApiError> {
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
                 let name = format!("{} {}", last_name, first_name).trim().to_string();
+                musicians_by_id.insert(id.to_string(), (name.clone(), role.to_string()));
                 role_members.push(MemberOption {
                     id: id.to_string(),
                     name,
@@ -586,6 +609,48 @@ fn get_band_setup_data(band_id: String) -> Result<BandSetupData, ApiError> {
         }
         role_members.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
         members.insert(role.to_string(), role_members);
+    }
+
+    if let Some(band_members) = json.get("members").and_then(|v| v.as_array()) {
+        let mut restricted: HashMap<String, Vec<MemberOption>> = HashMap::new();
+        for role in ["drums", "bass", "guitar", "keys", "vocs", "talkback"] {
+            restricted.insert(role.to_string(), Vec::new());
+        }
+        for member in band_members {
+            let musician_id = member
+                .get("musicianId")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            if musician_id.is_empty() {
+                continue;
+            }
+            let Some((name, default_group)) = musicians_by_id.get(musician_id) else {
+                continue;
+            };
+            if let Some(roles) = member.get("roles").and_then(|v| v.as_array()) {
+                for role in roles.iter().filter_map(|v| v.as_str()) {
+                    if let Some(list) = restricted.get_mut(role) {
+                        list.push(MemberOption {
+                            id: musician_id.to_string(),
+                            name: name.clone(),
+                        });
+                    }
+                }
+            } else if let Some(list) = restricted.get_mut(default_group) {
+                list.push(MemberOption {
+                    id: musician_id.to_string(),
+                    name: name.clone(),
+                });
+            }
+        }
+        let has_any = restricted.values().any(|v| !v.is_empty());
+        if has_any {
+            for value in restricted.values_mut() {
+                value.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+                value.dedup_by(|a, b| a.id == b.id);
+            }
+            members = restricted;
+        }
     }
 
     let constraints: HashMap<String, RoleCountConstraint> = serde_json::from_value(
@@ -599,6 +664,30 @@ fn get_band_setup_data(band_id: String) -> Result<BandSetupData, ApiError> {
         export_pdf_path: None,
         version_pdf_path: None,
     })?;
+
+    let mut load_warnings: Vec<String> = Vec::new();
+    if let Some(default_lineup) = normalize_default_lineup_keys(json.get("defaultLineup").cloned()) {
+        if let Some(obj) = default_lineup.as_object() {
+            for (role, value) in obj {
+                let ids: Vec<String> = match value {
+                    Value::String(v) => vec![v.clone()],
+                    Value::Array(arr) => arr
+                        .iter()
+                        .filter_map(|item| item.as_str().map(|s| s.to_string()))
+                        .collect(),
+                    _ => Vec::new(),
+                };
+                for musician_id in ids {
+                    if !musicians_by_id.contains_key(&musician_id) {
+                        load_warnings.push(format!(
+                            "Band '{}' defaultLineup role '{}' references missing musician '{}'",
+                            requested, role, musician_id
+                        ));
+                    }
+                }
+            }
+        }
+    }
 
     Ok(BandSetupData {
         id: json
@@ -623,6 +712,7 @@ fn get_band_setup_data(band_id: String) -> Result<BandSetupData, ApiError> {
         role_constraints: json.get("roleConstraints").cloned(),
         default_lineup: normalize_default_lineup_keys(json.get("defaultLineup").cloned()),
         members,
+        load_warnings,
     })
 }
 

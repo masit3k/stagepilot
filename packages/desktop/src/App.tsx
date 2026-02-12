@@ -86,6 +86,7 @@ type BandSetupData = {
   roleConstraints?: RoleLabelConstraints;
   defaultLineup?: LineupMap | null;
   members: Record<string, MemberOption[]>;
+  loadWarnings?: string[];
 };
 
 function createFallbackSetupData(project: NewProjectPayload): BandSetupData {
@@ -1234,7 +1235,11 @@ function NewEventProjectPage({
         });
         defaultLineup = { ...(setupDefaults.defaultLineup ?? {}) };
         defaultBandLeaderId = setupDefaults.bandLeader ?? "";
-      } catch {
+      } catch (error) {
+        console.error("Failed to load setup defaults for new event project", {
+          bandRef: selectedBand.id,
+          error,
+        });
         defaultLineup = {};
         defaultBandLeaderId = "";
       }
@@ -1483,7 +1488,11 @@ function NewGenericProjectPage({
         });
         defaultLineup = { ...(setupDefaults.defaultLineup ?? {}) };
         defaultBandLeaderId = setupDefaults.bandLeader ?? "";
-      } catch {
+      } catch (error) {
+        console.error("Failed to load setup defaults for new generic project", {
+          bandRef: selectedBand.id,
+          error,
+        });
         defaultLineup = {};
       }
     }
@@ -1700,11 +1709,24 @@ function ProjectSetupPage({
         data = await invoke<BandSetupData>("get_band_setup_data", {
           bandId: parsed.bandRef,
         });
-      } catch {
+      } catch (error) {
+        console.error("Failed to load band setup data", {
+          projectId: id,
+          bandRef: parsed.bandRef,
+          error,
+        });
         data = createFallbackSetupData(parsed);
         setStatus(
           "Band defaults could not be loaded. You can still configure lineup manually.",
         );
+      }
+      if (data.loadWarnings?.length) {
+        console.warn("Band setup loaded with warnings", {
+          projectId: id,
+          bandRef: parsed.bandRef,
+          warnings: data.loadWarnings,
+        });
+        setStatus(data.loadWarnings.join("\n"));
       }
       setSetupData(data);
       const initialLineup = { ...(parsed.lineup ?? data.defaultLineup ?? {}) };
@@ -1722,7 +1744,10 @@ function ProjectSetupPage({
           parsed.talkbackOwnerId,
         ),
       );
-    })().catch(() => setStatus("Failed to load setup."));
+    })().catch((error) => {
+      console.error("Failed to initialize setup page", { projectId: id, error });
+      setStatus("Failed to load setup.");
+    });
   }, [id, applyState, buildSetupSnapshot]);
 
   const errors = useMemo(
