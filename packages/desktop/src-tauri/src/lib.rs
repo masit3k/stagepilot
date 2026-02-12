@@ -805,6 +805,27 @@ fn save_project(
 }
 
 #[tauri::command]
+fn delete_project(app: tauri::AppHandle, project_id: String) -> Result<(), ApiError> {
+    let user_data_dir = resolve_user_data_dir(&app)?;
+    let projects_dir = user_data_dir.join("projects");
+    let project_path = resolve_project_path_by_id(&projects_dir, &project_id)?.ok_or(ApiError {
+        code: "PROJECT_DELETE_FAILED".into(),
+        message: format!("Project not found: {}", project_id),
+        export_pdf_path: None,
+        version_pdf_path: None,
+    })?;
+
+    fs::remove_file(&project_path)
+        .map_err(|err| map_io_error(err, "PROJECT_DELETE_FAILED", "Failed to delete project"))?;
+
+    if let Ok(mut map) = project_file_map().lock() {
+        map.remove(&project_id);
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
 fn export_pdf(app: tauri::AppHandle, project_id: String) -> Result<ExportPdfResult, ApiError> {
     let user_data_dir = resolve_user_data_dir(&app)?;
     let projects_dir = user_data_dir.join("projects");
@@ -1319,6 +1340,7 @@ pub fn run() {
             get_band_setup_data,
             read_project,
             save_project,
+            delete_project,
             export_pdf,
             build_project_pdf_preview,
             read_preview_pdf_bytes,

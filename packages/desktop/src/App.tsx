@@ -458,6 +458,12 @@ function App() {
     setBands(await invoke<BandOption[]>("list_bands"));
   }, []);
 
+  const deleteProject = useCallback(async (projectId: string) => {
+    await invoke("delete_project", { projectId });
+    setProjects((current) => current.filter((project) => project.id !== projectId));
+    setStatus("Project deleted.");
+  }, []);
+
   useEffect(() => {
     (async () => {
       await Promise.all([refreshProjects(), refreshBands()]);
@@ -521,7 +527,7 @@ function App() {
       <TopTabs pathname={pathname} navigate={navigate} />
       {status ? <p className="status status--error">{status}</p> : null}
       {pathname === "/" ? (
-        <StartPage projects={projects} navigate={navigate} />
+        <StartPage projects={projects} navigate={navigate} onDeleteProject={deleteProject} />
       ) : null}
       {pathname === "/projects/new" ? (
         <ChooseProjectTypePage navigate={navigate} />
@@ -720,10 +726,19 @@ function LibraryHomePage({ navigate }: { navigate: (path: string) => void }) {
 type StartPageProps = {
   projects: ProjectSummary[];
   navigate: (path: string) => void;
+  onDeleteProject: (projectId: string) => Promise<void>;
 };
-function StartPage({ projects, navigate }: StartPageProps) {
+function StartPage({ projects, navigate, onDeleteProject }: StartPageProps) {
   const [viewMode, setViewMode] = useState<"list" | "tiles">(() =>
     localStorage.getItem("project-hub-view") === "tiles" ? "tiles" : "list",
+  );
+  const [openMenuProjectId, setOpenMenuProjectId] = useState<string | null>(null);
+  const [projectPendingDelete, setProjectPendingDelete] =
+    useState<ProjectSummary | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const deleteDialogRef = useModalBehavior(
+    Boolean(projectPendingDelete),
+    () => setProjectPendingDelete(null),
   );
 
   useEffect(() => {
@@ -749,6 +764,139 @@ function StartPage({ projects, navigate }: StartPageProps) {
         ? `/projects/${encodedId}/event`
         : `/projects/${encodedId}/generic`;
     return `${route}?from=home`;
+  }
+
+  useEffect(() => {
+    const onDocumentMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest(".project-context-menu-shell")) return;
+      setOpenMenuProjectId(null);
+    };
+    document.addEventListener("mousedown", onDocumentMouseDown);
+    return () => document.removeEventListener("mousedown", onDocumentMouseDown);
+  }, []);
+
+  useEffect(() => {
+    const onDocumentKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setOpenMenuProjectId(null);
+    };
+    document.addEventListener("keydown", onDocumentKeyDown);
+    return () => document.removeEventListener("keydown", onDocumentKeyDown);
+  }, []);
+
+  async function confirmDeleteProject() {
+    if (!projectPendingDelete || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      await onDeleteProject(projectPendingDelete.id);
+      setProjectPendingDelete(null);
+      setOpenMenuProjectId(null);
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  function renderProjectCard(project: ProjectSummary) {
+    const isMenuOpen = openMenuProjectId === project.id;
+    const projectLabel = project.displayName || project.slug || project.id;
+
+    return (
+      <article
+        key={project.id}
+        className={
+          viewMode === "list"
+            ? "project-card project-card--list project-surface"
+            : "project-card project-surface"
+        }
+        role="button"
+        tabIndex={0}
+        onClick={() => navigate(projectEditPath(project))}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          navigate(projectEditPath(project));
+        }}
+        aria-label={`Edit ${projectLabel}`}
+      >
+        <div className="project-main-action__content">
+          <strong>{projectLabel}</strong>
+          <span>{getProjectPurposeLabel(project.purpose)}</span>
+          <span>Last updated: {formatProjectDate(project)}</span>
+        </div>
+        <div
+          className="project-context-menu-shell"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            className="project-kebab"
+            aria-haspopup="menu"
+            aria-expanded={isMenuOpen}
+            aria-controls={isMenuOpen ? `project-menu-${project.id}` : undefined}
+            aria-label={`Open actions for ${projectLabel}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              setOpenMenuProjectId((current) =>
+                current === project.id ? null : project.id,
+              );
+            }}
+          >
+            ⋯
+          </button>
+          {isMenuOpen ? (
+            <div
+              id={`project-menu-${project.id}`}
+              className="project-context-menu"
+              role="menu"
+              aria-label={`Project actions for ${projectLabel}`}
+            >
+              <button
+                type="button"
+                role="menuitem"
+                className="project-context-menu__item"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setOpenMenuProjectId(null);
+                  navigate(projectEditPath(project));
+                }}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="project-context-menu__item"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setOpenMenuProjectId(null);
+                  navigate(
+                    withFrom(
+                      `/projects/${encodeURIComponent(project.id)}/preview`,
+                      "home",
+                    ),
+                  );
+                }}
+              >
+                Preview
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="project-context-menu__item project-context-menu__item--danger"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setProjectPendingDelete(project);
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          ) : null}
+        </div>
+      </article>
+    );
   }
 
   return (
@@ -806,53 +954,7 @@ function StartPage({ projects, navigate }: StartPageProps) {
                   : "project-list"
               }
             >
-              {recentProjects.map((project) => (
-                <article
-                  key={project.id}
-                  className={
-                    viewMode === "list"
-                      ? "project-card project-card--list project-surface"
-                      : "project-card project-surface"
-                  }
-                >
-                  <div className="project-main-action project-main-action__content">
-                    <strong>{project.displayName || project.slug || project.id}</strong>
-                    <span>{getProjectPurposeLabel(project.purpose)}</span>
-                    <span>Last updated: {formatProjectDate(project)}</span>
-                  </div>
-                  <div className="project-actions">
-                    <button
-                      type="button"
-                      className="button-secondary"
-                      aria-label={`Edit ${project.displayName || project.slug || project.id}`}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        navigate(projectEditPath(project));
-                      }}
-                    >
-                      <span aria-hidden="true">✏️</span>
-                      <span>Edit</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="button-secondary"
-                      aria-label={`Open PDF preview for ${project.displayName || project.slug || project.id}`}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        navigate(
-                          withFrom(
-                            `/projects/${encodeURIComponent(project.id)}/preview`,
-                            "home",
-                          ),
-                        );
-                      }}
-                    >
-                      <span aria-hidden="true">📄</span>
-                      <span>Preview</span>
-                    </button>
-                  </div>
-                </article>
-              ))}
+              {recentProjects.map(renderProjectCard)}
             </div>
           </section>
           {olderProjects.length > 0 ? (
@@ -865,58 +967,45 @@ function StartPage({ projects, navigate }: StartPageProps) {
                     : "project-list"
                 }
               >
-                {olderProjects.map((project) => (
-                  <article
-                    key={project.id}
-                    className={
-                      viewMode === "list"
-                        ? "project-card project-card--list project-surface"
-                        : "project-card project-surface"
-                    }
-                  >
-                    <div className="project-main-action project-main-action__content">
-                      <strong>{project.displayName || project.slug || project.id}</strong>
-                      <span>{getProjectPurposeLabel(project.purpose)}</span>
-                      <span>Last updated: {formatProjectDate(project)}</span>
-                    </div>
-                    <div className="project-actions">
-                      <button
-                        type="button"
-                        className="button-secondary"
-                        aria-label={`Edit ${project.displayName || project.slug || project.id}`}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          navigate(projectEditPath(project));
-                        }}
-                      >
-                        <span aria-hidden="true">✏️</span>
-                        <span>Edit</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="button-secondary"
-                        aria-label={`Open PDF preview for ${project.displayName || project.slug || project.id}`}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          navigate(
-                            withFrom(
-                              `/projects/${encodeURIComponent(project.id)}/preview`,
-                              "home",
-                            ),
-                          );
-                        }}
-                      >
-                        <span aria-hidden="true">📄</span>
-                        <span>Preview</span>
-                      </button>
-                    </div>
-                  </article>
-                ))}
+                {olderProjects.map(renderProjectCard)}
               </div>
             </section>
           ) : null}
         </div>
       )}
+      <ModalOverlay
+        open={Boolean(projectPendingDelete)}
+        onClose={() => setProjectPendingDelete(null)}
+      >
+        <div
+          className="selector-dialog"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="delete-project-title"
+          aria-describedby="delete-project-body"
+          ref={deleteDialogRef}
+        >
+          <h3 id="delete-project-title">Delete project?</h3>
+          <p id="delete-project-body">This action cannot be undone.</p>
+          <div className="modal-actions">
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={() => setProjectPendingDelete(null)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="button-danger"
+              onClick={confirmDeleteProject}
+              disabled={isDeleting}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </ModalOverlay>
     </section>
   );
 }
