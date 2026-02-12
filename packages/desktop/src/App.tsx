@@ -8,8 +8,10 @@ import {
   type RoleConstraint,
   type RoleLabelConstraints,
   buildExportFileName,
+  acceptISOToDDMMYYYY,
   formatProjectDisplayName,
   formatProjectSlug,
+  formatDateDigitsToDDMMYYYY,
   formatIsoDateToUs,
   formatIsoToDateTimeDisplay,
   getCurrentYearLocal,
@@ -25,6 +27,7 @@ import {
   matchProjectSetupPath,
   normalizeLineupValue,
   normalizeRoleConstraint,
+  parseDDMMYYYYToISO,
   parseUsDateInput,
   resolveBandLeaderId,
   resolveTalkbackOwnerId,
@@ -86,6 +89,21 @@ type BandSetupData = {
   defaultLineup?: LineupMap | null;
   members: Record<string, MemberOption[]>;
 };
+
+function createFallbackSetupData(project: NewProjectPayload): BandSetupData {
+  const constraints = Object.fromEntries(
+    ROLE_ORDER.map((role) => [role, { min: 0, max: 1 }]),
+  ) as Record<string, RoleConstraint>;
+  return {
+    id: project.bandRef,
+    name: project.displayName || project.bandRef,
+    constraints,
+    defaultLineup: {},
+    members: Object.fromEntries(
+      [...ROLE_ORDER, "talkback"].map((role) => [role, []]),
+    ) as Record<string, MemberOption[]>,
+  };
+}
 type NewProjectPayload = {
   id: string;
   slug?: string;
@@ -990,7 +1008,7 @@ function EventDateInput({
         <input
           id={inputId}
           type="text"
-          inputMode="text"
+          inputMode="numeric"
           lang="en-GB"
           placeholder="DD/MM/YYYY"
           value={value}
@@ -1142,16 +1160,19 @@ function NewEventProjectPage({
   }, [editingProjectId]);
 
   function getDateValidationMessage(value: string) {
-    const parsed = parseUsDateInput(value);
+    const parsed = parseDDMMYYYYToISO(value);
     if (!parsed) return "Invalid date. Use DD/MM/YYYY.";
     if (isPastIsoDate(parsed, todayIso)) return "Date cannot be in the past.";
     return "";
   }
 
   function updateDateInput(value: string) {
-    setEventDateInput(value);
-    const parsed = parseUsDateInput(value);
-    const message = getDateValidationMessage(value);
+    const normalizedInput = /^\d{4}-\d{2}-\d{2}$/.test(value.trim())
+      ? acceptISOToDDMMYYYY(value.trim())
+      : formatDateDigitsToDDMMYYYY(value);
+    setEventDateInput(normalizedInput);
+    const parsed = parseDDMMYYYYToISO(normalizedInput);
+    const message = getDateValidationMessage(normalizedInput);
     if (eventDateTouched) setEventDateError(message);
     setEventDateIso(!parsed || message ? "" : parsed);
   }
@@ -1169,6 +1190,20 @@ function NewEventProjectPage({
     const displayName = formatProjectDisplayName(namingSource, selectedBand);
     const id = editingProjectId ?? generateUuidV7();
     const nowIso = new Date().toISOString();
+    let defaultLineup = existingProject?.lineup;
+    let defaultBandLeaderId = existingProject?.bandLeaderId;
+    if (!editingProjectId) {
+      try {
+        const setupDefaults = await invoke<BandSetupData>("get_band_setup_data", {
+          bandId: selectedBand.id,
+        });
+        defaultLineup = { ...(setupDefaults.defaultLineup ?? {}) };
+        defaultBandLeaderId = setupDefaults.bandLeader ?? "";
+      } catch {
+        defaultLineup = {};
+        defaultBandLeaderId = "";
+      }
+    }
     const payload: NewProjectPayload = {
       id,
       slug,
@@ -1180,8 +1215,8 @@ function NewEventProjectPage({
       documentDate: todayIso,
       createdAt: existingProject?.createdAt ?? nowIso,
       updatedAt: nowIso,
-      lineup: existingProject?.lineup,
-      bandLeaderId: existingProject?.bandLeaderId,
+      lineup: defaultLineup,
+      bandLeaderId: defaultBandLeaderId || undefined,
       talkbackOwnerId: existingProject?.talkbackOwnerId,
       note: existingProject?.note,
     };
@@ -1383,6 +1418,19 @@ function NewGenericProjectPage({
     if (!selectedBand) return;
     const id = editingProjectId ?? generateUuidV7();
     const nowIso = new Date().toISOString();
+    let defaultLineup: LineupMap | undefined;
+    let defaultBandLeaderId = "";
+    if (!editingProjectId) {
+      try {
+        const setupDefaults = await invoke<BandSetupData>("get_band_setup_data", {
+          bandId: selectedBand.id,
+        });
+        defaultLineup = { ...(setupDefaults.defaultLineup ?? {}) };
+        defaultBandLeaderId = setupDefaults.bandLeader ?? "";
+      } catch {
+        defaultLineup = {};
+      }
+    }
     const payload: NewProjectPayload = {
       id,
       slug: formatProjectSlug({ purpose: "generic", documentDate: `${year}-01-01`, note }, selectedBand),
@@ -1393,6 +1441,8 @@ function NewGenericProjectPage({
       ...(note.trim() ? { note: note.trim() } : {}),
       createdAt: nowIso,
       updatedAt: nowIso,
+      lineup: defaultLineup,
+      bandLeaderId: defaultBandLeaderId || undefined,
     };
     await invoke("save_project", {
       projectId: id,
@@ -1579,10 +1629,18 @@ function ProjectSetupPage({
       const parsed = JSON.parse(
         await invoke<string>("read_project", { projectId: id }),
       ) as NewProjectPayload;
-      const data = await invoke<BandSetupData>("get_band_setup_data", {
-        bandId: parsed.bandRef,
-      });
       setProject(parsed);
+      let data: BandSetupData;
+      try {
+        data = await invoke<BandSetupData>("get_band_setup_data", {
+          bandId: parsed.bandRef,
+        });
+      } catch {
+        data = createFallbackSetupData(parsed);
+        setStatus(
+          "Band defaults could not be loaded. You can still configure lineup manually.",
+        );
+      }
       setSetupData(data);
       const initialLineup = { ...(parsed.lineup ?? data.defaultLineup ?? {}) };
       applyState(
@@ -1716,6 +1774,9 @@ function ProjectSetupPage({
     [search],
   );
   const bandName = project?.displayName ?? setupData?.name ?? project?.bandRef ?? "—";
+  const projectContext = project
+    ? `${project.displayName || project.id}${project.slug ? ` · ${project.slug}` : ""}`
+    : "";
   const summarySecondary =
     project?.purpose === "event"
       ? [
@@ -1740,6 +1801,9 @@ function ProjectSetupPage({
       <div className="panel__header">
         <h1>Lineup Setup</h1>
       </div>
+      {projectContext ? (
+        <p className="subtle page-context">Project: {projectContext}</p>
+      ) : null}
       <p className="subtle page-context">Opened from: {navigationContext}</p>
       <div className="lineup-meta">
         <div className="band-name">{bandName}</div>
@@ -1824,7 +1888,28 @@ function ProjectSetupPage({
                 </article>
               );
             })
-          : null}
+          : ROLE_ORDER.map((role) => {
+              const constraint = normalizeRoleConstraint(role);
+              return (
+                <article key={role} className="lineup-card">
+                  <h3>{getRoleDisplayName(role)}</h3>
+                  <div className="lineup-card__body section-divider">
+                    <div className="lineup-list lineup-list--single">
+                      {Array.from({ length: Math.max(1, constraint.max) }).map(
+                        (_, index) => (
+                          <div key={`${role}-${index}`} className="lineup-list__row">
+                            <span className="lineup-list__name">Not selected</span>
+                            <button type="button" className="button-secondary" disabled>
+                              Change
+                            </button>
+                          </div>
+                        ),
+                      )}
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
         <p className="subtle">
           Select the on-site band lead for coordination and decisions.
         </p>

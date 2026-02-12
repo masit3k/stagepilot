@@ -11,6 +11,9 @@ import {
   normalizeCity,
   getRoleDisplayName,
   normalizeRoleConstraint,
+  formatDateDigitsToDDMMYYYY,
+  parseDDMMYYYYToISO,
+  acceptISOToDDMMYYYY,
   parseUsDateInput,
   validateLineup,
   resolveBandLeaderId,
@@ -70,6 +73,21 @@ describe("project naming formatting", () => {
 describe("event date rules", () => {
   it("parses DD/MM/YYYY input into ISO", () => {
     expect(parseUsDateInput("11/02/2026")).toBe("2026-02-11");
+  });
+
+  it("formats date digits to DD/MM/YYYY while typing", () => {
+    expect(formatDateDigitsToDDMMYYYY("11032026")).toBe("11/03/2026");
+    expect(formatDateDigitsToDDMMYYYY("1103")).toBe("11/03");
+  });
+
+  it("accepts strict DD/MM/YYYY parsing", () => {
+    expect(parseDDMMYYYYToISO("11/03/2026")).toBe("2026-03-11");
+    expect(parseDDMMYYYYToISO("31/02/2026")).toBeNull();
+  });
+
+  it("accepts ISO input and normalizes for display", () => {
+    expect(parseUsDateInput("2026-03-11")).toBe("2026-03-11");
+    expect(acceptISOToDDMMYYYY("2026-03-11")).toBe("11/03/2026");
   });
 
   it("rejects impossible dates", () => {

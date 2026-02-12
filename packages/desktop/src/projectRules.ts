@@ -146,11 +146,52 @@ export function isValidityYearInPast(
 
 export function parseUsDateInput(value: string): string | null {
   const trimmed = value.trim();
-  const match = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!trimmed) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return parseIsoDateToIso(trimmed);
+  }
+  return parseDDMMYYYYToISO(trimmed);
+}
+
+export function formatDateDigitsToDDMMYYYY(digits: string): string {
+  const clean = digits.replace(/\D/g, "").slice(0, 8);
+  const day = clean.slice(0, 2);
+  const month = clean.slice(2, 4);
+  const year = clean.slice(4, 8);
+  if (clean.length <= 2) return day;
+  if (clean.length <= 4) return `${day}/${month}`;
+  return `${day}/${month}/${year}`;
+}
+
+export function parseDDMMYYYYToISO(value: string): string | null {
+  const match = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (!match) return null;
   const day = Number(match[1]);
   const month = Number(match[2]);
   const year = Number(match[3]);
+  return validateDatePartsToIso(year, month, day);
+}
+
+export function acceptISOToDDMMYYYY(iso: string): string {
+  const normalized = parseIsoDateToIso(iso);
+  if (!normalized) return "";
+  return formatIsoDateToUs(normalized);
+}
+
+function parseIsoDateToIso(value: string): string | null {
+  const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  return validateDatePartsToIso(year, month, day);
+}
+
+function validateDatePartsToIso(
+  year: number,
+  month: number,
+  day: number,
+): string | null {
   if (month < 1 || month > 12 || day < 1 || day > 31) return null;
   const dt = new Date(year, month - 1, day);
   if (
