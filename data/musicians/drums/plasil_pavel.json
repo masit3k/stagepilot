@@ -6,11 +6,11 @@
     "presets": [
         {
             "kind": "preset",
-            "ref": "standard_9"
+            "ref": "standard_10"
         },
         {
             "kind": "preset",
-            "ref": "sample_pad_stereo"
+            "ref": "sample_pad_mono"
         },
         {
             "kind": "vocal",
