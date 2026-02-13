@@ -1261,6 +1261,7 @@ function ProjectContextMenuPortal({
   children: ReactNode;
 }) {
   const anchorRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const [position, setPosition] = useState({ top: 0, left: 0 });
 
   useEffect(() => {
@@ -1269,18 +1270,39 @@ function ProjectContextMenuPortal({
     );
     anchorRef.current = anchor;
 
+    const margin = 8;
+    const offset = 6;
+    const clamp = (value: number, min: number, max: number) =>
+      Math.max(min, Math.min(max, value));
+
     const update = () => {
-      const rect = anchorRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const menuWidth = 180;
-      const left = Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.right - menuWidth));
-      setPosition({ top: rect.bottom + 6, left });
+      const anchorRect = anchorRef.current?.getBoundingClientRect();
+      const menuRect = menuRef.current?.getBoundingClientRect();
+      if (!anchorRect || !menuRect) return;
+
+      const viewportW = window.innerWidth;
+      const viewportH = window.innerHeight;
+
+      const maxLeft = Math.max(margin, viewportW - menuRect.width - margin);
+      const maxTop = Math.max(margin, viewportH - menuRect.height - margin);
+
+      let top = anchorRect.bottom + offset;
+      let left = anchorRect.right - menuRect.width;
+
+      if (top + menuRect.height + margin > viewportH) {
+        top = anchorRect.top - offset - menuRect.height;
+      }
+
+      top = clamp(top, margin, maxTop);
+      left = clamp(left, margin, maxLeft);
+      setPosition({ top, left });
     };
 
-    update();
+    const frameId = window.requestAnimationFrame(update);
     window.addEventListener("resize", update);
     window.addEventListener("scroll", update, true);
     return () => {
+      window.cancelAnimationFrame(frameId);
       window.removeEventListener("resize", update);
       window.removeEventListener("scroll", update, true);
     };
@@ -1289,6 +1311,7 @@ function ProjectContextMenuPortal({
   return createPortal(
     <div
       id={`project-menu-${project.id}`}
+      ref={menuRef}
       className="project-context-menu"
       style={{ position: "fixed", top: position.top, left: position.left, zIndex: 2000 }}
       role="menu"

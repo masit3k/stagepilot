@@ -117,7 +117,9 @@ button:active:not(:disabled) {
 .button-primary:hover:not(:disabled),
 button:hover:not(:disabled):not(.button-secondary):not(.button-ghost):not(
     .choice-card
-  ):not(.modal-close):not(.selector-option):not(.date-input-calendar-toggle) {
+  ):not(.modal-close):not(.selector-option):not(.date-input-calendar-toggle):not(
+    .project-context-menu__item
+  ) {
   background: var(--primary-hover);
   border-color: #415788;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.24);
@@ -371,11 +373,23 @@ button:hover:not(:disabled):not(.button-secondary):not(.button-ghost):not(
   padding: 6px 10px;
   box-shadow: none;
 }
-.project-context-menu__item:hover:not(:disabled) {
-  background: rgba(59, 130, 246, 0.1);
+.project-context-menu__item,
+.project-context-menu__item:hover:not(:disabled),
+.project-context-menu__item:active:not(:disabled),
+.project-context-menu__item.is-active {
+  box-shadow: none;
   border-color: transparent;
   color: var(--text);
-  box-shadow: none;
+}
+.project-context-menu__item:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.1);
+}
+.project-context-menu__item:active:not(:disabled) {
+  background: rgba(59, 130, 246, 0.12);
+}
+.project-context-menu__item.is-active {
+  background: rgba(59, 130, 246, 0.12);
+  font-weight: 600;
 }
 .project-context-menu__item:focus-visible {
   outline: 2px solid rgba(59, 130, 246, 0.45);
