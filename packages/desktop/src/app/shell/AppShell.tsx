@@ -10,7 +10,6 @@ import {
   type LineupSlotValue,
   type PresetOverridePatch,
   type RoleConstraint,
-  type RoleLabelConstraints,
   buildExportFileName,
   acceptISOToDDMMYYYY,
   formatProjectDisplayName,
@@ -36,10 +35,10 @@ import {
   resolveTalkbackOwnerId,
   validateLineup,
 } from "../../projectRules";
-import { generateUuidV7, isUuidV7 } from "../../../../../src/domain/projectNaming";
 import {
   validateEffectivePresets,
 } from "../../../../../src/domain/rules/presetOverride";
+import { generateUuidV7 } from "../../../../../src/domain/projectNaming";
 import type { Group } from "../../../../../src/domain/model/groups";
 import type { InputChannel, MusicianSetupPreset, PresetOverridePatch as DomainPresetOverridePatch } from "../../../../../src/domain/model/types";
 import { resolveEffectiveMusicianSetup } from "../../../../../src/domain/setup/resolveEffectiveMusicianSetup";
@@ -49,67 +48,11 @@ import { MusicianSelector, type SetupMusicianItem } from "../../components/setup
 import { SelectedInputsList } from "../../components/setup/SelectedInputsList";
 import { DrumsPartsEditor } from "../../components/setup/DrumsPartsEditor";
 import { MonitoringEditor } from "../../components/setup/MonitoringEditor";
-
-type ProjectSummary = {
-  id: string;
-  slug?: string | null;
-  displayName?: string | null;
-  bandRef?: string | null;
-  eventDate?: string | null;
-  eventVenue?: string | null;
-  createdAt?: string | null;
-  updatedAt?: string | null;
-  templateType?: "event" | "generic" | null;
-  status?: "active" | "archived" | "trashed" | null;
-  archivedAt?: string | null;
-  trashedAt?: string | null;
-  purgeAt?: string | null;
-  purpose?: "event" | "generic" | null;
-};
-type BandOption = { id: string; name: string; code?: string | null };
-type MemberOption = { id: string; name: string };
-type LibraryBandMember = { musicianId: string; roles: string[]; isDefault: boolean };
-type LibraryContact = {
-  id: string;
-  name: string;
-  title?: string;
-  phone?: string;
-  email?: string;
-  note?: string;
-  primary?: boolean;
-};
-type LibraryMessage = { id: string; name: string; body: string };
-type LibraryBand = {
-  id: string;
-  name: string;
-  code: string;
-  description?: string;
-  constraints: Record<string, RoleConstraint>;
-  roleConstraints?: RoleLabelConstraints;
-  defaultLineup?: LineupMap | null;
-  members: LibraryBandMember[];
-  contacts: LibraryContact[];
-  messages: LibraryMessage[];
-};
-type LibraryMusician = {
-  id: string;
-  name: string;
-  gender?: string;
-  defaultRoles: string[];
-  notes?: string;
-};
-type BandSetupData = {
-  id: string;
-  name: string;
-  bandLeader?: string | null;
-  defaultContactId?: string | null;
-  constraints: Record<string, RoleConstraint>;
-  roleConstraints?: RoleLabelConstraints;
-  defaultLineup?: LineupMap | null;
-  members: Record<string, MemberOption[]>;
-  musicianDefaults?: Record<string, Partial<MusicianSetupPreset>>;
-  loadWarnings?: string[];
-};
+import { useAppNavigation } from "./navigation/useAppNavigation";
+import { refreshProjectsAndMigrate } from "../services/projectMaintenance";
+import * as projectsApi from "../services/projectsApi";
+import type { BandOption, BandSetupData, LibraryBand, LibraryMusician, MemberOption, NavigationGuard, NewProjectPayload, ProjectSummary } from "./types";
+import { toPersistableProject } from "./types";
 
 function createFallbackSetupData(project: NewProjectPayload): BandSetupData {
   const constraints = Object.fromEntries(
@@ -125,74 +68,8 @@ function createFallbackSetupData(project: NewProjectPayload): BandSetupData {
     ) as Record<string, MemberOption[]>,
   };
 }
-type NewProjectPayload = {
-  id: string;
-  slug?: string;
-  displayName?: string;
-  purpose: "event" | "generic";
-  bandRef: string;
-  documentDate: string;
-  eventDate?: string;
-  eventVenue?: string;
-  note?: string;
-  createdAt: string;
-  updatedAt?: string;
-  templateType?: "event" | "generic";
-  status?: "active" | "archived" | "trashed";
-  archivedAt?: string;
-  trashedAt?: string;
-  purgeAt?: string;
-  lineup?: LineupMap;
-  bandLeaderId?: string;
-  talkbackOwnerId?: string;
-};
+
 type ApiError = { message?: string };
-
-function toPersistableProject(project: NewProjectPayload): NewProjectPayload {
-  const {
-    id,
-    slug,
-    displayName,
-    purpose,
-    eventDate,
-    eventVenue,
-    bandRef,
-    documentDate,
-    createdAt,
-    updatedAt,
-    templateType,
-    status,
-    archivedAt,
-    trashedAt,
-    purgeAt,
-    lineup,
-    bandLeaderId,
-    talkbackOwnerId,
-    note,
-  } = project;
-
-  return {
-    id,
-    slug,
-    displayName,
-    purpose,
-    ...(eventDate ? { eventDate } : {}),
-    ...(eventVenue ? { eventVenue } : {}),
-    bandRef,
-    documentDate,
-    createdAt,
-    ...(updatedAt ? { updatedAt } : {}),
-    ...(templateType ? { templateType } : {}),
-    ...(status ? { status } : {}),
-    ...(archivedAt ? { archivedAt } : {}),
-    ...(trashedAt ? { trashedAt } : {}),
-    ...(purgeAt ? { purgeAt } : {}),
-    ...(lineup ? { lineup } : {}),
-    ...(bandLeaderId ? { bandLeaderId } : {}),
-    ...(talkbackOwnerId ? { talkbackOwnerId } : {}),
-    ...(note ? { note } : {}),
-  };
-}
 
 type PreviewState =
   | { kind: "idle" }
@@ -204,12 +81,6 @@ type ExportModalState =
   | { kind: "success"; path: string }
   | { kind: "error"; message: string; technical?: string }
   | null;
-
-type NavigationGuard = {
-  isDirty: () => boolean;
-  save: () => Promise<void>;
-  discard?: () => void;
-};
 
 const ROLE_ORDER = ["drums", "bass", "guitar", "keys", "vocs"];
 
@@ -273,9 +144,6 @@ function isSetupInfoDirty(
   return JSON.stringify(initial) !== JSON.stringify(current);
 }
 
-function getCurrentPath() {
-  return window.location.pathname || "/";
-}
 
 function toIdSlug(value: string) {
   return value
@@ -304,168 +172,20 @@ function AppShell() {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [bands, setBands] = useState<BandOption[]>([]);
   const [status, setStatus] = useState("");
-  const [pathname, setPathname] = useState(getCurrentPath());
-  const [search, setSearch] = useState(window.location.search || "");
-  const pathnameRef = useRef(pathname);
-  const guardRef = useRef<NavigationGuard | null>(null);
-  const [pendingNavigation, setPendingNavigation] = useState<string | null>(
-    null,
-  );
-
-  useEffect(() => {
-    pathnameRef.current = pathname;
-  }, [pathname]);
-
-  const registerNavigationGuard = useCallback(
-    (guard: NavigationGuard | null) => {
-      guardRef.current = guard;
-    },
-    [],
-  );
-
-  const navigateImmediate = useCallback((path: string, replace = false) => {
-    if (replace) window.history.replaceState({}, "", path);
-    else window.history.pushState({}, "", path);
-    setPathname(window.location.pathname);
-    setSearch(window.location.search || "");
-  }, []);
-
-  const navigate = useCallback(
-    (path: string) => {
-      if (path === pathnameRef.current) return;
-      const guard = guardRef.current;
-      if (guard?.isDirty()) {
-        setPendingNavigation(path);
-        return;
-      }
-      navigateImmediate(path);
-    },
-    [navigateImmediate],
-  );
-
-  useEffect(() => {
-    const h = () => {
-      const targetPath = getCurrentPath();
-      const guard = guardRef.current;
-      if (guard?.isDirty()) {
-        window.history.pushState({}, "", pathnameRef.current);
-        setPendingNavigation(targetPath);
-        return;
-      }
-      setPathname(targetPath);
-      setSearch(window.location.search || "");
-    };
-    window.addEventListener("popstate", h);
-    return () => window.removeEventListener("popstate", h);
-  }, []);
+  const {
+    pathname,
+    search,
+    navigate,
+    navigateImmediate,
+    registerNavigationGuard,
+    pendingNavigation,
+    stayOnPage,
+    exitWithoutSaving,
+    saveAndExit,
+  } = useAppNavigation();
 
   const refreshProjects = useCallback(async () => {
-    const availableBands = await invoke<BandOption[]>("list_bands");
-    const bandsById = new Map(availableBands.map((band) => [band.id, band]));
-    const bandsByCode = new Map(
-      availableBands
-        .filter((band) => Boolean(band.code?.trim()))
-        .map((band) => [band.code?.trim().toLowerCase() ?? "", band]),
-    );
-    const listed = await invoke<ProjectSummary[]>("list_projects");
-    const migratedIds = new Map<string, string>();
-    const maintainedProjects: ProjectSummary[] = [];
-    const now = new Date();
-    const nowIso = now.toISOString();
-    const todayIso = getTodayIsoLocal(now);
-
-    for (const summary of listed) {
-      const raw = await invoke<string>("read_project", { projectId: summary.id });
-      const parsedRaw = JSON.parse(raw) as NewProjectPayload & Record<string, unknown>;
-      const { legacyId: _legacyId, ...withoutLegacy } = parsedRaw as NewProjectPayload & {
-        legacyId?: unknown;
-      };
-      const project = withoutLegacy as NewProjectPayload;
-
-      if (project.status === "trashed" && project.purgeAt && new Date(project.purgeAt).getTime() < now.getTime()) {
-        await invoke("delete_project_permanently", { projectId: project.id });
-        continue;
-      }
-
-      const templateType = project.templateType ?? project.purpose;
-      const needsTemplateTypeMigration = project.templateType !== templateType;
-      const needsIdMigration = !isUuidV7(project.id);
-      const normalizedBandRef = project.bandRef?.trim() || "";
-      const band =
-        bandsById.get(normalizedBandRef) ||
-        bandsByCode.get(normalizedBandRef.toLowerCase());
-      if (!band) continue;
-
-      const canonicalBandRef = band.id;
-      const needsBandRefMigration = canonicalBandRef !== project.bandRef;
-      const namingSource = {
-        purpose: project.purpose,
-        eventDate: project.eventDate,
-        eventVenue: project.eventVenue,
-        documentDate: project.documentDate,
-        note: project.note,
-      };
-      const slug = formatProjectSlug(namingSource, band);
-      const displayName = formatProjectDisplayName(namingSource, band);
-      const needsNameMigration = project.slug !== slug || project.displayName !== displayName;
-      const hasLegacyId = Object.prototype.hasOwnProperty.call(parsedRaw, "legacyId");
-      const currentStatus = project.status ?? "active";
-      const eventDate = project.eventDate;
-      const shouldAutoArchive =
-        templateType === "event" &&
-        currentStatus === "active" &&
-        Boolean(eventDate) &&
-        isPastIsoDate(eventDate ?? "", todayIso);
-
-      const needsMaintenance =
-        shouldAutoArchive ||
-        hasLegacyId ||
-        needsIdMigration ||
-        needsBandRefMigration ||
-        needsNameMigration ||
-        needsTemplateTypeMigration ||
-        !project.status;
-
-      const legacyId = summary.id;
-      const nextId = needsIdMigration ? generateUuidV7() : project.id;
-      const migrated: NewProjectPayload = {
-        ...(project as Omit<NewProjectPayload, "id" | "slug" | "displayName" | "bandRef">),
-        id: nextId,
-        slug,
-        displayName,
-        bandRef: canonicalBandRef,
-        templateType: templateType ?? "generic",
-        status: shouldAutoArchive ? "archived" : currentStatus,
-        archivedAt: shouldAutoArchive ? nowIso : project.archivedAt,
-        updatedAt: needsMaintenance ? nowIso : project.updatedAt,
-      };
-
-      if (needsMaintenance) {
-        await invoke("save_project", {
-          projectId: nextId,
-          legacyProjectId: legacyId,
-          json: JSON.stringify(toPersistableProject(migrated), null, 2),
-        });
-        if (legacyId !== nextId) migratedIds.set(legacyId, nextId);
-      }
-
-      maintainedProjects.push({
-        ...summary,
-        id: nextId,
-        slug: migrated.slug,
-        displayName: migrated.displayName,
-        bandRef: migrated.bandRef,
-        purpose: migrated.purpose,
-        templateType: migrated.templateType,
-        status: migrated.status,
-        eventDate: migrated.eventDate,
-        updatedAt: migrated.updatedAt ?? summary.updatedAt,
-        archivedAt: migrated.archivedAt,
-        trashedAt: migrated.trashedAt,
-        purgeAt: migrated.purgeAt,
-      });
-    }
-
+    const { projects: maintainedProjects, migratedIds } = await refreshProjectsAndMigrate();
     setProjects(maintainedProjects);
     const activePath = window.location.pathname;
     const match = activePath.match(/^\/projects\/([^/]+)/);
@@ -483,15 +203,15 @@ function AppShell() {
   }, [navigateImmediate]);
 
   const refreshBands = useCallback(async () => {
-    setBands(await invoke<BandOption[]>("list_bands"));
+    setBands(await projectsApi.listBands());
   }, []);
 
   const updateProjectLifecycle = useCallback(async (projectId: string, updater: (project: NewProjectPayload, now: Date) => NewProjectPayload) => {
-    const raw = await invoke<string>("read_project", { projectId });
+    const raw = await projectsApi.readProject(projectId);
     const project = JSON.parse(raw) as NewProjectPayload;
     const now = new Date();
     const updatedProject = updater(project, now);
-    await invoke("save_project", {
+    await projectsApi.saveProject({
       projectId,
       json: JSON.stringify(toPersistableProject(updatedProject), null, 2),
     });
@@ -556,7 +276,7 @@ function AppShell() {
   }, [updateProjectLifecycle]);
 
   const deleteProjectPermanently = useCallback(async (project: ProjectSummary) => {
-    await invoke("delete_project_permanently", { projectId: project.id });
+    await projectsApi.deleteProjectPermanently(project.id);
     await refreshProjects();
     setStatus("Project permanently deleted.");
   }, [refreshProjects]);
@@ -731,19 +451,9 @@ function AppShell() {
       <AboutModal open={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
       <UnsavedChangesModal
         open={Boolean(pendingNavigation)}
-        onStay={() => setPendingNavigation(null)}
-        onExitWithoutSaving={() => {
-          guardRef.current?.discard?.();
-          const path = pendingNavigation;
-          setPendingNavigation(null);
-          if (path) navigateImmediate(path);
-        }}
-        onSaveAndExit={async () => {
-          await guardRef.current?.save();
-          const path = pendingNavigation;
-          setPendingNavigation(null);
-          if (path) navigateImmediate(path);
-        }}
+        onStay={stayOnPage}
+        onExitWithoutSaving={exitWithoutSaving}
+        onSaveAndExit={saveAndExit}
       />
     </main>
   );
@@ -1567,7 +1277,7 @@ function NewEventProjectPage({
       talkbackOwnerId: existingProject?.talkbackOwnerId,
       note: existingProject?.note,
     };
-    await invoke("save_project", {
+    await projectsApi.saveProject({
       projectId: id,
       json: JSON.stringify(toPersistableProject(payload), null, 2),
     });
@@ -1824,7 +1534,7 @@ function NewGenericProjectPage({
       lineup: defaultLineup,
       bandLeaderId: defaultBandLeaderId || undefined,
     };
-    await invoke("save_project", {
+    await projectsApi.saveProject({
       projectId: id,
       json: JSON.stringify(toPersistableProject(payload), null, 2),
     });
@@ -2083,7 +1793,7 @@ function ProjectSetupPage({
             : {}),
           updatedAt: new Date().toISOString(),
         };
-        await invoke("save_project", {
+        await projectsApi.saveProject({
           projectId: id,
           json: JSON.stringify(toPersistableProject(updatedProject), null, 2),
         });
@@ -2155,7 +1865,7 @@ function ProjectSetupPage({
         : {}),
       ...next,
     };
-    await invoke("save_project", {
+    await projectsApi.saveProject({
       projectId: id,
       json: JSON.stringify(toPersistableProject(payload), null, 2),
     });
