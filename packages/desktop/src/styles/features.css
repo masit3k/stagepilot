@@ -1,4 +1,10 @@
-/* Project hub */
+/* ==========================================================================
+   FEATURES — screen-specific styles (hub / library / calendar / lineup / setup / etc.)
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Project hub
+   -------------------------------------------------------------------------- */
 .project-sections,
 .project-section,
 .lineup-grid {
@@ -57,8 +63,7 @@
 }
 
 .project-surface {
-  transition: background-color 150ms ease, box-shadow 150ms ease, transform
-    150ms ease;
+  transition: background-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
 }
 
 .project-surface:hover {
@@ -178,7 +183,9 @@
   margin-top: -4px;
 }
 
-/* Library */
+/* --------------------------------------------------------------------------
+   Library
+   -------------------------------------------------------------------------- */
 .top-tabs {
   display: flex;
   gap: 10px;
@@ -195,7 +202,12 @@
 
 .library-row {
   display: grid;
-  grid-template-columns: minmax(120px, 1.2fr) minmax(90px, 1fr) minmax(90px, 0.7fr) minmax(120px, 1fr) auto;
+  grid-template-columns:
+    minmax(120px, 1.2fr)
+    minmax(90px, 1fr)
+    minmax(90px, 0.7fr)
+    minmax(120px, 1fr)
+    auto;
   gap: 8px;
   align-items: center;
   border: 1px solid var(--border);
@@ -203,7 +215,9 @@
   padding: 10px;
 }
 
-/* Date input & calendar */
+/* --------------------------------------------------------------------------
+   Date input & calendar
+   -------------------------------------------------------------------------- */
 .venue-field {
   position: relative;
   overflow: visible;
@@ -362,7 +376,9 @@
   opacity: 0.75;
 }
 
-/* Choice */
+/* --------------------------------------------------------------------------
+   Choice (project type cards)
+   -------------------------------------------------------------------------- */
 .choice-grid {
   display: grid;
   gap: var(--space-2);
@@ -427,7 +443,9 @@
   line-height: 1.4;
 }
 
-/* Lineup and setup */
+/* --------------------------------------------------------------------------
+   Lineup and setup (shared)
+   -------------------------------------------------------------------------- */
 .lineup-meta {
   margin: var(--space-4) 0 var(--space-4) 0;
 }
@@ -491,6 +509,9 @@
   gap: 8px;
 }
 
+/* --------------------------------------------------------------------------
+   Setup action bar (page-level sticky bar)
+   -------------------------------------------------------------------------- */
 .setup-action-bar {
   position: sticky;
   bottom: 0;
@@ -510,19 +531,57 @@
   min-height: 44px;
 }
 
-.setup-editor-grid {
+/* --------------------------------------------------------------------------
+   Setup editor (modal content) — “Setup for this event”
+   NOTE: requires TSX wrapper class names:
+     - setup-editor
+     - setup-editor__hint
+     - setup-editor__warning
+     - setup-editor__footer / setup-editor__footer-group
+   -------------------------------------------------------------------------- */
+.setup-editor {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  margin-top: 12px;
+  gap: var(--space-3);
 }
 
+/* Keep headings tight inside the modal */
+.setup-editor h2,
+.setup-editor h3 {
+  margin: 0;
+}
+
+/* Intro copy under the modal title */
+.setup-editor__hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+/* Two-column layout: Inputs vs Monitoring */
+.setup-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+  margin-top: 0; /* controlled by .setup-editor gap */
+}
+
+/* Stack on smaller viewports */
+@media (max-width: 860px) {
+  .setup-editor-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* List area inside setup editor */
 .setup-editor-list {
   display: grid;
   gap: 8px;
   margin-bottom: 10px;
 }
 
+/* Rows inside “effective list” */
 .setup-editor-list__row {
   display: flex;
   justify-content: space-between;
@@ -532,7 +591,36 @@
   padding: 8px;
 }
 
-/* PDF preview */
+/* Inline warning (better than raw red text line) */
+.setup-editor__warning {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(180, 35, 24, 0.25);
+  background: rgba(180, 35, 24, 0.08);
+  color: #b42318;
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+/* Footer actions: Back (left) + Reset/Save (right) */
+.setup-editor__footer {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-2);
+}
+
+.setup-editor__footer-group {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* --------------------------------------------------------------------------
+   PDF preview
+   -------------------------------------------------------------------------- */
 .panel--preview {
   min-height: calc(100vh - 140px);
   display: flex;
@@ -562,7 +650,9 @@
   background: var(--surface);
 }
 
-/* About */
+/* --------------------------------------------------------------------------
+   About
+   -------------------------------------------------------------------------- */
 .about-dialog {
   width: min(700px, 95vw);
 }
@@ -593,6 +683,9 @@
   word-break: break-word;
 }
 
+/* --------------------------------------------------------------------------
+   Responsive tweaks
+   -------------------------------------------------------------------------- */
 @media (max-width: 760px) {
   .about-grid {
     grid-template-columns: 1fr;

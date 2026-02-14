@@ -1,16 +1,19 @@
-/* Modal overlay and dialog */
+/* Modal overlay and dialog (polished) */
+
 .selector-overlay {
   position: fixed;
   inset: 0;
   pointer-events: auto;
   background: var(--overlay);
-  backdrop-filter: blur(2px);
+  /* slightly stronger blur + consistent fallback */
+  backdrop-filter: blur(4px);
   display: grid;
   place-items: center;
   padding: var(--space-2);
   z-index: 10000;
 }
 
+/* keep the “topmost” escape hatch */
 .selector-overlay--topmost {
   z-index: 10001;
 }
@@ -19,10 +22,30 @@
   width: min(620px, 95vw);
   background: var(--surface);
   border-radius: var(--radius-lg);
-  box-shadow: 0 24px 56px rgba(15, 23, 42, 0.2);
+
+  /* softer border, more modern elevation */
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow:
+    0 8px 24px rgba(15, 23, 42, 0.12),
+    0 32px 64px rgba(15, 23, 42, 0.18);
+
   padding: calc(var(--space-2) + 24px) var(--space-2) var(--space-2);
-  border: 1px solid var(--border);
   position: relative;
+
+  /* micro polish */
+  animation: selectorDialogIn 160ms ease-out;
+  transform-origin: center;
+}
+
+@keyframes selectorDialogIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .selector-dialog--musician-select {
@@ -38,10 +61,13 @@
   margin-bottom: var(--space-2);
 }
 
+/* Divider: keep it, but soften it */
 .selector-dialog__divider {
   margin-bottom: var(--space-2);
+  opacity: 0.45;
 }
 
+/* Close button */
 .modal-close {
   position: absolute;
   top: 12px;
@@ -51,15 +77,36 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+
+  border-radius: 8px;
   border: none;
   background: transparent;
   color: var(--text);
+
   padding: 0;
   font-size: 18px;
   line-height: 1;
+
+  transition: background-color 150ms ease, transform 150ms ease;
 }
 
 .modal-close:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.modal-close:active {
+  transform: translateY(1px);
+}
+
+.modal-close:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* OPTIONAL: stronger selected state for selector items
+   (keep here only if these classes belong to the modal selector list) */
+.selector-option--selected {
+  background: rgba(30, 42, 68, 0.08);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(30, 42, 68, 0.15);
 }
