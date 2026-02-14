@@ -6,6 +6,7 @@ import path from "node:path";
 import { DATA_ROOT, USER_DATA_ROOT } from "./dataRoot.js";
 import { listJsonFiles } from "./loadTree.js";
 import { loadJsonFile } from "./loadJson.js";
+import { getAllGroupPresetsDir, getMonitorPresetsDir, getNotesTemplatesDir } from "./assetsPaths.js";
 
 import type {
   Band,
@@ -43,12 +44,12 @@ export async function loadRepository(options?: {
   const musicians = await loadMap<Musician>(path.join(dataRoot, "musicians"));
 
   // preset entity = preset | vocal_type | talkback_type | monitor
-  const presets = await loadMap<PresetEntity>(path.join(dataRoot, "presets"));
+  const groupPresets = await loadMap<PresetEntity>(getAllGroupPresetsDir(dataRoot));
+  const monitorPresets = await loadMap<PresetEntity>(getMonitorPresetsDir(dataRoot));
+  const presets = new Map<string, PresetEntity>([...groupPresets, ...monitorPresets]);
 
   // notes templates
-  const notesTemplates = await loadMap<NotesTemplate>(
-    path.join(dataRoot, "templates", "notes"),
-  );
+  const notesTemplates = await loadMap<NotesTemplate>(getNotesTemplatesDir(dataRoot));
 
   return {
     getBand: (id: string) => {

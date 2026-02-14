@@ -104,4 +104,18 @@ describe("drum setup validation + migration", () => {
     expect(rows.some((row) => row.key === "dr_snare2_top")).toBe(true);
     expect(rows.some((row) => row.key === "dr_pad_mono_sfx")).toBe(true);
   });
+
+  it("migrates legacy project drum refs without filesystem lookups", () => {
+    const legacyProjectRefs = ["standard_9", "sample_pad_stereo", "snare_2"];
+    const setup = migrateLegacyDrumPresetRefs(legacyProjectRefs);
+
+    expect(setup).toEqual({
+      tomCount: 1,
+      floorTomCount: 1,
+      hasHiHat: true,
+      hasOverheads: true,
+      extraSnareCount: 1,
+      pad: { enabled: true, mode: "sfx", channels: "stereo" },
+    });
+  });
 });

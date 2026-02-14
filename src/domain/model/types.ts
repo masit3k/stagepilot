@@ -187,7 +187,7 @@ export interface InputChannel {
 
 /** FOH preset: sada inputů pro jednu část setupu (např. drums standard 9). */
 export interface Preset {
-  type: "preset" | "kit" | "feature";
+  type: "preset";
   id: string;
   label: string;
   group: Group;
@@ -263,7 +263,7 @@ export interface Monitor {
   wireless?: boolean;
 }
 
-/** Union všech entit v data/presets */
+/** Union všech entit v data/assets/presets */
 export type PresetEntity = Preset | VocalType | TalkbackType | Monitor;
 
 /* ============================================================

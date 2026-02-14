@@ -206,7 +206,7 @@ function expandPresetItem(
 
       const ent: PresetEntity = repo.getPreset(item.ref);
 
-      if (ent.type !== "preset" && ent.type !== "kit" && ent.type !== "feature") {
+      if (ent.type !== "preset") {
         throw new Error(`PresetItem(kind=preset) ref="${item.ref}" points to type="${ent.type}"`);
       }
 

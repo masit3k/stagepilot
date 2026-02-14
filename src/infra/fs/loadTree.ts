@@ -7,7 +7,13 @@ import path from "node:path";
 export async function listJsonFiles(dir: string): Promise<string[]> {
   const result: string[] = [];
 
-  const entries = await fs.readdir(dir, { withFileTypes: true });
+  const entries = await fs.readdir(dir, { withFileTypes: true }).catch((error: NodeJS.ErrnoException) => {
+    if (error.code === "ENOENT") {
+      console.warn(`Directory not found while loading JSON files: ${dir}`);
+      return [];
+    }
+    throw error;
+  });
 
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
