@@ -1,22 +1,31 @@
 {
-    "id": "nyvlt_jakub",
-    "firstName": "Jakub",
-    "lastName": "Nývlt",
-    "group": "drums",
-    "presets": [
-        {
-            "kind": "preset",
-            "ref": "standard_9"
-        },
-        {
-            "kind": "monitor",
-            "ref": "iem_stereo_wired"
+  "id": "nyvlt_jakub",
+  "firstName": "Jakub",
+  "lastName": "Nývlt",
+  "group": "drums",
+  "presets": [
+    {
+      "kind": "drum_setup",
+      "setup": {
+        "tomCount": 1,
+        "floorTomCount": 1,
+        "hasHiHat": true,
+        "hasOverheads": true,
+        "extraSnareCount": 0,
+        "pad": {
+          "enabled": false
         }
-    ],
-    "requirements": {
-        "power": {
-            "voltage": 230,
-            "sockets": 3
-        }
+      }
+    },
+    {
+      "kind": "monitor",
+      "ref": "iem_stereo_wired"
     }
+  ],
+  "requirements": {
+    "power": {
+      "voltage": 230,
+      "sockets": 3
+    }
+  }
 }

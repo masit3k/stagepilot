@@ -1,32 +1,39 @@
 {
-    "id": "plasil_pavel",
-    "firstName": "Pavel",
-    "lastName": "Plašil",
-    "group": "drums",
-    "presets": [
-        {
-            "kind": "preset",
-            "ref": "standard_10"
-        },
-        {
-            "kind": "preset",
-            "ref": "sample_pad_mono"
-        },
-        {
-            "kind": "vocal",
-            "ref": "vocal_back_no_mic",
-            "ownerKey": "drums",
-            "ownerLabel": "drums"
-        },
-        {
-            "kind": "monitor",
-            "ref": "iem_stereo_wired"
+  "id": "plasil_pavel",
+  "firstName": "Pavel",
+  "lastName": "Plašil",
+  "group": "drums",
+  "presets": [
+    {
+      "kind": "drum_setup",
+      "setup": {
+        "tomCount": 2,
+        "floorTomCount": 1,
+        "hasHiHat": true,
+        "hasOverheads": true,
+        "extraSnareCount": 0,
+        "pad": {
+          "enabled": true,
+          "mode": "sfx",
+          "channels": "mono"
         }
-    ],
-    "requirements": {
-        "power": {
-            "voltage": 230,
-            "sockets": 3
-        }
+      }
+    },
+    {
+      "kind": "vocal",
+      "ref": "vocal_back_no_mic",
+      "ownerKey": "drums",
+      "ownerLabel": "drums"
+    },
+    {
+      "kind": "monitor",
+      "ref": "iem_stereo_wired"
     }
+  ],
+  "requirements": {
+    "power": {
+      "voltage": 230,
+      "sockets": 3
+    }
+  }
 }

@@ -28,6 +28,8 @@ import {
   formatVocalLabel,
   resolveStereoPair,
 } from "../formatters/index.js";
+import { migrateLegacyDrumPresetRefs } from "../drums/drumSetup.js";
+import { drumRankByResolvedKey, resolveDrumInputs } from "../drums/resolveDrumInputs.js";
 
 /* ============================================================
  * Helpers
@@ -87,35 +89,6 @@ type DisplayRow = {
   label: string;
   note?: string;
 };
-
-/* ============================================================
- * Drum ordering (by KEY - deterministic)
- * ============================================================ */
-
-function drumRankByKey(input: BuiltInput): number {
-  const k = input.key.toLowerCase();
-
-  if (k.startsWith("dr_pad")) return 1000;
-  if (k.startsWith("dr_snare_2")) return 900;
-
-  if (k === "dr_kick_out") return 10;
-  if (k === "dr_kick_in") return 20;
-
-  if (k === "dr_snare_top") return 30;
-  if (k === "dr_snare_bottom") return 40;
-
-  if (k === "dr_hihat") return 50;
-
-  if (k === "dr_tom_1") return 60;
-  if (k === "dr_tom_2") return 70;
-
-  if (k === "dr_floor_tom") return 80;
-
-  if (k === "dr_oh_l") return 200;
-  if (k === "dr_oh_r") return 210;
-
-  return 500;
-}
 
 /* ============================================================
  * 1) Assign channels with odd-start stereo (except overheads)
@@ -207,10 +180,30 @@ function buildInputRows(inputsWithCh: BuiltInputWithCh[]): DisplayRow[] {
 function expandPresetItem(
   item: PresetItem,
   lineupGroup: Group,
-  repo: DataRepository
+  repo: DataRepository,
+  context?: { drummerLegacyRefs?: string[] }
 ): BuiltInput[] {
   switch (item.kind) {
+    case "drum_setup": {
+      return resolveDrumInputs(item.setup).map((ch) => ({
+        key: ch.key,
+        label: ch.label,
+        group: ch.group ?? lineupGroup,
+        note: ch.note,
+      }));
+    }
+
     case "preset": {
+      if (lineupGroup === "drums") {
+        const legacyDrumRefs = context?.drummerLegacyRefs ?? [];
+        if (["standard_9", "standard_10", "sample_pad_mono", "sample_pad_stereo", "snare_2", "effect_snare"].includes(item.ref)) {
+          if (!legacyDrumRefs.includes(item.ref)) {
+            legacyDrumRefs.push(item.ref);
+          }
+          return [];
+        }
+      }
+
       const ent: PresetEntity = repo.getPreset(item.ref);
 
       if (ent.type !== "preset" && ent.type !== "kit" && ent.type !== "feature") {
@@ -272,8 +265,6 @@ function expandPresetItem(
     case "monitor":
       return [];
 
-    default:
-      return [];
   }
 }
 
@@ -349,6 +340,8 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
       membersById.set(musicianId, musician);
       lineupMusicians.push({ group, musician });
 
+      const drummerLegacyRefs: string[] = [];
+      let hasExplicitDrumSetup = false;
       for (const item of musician.presets ?? []) {
         if (item.kind === "monitor") {
           const ent = repo.getPreset(item.ref);
@@ -364,13 +357,26 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
           continue;
         }
 
-        const expanded = expandPresetItem(item, group, repo);
+        const expanded = expandPresetItem(item, group, repo, { drummerLegacyRefs });
+        if (item.kind === "drum_setup") hasExplicitDrumSetup = true;
         if (item.kind === "preset" && /^vocal_lead/i.test(item.ref)) {
           for (const input of expanded) {
             input.ownerGender = musician.gender;
           }
         }
         inputs.push(...expanded);
+      }
+
+      if (group === "drums" && !hasExplicitDrumSetup && drummerLegacyRefs.length > 0) {
+        const resolvedFromLegacy = resolveDrumInputs(migrateLegacyDrumPresetRefs(drummerLegacyRefs));
+        inputs.push(
+          ...resolvedFromLegacy.map((ch) => ({
+            key: ch.key,
+            label: ch.label,
+            group: ch.group ?? group,
+            note: ch.note,
+          }))
+        );
       }
     }
   }
@@ -471,7 +477,7 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
     if (g !== 0) return g;
 
     if (a.group === "drums" && b.group === "drums") {
-      const dr = drumRankByKey(a) - drumRankByKey(b);
+      const dr = drumRankByResolvedKey(a.key) - drumRankByResolvedKey(b.key);
       if (dr !== 0) return dr;
     }
 

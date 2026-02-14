@@ -54,7 +54,7 @@ describe("stageplan render plan", () => {
       expect(inputBullets[0]).toMatch(/^Drums \(\d+(–\d+)?\)$/);
       expect(inputBullets).toEqual(
         expect.arrayContaining([
-          expect.stringMatching(/^2x PAD \(\d+\+\d+\)$/),
+          expect.stringMatching(/^PAD \(\d+(\+\d+)?\)$/),
           expect.stringMatching(/^Back vocal – drums \(\d+(–\d+)?\)$/),
         ])
       );

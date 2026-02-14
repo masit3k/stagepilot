@@ -3,6 +3,7 @@
 // Proč? Musí odpovídat reálným JSONům, jinak se rozbije pipeline i TS kontrola.
 
 import type { Group } from "./groups.js";
+import type { DrumSetup } from "../drums/drumSetup.js";
 export type { Group } from "./groups.js";
 
 /* ============================================================
@@ -152,6 +153,10 @@ export type PresetItem =
   | {
       kind: "preset";
       ref: string;
+    }
+  | {
+      kind: "drum_setup";
+      setup: DrumSetup;
     }
   | {
       kind: "vocal";

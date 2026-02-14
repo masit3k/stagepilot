@@ -1,26 +1,33 @@
 {
-    "id": "skalicka_vit",
-    "firstName": "Vít",
-    "lastName": "Skalička",
-    "group": "drums",
-    "presets": [
-        {
-            "kind": "preset",
-            "ref": "standard_9"
-        },
-        {
-            "kind": "preset",
-            "ref": "sample_pad_stereo"
-        },
-        {
-            "kind": "monitor",
-            "ref": "iem_stereo_wired"
+  "id": "skalicka_vit",
+  "firstName": "Vít",
+  "lastName": "Skalička",
+  "group": "drums",
+  "presets": [
+    {
+      "kind": "drum_setup",
+      "setup": {
+        "tomCount": 1,
+        "floorTomCount": 1,
+        "hasHiHat": true,
+        "hasOverheads": true,
+        "extraSnareCount": 0,
+        "pad": {
+          "enabled": true,
+          "mode": "sfx",
+          "channels": "stereo"
         }
-    ],
-    "requirements": {
-        "power": {
-            "voltage": 230,
-            "sockets": 3
-        }
+      }
+    },
+    {
+      "kind": "monitor",
+      "ref": "iem_stereo_wired"
     }
+  ],
+  "requirements": {
+    "power": {
+      "voltage": 230,
+      "sockets": 3
+    }
+  }
 }

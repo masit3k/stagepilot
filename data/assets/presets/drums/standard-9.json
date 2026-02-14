@@ -1,0 +1,12 @@
+{
+  "id": "standard-9",
+  "label": "Standard 9ch",
+  "setup": {
+    "tomCount": 1,
+    "floorTomCount": 1,
+    "hasHiHat": true,
+    "hasOverheads": true,
+    "extraSnareCount": 0,
+    "pad": { "enabled": false }
+  }
+}

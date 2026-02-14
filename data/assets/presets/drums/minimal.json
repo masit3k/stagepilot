@@ -1,0 +1,12 @@
+{
+  "id": "minimal",
+  "label": "Minimal (kick+snare+hat)",
+  "setup": {
+    "tomCount": 0,
+    "floorTomCount": 0,
+    "hasHiHat": true,
+    "hasOverheads": false,
+    "extraSnareCount": 0,
+    "pad": { "enabled": false }
+  }
+}
