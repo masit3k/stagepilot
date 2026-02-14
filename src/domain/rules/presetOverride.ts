@@ -98,8 +98,9 @@ export function buildChangedSummary(
   if (updated > 0) out.push(`${updated} input update` + (updated > 1 ? "s" : ""));
   if (patch.monitoring) {
     const mode = patch.monitoring.mode;
-    const type = patch.monitoring.type === "iem" ? "IEM" : patch.monitoring.type === "wedge" ? "Wedge" : null;
-    if (type || mode) out.push(`Monitoring: ${[type, mode].filter(Boolean).join(" ")}`);
+    const connection = patch.monitoring.connection === "wireless" ? "wireless" : patch.monitoring.connection === "wired" ? "wired" : null;
+    const type = patch.monitoring.type === "iem" ? "IEM" : patch.monitoring.type === "wedge" ? "Wedge" : patch.monitoring.type === "none" ? "None" : null;
+    if (type || mode || connection) out.push(`Monitoring: ${[type, connection, mode].filter(Boolean).join(" ")}`);
   }
   return out;
 }

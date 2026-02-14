@@ -21,7 +21,8 @@ export type LineupValue = RichLineupValue;
 export type LineupMap = RichLineupMap;
 
 export type MonitoringPreset = {
-  type?: "wedge" | "iem";
+  type?: "wedge" | "iem" | "none";
+  connection?: "wired" | "wireless";
   mode?: "mono" | "stereo";
   mixCount?: number;
 };

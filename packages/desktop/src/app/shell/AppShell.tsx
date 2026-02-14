@@ -41,10 +41,13 @@ import {
   validateEffectivePresets,
 } from "../../../../../src/domain/rules/presetOverride";
 import type { Group } from "../../../../../src/domain/model/groups";
-import type { InputChannel, MusicianSetupPreset } from "../../../../../src/domain/model/types";
+import type { InputChannel, MusicianSetupPreset, PresetOverridePatch as DomainPresetOverridePatch } from "../../../../../src/domain/model/types";
 import { resolveEffectiveMusicianSetup } from "../../../../../src/domain/setup/resolveEffectiveMusicianSetup";
+import { inferDrumSetupFromLegacyInputs, STANDARD_10_SETUP } from "../../../../../src/domain/drums/drumSetup";
+import { resolveDrumInputs } from "../../../../../src/domain/drums/resolveDrumInputs";
 import { MusicianSelector, type SetupMusicianItem } from "../../components/setup/MusicianSelector";
-import { InputsEditor } from "../../components/setup/InputsEditor";
+import { SelectedInputsList } from "../../components/setup/SelectedInputsList";
+import { DrumsPartsEditor } from "../../components/setup/DrumsPartsEditor";
 import { MonitoringEditor } from "../../components/setup/MonitoringEditor";
 
 type ProjectSummary = {
@@ -210,11 +213,7 @@ type NavigationGuard = {
 const ROLE_ORDER = ["drums", "bass", "guitar", "keys", "vocs"];
 
 const GROUP_INPUT_LIBRARY: Record<Group, InputChannel[]> = {
-  drums: [
-    { key: "dr_kick_in", label: "Kick", group: "drums" },
-    { key: "dr_snare_top", label: "Snare", group: "drums" },
-    { key: "dr_oh_l", label: "OH L", group: "drums" },
-  ],
+  drums: resolveDrumInputs(STANDARD_10_SETUP),
   bass: [{ key: "bass_di", label: "Bass DI", group: "bass" }],
   guitar: [
     { key: "gtr_mic", label: "Guitar Mic", group: "guitar" },
@@ -231,6 +230,28 @@ const GROUP_INPUT_LIBRARY: Record<Group, InputChannel[]> = {
   talkback: [{ key: "talkback", label: "Talkback", group: "talkback" }],
 };
 
+
+function getGroupDefaultPreset(group: Group): MusicianSetupPreset {
+  return {
+    inputs: (GROUP_INPUT_LIBRARY[group] ?? []).map((item) => ({ ...item })),
+    monitoring: {
+      type: "wedge",
+      mode: "mono",
+      mixCount: 1,
+    },
+  };
+}
+
+function buildInputsPatchFromTarget(defaultInputs: InputChannel[], targetInputs: InputChannel[]): NonNullable<DomainPresetOverridePatch["inputs"]> {
+  const defaultByKey = new Map(defaultInputs.map((item) => [item.key, item]));
+  const targetByKey = new Map(targetInputs.map((item) => [item.key, item]));
+  const removeKeys = defaultInputs.filter((item) => !targetByKey.has(item.key)).map((item) => item.key);
+  const add = targetInputs.filter((item) => !defaultByKey.has(item.key));
+  return {
+    ...(add.length > 0 ? { add } : {}),
+    ...(removeKeys.length > 0 ? { removeKeys } : {}),
+  };
+}
 function formatProjectDate(project: ProjectSummary) {
   if (project.updatedAt) return formatIsoToDateTimeDisplay(project.updatedAt);
   if (project.eventDate) return `${formatIsoDateToUs(project.eventDate)} 00:00`;
@@ -2199,7 +2220,7 @@ function ProjectSetupPage({
         musicianId: slot.musicianId,
         patch: slot.presetOverride,
         effective: (() => {
-          const resolved = resolveEffectiveMusicianSetup({ eventOverride: slot.presetOverride, group: role as Group });
+          const resolved = resolveEffectiveMusicianSetup({ musicianDefaults: getGroupDefaultPreset(role as Group), eventOverride: slot.presetOverride, group: role as Group });
           return { inputs: resolved.effectiveInputs, monitoring: resolved.effectiveMonitoring };
         })(),
       }));
@@ -2222,21 +2243,20 @@ function ProjectSetupPage({
   const bandName = project?.displayName ?? setupData?.name ?? project?.bandRef ?? "—";
   const selectedMusicianMap = useMemo(() => new Map(selectedOptions.map((item) => [item.id, item.name])), [selectedOptions]);
   const setupMusicians = useMemo(() => {
-    if (!setupData) return [] as SetupMusicianItem[];
-    return ROLE_ORDER.flatMap((role) => {
-      const constraint = normalizeRoleConstraint(role, setupData.constraints[role]);
-      return normalizeLineupSlots(lineup[role], constraint.max)
-        .map((slot, slotIndex) => ({ role, slotIndex, slot }))
-        .filter(({ slot }) => Boolean(slot.musicianId))
-        .map(({ role, slotIndex, slot }) => ({
-          slotKey: `${role}:${slotIndex}`,
-          musicianId: slot.musicianId,
-          musicianName: selectedMusicianMap.get(slot.musicianId) ?? slot.musicianId,
-          role: role as Group,
-          hasOverride: Boolean(slot.presetOverride),
-        }));
-    });
-  }, [lineup, selectedMusicianMap, setupData]);
+    if (!setupData || !editingSetup) return [] as SetupMusicianItem[];
+    const role = editingSetup.role;
+    const constraint = normalizeRoleConstraint(role, setupData.constraints[role]);
+    return normalizeLineupSlots(lineup[role], constraint.max)
+      .map((slot, slotIndex) => ({ role, slotIndex, slot }))
+      .filter(({ slot }) => Boolean(slot.musicianId))
+      .map(({ role, slotIndex, slot }) => ({
+        slotKey: `${role}:${slotIndex}`,
+        musicianId: slot.musicianId,
+        musicianName: selectedMusicianMap.get(slot.musicianId) ?? slot.musicianId,
+        role: role as Group,
+        hasOverride: Boolean(slot.presetOverride),
+      }));
+  }, [editingSetup, lineup, selectedMusicianMap, setupData]);
 
   const selectedSetupMusician = setupMusicians.find((item) => item.slotKey === selectedSetupSlotKey) ?? setupMusicians[0];
 
@@ -2542,7 +2562,9 @@ function ProjectSetupPage({
       <ModalOverlay open={Boolean(editingSetup)} onClose={() => { setEditingSetup(null); setSetupDraftBySlot({}); setSelectedSetupSlotKey(""); }}>
         {editingSetup && selectedSetupMusician ? (() => {
           const currentPatch = setupDraftBySlot[selectedSetupMusician.slotKey];
+          const defaults = getGroupDefaultPreset(selectedSetupMusician.role);
           const resolved = resolveEffectiveMusicianSetup({
+            musicianDefaults: defaults,
             eventOverride: currentPatch,
             group: selectedSetupMusician.role,
           });
@@ -2550,10 +2572,12 @@ function ProjectSetupPage({
           const availableInputs = (GROUP_INPUT_LIBRARY[selectedSetupMusician.role as keyof typeof GROUP_INPUT_LIBRARY] ?? []).filter(
             (item: InputChannel) => !effective.inputs.some((effectiveItem) => effectiveItem.key === item.key),
           );
+          const drumSetup = selectedSetupMusician.role === "drums" ? inferDrumSetupFromLegacyInputs(effective.inputs) : null;
           const modalErrors = validateEffectivePresets(
             setupMusicians.map((slot) => {
               const slotPatch = setupDraftBySlot[slot.slotKey];
-              const slotResolved = resolveEffectiveMusicianSetup({ eventOverride: slotPatch, group: slot.role });
+              const slotDefaults = getGroupDefaultPreset(slot.role);
+              const slotResolved = resolveEffectiveMusicianSetup({ musicianDefaults: slotDefaults, eventOverride: slotPatch, group: slot.role });
               return { group: slot.role, preset: { inputs: slotResolved.effectiveInputs, monitoring: slotResolved.effectiveMonitoring } };
             }),
           );
@@ -2577,8 +2601,8 @@ function ProjectSetupPage({
                 ×
               </button>
               <div className="panel__header panel__header--stack selector-dialog__title">
-                <h3>Setup for this event</h3>
-                <p className="subtle">Changes here apply only to this event. Band defaults are not modified.</p>
+                <h3>Setup for this event — {selectedSetupMusician.musicianName}</h3>
+                <p className="subtle"><span className="setup-badge">{selectedSetupMusician.role}</span> Changes here apply only to this event. Band defaults are not modified.</p>
               </div>
               <div className="setup-musician-layout">
                 <MusicianSelector
@@ -2590,11 +2614,30 @@ function ProjectSetupPage({
                   onSelect={setSelectedSetupSlotKey}
                 />
                 <div className="setup-editor-grid">
-                  <InputsEditor
-                    role={selectedSetupMusician.role}
+                  {selectedSetupMusician.role === "drums" && drumSetup ? (
+                    <DrumsPartsEditor
+                      setup={drumSetup}
+                      onChange={(nextSetup) => {
+                        const targetInputs = resolveDrumInputs(nextSetup);
+                        setSetupDraftBySlot((prev) => {
+                          const prior = prev[selectedSetupMusician.slotKey];
+                          const nextInputsPatch = buildInputsPatchFromTarget(resolved.defaultPreset.inputs, targetInputs);
+                          return {
+                            ...prev,
+                            [selectedSetupMusician.slotKey]: {
+                              ...prior,
+                              ...(Object.keys(nextInputsPatch).length > 0 ? { inputs: nextInputsPatch } : {}),
+                            },
+                          };
+                        });
+                      }}
+                    />
+                  ) : null}
+                  <SelectedInputsList
                     effectiveInputs={effective.inputs}
                     inputDiffMeta={resolved.diffMeta.inputs}
-                    availableInputs={availableInputs}
+                    availableInputs={selectedSetupMusician.role === "drums" ? [] : availableInputs}
+                    nonRemovableKeys={selectedSetupMusician.role === "drums" ? ["dr_kick_out", "dr_kick_in", "dr_snare1_top", "dr_snare1_bottom"] : []}
                     onRemoveInput={(key) => {
                       setSetupDraftBySlot((prev) => {
                         const prior = prev[selectedSetupMusician.slotKey];
@@ -2605,21 +2648,6 @@ function ProjectSetupPage({
                           [selectedSetupMusician.slotKey]: {
                             ...prior,
                             inputs: { ...prior?.inputs, removeKeys: nextRemove, add: nextAdd },
-                          },
-                        };
-                      });
-                    }}
-                    onRestoreInput={(key) => {
-                      setSetupDraftBySlot((prev) => {
-                        const prior = prev[selectedSetupMusician.slotKey];
-                        return {
-                          ...prev,
-                          [selectedSetupMusician.slotKey]: {
-                            ...prior,
-                            inputs: {
-                              ...prior?.inputs,
-                              removeKeys: (prior?.inputs?.removeKeys ?? []).filter((item) => item !== key),
-                            },
                           },
                         };
                       });

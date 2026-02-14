@@ -19,6 +19,7 @@ export type SetupDiffMeta = {
   inputs: InputDiffMeta[];
   monitoring: {
     type: MonitoringFieldDiffMeta;
+    connection: MonitoringFieldDiffMeta;
     mode: MonitoringFieldDiffMeta;
     mixCount: MonitoringFieldDiffMeta;
   };
@@ -68,6 +69,7 @@ export function computeSetupDiff(params: {
     inputs,
     monitoring: {
       type: monitoringMeta("type"),
+      connection: monitoringMeta("connection"),
       mode: monitoringMeta("mode"),
       mixCount: monitoringMeta("mixCount"),
     },

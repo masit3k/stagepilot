@@ -15,6 +15,7 @@ type MusicianSelectorProps = {
 };
 
 export function MusicianSelector({ items, selectedSlotKey, onSelect }: MusicianSelectorProps) {
+  if (items.length <= 1) return null;
   return (
     <aside className="setup-musician-selector" aria-label="Musician selector">
       {items.map((item) => (
@@ -25,7 +26,6 @@ export function MusicianSelector({ items, selectedSlotKey, onSelect }: MusicianS
           onClick={() => onSelect(item.slotKey)}
         >
           <span>{item.musicianName}</span>
-          <span className="setup-badge">{item.role}</span>
           {item.hasOverride ? <span className="setup-badge setup-badge--override">Overridden</span> : null}
         </button>
       ))}

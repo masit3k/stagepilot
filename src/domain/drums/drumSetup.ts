@@ -18,6 +18,17 @@ export type DrumSetup = {
       };
 };
 
+export type DrumPartsControlsPatch = {
+  tomCount?: number;
+  floorTomCount?: number;
+  hasHiHat?: boolean;
+  hasOverheads?: boolean;
+  extraSnareCount?: number;
+  padEnabled?: boolean;
+  padMode?: PadMode;
+  padChannels?: PadChannels;
+};
+
 export const STANDARD_9_SETUP: DrumSetup = {
   tomCount: 1,
   floorTomCount: 1,
@@ -38,6 +49,39 @@ export const STANDARD_10_SETUP: DrumSetup = {
 
 function isIntegerInRange(value: number, min: number, max: number): boolean {
   return Number.isInteger(value) && value >= min && value <= max;
+}
+
+export function clampTomCount(value: number): number {
+  return Math.max(0, Math.min(4, Math.trunc(value)));
+}
+
+export function clampFloorCount(value: number): number {
+  return Math.max(0, Math.min(4, Math.trunc(value)));
+}
+
+export function clampExtraSnareCount(value: number): number {
+  return Math.max(0, Math.min(2, Math.trunc(value)));
+}
+
+export function applyDrumPartsControlsToSetup(setup: DrumSetup, patch: DrumPartsControlsPatch): DrumSetup {
+  const nextPadEnabled = patch.padEnabled ?? setup.pad.enabled;
+  const nextMode = patch.padMode ?? (setup.pad.enabled ? setup.pad.mode : "sfx");
+  const nextChannels = patch.padChannels ?? (setup.pad.enabled ? setup.pad.channels : "mono");
+
+  return {
+    tomCount: clampTomCount(patch.tomCount ?? setup.tomCount),
+    floorTomCount: clampFloorCount(patch.floorTomCount ?? setup.floorTomCount),
+    hasHiHat: patch.hasHiHat ?? setup.hasHiHat,
+    hasOverheads: patch.hasOverheads ?? setup.hasOverheads,
+    extraSnareCount: clampExtraSnareCount(patch.extraSnareCount ?? setup.extraSnareCount),
+    pad: nextPadEnabled
+      ? {
+          enabled: true,
+          mode: nextMode,
+          channels: nextChannels,
+        }
+      : { enabled: false },
+  };
 }
 
 export function validateDrumSetup(setup: DrumSetup): string[] {

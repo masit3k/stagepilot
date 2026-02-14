@@ -195,7 +195,8 @@ export interface Preset {
 }
 
 export type MonitoringPreset = {
-  type: "wedge" | "iem";
+  type: "wedge" | "iem" | "none";
+  connection?: "wired" | "wireless";
   mode: "mono" | "stereo";
   mixCount: number;
 };

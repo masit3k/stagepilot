@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveDrumInputs } from "./resolveDrumInputs.js";
-import { STANDARD_10_SETUP, validateDrumSetup, migrateLegacyDrumPresetRefs } from "./drumSetup.js";
+import { STANDARD_10_SETUP, applyDrumPartsControlsToSetup, clampExtraSnareCount, clampFloorCount, clampTomCount, validateDrumSetup, migrateLegacyDrumPresetRefs } from "./drumSetup.js";
 
 describe("resolveDrumInputs", () => {
   it("resolves standard 10 in deterministic order", () => {
@@ -117,5 +117,44 @@ describe("drum setup validation + migration", () => {
       extraSnareCount: 1,
       pad: { enabled: true, mode: "sfx", channels: "stereo" },
     });
+  });
+});
+
+
+describe("drum parts helpers", () => {
+  it("clamps tom/floor/extra snare counts", () => {
+    expect(clampTomCount(10)).toBe(4);
+    expect(clampFloorCount(-2)).toBe(0);
+    expect(clampExtraSnareCount(3)).toBe(2);
+  });
+
+  it("applies parts controls consistently", () => {
+    const next = applyDrumPartsControlsToSetup(STANDARD_10_SETUP, {
+      tomCount: 3,
+      floorTomCount: 2,
+      hasOverheads: false,
+      extraSnareCount: 2,
+      padEnabled: true,
+      padMode: "backing",
+      padChannels: "stereo",
+    });
+
+    const rows = resolveDrumInputs(next);
+    expect(rows.map((row) => row.key)).toEqual([
+      "dr_kick_out",
+      "dr_kick_in",
+      "dr_snare1_top",
+      "dr_snare1_bottom",
+      "dr_hihat",
+      "dr_tom_1",
+      "dr_tom_2",
+      "dr_tom_3",
+      "dr_floor_1",
+      "dr_floor_2",
+      "dr_snare2_top",
+      "dr_snare3_top",
+      "dr_pad_stereo_backing_l",
+      "dr_pad_stereo_backing_r",
+    ]);
   });
 });
