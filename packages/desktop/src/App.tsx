@@ -5,6 +5,8 @@ import stagePilotIcon from "../assets/icons/StagePilot_Icon_StageLayout_CurrentC
 import desktopPackage from "../package.json";
 import {
   type LineupMap,
+  type LineupSlotValue,
+  type PresetOverridePatch,
   type RoleConstraint,
   type RoleLabelConstraints,
   buildExportFileName,
@@ -23,6 +25,7 @@ import {
   matchProjectGenericPath,
   matchProjectPreviewPath,
   matchProjectSetupPath,
+  normalizeLineupSlots,
   normalizeLineupValue,
   normalizeRoleConstraint,
   parseDDMMYYYYToISO,
@@ -32,6 +35,13 @@ import {
   validateLineup,
 } from "./projectRules";
 import { generateUuidV7, isUuidV7 } from "../../../src/domain/projectNaming";
+import {
+  applyPresetOverride,
+  buildChangedSummary,
+  createDefaultMusicianPreset,
+  validateEffectivePresets,
+} from "../../../src/domain/rules/presetOverride";
+import type { MusicianSetupPreset } from "../../../src/domain/model/types";
 import "./App.css";
 
 type ProjectSummary = {
@@ -2064,6 +2074,12 @@ function ProjectSetupPage({
     slotIndex: number;
     currentSelectedId?: string;
   } | null>(null);
+  const [editingSetup, setEditingSetup] = useState<{
+    role: string;
+    slotIndex: number;
+    musicianId: string;
+  } | null>(null);
+  const [setupDraftPatch, setSetupDraftPatch] = useState<PresetOverridePatch | undefined>(undefined);
   const [bandLeaderId, setBandLeaderId] = useState("");
   const [talkbackOwnerId, setTalkbackOwnerId] = useState("");
   const [status, setStatus] = useState("");
@@ -2277,25 +2293,55 @@ function ProjectSetupPage({
     return () => registerNavigationGuard(null);
   }, [registerNavigationGuard, isDirty, isCommitting]);
 
-  function updateSlot(role: string, slotIndex: number, musicianId: string) {
+  function setRoleSlots(role: string, slots: LineupSlotValue[]) {
     if (!setupData) return;
-    const constraint = normalizeRoleConstraint(
-      role,
-      setupData.constraints[role],
-    );
-    const current = normalizeLineupValue(lineup[role], constraint.max);
-    while (current.length < Math.max(constraint.max, slotIndex + 1))
-      current.push("");
-    current[slotIndex] = musicianId;
-    const nextLineup = {
-      ...lineup,
-      [role]:
-        constraint.max <= 1
-          ? current.filter(Boolean)[0]
-          : current.filter(Boolean),
-    };
+    const constraint = normalizeRoleConstraint(role, setupData.constraints[role]);
+    const compact = slots.filter((slot) => Boolean(slot.musicianId));
+    const value = constraint.max <= 1 ? compact[0] : compact;
+    const nextLineup = { ...lineup, [role]: value as LineupMap[string] };
     applyState(nextLineup, setupData, bandLeaderId, talkbackOwnerId);
   }
+
+  function updateSlot(role: string, slotIndex: number, musicianId: string) {
+    if (!setupData) return;
+    const constraint = normalizeRoleConstraint(role, setupData.constraints[role]);
+    const current = normalizeLineupSlots(lineup[role], constraint.max);
+    while (current.length < Math.max(constraint.max, slotIndex + 1)) current.push({ musicianId: "" });
+    const previous = current[slotIndex];
+    current[slotIndex] = musicianId
+      ? { musicianId, ...(previous?.musicianId === musicianId && previous?.presetOverride ? { presetOverride: previous.presetOverride } : {}) }
+      : { musicianId: "" };
+    setRoleSlots(role, current);
+  }
+
+  function updateSlotOverride(role: string, slotIndex: number, patch?: PresetOverridePatch) {
+    if (!setupData) return;
+    const constraint = normalizeRoleConstraint(role, setupData.constraints[role]);
+    const current = normalizeLineupSlots(lineup[role], constraint.max);
+    const target = current[slotIndex];
+    if (!target?.musicianId) return;
+    current[slotIndex] = { musicianId: target.musicianId, ...(patch ? { presetOverride: patch } : {}) };
+    setRoleSlots(role, current);
+  }
+
+  const effectiveSlotPresets = useMemo(() => {
+    if (!setupData) return [] as Array<{ role: string; slotIndex: number; musicianId: string; patch?: PresetOverridePatch; effective: MusicianSetupPreset }>;
+    return ROLE_ORDER.flatMap((role) => {
+      const constraint = normalizeRoleConstraint(role, setupData.constraints[role]);
+      return normalizeLineupSlots(lineup[role], constraint.max).map((slot, slotIndex) => ({
+        role,
+        slotIndex,
+        musicianId: slot.musicianId,
+        patch: slot.presetOverride,
+        effective: applyPresetOverride(createDefaultMusicianPreset(), slot.presetOverride),
+      }));
+    });
+  }, [lineup, setupData]);
+
+  const overrideValidationErrors = useMemo(
+    () => validateEffectivePresets(effectiveSlotPresets.map((slot) => ({ group: slot.role, preset: slot.effective }))),
+    [effectiveSlotPresets],
+  );
 
   const backSetupPath =
     project?.purpose === "generic"
@@ -2324,6 +2370,10 @@ function ProjectSetupPage({
     Boolean(editing && setupData),
     () => setEditing(null),
   );
+  const setupEditorRef = useModalBehavior(Boolean(editingSetup), () => {
+    setEditingSetup(null);
+    setSetupDraftPatch(undefined);
+  });
 
   return (
     <section className="panel panel--setup">
@@ -2390,20 +2440,35 @@ function ProjectSetupPage({
                                   ?.name ?? musicianId)
                                 : "Not selected"}
                             </span>
-                            <button
-                              type="button"
-                              className="button-secondary"
-                              disabled={alternatives.length === 0}
-                              onClick={() =>
-                                setEditing({
-                                  role,
-                                  slotIndex: index,
-                                  currentSelectedId: musicianId || undefined,
-                                })
-                              }
-                            >
-                              Change
-                            </button>
+                            <div className="lineup-list__actions">
+                              <button
+                                type="button"
+                                className="button-secondary"
+                                disabled={alternatives.length === 0}
+                                onClick={() =>
+                                  setEditing({
+                                    role,
+                                    slotIndex: index,
+                                    currentSelectedId: musicianId || undefined,
+                                  })
+                                }
+                              >
+                                Change
+                              </button>
+                              <button
+                                type="button"
+                                className="button-secondary"
+                                disabled={!musicianId}
+                                onClick={() => {
+                                  const roleConstraint = normalizeRoleConstraint(role, setupData.constraints[role]);
+                                  const slot = normalizeLineupSlots(lineup[role], roleConstraint.max)[index];
+                                  setEditingSetup({ role, slotIndex: index, musicianId });
+                                  setSetupDraftPatch(slot?.presetOverride);
+                                }}
+                              >
+                                Setup{normalizeLineupSlots(lineup[role], constraint.max)[index]?.presetOverride ? " •" : ""}
+                              </button>
+                            </div>
                           </div>
                         );
                       },
@@ -2424,9 +2489,14 @@ function ProjectSetupPage({
                       (_, index) => (
                         <div key={`${role}-${index}`} className="lineup-list__row">
                           <span className="lineup-list__name">Not selected</span>
-                          <button type="button" className="button-secondary" disabled>
-                            Change
-                          </button>
+                          <div className="lineup-list__actions">
+                            <button type="button" className="button-secondary" disabled>
+                              Change
+                            </button>
+                            <button type="button" className="button-secondary" disabled>
+                              Setup
+                            </button>
+                          </div>
                         </div>
                       ),
                     )}
@@ -2496,9 +2566,9 @@ function ProjectSetupPage({
           </div>
         </article>
       </div>
-      {errors.length > 0 ? (
+      {errors.length + overrideValidationErrors.length > 0 ? (
         <div className="status status--error">
-          {errors.map((error) => (
+          {[...errors, ...overrideValidationErrors].map((error) => (
             <p key={error}>{error}</p>
           ))}
         </div>
@@ -2523,14 +2593,14 @@ function ProjectSetupPage({
         <button
           type="button"
           onClick={async () => {
-            if (errors.length > 0) return;
+            if (errors.length > 0 || overrideValidationErrors.length > 0) return;
             if (isDirty) {
               setIsCommitting(true);
               await persistProject();
             }
             navigate(withFrom(`/projects/${id}/preview`, "setup"));
           }}
-          disabled={errors.length > 0}
+          disabled={errors.length > 0 || overrideValidationErrors.length > 0}
         >
           {isDirty ? "Save & Continue" : "Continue"}
         </button>
@@ -2581,6 +2651,169 @@ function ProjectSetupPage({
             </button>
           </div>
         </div>
+      </ModalOverlay>
+
+      <ModalOverlay open={Boolean(editingSetup)} onClose={() => { setEditingSetup(null); setSetupDraftPatch(undefined); }}>
+        {editingSetup ? (() => {
+          const summary = buildChangedSummary(setupDraftPatch);
+          const effective = applyPresetOverride(createDefaultMusicianPreset(), setupDraftPatch);
+          const modalErrors = validateEffectivePresets(
+            effectiveSlotPresets
+              .filter((slot) => !(slot.role === editingSetup.role && slot.slotIndex === editingSetup.slotIndex))
+              .map((slot) => ({ group: slot.role, preset: slot.effective }))
+              .concat([{ group: editingSetup.role, preset: effective }]),
+          );
+          return (
+            <div
+              className="selector-dialog selector-dialog--setup-editor"
+              role="dialog"
+              aria-modal="true"
+              ref={setupEditorRef}
+            >
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => {
+                  setEditingSetup(null);
+                  setSetupDraftPatch(undefined);
+                }}
+                aria-label="Close"
+              >
+                ×
+              </button>
+              <div className="panel__header panel__header--stack selector-dialog__title">
+                <h3>Setup for this event</h3>
+                <p className="subtle">Changes here apply only to this event. Band defaults are not modified.</p>
+              </div>
+              {summary.length > 0 ? <p className="subtle">Changed: {summary.join(", ")}</p> : null}
+              <div className="setup-editor-grid">
+                <section>
+                  <h4>Inputs</h4>
+                  <p className="subtle">Effective list ({effective.inputs.length})</p>
+                  <div className="setup-editor-list">
+                    {effective.inputs.map((input) => (
+                      <div key={input.key} className="setup-editor-list__row">
+                        <span>{input.key}</span>
+                        <button
+                          type="button"
+                          className="button-secondary"
+                          onClick={() =>
+                            setSetupDraftPatch((prev) => ({
+                              ...prev,
+                              inputs: {
+                                ...prev?.inputs,
+                                removeKeys: [...(prev?.inputs?.removeKeys ?? []), input.key],
+                              },
+                            }))
+                          }
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    className="button-secondary"
+                    onClick={() => {
+                      const key = window.prompt("Input key");
+                      if (!key) return;
+                      const label = window.prompt("Input label", key) ?? key;
+                      setSetupDraftPatch((prev) => ({
+                        ...prev,
+                        inputs: {
+                          ...prev?.inputs,
+                          add: [...(prev?.inputs?.add ?? []), { key, label }],
+                        },
+                      }));
+                    }}
+                  >
+                    Add input
+                  </button>
+                </section>
+                <section>
+                  <h4>Monitoring</h4>
+                  <label>
+                    Type
+                    <select
+                      value={setupDraftPatch?.monitoring?.type ?? effective.monitoring.type}
+                      onChange={(e) =>
+                        setSetupDraftPatch((prev) => ({
+                          ...prev,
+                          monitoring: { ...prev?.monitoring, type: e.target.value as "wedge" | "iem" },
+                        }))
+                      }
+                    >
+                      <option value="wedge">Wedge</option>
+                      <option value="iem">IEM</option>
+                    </select>
+                  </label>
+                  <label>
+                    Mode
+                    <select
+                      value={setupDraftPatch?.monitoring?.mode ?? effective.monitoring.mode}
+                      onChange={(e) =>
+                        setSetupDraftPatch((prev) => ({
+                          ...prev,
+                          monitoring: { ...prev?.monitoring, mode: e.target.value as "mono" | "stereo" },
+                        }))
+                      }
+                    >
+                      <option value="mono">Mono</option>
+                      <option value="stereo">Stereo</option>
+                    </select>
+                  </label>
+                  <label>
+                    Mixes
+                    <input
+                      type="number"
+                      min={0}
+                      max={6}
+                      value={setupDraftPatch?.monitoring?.mixCount ?? effective.monitoring.mixCount}
+                      onChange={(e) =>
+                        setSetupDraftPatch((prev) => ({
+                          ...prev,
+                          monitoring: { ...prev?.monitoring, mixCount: Number(e.target.value || 0) },
+                        }))
+                      }
+                    />
+                  </label>
+                </section>
+              </div>
+              {modalErrors.length > 0 ? (
+                <div className="status status--error">
+                  {modalErrors.map((error) => <p key={error}>{error}</p>)}
+                </div>
+              ) : null}
+              <div className="modal-actions modal-actions--setup">
+                <button type="button" className="button-secondary" onClick={() => { setEditingSetup(null); setSetupDraftPatch(undefined); }}>Back</button>
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={() => {
+                    if (setupDraftPatch && !window.confirm("Reset event override for this slot?")) return;
+                    updateSlotOverride(editingSetup.role, editingSetup.slotIndex, undefined);
+                    setEditingSetup(null);
+                    setSetupDraftPatch(undefined);
+                  }}
+                >
+                  Reset overrides
+                </button>
+                <button
+                  type="button"
+                  disabled={modalErrors.length > 0}
+                  onClick={() => {
+                    updateSlotOverride(editingSetup.role, editingSetup.slotIndex, setupDraftPatch);
+                    setEditingSetup(null);
+                    setSetupDraftPatch(undefined);
+                  }}
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          );
+        })() : null}
       </ModalOverlay>
 
       <ModalOverlay open={Boolean(editing && setupData)} onClose={() => setEditing(null)}>

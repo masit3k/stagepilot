@@ -17,8 +17,47 @@ export type RoleLabelConstraints = {
   };
 };
 
-export type LineupValue = string | string[];
-export type LineupMap = Record<string, LineupValue | undefined>;
+export type LineupValue = RichLineupValue;
+export type LineupMap = RichLineupMap;
+
+export type MonitoringPreset = {
+  type?: "wedge" | "iem";
+  mode?: "mono" | "stereo";
+  mixCount?: number;
+};
+
+export type InputDef = {
+  key: string;
+  label: string;
+  note?: string;
+  group?: "drums" | "bass" | "guitar" | "keys" | "vocs" | "talkback";
+};
+
+export type PartialInputUpdate = {
+  key: string;
+  label?: string;
+  note?: string;
+  group?: InputDef["group"];
+};
+
+export type PresetOverridePatch = {
+  monitoring?: Partial<MonitoringPreset>;
+  inputs?: {
+    add?: InputDef[];
+    removeKeys?: string[];
+    update?: PartialInputUpdate[];
+  };
+};
+
+export type LineupSlotValue = {
+  musicianId: string;
+  presetOverride?: PresetOverridePatch;
+};
+
+export type LineupEntry = string | LineupSlotValue;
+
+export type RichLineupValue = LineupEntry | LineupEntry[];
+export type RichLineupMap = Record<string, RichLineupValue | undefined>;
 
 const PROJECT_DETAIL_PATTERN = /^\/projects\/([^/]+)$/;
 const PROJECT_SETUP_PATTERN = /^\/projects\/([^/]+)\/setup$/;
@@ -228,12 +267,33 @@ export function isPastIsoDate(isoDate: string, todayIso: string): boolean {
 }
 
 export function normalizeLineupValue(
-  value: LineupValue | undefined,
+  value: RichLineupValue | undefined,
   maxSlots: number,
 ): string[] {
   if (!value) return [];
   const ids = Array.isArray(value) ? value : [value];
-  return ids.filter(Boolean).slice(0, Math.max(maxSlots, 0));
+  return ids
+    .map((entry) =>
+      typeof entry === "string" ? entry : (entry?.musicianId ?? ""),
+    )
+    .filter(Boolean)
+    .slice(0, Math.max(maxSlots, 0));
+}
+
+export function normalizeLineupSlots(
+  value: RichLineupValue | undefined,
+  maxSlots: number,
+): LineupSlotValue[] {
+  if (!value) return [];
+  const entries = Array.isArray(value) ? value : [value];
+  return entries
+    .map((entry) =>
+      typeof entry === "string"
+        ? { musicianId: entry }
+        : { musicianId: entry.musicianId, presetOverride: entry.presetOverride },
+    )
+    .filter((entry) => Boolean(entry.musicianId))
+    .slice(0, Math.max(maxSlots, 0));
 }
 
 export function normalizeRoleConstraint(

@@ -189,6 +189,33 @@ export interface Preset {
   inputs: InputChannel[];
 }
 
+export type MonitoringPreset = {
+  type: "wedge" | "iem";
+  mode: "mono" | "stereo";
+  mixCount: number;
+};
+
+export type PartialInputUpdate = {
+  key: string;
+  label?: string;
+  note?: string;
+  group?: Group;
+};
+
+export type PresetOverridePatch = {
+  monitoring?: Partial<MonitoringPreset>;
+  inputs?: {
+    add?: InputChannel[];
+    removeKeys?: string[];
+    update?: PartialInputUpdate[];
+  };
+};
+
+export type MusicianSetupPreset = {
+  inputs: InputChannel[];
+  monitoring: MonitoringPreset;
+};
+
 export type PowerRequirement = {
   voltage: number;
   sockets: number;

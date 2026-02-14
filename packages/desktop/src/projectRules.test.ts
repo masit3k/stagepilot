@@ -21,6 +21,8 @@ import {
   formatProjectSlug,
   sanitizeVenueSlug,
   shouldPromptUnsavedChanges,
+  normalizeLineupSlots,
+  getUniqueSelectedMusicians,
 } from "./projectRules";
 
 describe("routing guards", () => {
@@ -181,5 +183,23 @@ describe("unsaved changes", () => {
 
   it("does not prompt when clean", () => {
     expect(shouldPromptUnsavedChanges(false, "route-change")).toBe(false);
+  });
+});
+
+
+describe("lineup slot overrides", () => {
+  it("normalizes object-based lineup slots", () => {
+    expect(
+      normalizeLineupSlots({ musicianId: "fuchs_tomas", presetOverride: { monitoring: { mode: "mono" } } }, 1),
+    ).toEqual([{ musicianId: "fuchs_tomas", presetOverride: { monitoring: { mode: "mono" } } }]);
+  });
+
+  it("collects selected musician ids from mixed lineup shapes", () => {
+    const selected = getUniqueSelectedMusicians(
+      { guitar: { musicianId: "fuchs_tomas" }, bass: "krecmer_matej" },
+      { guitar: { min: 0, max: 1 }, bass: { min: 0, max: 1 } },
+      ["guitar", "bass"],
+    );
+    expect(selected.sort()).toEqual(["fuchs_tomas", "krecmer_matej"].sort());
   });
 });
