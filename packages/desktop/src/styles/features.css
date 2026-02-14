@@ -701,3 +701,68 @@
     align-items: stretch;
   }
 }
+.setup-musician-layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.setup-musician-selector {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.setup-musician-selector__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.setup-musician-selector__item--active {
+  border-color: var(--accent, #4f46e5);
+}
+
+.setup-badge {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.setup-badge--override {
+  color: #7c2d12;
+  border-color: #fdba74;
+  background: #ffedd5;
+}
+
+.setup-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.setup-field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.setup-removed-list,
+.setup-available-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+@media (max-width: 860px) {
+  .setup-musician-layout {
+    grid-template-columns: 1fr;
+  }
+}
