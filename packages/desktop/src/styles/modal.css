@@ -37,6 +37,18 @@
   transform-origin: center;
 }
 
+.selector-dialog--scrollable {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  max-height: min(90vh, 980px);
+}
+
+.selector-dialog__body {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
 @keyframes selectorDialogIn {
   from {
     opacity: 0;
@@ -54,6 +66,22 @@
 
 .selector-dialog--setup-editor {
   width: min(760px, 96vw);
+  max-height: min(90vh, 980px);
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+}
+
+.selector-dialog--setup-editor .selector-dialog__body {
+  padding-right: 4px;
+}
+
+.selector-dialog--setup-editor .modal-actions--setup {
+  margin-top: 0;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky;
+  bottom: 0;
 }
 
 .selector-dialog__title {

@@ -567,6 +567,19 @@
   align-items: start;
 }
 
+.setup-musician-layout {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.setup-editor-body {
+  display: grid;
+  gap: var(--space-3);
+  min-height: 0;
+  overflow: auto;
+  padding-bottom: var(--space-2);
+}
+
 /* Stack on smaller viewports */
 @media (max-width: 900px) {
   .setup-editor-grid {

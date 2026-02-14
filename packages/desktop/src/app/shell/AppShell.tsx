@@ -2313,17 +2313,18 @@ function ProjectSetupPage({
                 <p className="subtle">Changes here apply only to this event. Band defaults are not modified.</p>
               </div>
               <div className="selector-dialog__divider section-divider" />
-              <div className="setup-musician-layout">
-                <MusicianSelector
-                  items={setupMusicians.map((item) => ({
-                    ...item,
-                    hasOverride: Boolean(setupDraftBySlot[item.slotKey]),
-                  }))}
-                  selectedSlotKey={selectedSetupMusician.slotKey}
-                  onSelect={setSelectedSetupSlotKey}
-                />
-                <div className="setup-editor-grid">
-                  <div className="setup-editor-column">
+              <div className="selector-dialog__body setup-editor-body" role="region" aria-label="Setup editor content">
+                <div className="setup-musician-layout">
+                  <MusicianSelector
+                    items={setupMusicians.map((item) => ({
+                      ...item,
+                      hasOverride: Boolean(setupDraftBySlot[item.slotKey]),
+                    }))}
+                    selectedSlotKey={selectedSetupMusician.slotKey}
+                    onSelect={setSelectedSetupSlotKey}
+                  />
+                  <div className="setup-editor-grid">
+                    <div className="setup-editor-column">
                     {selectedSetupMusician.role === "drums" && drumSetup ? (
                       <DrumsPartsEditor
                         setup={drumSetup}
@@ -2381,27 +2382,28 @@ function ProjectSetupPage({
                         });
                       }}
                     />
-                  </div>
-                  <div className="setup-editor-column">
-                    <MonitoringEditor
-                      effectiveMonitoring={effective.monitoring}
-                      patch={currentPatch}
-                      diffMeta={resolved.diffMeta}
-                      onChangePatch={(nextPatch) =>
-                        setSetupDraftBySlot((prev) => ({
-                          ...prev,
-                          [selectedSetupMusician.slotKey]: nextPatch,
-                        }))
-                      }
-                    />
+                    </div>
+                    <div className="setup-editor-column">
+                      <MonitoringEditor
+                        effectiveMonitoring={effective.monitoring}
+                        patch={currentPatch}
+                        diffMeta={resolved.diffMeta}
+                        onChangePatch={(nextPatch) =>
+                          setSetupDraftBySlot((prev) => ({
+                            ...prev,
+                            [selectedSetupMusician.slotKey]: nextPatch,
+                          }))
+                        }
+                      />
+                    </div>
                   </div>
                 </div>
+                {modalErrors.length > 0 ? (
+                  <div className="status status--error">
+                    {modalErrors.map((error) => <p key={error}>{error}</p>)}
+                  </div>
+                ) : null}
               </div>
-              {modalErrors.length > 0 ? (
-                <div className="status status--error">
-                  {modalErrors.map((error) => <p key={error}>{error}</p>)}
-                </div>
-              ) : null}
               <div className="modal-actions modal-actions--setup">
                 <button type="button" className="button-secondary" onClick={() => { setEditingSetup(null); setSetupDraftBySlot({}); setSelectedSetupSlotKey(""); }}>Back</button>
                 <button
