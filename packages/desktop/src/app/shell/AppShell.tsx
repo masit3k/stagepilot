@@ -254,7 +254,7 @@ function getNavigationContextLabel(origin?: string | null) {
   return null;
 }
 
-function AppLegacy() {
+function AppShell() {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [bands, setBands] = useState<BandOption[]>([]);
   const [status, setStatus] = useState("");
@@ -3283,4 +3283,4 @@ function ProjectPreviewPage({
   );
 }
 
-export default AppLegacy;
+export default AppShell;
