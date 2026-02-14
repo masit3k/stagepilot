@@ -1,6 +1,6 @@
 import AppProviders from "./providers/AppProviders";
 import { AppRouter } from "./router/Router";
-import { ModalHost } from "../components/ui/modal/ModalHost";
+import { ModalHost } from "../components/ui/Modal";
 
 function Root() {
   return (
