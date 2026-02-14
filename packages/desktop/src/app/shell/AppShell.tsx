@@ -107,6 +107,7 @@ type BandSetupData = {
   roleConstraints?: RoleLabelConstraints;
   defaultLineup?: LineupMap | null;
   members: Record<string, MemberOption[]>;
+  musicianDefaults?: Record<string, Partial<MusicianSetupPreset>>;
   loadWarnings?: string[];
 };
 
@@ -1695,7 +1696,7 @@ function NewEventProjectPage({
           className="button-secondary"
           onClick={() => navigate(backTarget)}
         >
-          Back
+          Edit Project
         </button>
         <button
           type="button"
@@ -1917,7 +1918,7 @@ function NewGenericProjectPage({
           className="button-secondary"
           onClick={() => navigate(backTarget)}
         >
-          Back
+          Edit Project
         </button>
         <button
           type="button"
@@ -2210,6 +2211,16 @@ function ProjectSetupPage({
     applyState(nextLineup, setupData, bandLeaderId, talkbackOwnerId);
   }
 
+  const resolveSlotSetup = useCallback((role: Group, musicianId: string, patch?: PresetOverridePatch) => {
+    const resolved = resolveEffectiveMusicianSetup({
+      musicianDefaults: setupData?.musicianDefaults?.[musicianId],
+      bandDefaults: getGroupDefaultPreset(role),
+      eventOverride: patch,
+      group: role,
+    });
+    return { resolved, effective: { inputs: resolved.effectiveInputs, monitoring: resolved.effectiveMonitoring } };
+  }, [setupData]);
+
   const effectiveSlotPresets = useMemo(() => {
     if (!setupData) return [] as Array<{ role: string; slotIndex: number; musicianId: string; patch?: PresetOverridePatch; effective: MusicianSetupPreset }>;
     return ROLE_ORDER.flatMap((role) => {
@@ -2219,13 +2230,10 @@ function ProjectSetupPage({
         slotIndex,
         musicianId: slot.musicianId,
         patch: slot.presetOverride,
-        effective: (() => {
-          const resolved = resolveEffectiveMusicianSetup({ musicianDefaults: getGroupDefaultPreset(role as Group), eventOverride: slot.presetOverride, group: role as Group });
-          return { inputs: resolved.effectiveInputs, monitoring: resolved.effectiveMonitoring };
-        })(),
-      }));
+        effective: resolveSlotSetup(role as Group, slot.musicianId, slot.presetOverride).effective,
+      })).filter((slot) => Boolean(slot.musicianId));
     });
-  }, [lineup, setupData]);
+  }, [lineup, resolveSlotSetup, setupData]);
 
   const overrideValidationErrors = useMemo(
     () => validateEffectivePresets(effectiveSlotPresets.map((slot) => ({ group: slot.role, preset: slot.effective }))),
@@ -2236,10 +2244,7 @@ function ProjectSetupPage({
     project?.purpose === "generic"
       ? `/projects/${encodeURIComponent(id)}/generic`
       : `/projects/${encodeURIComponent(id)}/event`;
-  const fromPath = useMemo(
-    () => new URLSearchParams(search).get("fromPath"),
-    [search],
-  );
+  const editProjectPath = withFrom(backSetupPath, "setup", `${window.location.pathname}${search || ""}`);
   const bandName = project?.displayName ?? setupData?.name ?? project?.bandRef ?? "—";
   const selectedMusicianMap = useMemo(() => new Map(selectedOptions.map((item) => [item.id, item.name])), [selectedOptions]);
   const setupMusicians = useMemo(() => {
@@ -2485,9 +2490,9 @@ function ProjectSetupPage({
         <button
           type="button"
           className="button-secondary"
-          onClick={() => navigate(fromPath || withFrom(backSetupPath, "setup"))}
+          onClick={() => navigate(editProjectPath)}
         >
-          Back
+          Edit Project
         </button>
         <button
           type="button"
@@ -2562,13 +2567,7 @@ function ProjectSetupPage({
       <ModalOverlay open={Boolean(editingSetup)} onClose={() => { setEditingSetup(null); setSetupDraftBySlot({}); setSelectedSetupSlotKey(""); }}>
         {editingSetup && selectedSetupMusician ? (() => {
           const currentPatch = setupDraftBySlot[selectedSetupMusician.slotKey];
-          const defaults = getGroupDefaultPreset(selectedSetupMusician.role);
-          const resolved = resolveEffectiveMusicianSetup({
-            musicianDefaults: defaults,
-            eventOverride: currentPatch,
-            group: selectedSetupMusician.role,
-          });
-          const effective = { inputs: resolved.effectiveInputs, monitoring: resolved.effectiveMonitoring };
+          const { resolved, effective } = resolveSlotSetup(selectedSetupMusician.role, selectedSetupMusician.musicianId, currentPatch);
           const availableInputs = (GROUP_INPUT_LIBRARY[selectedSetupMusician.role as keyof typeof GROUP_INPUT_LIBRARY] ?? []).filter(
             (item: InputChannel) => !effective.inputs.some((effectiveItem) => effectiveItem.key === item.key),
           );
@@ -2576,8 +2575,7 @@ function ProjectSetupPage({
           const modalErrors = validateEffectivePresets(
             setupMusicians.map((slot) => {
               const slotPatch = setupDraftBySlot[slot.slotKey];
-              const slotDefaults = getGroupDefaultPreset(slot.role);
-              const slotResolved = resolveEffectiveMusicianSetup({ musicianDefaults: slotDefaults, eventOverride: slotPatch, group: slot.role });
+              const { resolved: slotResolved } = resolveSlotSetup(slot.role, slot.musicianId, slotPatch);
               return { group: slot.role, preset: { inputs: slotResolved.effectiveInputs, monitoring: slotResolved.effectiveMonitoring } };
             }),
           );
@@ -2601,8 +2599,8 @@ function ProjectSetupPage({
                 ×
               </button>
               <div className="panel__header panel__header--stack selector-dialog__title">
-                <h3>Setup for this event – {selectedSetupMusician.musicianName}</h3>
-                <p className="subtle"><span className="setup-badge">{selectedSetupMusician.role}</span> Changes here apply only to this event. Band defaults are not modified.</p>
+                <h3>Setup for this event – {selectedSetupMusician.musicianName} ({selectedSetupMusician.role})</h3>
+                <p className="subtle">Changes here apply only to this event. Band defaults are not modified.</p>
               </div>
               <div className="selector-dialog__divider section-divider" />
               <div className="setup-musician-layout">
@@ -2615,74 +2613,78 @@ function ProjectSetupPage({
                   onSelect={setSelectedSetupSlotKey}
                 />
                 <div className="setup-editor-grid">
-                  {selectedSetupMusician.role === "drums" && drumSetup ? (
-                    <DrumsPartsEditor
-                      setup={drumSetup}
-                      onChange={(nextSetup) => {
-                        const targetInputs = resolveDrumInputs(nextSetup);
+                  <div className="setup-editor-column">
+                    {selectedSetupMusician.role === "drums" && drumSetup ? (
+                      <DrumsPartsEditor
+                        setup={drumSetup}
+                        onChange={(nextSetup) => {
+                          const targetInputs = resolveDrumInputs(nextSetup);
+                          setSetupDraftBySlot((prev) => {
+                            const prior = prev[selectedSetupMusician.slotKey];
+                            const nextInputsPatch = buildInputsPatchFromTarget(resolved.defaultPreset.inputs, targetInputs);
+                            return {
+                              ...prev,
+                              [selectedSetupMusician.slotKey]: {
+                                ...prior,
+                                ...(Object.keys(nextInputsPatch).length > 0 ? { inputs: nextInputsPatch } : {}),
+                              },
+                            };
+                          });
+                        }}
+                      />
+                    ) : null}
+                    <SelectedInputsList
+                      effectiveInputs={effective.inputs}
+                      inputDiffMeta={resolved.diffMeta.inputs}
+                      availableInputs={selectedSetupMusician.role === "drums" ? [] : availableInputs}
+                      nonRemovableKeys={selectedSetupMusician.role === "drums" ? ["dr_kick_out", "dr_kick_in", "dr_snare1_top", "dr_snare1_bottom"] : []}
+                      onRemoveInput={(key) => {
                         setSetupDraftBySlot((prev) => {
                           const prior = prev[selectedSetupMusician.slotKey];
-                          const nextInputsPatch = buildInputsPatchFromTarget(resolved.defaultPreset.inputs, targetInputs);
+                          const nextRemove = Array.from(new Set([...(prior?.inputs?.removeKeys ?? []), key]));
+                          const nextAdd = (prior?.inputs?.add ?? []).filter((item) => item.key !== key);
                           return {
                             ...prev,
                             [selectedSetupMusician.slotKey]: {
                               ...prior,
-                              ...(Object.keys(nextInputsPatch).length > 0 ? { inputs: nextInputsPatch } : {}),
+                              inputs: { ...prior?.inputs, removeKeys: nextRemove, add: nextAdd },
+                            },
+                          };
+                        });
+                      }}
+                      onAddInput={(input) => {
+                        setSetupDraftBySlot((prev) => {
+                          const prior = prev[selectedSetupMusician.slotKey];
+                          const hasInput = (prior?.inputs?.add ?? []).some((item) => item.key === input.key);
+                          if (hasInput) return prev;
+                          return {
+                            ...prev,
+                            [selectedSetupMusician.slotKey]: {
+                              ...prior,
+                              inputs: {
+                                ...prior?.inputs,
+                                add: [...(prior?.inputs?.add ?? []), input],
+                                removeKeys: (prior?.inputs?.removeKeys ?? []).filter((item) => item !== input.key),
+                              },
                             },
                           };
                         });
                       }}
                     />
-                  ) : null}
-                  <SelectedInputsList
-                    effectiveInputs={effective.inputs}
-                    inputDiffMeta={resolved.diffMeta.inputs}
-                    availableInputs={selectedSetupMusician.role === "drums" ? [] : availableInputs}
-                    nonRemovableKeys={selectedSetupMusician.role === "drums" ? ["dr_kick_out", "dr_kick_in", "dr_snare1_top", "dr_snare1_bottom"] : []}
-                    onRemoveInput={(key) => {
-                      setSetupDraftBySlot((prev) => {
-                        const prior = prev[selectedSetupMusician.slotKey];
-                        const nextRemove = Array.from(new Set([...(prior?.inputs?.removeKeys ?? []), key]));
-                        const nextAdd = (prior?.inputs?.add ?? []).filter((item) => item.key !== key);
-                        return {
+                  </div>
+                  <div className="setup-editor-column">
+                    <MonitoringEditor
+                      effectiveMonitoring={effective.monitoring}
+                      patch={currentPatch}
+                      diffMeta={resolved.diffMeta}
+                      onChangePatch={(nextPatch) =>
+                        setSetupDraftBySlot((prev) => ({
                           ...prev,
-                          [selectedSetupMusician.slotKey]: {
-                            ...prior,
-                            inputs: { ...prior?.inputs, removeKeys: nextRemove, add: nextAdd },
-                          },
-                        };
-                      });
-                    }}
-                    onAddInput={(input) => {
-                      setSetupDraftBySlot((prev) => {
-                        const prior = prev[selectedSetupMusician.slotKey];
-                        const hasInput = (prior?.inputs?.add ?? []).some((item) => item.key === input.key);
-                        if (hasInput) return prev;
-                        return {
-                          ...prev,
-                          [selectedSetupMusician.slotKey]: {
-                            ...prior,
-                            inputs: {
-                              ...prior?.inputs,
-                              add: [...(prior?.inputs?.add ?? []), input],
-                              removeKeys: (prior?.inputs?.removeKeys ?? []).filter((item) => item !== input.key),
-                            },
-                          },
-                        };
-                      });
-                    }}
-                  />
-                  <MonitoringEditor
-                    effectiveMonitoring={effective.monitoring}
-                    patch={currentPatch}
-                    diffMeta={resolved.diffMeta}
-                    onChangePatch={(nextPatch) =>
-                      setSetupDraftBySlot((prev) => ({
-                        ...prev,
-                        [selectedSetupMusician.slotKey]: nextPatch,
-                      }))
-                    }
-                  />
+                          [selectedSetupMusician.slotKey]: nextPatch,
+                        }))
+                      }
+                    />
+                  </div>
                 </div>
               </div>
               {modalErrors.length > 0 ? (

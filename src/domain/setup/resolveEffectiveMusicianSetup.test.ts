@@ -64,6 +64,19 @@ describe("resolveEffectiveMusicianSetup", () => {
   });
 
 
+
+  it("uses musician monitoring defaults when available", () => {
+    const result = resolveEffectiveMusicianSetup({
+      musicianDefaults: {
+        inputs: defaults.inputs,
+        monitoring: { type: "iem_wireless", mode: "stereo", mixCount: 2 },
+      },
+      group: "drums",
+    });
+    expect(result.effectiveMonitoring.type).toBe("iem_wireless");
+    expect(result.diffMeta.monitoring.type.origin).toBe("default");
+  });
+
   it("defaults monitoring type to wedge when missing", () => {
     const result = resolveEffectiveMusicianSetup({
       musicianDefaults: { inputs: defaults.inputs },

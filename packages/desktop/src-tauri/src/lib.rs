@@ -122,6 +122,7 @@ struct BandSetupData {
     role_constraints: Option<Value>,
     default_lineup: Option<Value>,
     members: HashMap<String, Vec<MemberOption>>,
+    musician_defaults: HashMap<String, Value>,
     load_warnings: Vec<String>,
 }
 
@@ -169,6 +170,26 @@ fn normalize_default_lineup_keys(default_lineup: Option<Value>) -> Option<Value>
     }
 
     Some(Value::Object(lineup))
+}
+
+fn infer_monitoring_default_from_ref(monitor_ref: &str) -> Value {
+    let normalized = monitor_ref.trim().to_lowercase();
+    let monitor_type = if normalized.contains("wireless") {
+        "iem_wireless"
+    } else if normalized.contains("iem") {
+        "iem_wired"
+    } else {
+        "wedge"
+    };
+    let mode = if normalized.contains("stereo") { "stereo" } else { "mono" };
+
+    serde_json::json!({
+        "monitoring": {
+            "type": monitor_type,
+            "mode": mode,
+            "mixCount": if monitor_type == "wedge" { 1 } else { 2 }
+        }
+    })
 }
 
 fn resolve_repo_root() -> PathBuf {
@@ -558,6 +579,7 @@ fn get_band_setup_data(band_id: String) -> Result<BandSetupData, ApiError> {
     let members_root = repo_root.join("data").join("musicians");
     let mut members: HashMap<String, Vec<MemberOption>> = HashMap::new();
     let mut musicians_by_id: HashMap<String, (String, String)> = HashMap::new();
+    let mut musician_defaults: HashMap<String, Value> = HashMap::new();
     for role in ["drums", "bass", "guitar", "keys", "vocs", "talkback"] {
         let role_dir = members_root.join(role);
         let mut role_members: Vec<MemberOption> = Vec::new();
@@ -590,6 +612,23 @@ fn get_band_setup_data(band_id: String) -> Result<BandSetupData, ApiError> {
                 let id = musician.get("id").and_then(|v| v.as_str()).unwrap_or("");
                 if id.is_empty() {
                     continue;
+                }
+                let monitor_ref = musician
+                    .get("presets")
+                    .and_then(|v| v.as_array())
+                    .and_then(|presets| {
+                        presets.iter().find_map(|preset| {
+                            if preset.get("kind").and_then(|v| v.as_str()) == Some("monitor") {
+                                return preset
+                                    .get("ref")
+                                    .and_then(|v| v.as_str())
+                                    .map(|v| v.to_string());
+                            }
+                            None
+                        })
+                    });
+                if let Some(reference) = monitor_ref {
+                    musician_defaults.insert(id.to_string(), infer_monitoring_default_from_ref(&reference));
                 }
                 let first_name = musician
                     .get("firstName")
@@ -712,6 +751,7 @@ fn get_band_setup_data(band_id: String) -> Result<BandSetupData, ApiError> {
         role_constraints: json.get("roleConstraints").cloned(),
         default_lineup: normalize_default_lineup_keys(json.get("defaultLineup").cloned()),
         members,
+        musician_defaults,
         load_warnings,
     })
 }

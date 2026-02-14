@@ -20,9 +20,12 @@ export function SelectedInputsList({
   onAddInput,
 }: SelectedInputsListProps) {
   return (
-    <section>
-      <h4>Inputs</h4>
-      <p className="subtle">Selected (effective)</p>
+    <section className="setup-section-card">
+      <div className="setup-section-card__header">
+        <h4>Inputs</h4>
+        <p className="subtle">Selected (effective)</p>
+      </div>
+
       <div className="setup-editor-list">
         {effectiveInputs.map((input) => {
           const meta = inputDiffMeta.find((item) => item.key === input.key);
@@ -30,16 +33,14 @@ export function SelectedInputsList({
           const isLocked = nonRemovableKeys.includes(input.key);
           return (
             <div key={input.key} className="setup-editor-list__row">
-              <div>
+              <div className="setup-input-row__main">
                 <strong>{resolveInputDisplayLabel(input)}</strong>
                 {input.note ? <p className="subtle">{input.note}</p> : null}
               </div>
-              <div className="setup-row-actions">
-                <span className={overridden ? "setup-badge setup-badge--override" : "setup-badge"}>{overridden ? "Overridden" : "Default"}</span>
-                <button type="button" className="button-secondary" onClick={() => onRemoveInput(input.key)} disabled={isLocked}>
-                  Remove
-                </button>
-              </div>
+              <span className={overridden ? "setup-badge setup-badge--override" : "setup-badge"}>{overridden ? "Overridden" : "Default"}</span>
+              <button type="button" className="button-secondary" onClick={() => onRemoveInput(input.key)} disabled={isLocked}>
+                Remove
+              </button>
             </div>
           );
         })}
