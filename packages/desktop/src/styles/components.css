@@ -1,0 +1,238 @@
+/* Buttons */
+button {
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-md);
+  background: var(--primary);
+  color: var(--primary-fg);
+  padding: 10px 14px;
+  min-height: 44px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  transition: background-color 150ms ease, border-color 150ms ease, box-shadow
+    150ms ease, transform 150ms ease;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+button:not([class]):active:not(:disabled),
+.button-primary:active:not(:disabled) {
+  background: var(--primary-active);
+  border-color: var(--primary-active);
+}
+
+.button-secondary:active:not(:disabled) {
+  background: var(--secondary-hover);
+  border-color: #94a3b8;
+}
+
+.button-danger:active:not(:disabled) {
+  background: #912018;
+  border-color: #912018;
+}
+
+.button-primary,
+button:not([class]) {
+  background: var(--primary);
+  color: var(--primary-fg);
+  border-color: var(--primary);
+}
+
+button:not([class]):hover:not(:disabled),
+.button-primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: #415788;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.24);
+}
+
+.button-primary--large {
+  min-height: 48px;
+  padding: 12px 20px;
+  font-weight: 600;
+}
+
+.button-secondary {
+  background: var(--secondary);
+  color: var(--secondary-fg);
+  border-color: var(--border);
+}
+
+.button-secondary:hover:not(:disabled) {
+  background: var(--secondary-hover);
+  border-color: #94a3b8;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+}
+
+.button-secondary.is-active {
+  border-color: var(--primary);
+  background: #e8edf8;
+  color: var(--primary);
+}
+
+.button-danger {
+  background: #b42318;
+  color: #fff;
+  border-color: #b42318;
+}
+
+.button-danger:hover:not(:disabled) {
+  background: #912018;
+  border-color: #912018;
+  box-shadow: 0 8px 18px rgba(180, 35, 24, 0.25);
+}
+
+.button-ghost {
+  background: transparent;
+  color: var(--secondary-fg);
+  border-color: transparent;
+}
+
+.button-ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+/* Panels and generic content */
+.app-header h1,
+.panel h1,
+.panel h2,
+.panel h3 {
+  margin: 0;
+  color: var(--text);
+}
+
+.panel {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: visible;
+}
+
+.panel--setup {
+  padding-bottom: var(--space-2);
+}
+
+.panel__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panel__header--stack {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.panel__header--hub {
+  margin-bottom: var(--space-2);
+}
+
+.subtle,
+.band-meta,
+.field-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.actions-row {
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.actions-row--top {
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+.actions-row--top .button-primary--large {
+  min-height: 54px;
+  font-size: 1.05rem;
+  padding: 14px 24px;
+}
+
+.actions-row--cta-group {
+  gap: var(--space-2);
+}
+
+.actions-row--edit-event {
+  margin-top: var(--space-3);
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.modal-actions {
+  margin-top: var(--space-3);
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.modal-actions--setup {
+  justify-content: space-between;
+}
+
+.form-grid {
+  display: grid;
+  gap: 12px;
+  max-width: 420px;
+}
+
+.selector-list {
+  display: grid;
+  gap: 12px;
+}
+
+.selector-option {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  justify-content: flex-start;
+  text-align: left;
+  box-shadow: none;
+}
+
+.selector-option:hover {
+  background: var(--surface-2);
+  border-color: #94a3b8;
+}
+
+.selector-option--selected {
+  background: #e8edf8;
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.status {
+  margin: 0;
+}
+
+.status--error {
+  color: #b91c1c;
+}
+
+.field-error {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 0.86rem;
+}

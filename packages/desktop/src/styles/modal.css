@@ -1,1 +1,65 @@
-/* Modal styles are currently sourced from ../App.css during refactor transition. */
+/* Modal overlay and dialog */
+.selector-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: auto;
+  background: var(--overlay);
+  backdrop-filter: blur(2px);
+  display: grid;
+  place-items: center;
+  padding: var(--space-2);
+  z-index: 10000;
+}
+
+.selector-overlay--topmost {
+  z-index: 10001;
+}
+
+.selector-dialog {
+  width: min(620px, 95vw);
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 56px rgba(15, 23, 42, 0.2);
+  padding: calc(var(--space-2) + 24px) var(--space-2) var(--space-2);
+  border: 1px solid var(--border);
+  position: relative;
+}
+
+.selector-dialog--musician-select {
+  padding: calc(var(--space-2) + 20px) var(--space-2) var(--space-2);
+}
+
+.selector-dialog--setup-editor {
+  width: min(760px, 96vw);
+}
+
+.selector-dialog__title {
+  margin-top: 4px;
+  margin-bottom: var(--space-2);
+}
+
+.selector-dialog__divider {
+  margin-bottom: var(--space-2);
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.modal-close:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
