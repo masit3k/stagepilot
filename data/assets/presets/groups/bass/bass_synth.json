@@ -5,13 +5,8 @@
     "group": "bass",
     "inputs": [
         {
-            "key": "bass_synth_l",
-            "label": "Bass synth L",
-            "note": "TS jack 6.3mm – DI box"
-        },
-        {
-            "key": "bass_synth_r",
-            "label": "Bass synth R",
+            "key": "bass_synth",
+            "label": "Bass synth",
             "note": "TS jack 6.3mm – DI box"
         }
     ]

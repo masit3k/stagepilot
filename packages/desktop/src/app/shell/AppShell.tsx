@@ -568,11 +568,15 @@ function AppShell() {
         </div>
         <button
           type="button"
-          className="button-secondary"
+          className="button-secondary app-header__about-button"
           onClick={() => setIsAboutOpen(true)}
           aria-label="About StagePilot"
         >
-          ℹ️
+          <svg viewBox="0 0 24 24" aria-hidden="true" className="app-header__about-icon">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 11v5" />
+            <circle cx="12" cy="8" r="1" fill="currentColor" stroke="none" />
+          </svg>
         </button>
       </header>
       <TopTabs pathname={pathname} navigate={navigate} />
@@ -2183,17 +2187,6 @@ function ProjectSetupPage({
     [search],
   );
   const bandName = project?.displayName ?? setupData?.name ?? project?.bandRef ?? "—";
-  const summarySecondary =
-    project?.purpose === "event"
-      ? [
-        project.eventDate ? formatIsoDateToUs(project.eventDate) : "",
-        project.eventVenue ?? "",
-      ]
-        .filter(Boolean)
-        .join(" • ")
-      : [project?.documentDate?.slice(0, 4) ?? "", project?.note ?? ""]
-        .filter(Boolean)
-        .join(" • ");
   const resetModalRef = useModalBehavior(showResetConfirmation, () =>
     setShowResetConfirmation(false),
   );
@@ -2209,11 +2202,10 @@ function ProjectSetupPage({
   return (
     <section className="panel panel--setup">
       <div className="panel__header">
-        <h1>Lineup Setup</h1>
+        <h2>Lineup Setup</h2>
       </div>
       <div className="lineup-meta">
         <div className="band-name">{bandName}</div>
-        <div className="band-meta">{summarySecondary || "—"}</div>
       </div>
       <div className="lineup-helper">
         <p className="subtle">
