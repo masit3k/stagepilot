@@ -1,5 +1,6 @@
 import type { InputChannel } from "../../../../../src/domain/model/types";
 import type { InputDiffMeta } from "../../../../../src/domain/setup/computeSetupDiff";
+import { resolveInputDisplayLabel } from "./resolveInputDisplayLabel";
 
 type SelectedInputsListProps = {
   effectiveInputs: InputChannel[];
@@ -30,7 +31,7 @@ export function SelectedInputsList({
           return (
             <div key={input.key} className="setup-editor-list__row">
               <div>
-                <strong>{input.label}</strong>
+                <strong>{resolveInputDisplayLabel(input)}</strong>
                 {input.note ? <p className="subtle">{input.note}</p> : null}
               </div>
               <div className="setup-row-actions">
@@ -49,7 +50,7 @@ export function SelectedInputsList({
         {availableInputs.length === 0 ? <p className="subtle">No additional inputs available.</p> : null}
         {availableInputs.map((item) => (
           <div key={item.key} className="setup-editor-list__row">
-            <span>{item.label}</span>
+            <span>{resolveInputDisplayLabel(item)}</span>
             <button type="button" className="button-secondary" onClick={() => onAddInput(item)}>Add</button>
           </div>
         ))}

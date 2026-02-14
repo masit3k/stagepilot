@@ -16,6 +16,7 @@ import type {
   NotesTemplate,
   LineupValue,
 } from "../../domain/model/types.js";
+import { resolvePresetIdAlias } from "../../domain/model/presetAliases.js";
 
 export interface DataRepository {
   getBand(id: string): Band;
@@ -59,7 +60,7 @@ export async function loadRepository(options?: {
     },
     getMusician: (id: string) => must(musicians, id, "Musician"),
     getProject: (id: string) => must(projects, id, "Project"),
-    getPreset: (id: string) => must(presets, id, "PresetEntity"),
+    getPreset: (id: string) => must(presets, resolvePresetIdAlias(id), "PresetEntity"),
     getNotesTemplate: (id: string) => must(notesTemplates, id, "NotesTemplate"),
   };
 }

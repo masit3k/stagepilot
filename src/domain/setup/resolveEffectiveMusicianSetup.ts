@@ -3,6 +3,7 @@ import type { Group } from "../model/groups.js";
 import type { MusicianSetupPreset, PresetOverridePatch } from "../model/types.js";
 import { computeSetupDiff, type SetupDiffMeta } from "./computeSetupDiff.js";
 import { orderInputs } from "./orderInputs.js";
+import { normalizeMonitoringPreset, normalizePresetOverridePatch } from "./normalizeMonitoring.js";
 
 export type ResolveEffectiveMusicianSetupInput = {
   musicianDefaults?: Partial<MusicianSetupPreset>;
@@ -29,8 +30,8 @@ function mergeDefaults(
     inputs: baseInputs.map((item) => ({ ...item })),
     monitoring: {
       ...fallback.monitoring,
-      ...(bandDefaults?.monitoring ?? {}),
-      ...(musicianDefaults?.monitoring ?? {}),
+      ...normalizeMonitoringPreset(bandDefaults?.monitoring),
+      ...normalizeMonitoringPreset(musicianDefaults?.monitoring),
     },
   };
 }
@@ -39,13 +40,13 @@ export function resolveEffectiveMusicianSetup(
   input: ResolveEffectiveMusicianSetupInput,
 ): ResolveEffectiveMusicianSetupOutput {
   const defaultPreset = mergeDefaults(input.musicianDefaults, input.bandDefaults);
-  const effectivePreset = applyPresetOverride(defaultPreset, input.eventOverride);
+  const effectivePreset = applyPresetOverride(defaultPreset, normalizePresetOverridePatch(input.eventOverride));
   const effectiveInputs = orderInputs(effectivePreset.inputs, input.group);
   const sortedDefault = orderInputs(defaultPreset.inputs, input.group);
   const diffMeta = computeSetupDiff({
     defaultPreset: { ...defaultPreset, inputs: sortedDefault },
     effectivePreset: { ...effectivePreset, inputs: effectiveInputs },
-    eventOverride: input.eventOverride,
+    eventOverride: normalizePresetOverridePatch(input.eventOverride),
   });
 
   return {

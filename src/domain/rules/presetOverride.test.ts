@@ -12,7 +12,7 @@ const basePreset: MusicianSetupPreset = {
     { key: "gtr_r", label: "GTR R", group: "guitar" },
   ],
   monitoring: {
-    type: "iem",
+    type: "iem_wired",
     mode: "stereo",
     mixCount: 1,
   },
@@ -70,7 +70,7 @@ describe("validateEffectivePresets", () => {
       group: "guitar",
       preset: {
         inputs: [],
-        monitoring: { type: "iem" as const, mode: "stereo" as const, mixCount: 2 },
+        monitoring: { type: "iem_wired" as const, mode: "stereo" as const, mixCount: 2 },
       },
     }));
     expect(validateEffectivePresets(slots)).toContain("Total monitor mixes exceed limit: 8/6.");

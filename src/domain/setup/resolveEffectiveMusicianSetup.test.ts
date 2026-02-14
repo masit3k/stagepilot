@@ -63,9 +63,29 @@ describe("resolveEffectiveMusicianSetup", () => {
     expect(reset.effectiveInputs.map((item) => item.key)).toEqual(["dr_kick_in", "dr_snare_top"]);
   });
 
+
+  it("defaults monitoring type to wedge when missing", () => {
+    const result = resolveEffectiveMusicianSetup({
+      musicianDefaults: { inputs: defaults.inputs },
+      group: "drums",
+    });
+    expect(result.effectiveMonitoring.type).toBe("wedge");
+    expect(result.diffMeta.monitoring.type.origin).toBe("default");
+  });
+
+  it("migrates legacy iem monitoring override to explicit wired type", () => {
+    const legacyOverride = { monitoring: { type: "iem", connection: "wired" } } as unknown as PresetOverridePatch;
+    const result = resolveEffectiveMusicianSetup({
+      musicianDefaults: defaults,
+      eventOverride: legacyOverride,
+      group: "drums",
+    });
+    expect(result.effectiveMonitoring.type).toBe("iem_wired");
+  });
+
   it("produces deterministic output across reload", () => {
     const override: PresetOverridePatch = {
-      monitoring: { type: "iem", mode: "stereo", mixCount: 2 },
+      monitoring: { type: "iem_wired", mode: "stereo", mixCount: 2 },
       inputs: { add: [{ key: "dr_oh_l", label: "OH L", group: "drums" }] },
     };
     const first = resolveEffectiveMusicianSetup({ musicianDefaults: defaults, eventOverride: override, group: "drums" });

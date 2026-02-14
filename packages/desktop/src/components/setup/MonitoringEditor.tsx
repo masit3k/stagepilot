@@ -10,26 +10,25 @@ type MonitoringEditorProps = {
 
 export function MonitoringEditor({ effectiveMonitoring, patch, diffMeta, onChangePatch }: MonitoringEditorProps) {
   const currentType = patch?.monitoring?.type ?? effectiveMonitoring.type;
-  const currentConnection = patch?.monitoring?.connection ?? effectiveMonitoring.connection ?? "wired";
 
   return (
     <section>
       <h4>Monitoring</h4>
       <label>
-        Type
+        Monitoring Type
         <div className="setup-field-row">
           <select
             value={currentType}
             onChange={(e) =>
               onChangePatch({
                 ...patch,
-                monitoring: { ...patch?.monitoring, type: e.target.value as "wedge" | "iem" | "none" },
+                monitoring: { ...patch?.monitoring, type: e.target.value as "wedge" | "iem_wired" | "iem_wireless" },
               })
             }
           >
             <option value="wedge">Wedge</option>
-            <option value="iem">IEM</option>
-            <option value="none">None</option>
+            <option value="iem_wired">IEM wired</option>
+            <option value="iem_wireless">IEM wireless</option>
           </select>
           <span className={diffMeta.monitoring.type.origin === "override" ? "setup-badge setup-badge--override" : "setup-badge"}>
             {diffMeta.monitoring.type.origin === "override" ? "Overridden" : "Default"}
@@ -37,30 +36,7 @@ export function MonitoringEditor({ effectiveMonitoring, patch, diffMeta, onChang
         </div>
       </label>
 
-      {currentType === "iem" ? (
-        <label>
-          Connection
-          <div className="setup-field-row">
-            <select
-              value={currentConnection}
-              onChange={(e) =>
-                onChangePatch({
-                  ...patch,
-                  monitoring: { ...patch?.monitoring, connection: e.target.value as "wired" | "wireless" },
-                })
-              }
-            >
-              <option value="wired">Wired</option>
-              <option value="wireless">Wireless</option>
-            </select>
-            <span className={diffMeta.monitoring.connection.origin === "override" ? "setup-badge setup-badge--override" : "setup-badge"}>
-              {diffMeta.monitoring.connection.origin === "override" ? "Overridden" : "Default"}
-            </span>
-          </div>
-        </label>
-      ) : null}
-
-      {currentType === "iem" ? (
+      {currentType !== "wedge" ? (
         <label>
           Mode
           <div className="setup-field-row">

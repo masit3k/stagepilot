@@ -2601,9 +2601,10 @@ function ProjectSetupPage({
                 ×
               </button>
               <div className="panel__header panel__header--stack selector-dialog__title">
-                <h3>Setup for this event — {selectedSetupMusician.musicianName}</h3>
+                <h3>Setup for this event – {selectedSetupMusician.musicianName}</h3>
                 <p className="subtle"><span className="setup-badge">{selectedSetupMusician.role}</span> Changes here apply only to this event. Band defaults are not modified.</p>
               </div>
+              <div className="selector-dialog__divider section-divider" />
               <div className="setup-musician-layout">
                 <MusicianSelector
                   items={setupMusicians.map((item) => ({

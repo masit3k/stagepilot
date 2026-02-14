@@ -31,12 +31,14 @@ describe("loadRepository assets paths", () => {
       dataRoot: path.resolve("data"),
     });
 
-    const bassPreset = repo.getPreset("el_bass_xlr") as { group: string };
+    const bassPreset = repo.getPreset("el_bass_xlr_amp") as { group: string };
+    const migratedBassPreset = repo.getPreset("el_bass_xlr") as { id: string };
     const drumsPreset = repo.getPreset("standard-9") as { id: string };
     const monitorPreset = repo.getPreset("wedge") as { type: string };
     const notesTemplate = repo.getNotesTemplate("notes_default_cs");
 
     expect(bassPreset.group).toBe("bass");
+    expect(migratedBassPreset.id).toBe("el_bass_xlr_amp");
     expect(drumsPreset.id).toBe("standard-9");
     expect(monitorPreset.type).toBe("monitor");
     expect(notesTemplate.id).toBe("notes_default_cs");
