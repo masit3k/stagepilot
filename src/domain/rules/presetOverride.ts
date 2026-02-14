@@ -5,6 +5,29 @@ import type {
   PresetOverridePatch,
 } from "../model/types.js";
 
+/**
+ * Aux sends available for monitor mixes in the default lineup flow.
+ * This value is currently fixed by application rules (no project-level override).
+ */
+export const DEFAULT_MONITOR_MIX_LIMIT = 6;
+
+export type EffectivePresetValidation = {
+  errors: string[];
+  warnings: string[];
+  totals: {
+    inputChannels: number;
+    monitorMixes: number;
+    monitorMixLimit: number;
+  };
+};
+
+function getRequiredMonitorMixCount(preset: MusicianSetupPreset): number {
+  // Wedge defaults are intentionally treated as zero required aux sends so
+  // projects without explicit monitor setup are not unexpectedly blocked.
+  if (preset.monitoring.type === "wedge") return 0;
+  return Math.max(0, preset.monitoring.mixCount ?? 0);
+}
+
 export function applyPresetOverride(
   defaultPreset: MusicianSetupPreset,
   patch?: PresetOverridePatch | null,
@@ -54,7 +77,14 @@ export function applyPresetOverride(
 export function validateEffectivePresets(
   effectivePresets: Array<{ group: string; preset: MusicianSetupPreset }>,
 ): string[] {
+  return summarizeEffectivePresetValidation(effectivePresets).errors;
+}
+
+export function summarizeEffectivePresetValidation(
+  effectivePresets: Array<{ group: string; preset: MusicianSetupPreset }>,
+): EffectivePresetValidation {
   const errors: string[] = [];
+  const warnings: string[] = [];
   const inputTotal = effectivePresets.reduce(
     (sum, slot) => sum + slot.preset.inputs.length,
     0,
@@ -64,11 +94,13 @@ export function validateEffectivePresets(
   }
 
   const monitorMixTotal = effectivePresets.reduce(
-    (sum, slot) => sum + (slot.preset.monitoring.mixCount ?? 0),
+    (sum, slot) => sum + getRequiredMonitorMixCount(slot.preset),
     0,
   );
-  if (monitorMixTotal > 6) {
-    errors.push(`Total monitor mixes exceed limit: ${monitorMixTotal}/6.`);
+  if (monitorMixTotal > DEFAULT_MONITOR_MIX_LIMIT) {
+    warnings.push(
+      `Total required monitor mixes (aux sends) exceed the configured limit (${monitorMixTotal} > ${DEFAULT_MONITOR_MIX_LIMIT}).`,
+    );
   }
 
   let previousRank = -1;
@@ -82,7 +114,15 @@ export function validateEffectivePresets(
     previousRank = rank;
   }
 
-  return errors;
+  return {
+    errors,
+    warnings,
+    totals: {
+      inputChannels: inputTotal,
+      monitorMixes: monitorMixTotal,
+      monitorMixLimit: DEFAULT_MONITOR_MIX_LIMIT,
+    },
+  };
 }
 
 export function buildChangedSummary(

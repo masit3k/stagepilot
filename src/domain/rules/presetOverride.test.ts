@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { resolveStereoPair } from "../formatters/index.js";
 import type { MusicianSetupPreset } from "../model/types.js";
 import {
+  DEFAULT_MONITOR_MIX_LIMIT,
   applyPresetOverride,
+  summarizeEffectivePresetValidation,
   validateEffectivePresets,
 } from "./presetOverride.js";
 
@@ -65,7 +67,7 @@ describe("validateEffectivePresets", () => {
     expect(validateEffectivePresets(slots)).toContain("Total input channels exceed limit: 31/30.");
   });
 
-  it("blocks more than 6 monitor mixes", () => {
+  it("does not block when monitor mix limit is exceeded", () => {
     const slots = Array.from({ length: 4 }, () => ({
       group: "guitar",
       preset: {
@@ -73,7 +75,34 @@ describe("validateEffectivePresets", () => {
         monitoring: { type: "iem_wired" as const, mode: "stereo" as const, mixCount: 2 },
       },
     }));
-    expect(validateEffectivePresets(slots)).toContain("Total monitor mixes exceed limit: 8/6.");
+    expect(validateEffectivePresets(slots)).not.toContain(
+      `Total required monitor mixes (aux sends) exceed the configured limit (8 > ${DEFAULT_MONITOR_MIX_LIMIT}).`,
+    );
+    expect(summarizeEffectivePresetValidation(slots).warnings).toContain(
+      `Total required monitor mixes (aux sends) exceed the configured limit (8 > ${DEFAULT_MONITOR_MIX_LIMIT}).`,
+    );
+  });
+
+  it("does not count wedge defaults as aux sends", () => {
+    const slots = Array.from({ length: 10 }, () => ({
+      group: "vocs",
+      preset: {
+        inputs: [],
+        monitoring: { type: "wedge" as const, mode: "mono" as const, mixCount: 1 },
+      },
+    }));
+    const summary = summarizeEffectivePresetValidation(slots);
+    expect(summary.totals.monitorMixes).toBe(0);
+    expect(summary.warnings).toEqual([]);
+  });
+
+  it("uses monitoring overrides to update total mixes", () => {
+    const effective = applyPresetOverride(basePreset, {
+      monitoring: { type: "iem_wireless", mixCount: 3 },
+    });
+    const summary = summarizeEffectivePresetValidation([{ group: "guitar", preset: effective }]);
+    expect(summary.totals.monitorMixes).toBe(3);
+    expect(summary.totals.monitorMixLimit).toBe(DEFAULT_MONITOR_MIX_LIMIT);
   });
 
   it("keeps group order fixed", () => {

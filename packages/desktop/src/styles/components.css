@@ -231,6 +231,10 @@ button:not([class]):hover:not(:disabled),
   color: #b91c1c;
 }
 
+.status--warning {
+  color: #92400e;
+}
+
 .field-error {
   margin: 0;
   color: #b91c1c;

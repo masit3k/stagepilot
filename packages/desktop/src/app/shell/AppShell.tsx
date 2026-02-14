@@ -36,6 +36,7 @@ import {
   validateLineup,
 } from "../../projectRules";
 import {
+  summarizeEffectivePresetValidation,
   validateEffectivePresets,
 } from "../../../../../src/domain/rules/presetOverride";
 import { generateUuidV7 } from "../../../../../src/domain/projectNaming";
@@ -1945,10 +1946,13 @@ function ProjectSetupPage({
     });
   }, [lineup, resolveSlotSetup, setupData]);
 
-  const overrideValidationErrors = useMemo(
-    () => validateEffectivePresets(effectiveSlotPresets.map((slot) => ({ group: slot.role, preset: slot.effective }))),
+  const overrideValidation = useMemo(
+    () => summarizeEffectivePresetValidation(effectiveSlotPresets.map((slot) => ({ group: slot.role, preset: slot.effective }))),
     [effectiveSlotPresets],
   );
+
+  const overrideValidationErrors = overrideValidation.errors;
+  const overrideValidationWarnings = overrideValidation.warnings;
 
   const backSetupPath =
     project?.purpose === "generic"
@@ -2192,6 +2196,14 @@ function ProjectSetupPage({
           {[...errors, ...overrideValidationErrors].map((error) => (
             <p key={error}>{error}</p>
           ))}
+        </div>
+      ) : null}
+      {overrideValidationWarnings.length > 0 ? (
+        <div className="status status--warning">
+          {overrideValidationWarnings.map((warning) => (
+            <p key={warning}>{warning}</p>
+          ))}
+          <p>Review setup overrides in each role to reduce required monitor sends, if needed.</p>
         </div>
       ) : null}
       {status ? <p className="status status--error">{status}</p> : null}
