@@ -12,12 +12,9 @@ export function MonitoringEditor({ effectiveMonitoring, patch, diffMeta, onChang
   const currentType = patch?.monitoring?.type ?? effectiveMonitoring.type;
 
   return (
-    <section className="setup-section-card">
-      <div className="setup-section-card__header">
-        <h4>Monitoring</h4>
-      </div>
+    <>
       <label className="setup-field-block">
-        <span>Monitoring Type</span>
+        <span className="setup-field-block__label">Monitoring Type</span>
         <div className="setup-field-row">
           <select
             value={currentType}
@@ -40,7 +37,7 @@ export function MonitoringEditor({ effectiveMonitoring, patch, diffMeta, onChang
 
       {currentType !== "wedge" ? (
         <label className="setup-field-block">
-          <span>Mode</span>
+          <span className="setup-field-block__label">Mode</span>
           <div className="setup-field-row">
             <select
               value={patch?.monitoring?.mode ?? effectiveMonitoring.mode}
@@ -60,6 +57,6 @@ export function MonitoringEditor({ effectiveMonitoring, patch, diffMeta, onChang
           </div>
         </label>
       ) : null}
-    </section>
+    </>
   );
 }

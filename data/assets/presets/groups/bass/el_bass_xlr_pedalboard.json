@@ -1,13 +1,14 @@
 {
-    "type": "preset",
-    "id": "el_bass_xlr_pedalboard",
-    "label": "Electric bass guitar",
-    "group": "bass",
-    "inputs": [
-        {
-            "key": "el_bass_xlr_pedalboard",
-            "label": "Electric bass guitar",
-            "note": "XLR out from pedalboard"
-        }
-    ]
+  "type": "preset",
+  "id": "el_bass_xlr_pedalboard",
+  "label": "Electric bass guitar",
+  "group": "bass",
+  "inputs": [
+    {
+      "key": "el_bass_xlr_pedalboard",
+      "label": "Electric bass guitar",
+      "note": "XLR out from pedalboard"
+    }
+  ],
+  "setupGroup": "electric_bass"
 }

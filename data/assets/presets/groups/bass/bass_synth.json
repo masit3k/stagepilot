@@ -1,13 +1,14 @@
 {
-    "type": "preset",
-    "id": "bass_synth",
-    "label": "Bass synth",
-    "group": "bass",
-    "inputs": [
-        {
-            "key": "bass_synth",
-            "label": "Bass synth",
-            "note": "TS jack 6.3mm – DI box"
-        }
-    ]
+  "type": "preset",
+  "id": "bass_synth",
+  "label": "Bass synth",
+  "group": "bass",
+  "inputs": [
+    {
+      "key": "bass_synth",
+      "label": "Bass synth",
+      "note": "TS jack 6.3mm \u2013 DI box"
+    }
+  ],
+  "setupGroup": "bass_synth"
 }

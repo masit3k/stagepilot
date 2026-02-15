@@ -41,7 +41,7 @@ import {
 } from "../../../../../src/domain/rules/presetOverride";
 import { generateUuidV7 } from "../../../../../src/domain/projectNaming";
 import type { Group } from "../../../../../src/domain/model/groups";
-import type { InputChannel, MusicianSetupPreset, PresetOverridePatch as DomainPresetOverridePatch } from "../../../../../src/domain/model/types";
+import type { InputChannel, MusicianSetupPreset, Preset, PresetOverridePatch as DomainPresetOverridePatch } from "../../../../../src/domain/model/types";
 import { resolveEffectiveMusicianSetup } from "../../../../../src/domain/setup/resolveEffectiveMusicianSetup";
 import { inferDrumSetupFromLegacyInputs, STANDARD_10_SETUP } from "../../../../../src/domain/drums/drumSetup";
 import { resolveDrumInputs } from "../../../../../src/domain/drums/resolveDrumInputs";
@@ -49,6 +49,11 @@ import { MusicianSelector, type SetupMusicianItem } from "../../components/setup
 import { SelectedInputsList } from "../../components/setup/SelectedInputsList";
 import { DrumsPartsEditor } from "../../components/setup/DrumsPartsEditor";
 import { MonitoringEditor } from "../../components/setup/MonitoringEditor";
+import { SetupModalShell } from "../components/setup/SetupModalShell";
+import { SetupSection } from "../components/setup/SetupSection";
+import { SchemaRenderer } from "../components/setup/SchemaRenderer";
+import { buildBassFields, toBassPresets } from "../components/setup/instruments/bass/buildBassFields";
+import { computeIsDirty, resetOverrides, type EventSetupEditState } from "../components/setup/adapters/eventSetupAdapter";
 import { useAppNavigation } from "./navigation/useAppNavigation";
 import { refreshProjectsAndMigrate } from "../services/projectMaintenance";
 import * as projectsApi from "../services/projectsApi";
@@ -61,6 +66,10 @@ import {
   resolveSetupBackTarget,
   shouldSaveGenericSetupOnContinue,
 } from "./setupDirty";
+import elBassXlrAmpPreset from "../../../../../data/assets/presets/groups/bass/el_bass_xlr_amp.json";
+import elBassMicPreset from "../../../../../data/assets/presets/groups/bass/el_bass_mic.json";
+import elBassXlrPedalboardPreset from "../../../../../data/assets/presets/groups/bass/el_bass_xlr_pedalboard.json";
+import bassSynthPreset from "../../../../../data/assets/presets/groups/bass/bass_synth.json";
 
 function createFallbackSetupData(project: NewProjectPayload): BandSetupData {
   const constraints = Object.fromEntries(
@@ -109,6 +118,15 @@ const GROUP_INPUT_LIBRARY: Record<Group, InputChannel[]> = {
   ],
   talkback: [{ key: "talkback", label: "Talkback", group: "talkback" }],
 };
+
+const BASS_FIELDS = buildBassFields(
+  toBassPresets([
+    elBassXlrAmpPreset,
+    elBassMicPreset,
+    elBassXlrPedalboardPreset,
+    bassSynthPreset,
+  ] as Preset[]),
+);
 
 
 function getGroupDefaultPreset(group: Group): MusicianSetupPreset {
@@ -2308,12 +2326,30 @@ function ProjectSetupPage({
               >
                 ×
               </button>
-              <div className="panel__header panel__header--stack selector-dialog__title">
-                <h3>Setup for this event – {selectedSetupMusician.musicianName} ({selectedSetupMusician.role})</h3>
-                <p className="subtle">Changes here apply only to this event. Band defaults are not modified.</p>
-              </div>
-              <div className="selector-dialog__divider section-divider" />
-              <div className="selector-dialog__body setup-editor-body" role="region" aria-label="Setup editor content">
+              <SetupModalShell
+                open={Boolean(editingSetup && selectedSetupMusician)}
+                title={`Setup for this event – ${selectedSetupMusician.musicianName} (${selectedSetupMusician.role})`}
+                subtitle="Changes here apply only to this event. Band defaults are not modified."
+                isDirty={computeIsDirty(currentPatch)}
+                onBack={() => {
+                  setEditingSetup(null);
+                  setSetupDraftBySlot({});
+                  setSelectedSetupSlotKey("");
+                }}
+                onReset={() =>
+                  setSetupDraftBySlot((prev) => ({
+                    ...prev,
+                    [selectedSetupMusician.slotKey]: resetOverrides(),
+                  }))
+                }
+                saveDisabled={modalErrors.length > 0}
+                onSave={() => {
+                  applySetupDraftOverrides(setupDraftBySlot);
+                  setEditingSetup(null);
+                  setSetupDraftBySlot({});
+                  setSelectedSetupSlotKey("");
+                }}
+              >
                 <div className="setup-musician-layout">
                   <MusicianSelector
                     items={setupMusicians.map((item) => ({
@@ -2323,114 +2359,123 @@ function ProjectSetupPage({
                     selectedSlotKey={selectedSetupMusician.slotKey}
                     onSelect={setSelectedSetupSlotKey}
                   />
-                  <div className="setup-editor-grid">
-                    <div className="setup-editor-column">
-                    {selectedSetupMusician.role === "drums" && drumSetup ? (
-                      <DrumsPartsEditor
-                        setup={drumSetup}
-                        onChange={(nextSetup) => {
-                          const targetInputs = resolveDrumInputs(nextSetup);
+                  {selectedSetupMusician.role === "bass" ? (
+                    <div className="setup-editor-stack">
+                      <SetupSection title="Inputs">
+                        <SchemaRenderer
+                          fields={BASS_FIELDS}
+                          state={{
+                            defaultPreset: resolved.defaultPreset,
+                            effectivePreset: effective,
+                            patch: currentPatch,
+                          } satisfies EventSetupEditState}
+                          onPatch={(nextPatch) =>
+                            setSetupDraftBySlot((prev) => ({
+                              ...prev,
+                              [selectedSetupMusician.slotKey]: nextPatch,
+                            }))
+                          }
+                        />
+                      </SetupSection>
+                      <SetupSection title="Monitoring">
+                        <MonitoringEditor
+                          effectiveMonitoring={effective.monitoring}
+                          patch={currentPatch}
+                          diffMeta={resolved.diffMeta}
+                          onChangePatch={(nextPatch) =>
+                            setSetupDraftBySlot((prev) => ({
+                              ...prev,
+                              [selectedSetupMusician.slotKey]: nextPatch,
+                            }))
+                          }
+                        />
+                      </SetupSection>
+                    </div>
+                  ) : (
+                    <div className="setup-editor-grid">
+                      <div className="setup-editor-column">
+                      {selectedSetupMusician.role === "drums" && drumSetup ? (
+                        <DrumsPartsEditor
+                          setup={drumSetup}
+                          onChange={(nextSetup) => {
+                            const targetInputs = resolveDrumInputs(nextSetup);
+                            setSetupDraftBySlot((prev) => {
+                              const prior = prev[selectedSetupMusician.slotKey];
+                              const nextInputsPatch = buildInputsPatchFromTarget(resolved.defaultPreset.inputs, targetInputs);
+                              return {
+                                ...prev,
+                                [selectedSetupMusician.slotKey]: {
+                                  ...prior,
+                                  ...(Object.keys(nextInputsPatch).length > 0 ? { inputs: nextInputsPatch } : {}),
+                                },
+                              };
+                            });
+                          }}
+                        />
+                      ) : null}
+                      <SelectedInputsList
+                        effectiveInputs={effective.inputs}
+                        inputDiffMeta={resolved.diffMeta.inputs}
+                        availableInputs={selectedSetupMusician.role === "drums" ? [] : availableInputs}
+                        nonRemovableKeys={selectedSetupMusician.role === "drums" ? ["dr_kick_out", "dr_kick_in", "dr_snare1_top", "dr_snare1_bottom"] : []}
+                        onRemoveInput={(key) => {
                           setSetupDraftBySlot((prev) => {
                             const prior = prev[selectedSetupMusician.slotKey];
-                            const nextInputsPatch = buildInputsPatchFromTarget(resolved.defaultPreset.inputs, targetInputs);
+                            const nextRemove = Array.from(new Set([...(prior?.inputs?.removeKeys ?? []), key]));
+                            const nextAdd = (prior?.inputs?.add ?? []).filter((item) => item.key !== key);
                             return {
                               ...prev,
                               [selectedSetupMusician.slotKey]: {
                                 ...prior,
-                                ...(Object.keys(nextInputsPatch).length > 0 ? { inputs: nextInputsPatch } : {}),
+                                inputs: { ...prior?.inputs, removeKeys: nextRemove, add: nextAdd },
+                              },
+                            };
+                          });
+                        }}
+                        onAddInput={(input) => {
+                          setSetupDraftBySlot((prev) => {
+                            const prior = prev[selectedSetupMusician.slotKey];
+                            const hasInput = (prior?.inputs?.add ?? []).some((item) => item.key === input.key);
+                            if (hasInput) return prev;
+                            return {
+                              ...prev,
+                              [selectedSetupMusician.slotKey]: {
+                                ...prior,
+                                inputs: {
+                                  ...prior?.inputs,
+                                  add: [...(prior?.inputs?.add ?? []), input],
+                                  removeKeys: (prior?.inputs?.removeKeys ?? []).filter((item) => item !== input.key),
+                                },
                               },
                             };
                           });
                         }}
                       />
-                    ) : null}
-                    <SelectedInputsList
-                      effectiveInputs={effective.inputs}
-                      inputDiffMeta={resolved.diffMeta.inputs}
-                      availableInputs={selectedSetupMusician.role === "drums" ? [] : availableInputs}
-                      nonRemovableKeys={selectedSetupMusician.role === "drums" ? ["dr_kick_out", "dr_kick_in", "dr_snare1_top", "dr_snare1_bottom"] : []}
-                      onRemoveInput={(key) => {
-                        setSetupDraftBySlot((prev) => {
-                          const prior = prev[selectedSetupMusician.slotKey];
-                          const nextRemove = Array.from(new Set([...(prior?.inputs?.removeKeys ?? []), key]));
-                          const nextAdd = (prior?.inputs?.add ?? []).filter((item) => item.key !== key);
-                          return {
-                            ...prev,
-                            [selectedSetupMusician.slotKey]: {
-                              ...prior,
-                              inputs: { ...prior?.inputs, removeKeys: nextRemove, add: nextAdd },
-                            },
-                          };
-                        });
-                      }}
-                      onAddInput={(input) => {
-                        setSetupDraftBySlot((prev) => {
-                          const prior = prev[selectedSetupMusician.slotKey];
-                          const hasInput = (prior?.inputs?.add ?? []).some((item) => item.key === input.key);
-                          if (hasInput) return prev;
-                          return {
-                            ...prev,
-                            [selectedSetupMusician.slotKey]: {
-                              ...prior,
-                              inputs: {
-                                ...prior?.inputs,
-                                add: [...(prior?.inputs?.add ?? []), input],
-                                removeKeys: (prior?.inputs?.removeKeys ?? []).filter((item) => item !== input.key),
-                              },
-                            },
-                          };
-                        });
-                      }}
-                    />
+                      </div>
+                      <div className="setup-editor-column">
+                        <SetupSection title="Monitoring">
+                          <MonitoringEditor
+                            effectiveMonitoring={effective.monitoring}
+                            patch={currentPatch}
+                            diffMeta={resolved.diffMeta}
+                            onChangePatch={(nextPatch) =>
+                              setSetupDraftBySlot((prev) => ({
+                                ...prev,
+                                [selectedSetupMusician.slotKey]: nextPatch,
+                              }))
+                            }
+                          />
+                        </SetupSection>
+                      </div>
                     </div>
-                    <div className="setup-editor-column">
-                      <MonitoringEditor
-                        effectiveMonitoring={effective.monitoring}
-                        patch={currentPatch}
-                        diffMeta={resolved.diffMeta}
-                        onChangePatch={(nextPatch) =>
-                          setSetupDraftBySlot((prev) => ({
-                            ...prev,
-                            [selectedSetupMusician.slotKey]: nextPatch,
-                          }))
-                        }
-                      />
-                    </div>
-                  </div>
+                  )}
                 </div>
                 {modalErrors.length > 0 ? (
                   <div className="status status--error">
                     {modalErrors.map((error) => <p key={error}>{error}</p>)}
                   </div>
                 ) : null}
-              </div>
-              <div className="modal-actions modal-actions--setup">
-                <button type="button" className="button-secondary" onClick={() => { setEditingSetup(null); setSetupDraftBySlot({}); setSelectedSetupSlotKey(""); }}>Back</button>
-                <button
-                  type="button"
-                  className="button-secondary"
-                  onClick={() =>
-                    setSetupDraftBySlot((prev) => ({
-                      ...prev,
-                      [selectedSetupMusician.slotKey]: undefined,
-                    }))
-                  }
-                >
-                  Reset overrides
-                </button>
-                <button
-                  type="button"
-                  disabled={modalErrors.length > 0}
-                  onClick={() => {
-                    applySetupDraftOverrides(setupDraftBySlot);
-                    setEditingSetup(null);
-                    setSetupDraftBySlot({});
-                    setSelectedSetupSlotKey("");
-                  }}
-                >
-                  Save
-                </button>
-              </div>
+              </SetupModalShell>
             </div>
           );
         })() : null}

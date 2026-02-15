@@ -1,13 +1,14 @@
 {
-    "type": "preset",
-    "id": "el_bass_xlr_amp",
-    "label": "Electric bass guitar",
-    "group": "bass",
-    "inputs": [
-        {
-            "key": "el_bass_xlr_amp",
-            "label": "Electric bass guitar",
-            "note": "XLR out from amp"
-        }
-    ]
+  "type": "preset",
+  "id": "el_bass_xlr_amp",
+  "label": "Electric bass guitar",
+  "group": "bass",
+  "inputs": [
+    {
+      "key": "el_bass_xlr_amp",
+      "label": "Electric bass guitar",
+      "note": "XLR out from amp"
+    }
+  ],
+  "setupGroup": "electric_bass"
 }
