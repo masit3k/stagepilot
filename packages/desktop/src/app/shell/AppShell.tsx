@@ -54,6 +54,12 @@ import { refreshProjectsAndMigrate } from "../services/projectMaintenance";
 import * as projectsApi from "../services/projectsApi";
 import type { BandOption, BandSetupData, LibraryBand, LibraryMusician, MemberOption, NavigationGuard, NewProjectPayload, ProjectSummary } from "./types";
 import { toPersistableProject } from "./types";
+import {
+  isGenericSetupDirty,
+  isSetupInfoDirty,
+  resolveSetupBackTarget,
+  shouldSaveGenericSetupOnContinue,
+} from "./setupDirty";
 
 function createFallbackSetupData(project: NewProjectPayload): BandSetupData {
   const constraints = Object.fromEntries(
@@ -136,13 +142,6 @@ function getProjectPurposeLabel(purpose?: string | null) {
   if (purpose === "event") return "Project type: Event";
   if (purpose === "generic") return "Project type: Generic";
   return "—";
-}
-
-function isSetupInfoDirty(
-  initial: { date: string; venue: string; bandRef: string },
-  current: { date: string; venue: string; bandRef: string },
-) {
-  return JSON.stringify(initial) !== JSON.stringify(current);
 }
 
 
@@ -1325,14 +1324,7 @@ function NewEventProjectPage({
     navigate(`/projects/${encodeURIComponent(id)}/setup`);
   }
 
-  const backTarget =
-    editingProjectId && fromPath
-      ? fromPath
-      : editingProjectId && origin === "setup"
-        ? `/projects/${encodeURIComponent(editingProjectId)}/setup`
-        : editingProjectId
-          ? "/"
-          : "/projects/new";
+  const backTarget = resolveSetupBackTarget(editingProjectId, fromPath, origin);
   const exitTarget = editingProjectId ? "/" : "/";
   const navigationContext = getNavigationContextLabel(origin);
 
@@ -1407,7 +1399,7 @@ function NewEventProjectPage({
           className="button-secondary"
           onClick={() => navigate(backTarget)}
         >
-          Edit Project
+          {editingProjectId ? "Back" : "Edit Project"}
         </button>
         <button
           type="button"
@@ -1445,7 +1437,7 @@ function NewGenericProjectPage({
   const [bandRef, setBandRef] = useState("");
   const [status, setStatus] = useState("");
   const [isCommitting, setIsCommitting] = useState(false);
-  const initialSnapshotRef = useRef({ date: "", venue: "", bandRef: "" });
+  const initialSnapshotRef = useRef({ bandRef: "", note: "", validityYear: "" });
   function validateValidityYear(raw: string): string | null {
     const value = raw.trim();
 
@@ -1480,18 +1472,18 @@ function NewGenericProjectPage({
         setNote(project.note ?? "");
         setValidityYear(project.documentDate.slice(0, 4));
         initialSnapshotRef.current = {
-          date: project.eventDate ?? "",
-          venue: (project.eventVenue ?? "").trim(),
           bandRef: project.bandRef ?? "",
+          note: project.note ?? "",
+          validityYear: project.documentDate.slice(0, 4),
         };
       })
       .catch(() => setStatus("Failed to load existing generic setup."));
   }, [editingProjectId]);
 
-  const isDirty = isSetupInfoDirty(initialSnapshotRef.current, {
-    date: "",
-    venue: "",
+  const isDirty = isGenericSetupDirty(initialSnapshotRef.current, {
     bandRef,
+    note,
+    validityYear,
   });
 
   const persist = useCallback(async (targetId?: string) => {
@@ -1552,21 +1544,16 @@ function NewGenericProjectPage({
   }, [registerNavigationGuard, isDirty, persist, isCommitting]);
 
   async function createProject() {
-    if (!selectedBand) return;
     const id = editingProjectId ?? generateUuidV7();
-    setIsCommitting(true);
-    await persist(id);
+    if (!editingProjectId && !selectedBand) return;
+    if (shouldSaveGenericSetupOnContinue(editingProjectId, isDirty)) {
+      setIsCommitting(true);
+      await persist(id);
+    }
     navigate(`/projects/${encodeURIComponent(id)}/setup`);
   }
 
-  const backTarget =
-    editingProjectId && fromPath
-      ? fromPath
-      : editingProjectId && origin === "setup"
-        ? `/projects/${encodeURIComponent(editingProjectId)}/setup`
-        : editingProjectId
-          ? "/"
-          : "/projects/new";
+  const backTarget = resolveSetupBackTarget(editingProjectId, fromPath, origin);
   const navigationContext = getNavigationContextLabel(origin);
 
   return (
@@ -1639,7 +1626,7 @@ function NewGenericProjectPage({
           Back to Hub
         </button>
         <button type="button" onClick={createProject} disabled={!canSubmit}>
-          {editingProjectId ? "Save & Continue" : "Save & Create"}
+          {editingProjectId ? (isDirty ? "Save & Continue" : "Continue") : "Save & Create"}
         </button>
       </div>
     </section>
