@@ -55,6 +55,7 @@ import * as projectsApi from "../services/projectsApi";
 import type { BandOption, BandSetupData, LibraryBand, LibraryMusician, MemberOption, NavigationGuard, NewProjectPayload, ProjectSummary } from "./types";
 import { toPersistableProject } from "./types";
 import {
+  getSetupPrimaryCtaLabel,
   isGenericSetupDirty,
   isSetupInfoDirty,
   resolveSetupBackTarget,
@@ -1399,7 +1400,7 @@ function NewEventProjectPage({
           className="button-secondary"
           onClick={() => navigate(backTarget)}
         >
-          {editingProjectId ? "Back" : "Edit Project"}
+          {getSetupPrimaryCtaLabel(editingProjectId)}
         </button>
         <button
           type="button"
@@ -1616,7 +1617,7 @@ function NewGenericProjectPage({
           className="button-secondary"
           onClick={() => navigate(backTarget)}
         >
-          Edit Project
+          {getSetupPrimaryCtaLabel(editingProjectId)}
         </button>
         <button
           type="button"

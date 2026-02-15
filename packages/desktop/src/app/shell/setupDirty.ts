@@ -50,3 +50,7 @@ export function resolveSetupBackTarget(
   if (editingProjectId) return "/";
   return "/projects/new";
 }
+
+export function getSetupPrimaryCtaLabel(editingProjectId: string | undefined) {
+  return editingProjectId ? "Back" : "Edit Project";
+}

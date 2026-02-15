@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  getSetupPrimaryCtaLabel,
   isGenericSetupDirty,
   resolveSetupBackTarget,
   shouldSaveGenericSetupOnContinue,
@@ -56,6 +57,17 @@ describe("generic continue/save decision", () => {
 
   it("saves when editing and dirty", () => {
     expect(shouldSaveGenericSetupOnContinue("project-1", true)).toBe(true);
+  });
+});
+
+
+describe("getSetupPrimaryCtaLabel", () => {
+  it("shows Back for edit flows", () => {
+    expect(getSetupPrimaryCtaLabel("project-1")).toBe("Back");
+  });
+
+  it("shows Edit Project for create flows", () => {
+    expect(getSetupPrimaryCtaLabel(undefined)).toBe("Edit Project");
   });
 });
 
