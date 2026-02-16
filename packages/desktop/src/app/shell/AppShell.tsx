@@ -29,11 +29,6 @@ import {
   getUniqueSelectedMusicians,
   getRoleDisplayName,
   isPastIsoDate,
-  matchLibraryBandDetailPath,
-  matchProjectEventPath,
-  matchProjectGenericPath,
-  matchProjectPreviewPath,
-  matchProjectSetupPath,
   normalizeLineupSlots,
   normalizeLineupValue,
   normalizeRoleConstraint,
@@ -91,6 +86,15 @@ import {
   sanitizeBackVocsSelection,
 } from "../components/roles/utils/backVocs";
 import { useAppNavigation } from "./navigation/useAppNavigation";
+import {
+  getNavigationContextLabel,
+  matchLibraryBandDetailPath,
+  matchProjectEventPath,
+  matchProjectGenericPath,
+  matchProjectPreviewPath,
+  matchProjectSetupPath,
+  withFrom,
+} from "./routes";
 import { refreshProjectsAndMigrate } from "../services/projectMaintenance";
 import * as projectsApi from "../services/projectsApi";
 import type {
@@ -118,6 +122,12 @@ import elBassXlrPedalboardPreset from "../../../../../data/assets/presets/groups
 import bassSynthPreset from "../../../../../data/assets/presets/groups/bass/bass_synth.json";
 import vocalBackNoMicPreset from "../../../../../data/assets/presets/groups/vocs/vocal_back_no_mic.json";
 import vocalBackWiredPreset from "../../../../../data/assets/presets/groups/vocs/vocal_back_wired.json";
+import { AboutModal } from "../modals/AboutModal";
+import {
+  ExportResultModal,
+  type ExportModalState,
+} from "../modals/ExportResultModal";
+import { UnsavedChangesModal } from "../modals/UnsavedChangesModal";
 
 function createFallbackSetupData(project: NewProjectPayload): BandSetupData {
   const constraints = Object.fromEntries(
@@ -143,10 +153,6 @@ type PreviewState =
   | { kind: "ready"; path: string }
   | { kind: "error"; message: string; missingPreview: boolean };
 
-type ExportModalState =
-  | { kind: "success"; path: string }
-  | { kind: "error"; message: string; technical?: string }
-  | null;
 
 const ROLE_ORDER = ["drums", "bass", "guitar", "keys", "vocs"];
 
@@ -225,19 +231,6 @@ function toIdSlug(value: string) {
     .slice(0, 50);
 }
 
-function withFrom(path: string, from: string, fromPath?: string) {
-  const params = new URLSearchParams({ from });
-  if (fromPath) params.set("fromPath", fromPath);
-  return `${path}?${params.toString()}`;
-}
-
-function getNavigationContextLabel(origin?: string | null) {
-  if (origin === "home") return "Project Hub";
-  if (origin === "setup") return "Lineup Setup";
-  if (origin === "preview") return "PDF Preview";
-  if (origin === "pdfPreview") return "PDF Preview";
-  return null;
-}
 
 function AppShell() {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
@@ -3987,202 +3980,6 @@ function LibraryMessagesPage({ registerNavigationGuard }: LibraryPageProps) {
       registerNavigationGuard={registerNavigationGuard}
       multiline
     />
-  );
-}
-
-function ExportResultModal({
-  state,
-  onClose,
-  onRetry,
-  onGoToHub,
-}: {
-  state: ExportModalState;
-  onClose: () => void;
-  onRetry: () => void;
-  onGoToHub: () => void;
-}) {
-  if (!state) return null;
-  const isSuccess = state.kind === "success";
-  const dialogRef = useModalBehavior(Boolean(state), onClose);
-  return (
-    <ModalOverlay open={Boolean(state)} onClose={onClose}>
-      <div
-        className="selector-dialog"
-        role="dialog"
-        aria-modal="true"
-        ref={dialogRef}
-      >
-        <button
-          type="button"
-          className="modal-close"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          ×
-        </button>
-        <h3>{isSuccess ? "Export complete" : "Export failed"}</h3>
-        {isSuccess ? (
-          <p>PDF was saved successfully.</p>
-        ) : (
-          <>
-            <p>
-              Something went wrong during export. If this file is open in
-              another program (or preview), close it and retry.
-            </p>
-            <p className="subtle">
-              {state.message}
-              {state.technical ? ` — ${state.technical}` : ""}
-            </p>
-          </>
-        )}
-        <div className="modal-actions">
-          {isSuccess ? (
-            <>
-              <button
-                type="button"
-                className="button-secondary"
-                onClick={() => invoke("open_file", { path: state.path })}
-              >
-                Open file
-              </button>
-              <button
-                type="button"
-                className="button-secondary"
-                onClick={() =>
-                  invoke("reveal_in_explorer", { path: state.path })
-                }
-              >
-                Open folder
-              </button>
-              <button type="button" onClick={onGoToHub}>
-                Go to Project Hub
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                className="button-secondary"
-                onClick={onRetry}
-              >
-                Retry
-              </button>
-              <button type="button" onClick={onClose}>
-                Close
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    </ModalOverlay>
-  );
-}
-
-function UnsavedChangesModal({
-  open,
-  onSaveAndExit,
-  onExitWithoutSaving,
-  onStay,
-}: {
-  open: boolean;
-  onSaveAndExit: () => void | Promise<void>;
-  onExitWithoutSaving: () => void;
-  onStay: () => void;
-}) {
-  const dialogRef = useModalBehavior(open, onStay);
-  return (
-    <ModalOverlay
-      open={open}
-      onClose={onStay}
-      className="selector-overlay--topmost"
-    >
-      <div
-        className="selector-dialog"
-        role="alertdialog"
-        aria-modal="true"
-        ref={dialogRef}
-      >
-        <button
-          type="button"
-          className="modal-close"
-          onClick={onStay}
-          aria-label="Close"
-        >
-          ×
-        </button>
-        <h3>Unsaved changes</h3>
-        <p>You have unsaved changes. What would you like to do?</p>
-        <div className="modal-actions">
-          <button
-            type="button"
-            className="button-secondary"
-            onClick={onSaveAndExit}
-          >
-            Save & exit
-          </button>
-          <button
-            type="button"
-            className="button-secondary"
-            onClick={onExitWithoutSaving}
-          >
-            Exit without saving
-          </button>
-          <button type="button" onClick={onStay}>
-            Stay
-          </button>
-        </div>
-      </div>
-    </ModalOverlay>
-  );
-}
-
-function AboutModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const dialogRef = useModalBehavior(open, onClose);
-  return (
-    <ModalOverlay open={open} onClose={onClose}>
-      <div
-        className="selector-dialog about-dialog"
-        role="dialog"
-        aria-modal="true"
-        ref={dialogRef}
-      >
-        <button
-          type="button"
-          className="modal-close"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          ×
-        </button>
-        <h3>About StagePilot</h3>
-        <div className="about-grid">
-          <p className="about-item">
-            <span>StagePilot</span>
-            <strong>Desktop</strong>
-          </p>
-          <p className="about-item">
-            <span>Author</span>
-            <strong>Matěj Krečmer</strong>
-          </p>
-          <p className="about-item">
-            <span>Version</span>
-            <strong>{desktopPackage.version}</strong>
-          </p>
-          <p className="about-item">
-            <span>Copyright</span>
-            <strong>© 2026 StagePilot</strong>
-          </p>
-          <p className="about-item">
-            <span>Channel</span>
-            <strong>Preview</strong>
-          </p>
-          <p className="about-item">
-            <span>Build Date</span>
-            <strong>{new Date().toLocaleDateString()}</strong>
-          </p>
-        </div>
-      </div>
-    </ModalOverlay>
   );
 }
 
