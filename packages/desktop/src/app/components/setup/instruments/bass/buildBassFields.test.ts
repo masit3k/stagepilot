@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import type { MusicianSetupPreset, Preset } from "../../../../../../../../src/domain/model/types";
+import { describe, expect, it } from "vitest";
 import { buildBassFields, toBassPresets } from "./buildBassFields";
 
 const presets = toBassPresets([
@@ -13,10 +13,18 @@ const presets = toBassPresets([
   },
   {
     type: "preset",
+    id: "el_bass_xlr_pedalboard",
+    label: "Electric bass guitar",
+    group: "bass",
+    setupGroup: "electric_bass",
+    inputs: [{ key: "el_bass_xlr_pedalboard", label: "Electric bass guitar", note: "XLR out from pedalboard", group: "bass" }],
+  },
+  {
+    type: "preset",
     id: "el_bass_mic",
     label: "Electric bass mic",
     group: "bass",
-    setupGroup: "electric_bass",
+    setupGroup: "bass_mic",
     inputs: [{ key: "el_bass_mic", label: "Electric bass mic", note: "Mic on bass amp", group: "bass" }],
   },
   {
@@ -30,33 +38,68 @@ const presets = toBassPresets([
 ] as Preset[]);
 
 const defaultPreset: MusicianSetupPreset = {
-  inputs: [{ key: "el_bass_xlr_amp", label: "Electric bass guitar", group: "bass" }],
+  inputs: [
+    { key: "el_bass_xlr_amp", label: "Electric bass guitar", group: "bass" },
+    { key: "voc_back_bass", label: "Back vocal – bass", group: "vocs" },
+  ],
   monitoring: { type: "wedge", mode: "mono", mixCount: 1 },
 };
 
 describe("buildBassFields", () => {
-  it("builds connection options from preset input notes", () => {
+  it("keeps only XLR presets in connection options", () => {
     const fields = buildBassFields(presets);
     const dropdown = fields.find((field) => field.kind === "dropdown");
     if (!dropdown || dropdown.kind !== "dropdown") throw new Error("dropdown field missing");
     const labels = dropdown.options({ defaultPreset, effectivePreset: defaultPreset }).map((item) => item.label);
-    expect(labels).toEqual(["XLR out from amp", "Mic on bass amp"]);
+    expect(labels).toEqual(["XLR out from amp", "XLR out from pedalboard"]);
   });
 
-  it("tracks default semantics for additional + back vocal fields", () => {
+  it("exposes mic, bass synth and back vocal as boolean toggles", () => {
     const fields = buildBassFields(presets);
-    const additional = fields.find((field) => field.kind === "additionalPicker");
-    const toggle = fields.find((field) => field.kind === "toggle");
-    if (!additional || additional.kind !== "additionalPicker" || !toggle || toggle.kind !== "toggle") throw new Error("fields missing");
+    expect(fields.filter((field) => field.kind === "toggle").map((field) => field.label)).toEqual([
+      "Mic on cabinet",
+      "Bass synth",
+      "Back vocal",
+    ]);
+    expect(fields.some((field) => field.kind === "additionalPicker")).toBe(false);
+  });
+
+  it("disables mic toggle when no connection is selected", () => {
+    const fields = buildBassFields(presets);
+    const mic = fields.find((field) => field.kind === "toggle" && field.id === "bass-mic-on-cabinet");
+    if (!mic || mic.kind !== "toggle") throw new Error("mic field missing");
+
+    const noConnectionState = {
+      defaultPreset: { ...defaultPreset, inputs: [] },
+      effectivePreset: { ...defaultPreset, inputs: [] },
+    };
+
+    expect(mic.isDisabled?.(noConnectionState)).toBe(true);
+  });
+
+  it("treats back vocal default from resolved defaults", () => {
+    const fields = buildBassFields(presets);
+    const backVocal = fields.find((field) => field.kind === "toggle" && field.id === "bass-back-vocal");
+    if (!backVocal || backVocal.kind !== "toggle") throw new Error("back vocal field missing");
 
     const pristineState = { defaultPreset, effectivePreset: defaultPreset };
-    expect(additional.isDefault(pristineState)).toBe(true);
-    expect(toggle.isDefault(pristineState)).toBe(true);
+    expect(backVocal.getValue(pristineState)).toBe(true);
+    expect(backVocal.isDefault(pristineState)).toBe(true);
 
-    const withAdditionalPatch = additional.setValue(pristineState, ["bass_synth"]);
-    expect(additional.isDefault({ ...pristineState, patch: withAdditionalPatch })).toBe(false);
+    const toggledOffPatch = backVocal.setValue(pristineState, false);
+    expect(backVocal.isDefault({ ...pristineState, patch: toggledOffPatch })).toBe(false);
+  });
 
-    const withBackVocalPatch = toggle.setValue(pristineState, true);
-    expect(toggle.isDefault({ ...pristineState, patch: withBackVocalPatch })).toBe(false);
+  it("adds and removes bass synth via toggle", () => {
+    const fields = buildBassFields(presets);
+    const bassSynth = fields.find((field) => field.kind === "toggle" && field.id === "bass-synth");
+    if (!bassSynth || bassSynth.kind !== "toggle") throw new Error("bass synth field missing");
+
+    const pristineState = { defaultPreset, effectivePreset: defaultPreset };
+    const enabledPatch = bassSynth.setValue(pristineState, true);
+    expect(enabledPatch?.inputs?.add?.some((item) => item.key === "bass_synth")).toBe(true);
+
+    const disabledPatch = bassSynth.setValue({ ...pristineState, patch: enabledPatch }, false);
+    expect(bassSynth.getValue({ ...pristineState, patch: disabledPatch })).toBe(false);
   });
 });

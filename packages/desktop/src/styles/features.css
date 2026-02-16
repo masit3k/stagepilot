@@ -680,10 +680,14 @@
 
 /* Badges look consistent and never push layout weirdly */
 .setup-badge {
+  display: inline-flex;
+  width: auto;
+  justify-self: start;
+  align-self: center;
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 1px 6px;
-  font-size: 0.69rem;
+  padding: 2px 8px;
+  font-size: 0.68rem;
   color: var(--muted);
   white-space: nowrap;
   line-height: 1.2;
@@ -716,8 +720,8 @@
 
 /* Each field row: label/control/badge aligned, NO OVERLAP */
 .setup-field-row {
-  display: grid;
-  grid-template-columns: 160px minmax(0, 1fr) auto;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   min-width: 0;
@@ -731,8 +735,29 @@
 
 .setup-field-row select,
 .setup-field-row input {
-  width: 100%;
   min-width: 0;
+}
+
+.setup-field-control {
+  flex: 1 1 280px;
+  width: 100%;
+  min-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.setup-toggle-control {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 6px 4px;
+  cursor: pointer;
+}
+
+.setup-checkbox {
+  width: 18px;
+  height: 18px;
 }
 
 /* On narrower widths, stack label above control */

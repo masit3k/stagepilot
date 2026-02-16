@@ -65,8 +65,8 @@ export function withInputsTarget(defaultInputs: InputChannel[], currentPatch: Pr
     ...currentPatch,
     inputs: {
       ...currentPatch?.inputs,
-      ...(add.length > 0 ? { add } : {}),
-      ...(removeKeys.length > 0 ? { removeKeys } : {}),
+      add,
+      removeKeys,
     },
   });
 }

@@ -13,6 +13,7 @@ export type FieldBase<TValue, TKind extends string> = {
   isDefault: (state: EventSetupEditState) => boolean;
   reset: (state: EventSetupEditState) => PresetOverridePatch | undefined;
   normalize?: FieldNormalizer<TValue>;
+  isDisabled?: (state: EventSetupEditState) => boolean;
 };
 
 export type DropdownOption = {
