@@ -144,6 +144,7 @@ export function NewGenericProjectPage({
         updatedAt: nowIso,
         lineup: defaultLineup,
         bandLeaderId: defaultBandLeaderId || undefined,
+        talkbackOwnerId: defaultBandLeaderId || undefined,
       };
       await projectsApi.saveProject({
         projectId: id,

@@ -9,6 +9,8 @@ export type DocumentBuildContext = {
   band: Band;
   lineup: Record<Group, string[]>;
   presetOverrideByMusicianId: Map<string, PresetOverridePatch>;
+  talkbackOwnerId: string;
+  bandLeaderId: string;
   membersById: Map<string, Musician>;
   lineupMusicians: Array<{ group: Group; musician: Musician }>;
   pickByGroup: (group: Group) => Musician | undefined;
@@ -20,9 +22,16 @@ export function resolveDocumentContext(
 ): DocumentBuildContext {
   const band = repo.getBand(project.bandRef);
   validateBandLeader(band, repo);
+  const rawProjectBandLeader = (project as Project & { bandLeaderId?: unknown }).bandLeaderId;
+  const bandLeaderId =
+    typeof rawProjectBandLeader === "string" && rawProjectBandLeader.trim().length > 0
+      ? rawProjectBandLeader.trim()
+      : band.bandLeader;
+
   const effective = resolveEffectiveProjectState({
     project,
     bandDefaultLineup: band.defaultLineup ?? {},
+    bandLeaderId,
   });
 
   const lineup = {} as Record<Group, string[]>;
@@ -44,6 +53,8 @@ export function resolveDocumentContext(
     band,
     lineup,
     presetOverrideByMusicianId: effective.presetOverrideByMusicianId,
+    talkbackOwnerId: effective.effectiveTalkbackOwnerId,
+    bandLeaderId,
     membersById,
     lineupMusicians,
     pickByGroup: (group: Group) =>

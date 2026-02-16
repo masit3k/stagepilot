@@ -16,11 +16,6 @@
             "ownerLabel": "bass"
         },
         {
-            "kind": "talkback",
-            "ref": "talkback",
-            "ownerKey": "bass"
-        },
-        {
             "kind": "monitor",
             "ref": "iem_stereo_wireless"
         }

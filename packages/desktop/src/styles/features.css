@@ -777,6 +777,10 @@
   color: var(--muted);
 }
 
+.setup-toggle-row--checked .setup-toggle-row__text {
+  color: var(--text);
+}
+
 .setup-checkbox {
   width: 20px;
   height: 20px;

@@ -148,7 +148,7 @@ export function toPersistableProject(
     ...(purgeAt ? { purgeAt } : {}),
     ...(lineup ? { lineup } : {}),
     ...(bandLeaderId ? { bandLeaderId } : {}),
-    ...(talkbackOwnerId ? { talkbackOwnerId } : {}),
+    ...((talkbackOwnerId || bandLeaderId) ? { talkbackOwnerId: talkbackOwnerId ?? bandLeaderId } : {}),
     ...(note ? { note } : {}),
     ...(backVocalIds && backVocalIds.length > 0 ? { backVocalIds } : {}),
   };

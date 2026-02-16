@@ -40,6 +40,7 @@ import { SetupModalShell } from "../components/setup/SetupModalShell";
 import { SetupSection } from "../components/setup/SetupSection";
 import { SchemaRenderer } from "../components/setup/SchemaRenderer";
 import { migrateProjectLineupVocsToLeadBack } from "../domain/project/migrateProjectLineup";
+import { migrateProjectTalkbackOwner } from "../domain/project/migrateProjectTalkbackOwner";
 import { isLineupSetupDirty } from "../domain/ui/isLineupSetupDirty";
 import {
   computeIsDirty,
@@ -166,7 +167,7 @@ export function ProjectSetupPage({
       const parsedRaw = JSON.parse(
         await invoke<string>("read_project", { projectId: id }),
       ) as NewProjectPayload;
-      const parsed = migrateProjectLineupVocsToLeadBack(parsedRaw);
+      const parsed = migrateProjectTalkbackOwner(migrateProjectLineupVocsToLeadBack(parsedRaw));
       setProject(parsed);
       setBackVocalIds(
         normalizeLineupValue((parsed.lineup ?? {}).back_vocs, 8),
@@ -244,10 +245,7 @@ export function ProjectSetupPage({
             ),
           },
           bandLeaderId: initialState.bandLeaderId || undefined,
-          ...(initialState.talkbackOwnerId &&
-          initialState.talkbackOwnerId !== initialState.bandLeaderId
-            ? { talkbackOwnerId: initialState.talkbackOwnerId }
-            : {}),
+          talkbackOwnerId: initialState.talkbackOwnerId || undefined,
           updatedAt: new Date().toISOString(),
         };
         await projectsApi.saveProject({
@@ -482,9 +480,7 @@ export function ProjectSetupPage({
         back_vocs: [...selectedBackVocalIds],
       },
       bandLeaderId,
-      ...(talkbackCurrentOwnerId && talkbackCurrentOwnerId !== bandLeaderId
-        ? { talkbackOwnerId: talkbackCurrentOwnerId }
-        : {}),
+      talkbackOwnerId: talkbackCurrentOwnerId || undefined,
       ...next,
     };
     await projectsApi.saveProject({
@@ -548,6 +544,19 @@ export function ProjectSetupPage({
     setRoleSlots(role, current);
   }
 
+  function parseSlotIndex(slotKey: string): number {
+    const [, rawIndex] = slotKey.split(":");
+    const parsed = Number(rawIndex);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function getExistingSlotOverride(role: string, slotIndex: number): PresetOverridePatch | undefined {
+    if (!setupData) return undefined;
+    const constraint = normalizeRoleConstraint(role, setupData.constraints[role]);
+    const slots = normalizeLineupSlots(lineup[role], constraint.max);
+    return slots[slotIndex]?.presetOverride;
+  }
+
   function applySetupDraftOverrides(
     draftOverrides: Record<string, PresetOverridePatch | undefined>,
   ) {
@@ -561,7 +570,10 @@ export function ProjectSetupPage({
       const slots = normalizeLineupSlots(lineup[role], constraint.max).map(
         (slot, slotIndex) => {
           if (!slot.musicianId) return slot;
-          const override = draftOverrides[`${role}:${slotIndex}`];
+          const slotKey = `${role}:${slotIndex}`;
+          const override = Object.prototype.hasOwnProperty.call(draftOverrides, slotKey)
+            ? draftOverrides[slotKey]
+            : slot.presetOverride;
           const normalizedOverride = normalizeBassConnectionOverridePatch(
             resolveSlotSetup(role as Group, slot.musicianId).resolved.defaultPreset,
             override,
@@ -1050,8 +1062,12 @@ export function ProjectSetupPage({
       >
         {editingSetup && selectedSetupMusician
           ? (() => {
+              const existingPatch = getExistingSlotOverride(
+                selectedSetupMusician.role,
+                parseSlotIndex(selectedSetupMusician.slotKey),
+              );
               const currentPatch =
-                setupDraftBySlot[selectedSetupMusician.slotKey];
+                setupDraftBySlot[selectedSetupMusician.slotKey] ?? existingPatch;
               const { resolved, effective } = resolveSlotSetup(
                 selectedSetupMusician.role,
                 selectedSetupMusician.musicianId,
@@ -1073,7 +1089,12 @@ export function ProjectSetupPage({
                   : null;
               const modalErrors = validateEffectivePresets(
                 setupMusicians.map((slot) => {
-                  const slotPatch = setupDraftBySlot[slot.slotKey];
+                  const existingSlotPatch = getExistingSlotOverride(
+                    slot.role,
+                    parseSlotIndex(slot.slotKey),
+                  );
+                  const slotPatch =
+                    setupDraftBySlot[slot.slotKey] ?? existingSlotPatch;
                   const { resolved: slotResolved } = resolveSlotSetup(
                     slot.role,
                     slot.musicianId,

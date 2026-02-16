@@ -21,6 +21,7 @@ describe("resolveEffectiveProjectState", () => {
         drums: "drummer-default",
         guitar: "guitar-default",
       },
+      bandLeaderId: "drummer-default",
     });
 
     expect(resolved.effectiveLineup.drums).toEqual(["drummer-new"]);
@@ -44,9 +45,27 @@ describe("resolveEffectiveProjectState", () => {
     const resolved = resolveEffectiveProjectState({
       project,
       bandDefaultLineup: { bass: "bass-default" },
+      bandLeaderId: "bass-default",
     });
 
     expect(resolved.effectiveLineup.bass).toEqual(["bass-1"]);
     expect(resolved.presetOverrideByMusicianId.get("bass-1")?.inputs?.add?.[0]?.key).toBe("bass_pedal");
+  });
+
+  it("falls back talkback owner to band leader for legacy projects", () => {
+    const project: Project = {
+      id: "p-legacy",
+      bandRef: "band-1",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+    };
+
+    const resolved = resolveEffectiveProjectState({
+      project,
+      bandDefaultLineup: {},
+      bandLeaderId: "leader-1",
+    });
+
+    expect(resolved.effectiveTalkbackOwnerId).toBe("leader-1");
   });
 });

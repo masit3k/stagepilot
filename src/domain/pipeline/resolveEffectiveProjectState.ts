@@ -5,6 +5,7 @@ type LegacyLineupEntry = { musicianId?: unknown; presetOverride?: unknown };
 
 type ProjectWithLineup = Project & {
   lineup?: Record<string, unknown>;
+  talkbackOwnerId?: unknown;
 };
 
 function normalizeLineupEntry(entry: unknown): { musicianId: string; presetOverride?: PresetOverridePatch } | null {
@@ -49,9 +50,11 @@ function firstRoleValue(lineup: Record<string, unknown>, role: Group): unknown {
 export function resolveEffectiveProjectState(args: {
   project: Project;
   bandDefaultLineup: Partial<Record<Group, LineupValue>>;
+  bandLeaderId: string;
 }): {
   effectiveLineup: Record<Group, string[]>;
   presetOverrideByMusicianId: Map<string, PresetOverridePatch>;
+  effectiveTalkbackOwnerId: string;
 } {
   const projectLineup = ((args.project as ProjectWithLineup).lineup ?? {}) as Record<string, unknown>;
   const effectiveLineup = {} as Record<Group, string[]>;
@@ -70,8 +73,15 @@ export function resolveEffectiveProjectState(args: {
     }
   }
 
+  const rawTalkbackOwnerId = (args.project as ProjectWithLineup).talkbackOwnerId;
+  const effectiveTalkbackOwnerId =
+    typeof rawTalkbackOwnerId === "string" && rawTalkbackOwnerId.trim().length > 0
+      ? rawTalkbackOwnerId.trim()
+      : args.bandLeaderId;
+
   return {
     effectiveLineup,
     presetOverrideByMusicianId,
+    effectiveTalkbackOwnerId,
   };
 }

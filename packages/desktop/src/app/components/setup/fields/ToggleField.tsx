@@ -14,7 +14,7 @@ export function ToggleField({ field, state, onPatch }: ToggleFieldProps) {
   const controlId = `setup-toggle-${field.id}`;
   return (
     <div className={`setup-field-block ${!isDefault ? "setup-field-block--modified" : ""}`}>
-      <label className="setup-field-row setup-toggle-row" htmlFor={controlId}>
+      <label className={`setup-field-row setup-toggle-row ${checked ? "setup-toggle-row--checked" : ""}`} htmlFor={controlId}>
         <input
           id={controlId}
           className="setup-checkbox"

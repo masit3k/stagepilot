@@ -449,7 +449,7 @@ export function buildDocument(
     lineupByRole[role] = resolveStageplanPerson(
       role,
       ctx.lineup,
-      band.bandLeader,
+      ctx.bandLeaderId,
       ctx.membersById,
     );
   }
@@ -517,7 +517,7 @@ export function buildDocument(
   const leadResolved = leads.length > 0 ? leads : vocsAll;
   const leadVocalStageplanPersons = leadResolved.map((m) => ({
     firstName: m.firstName ?? null,
-    isBandLeader: m.id === band.bandLeader,
+    isBandLeader: m.id === ctx.bandLeaderId,
   }));
   const leadVocalCount = inputs.filter((input) =>
     input.key.startsWith("voc_lead"),

@@ -8,12 +8,13 @@ function hasInputKey(inputs: InputChannel[], key: string): boolean {
   return inputs.some((item) => item.key === key);
 }
 
-function readPatchedInputs(state: EventSetupEditState): InputChannel[] {
+function readResolvedInputs(state: EventSetupEditState): InputChannel[] {
+  if (!state.patch) return state.effectivePreset.inputs;
   return getPatchedInputs(state.defaultPreset.inputs, state.patch);
 }
 
 function readCurrentPrimaryId(state: EventSetupEditState, primaryPresets: BassPreset[]): string {
-  const currentInputKeys = new Set(readPatchedInputs(state).map((item) => item.key));
+  const currentInputKeys = new Set(readResolvedInputs(state).map((item) => item.key));
   return primaryPresets.find((preset) => preset.inputs.some((item) => currentInputKeys.has(item.key)))?.id ?? "";
 }
 
@@ -87,10 +88,10 @@ export function buildBassFields(presets: BassPreset[]): SchemaNode[] {
     kind: "toggle",
     id: "bass-mic-on-cabinet",
     label: "Mic on cabinet",
-    getValue: (state) => (micInput ? hasInputKey(readPatchedInputs(state), micInput.key) : false),
+    getValue: (state) => (micInput ? hasInputKey(readResolvedInputs(state), micInput.key) : false),
     setValue: (state, value) => {
       if (!micInput) return state.patch;
-      const current = readPatchedInputs(state).filter((item) => item.key !== micInput.key);
+      const current = readResolvedInputs(state).filter((item) => item.key !== micInput.key);
       return withInputsTarget(state.defaultPreset.inputs, state.patch, value ? [...current, micInput] : current);
     },
     isDefault: (state) => {
@@ -105,10 +106,10 @@ export function buildBassFields(presets: BassPreset[]): SchemaNode[] {
     kind: "toggle",
     id: "bass-synth",
     label: "Bass synth",
-    getValue: (state) => (bassSynthInput ? hasInputKey(readPatchedInputs(state), bassSynthInput.key) : false),
+    getValue: (state) => (bassSynthInput ? hasInputKey(readResolvedInputs(state), bassSynthInput.key) : false),
     setValue: (state, value) => {
       if (!bassSynthInput) return state.patch;
-      const current = readPatchedInputs(state).filter((item) => item.key !== bassSynthInput.key);
+      const current = readResolvedInputs(state).filter((item) => item.key !== bassSynthInput.key);
       return withInputsTarget(state.defaultPreset.inputs, state.patch, value ? [...current, bassSynthInput] : current);
     },
     isDefault: (state) => {

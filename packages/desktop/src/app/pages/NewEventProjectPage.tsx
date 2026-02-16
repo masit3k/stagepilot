@@ -165,7 +165,7 @@ export function NewEventProjectPage({
         updatedAt: nowIso,
         lineup: defaultLineup,
         bandLeaderId: defaultBandLeaderId || undefined,
-        talkbackOwnerId: existingProject?.talkbackOwnerId,
+        talkbackOwnerId: (existingProject?.talkbackOwnerId ?? defaultBandLeaderId) || undefined,
         note: existingProject?.note,
       };
       await projectsApi.saveProject({

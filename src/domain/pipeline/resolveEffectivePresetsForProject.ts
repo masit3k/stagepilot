@@ -10,6 +10,7 @@ import type {
 type ProjectWithBackVocalIds = Project & {
   backVocalIds?: unknown;
   lineup?: Record<string, unknown>;
+  talkbackOwnerId?: unknown;
 };
 
 function normalizeIdList(value: unknown): string[] {
@@ -31,6 +32,11 @@ function isBackVocalRef(ref: string): boolean {
 function isBackVocalItem(item: PresetItem): boolean {
   const ref = presetRef(item);
   return typeof ref === "string" && isBackVocalRef(ref);
+}
+
+
+function isTalkbackItem(item: PresetItem): boolean {
+  return item.kind === "talkback";
 }
 
 function resolveBackVocalRef(
@@ -70,8 +76,8 @@ export function resolveEffectivePresetsForProject(args: {
   group: Group;
   repo: DataRepository;
 }): PresetItem[] {
-  const { project, musician, group, repo } = args;
-  const basePresets = [...(musician.presets ?? [])];
+  const { project, band, musician, group, repo } = args;
+  const basePresets = [...(musician.presets ?? [])].filter((item) => !isTalkbackItem(item));
 
   const rawBackVocalIds = (project as ProjectWithBackVocalIds).backVocalIds;
   const explicitBackVocalIds = normalizeIdList(rawBackVocalIds);
@@ -81,31 +87,47 @@ export function resolveEffectivePresetsForProject(args: {
   const selectedBackVocalIds =
     lineupBackVocalIds.length > 0 ? lineupBackVocalIds : explicitBackVocalIds;
 
-  if (selectedBackVocalIds.length === 0) {
-    return basePresets;
-  }
-
   const selectedIds = new Set(selectedBackVocalIds);
   const withoutBackVocal = basePresets.filter((item) => !isBackVocalItem(item));
 
-  if (!selectedIds.has(musician.id)) {
-    return withoutBackVocal;
+  let resolvedPresets = withoutBackVocal;
+  if (selectedBackVocalIds.length > 0 && selectedIds.has(musician.id)) {
+    if (basePresets.some((item) => isBackVocalItem(item))) {
+      resolvedPresets = basePresets;
+    } else {
+      const backVocalRef = resolveBackVocalRef(basePresets, repo);
+      if (backVocalRef) {
+        resolvedPresets = [
+          ...withoutBackVocal,
+          {
+            kind: "vocal",
+            ref: backVocalRef,
+            ownerKey: group,
+            ownerLabel: group,
+          },
+        ];
+      }
+    }
   }
 
-  if (basePresets.some((item) => isBackVocalItem(item))) {
-    return basePresets;
-  }
+  const rawTalkbackOwnerId = (project as ProjectWithBackVocalIds).talkbackOwnerId;
+  const rawBandLeaderId = (project as ProjectWithBackVocalIds & { bandLeaderId?: unknown }).bandLeaderId;
+  const talkbackOwnerId =
+    typeof rawTalkbackOwnerId === "string" && rawTalkbackOwnerId.trim().length > 0
+      ? rawTalkbackOwnerId.trim()
+      : typeof rawBandLeaderId === "string" && rawBandLeaderId.trim().length > 0
+        ? rawBandLeaderId.trim()
+        : band.bandLeader;
 
-  const backVocalRef = resolveBackVocalRef(basePresets, repo);
-  if (!backVocalRef) {
-    return basePresets;
+  if (musician.id !== talkbackOwnerId) {
+    return resolvedPresets;
   }
 
   return [
-    ...withoutBackVocal,
+    ...resolvedPresets,
     {
-      kind: "vocal",
-      ref: backVocalRef,
+      kind: "talkback",
+      ref: "talkback",
       ownerKey: group,
       ownerLabel: group,
     },

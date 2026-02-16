@@ -20,6 +20,12 @@ export function normalizeProject(input: ProjectJson): Project {
   const displayName = typeof raw.displayName === "string" ? raw.displayName.trim() || undefined : undefined;
   const stageplan = (input as ProjectJson).stageplan;
   const lineup = "lineup" in input ? input.lineup : undefined;
+  const bandLeaderId = "bandLeaderId" in input && typeof input.bandLeaderId === "string" && input.bandLeaderId.trim().length > 0
+    ? input.bandLeaderId.trim()
+    : undefined;
+  const talkbackOwnerId = "talkbackOwnerId" in input && typeof input.talkbackOwnerId === "string" && input.talkbackOwnerId.trim().length > 0
+    ? input.talkbackOwnerId.trim()
+    : undefined;
   const backVocalIds = "backVocalIds" in input && Array.isArray(input.backVocalIds)
     ? input.backVocalIds.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
     : undefined;
@@ -44,6 +50,8 @@ export function normalizeProject(input: ProjectJson): Project {
         template: input.template?.trim() || undefined,
         lineup,
         backVocalIds,
+        bandLeaderId,
+        talkbackOwnerId,
         stageplan,
       };
     }
@@ -59,6 +67,8 @@ export function normalizeProject(input: ProjectJson): Project {
       template: input.template?.trim() || undefined,
       lineup,
       backVocalIds,
+      bandLeaderId,
+      talkbackOwnerId,
       stageplan,
     };
   }
@@ -78,6 +88,8 @@ export function normalizeProject(input: ProjectJson): Project {
       documentDate: eventDate,
       lineup,
       backVocalIds,
+      bandLeaderId,
+      talkbackOwnerId,
       stageplan,
     };
   }
