@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { MusicianSetupPreset } from "../../../../../../../../src/domain/model/types";
+import type { MusicianSetupPreset } from "../../../../../../../src/domain/model/types";
 import { buildBassFields, toBassPresets } from "../instruments/bass/buildBassFields";
 import { DropdownField } from "./DropdownField";
 import { ToggleField } from "./ToggleField";
