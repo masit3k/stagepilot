@@ -54,6 +54,8 @@ import { SetupSection } from "../components/setup/SetupSection";
 import { SchemaRenderer } from "../components/setup/SchemaRenderer";
 import { buildBassFields, toBassPresets } from "../components/setup/instruments/bass/buildBassFields";
 import { computeIsDirty, resetOverrides, type EventSetupEditState } from "../components/setup/adapters/eventSetupAdapter";
+import { BackVocsBlock } from "../components/roles/BackVocsBlock";
+import { ChangeBackVocsModal } from "../components/roles/modals/ChangeBackVocsModal";
 import { useAppNavigation } from "./navigation/useAppNavigation";
 import { refreshProjectsAndMigrate } from "../services/projectMaintenance";
 import * as projectsApi from "../services/projectsApi";
@@ -70,6 +72,8 @@ import elBassXlrAmpPreset from "../../../../../data/assets/presets/groups/bass/e
 import elBassMicPreset from "../../../../../data/assets/presets/groups/bass/el_bass_mic.json";
 import elBassXlrPedalboardPreset from "../../../../../data/assets/presets/groups/bass/el_bass_xlr_pedalboard.json";
 import bassSynthPreset from "../../../../../data/assets/presets/groups/bass/bass_synth.json";
+import vocalBackNoMicPreset from "../../../../../data/assets/presets/groups/vocs/vocal_back_no_mic.json";
+import vocalBackWiredPreset from "../../../../../data/assets/presets/groups/vocs/vocal_back_wired.json";
 
 function createFallbackSetupData(project: NewProjectPayload): BandSetupData {
   const constraints = Object.fromEntries(
@@ -1681,6 +1685,8 @@ function ProjectSetupPage({
   const [selectedSetupSlotKey, setSelectedSetupSlotKey] = useState("");
   const [bandLeaderId, setBandLeaderId] = useState("");
   const [talkbackOwnerId, setTalkbackOwnerId] = useState("");
+  const [backVocalIds, setBackVocalIds] = useState<string[]>([]);
+  const [isBackVocsModalOpen, setIsBackVocsModalOpen] = useState(false);
   const [status, setStatus] = useState("");
   const [showResetConfirmation, setShowResetConfirmation] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
@@ -1744,6 +1750,7 @@ function ProjectSetupPage({
         await invoke<string>("read_project", { projectId: id }),
       ) as NewProjectPayload;
       setProject(parsed);
+      setBackVocalIds(parsed.backVocalIds ?? []);
       let data: BandSetupData;
       try {
         data = await invoke<BandSetupData>("get_band_setup_data", {
@@ -1843,11 +1850,18 @@ function ProjectSetupPage({
       .filter(Boolean) as MemberOption[];
   }, [selectedMusicianIds, setupData]);
   const talkbackCurrentOwnerId = talkbackOwnerId || bandLeaderId;
+  const backVocalPresetRefs = useMemo(() => [vocalBackNoMicPreset, vocalBackWiredPreset], []);
+  const defaultBackVocalRef = useMemo(() => backVocalPresetRefs.find((item) => item.id === "vocal_back_no_mic")?.id ?? [...backVocalPresetRefs].sort((a, b) => a.id.localeCompare(b.id))[0]?.id ?? "", [backVocalPresetRefs]);
+  const templateMusicians = selectedOptions;
+  const templateMusicianIds = useMemo(() => new Set(templateMusicians.map((item) => item.id)), [templateMusicians]);
+  const selectedBackVocalIds = useMemo(() => backVocalIds.filter((idValue) => templateMusicianIds.has(idValue)), [backVocalIds, templateMusicianIds]);
+  const backVocalMembers = useMemo(() => templateMusicians.filter((item) => selectedBackVocalIds.includes(item.id)), [selectedBackVocalIds, templateMusicians]);
 
   const currentSnapshot = JSON.stringify({
     lineup,
     bandLeaderId,
     talkbackOwnerId: talkbackCurrentOwnerId,
+    backVocalIds,
   });
   const defaultSnapshot = useMemo(() => {
     if (!setupData) return "";
@@ -1870,6 +1884,7 @@ function ProjectSetupPage({
       ...(talkbackCurrentOwnerId && talkbackCurrentOwnerId !== bandLeaderId
         ? { talkbackOwnerId: talkbackCurrentOwnerId }
         : {}),
+      ...(backVocalIds.length > 0 ? { backVocalIds } : {}),
       ...next,
     };
     await projectsApi.saveProject({
@@ -1881,6 +1896,7 @@ function ProjectSetupPage({
       lineup: payload.lineup ?? {},
       bandLeaderId: payload.bandLeaderId ?? "",
       talkbackOwnerId: payload.talkbackOwnerId ?? payload.bandLeaderId ?? "",
+      backVocalIds: payload.backVocalIds ?? [],
     });
   }
 
@@ -1992,6 +2008,7 @@ function ProjectSetupPage({
     Boolean(editing && setupData),
     () => setEditing(null),
   );
+  const backVocsModalRef = useModalBehavior(Boolean(isBackVocsModalOpen), () => setIsBackVocsModalOpen(false));
   const setupEditorRef = useModalBehavior(Boolean(editingSetup), () => {
     setEditingSetup(null);
     setSetupDraftBySlot({});
@@ -2136,6 +2153,11 @@ function ProjectSetupPage({
               </article>
             );
           })}
+        <BackVocsBlock
+          members={backVocalMembers}
+          changeDisabled={selectedOptions.length === 0}
+          onChange={() => setIsBackVocsModalOpen(true)}
+        />
         <p className="subtle">
           Select the on-site band lead for coordination and decisions.
         </p>
@@ -2479,6 +2501,23 @@ function ProjectSetupPage({
             </div>
           );
         })() : null}
+      </ModalOverlay>
+
+      <ModalOverlay open={isBackVocsModalOpen} onClose={() => setIsBackVocsModalOpen(false)}>
+        <div ref={backVocsModalRef}>
+          <ChangeBackVocsModal
+            open={isBackVocsModalOpen}
+            members={selectedOptions}
+            initialSelectedIds={new Set(selectedBackVocalIds)}
+            saveDisabled={!defaultBackVocalRef}
+            saveError={!defaultBackVocalRef ? "No back vocal preset is available." : undefined}
+            onCancel={() => setIsBackVocsModalOpen(false)}
+            onSave={(nextSelectedIds) => {
+              setBackVocalIds(Array.from(nextSelectedIds));
+              setIsBackVocsModalOpen(false);
+            }}
+          />
+        </div>
       </ModalOverlay>
 
       <ModalOverlay open={Boolean(editing && setupData)} onClose={() => setEditing(null)}>

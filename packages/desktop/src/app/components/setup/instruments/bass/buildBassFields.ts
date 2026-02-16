@@ -1,10 +1,8 @@
 import type { InputChannel, Preset } from "../../../../../../../../src/domain/model/types";
 import { getPatchedInputs, withInputsTarget, type EventSetupEditState } from "../../adapters/eventSetupAdapter";
-import type { DropdownFieldDef, FieldDef, ToggleFieldDef } from "../../schema/types";
+import type { DropdownFieldDef, SchemaNode, ToggleFieldDef } from "../../schema/types";
 
 type BassPreset = Preset & { setupGroup?: "electric_bass" | "bass_synth" | "bass_mic" };
-
-const FALLBACK_BACK_VOCAL_INPUT: InputChannel = { key: "voc_back_bass", label: "Back vocal – bass", group: "vocs" };
 
 function hasInputKey(inputs: InputChannel[], key: string): boolean {
   return inputs.some((item) => item.key === key);
@@ -12,11 +10,6 @@ function hasInputKey(inputs: InputChannel[], key: string): boolean {
 
 function readPatchedInputs(state: EventSetupEditState): InputChannel[] {
   return getPatchedInputs(state.defaultPreset.inputs, state.patch);
-}
-
-function findBackVocalInput(state: EventSetupEditState): InputChannel {
-  const source = [...readPatchedInputs(state), ...state.defaultPreset.inputs, ...state.effectivePreset.inputs];
-  return source.find((item) => item.key.startsWith("voc_back")) ?? FALLBACK_BACK_VOCAL_INPUT;
 }
 
 function readCurrentPrimaryId(state: EventSetupEditState, primaryPresets: BassPreset[]): string {
@@ -28,7 +21,7 @@ function hasConnection(state: EventSetupEditState, primaryPresets: BassPreset[])
   return primaryPresets.some((preset) => preset.id === readCurrentPrimaryId(state, primaryPresets));
 }
 
-export function buildBassFields(presets: BassPreset[]): FieldDef[] {
+export function buildBassFields(presets: BassPreset[]): SchemaNode[] {
   const primaryPresets = presets.filter((preset) => preset.setupGroup === "electric_bass");
   const micPreset = presets.find((preset) => preset.setupGroup === "bass_mic");
   const bassSynthPreset = presets.find((preset) => preset.setupGroup === "bass_synth");
@@ -50,7 +43,11 @@ export function buildBassFields(presets: BassPreset[]): FieldDef[] {
       if (!selectedPreset) return state.patch;
       const currentInputs = readPatchedInputs(state);
       const withoutPrimary = currentInputs.filter((input) => !primaryPresets.some((preset) => preset.inputs.some((candidate) => candidate.key === input.key)));
-      return withInputsTarget(state.defaultPreset.inputs, state.patch, [...withoutPrimary, ...selectedPreset.inputs]);
+      const nextInputs = [...withoutPrimary, ...selectedPreset.inputs];
+      const sanitized = micInput && hasInputKey(nextInputs, micInput.key)
+        ? nextInputs
+        : nextInputs.filter((item) => item.key !== micInput?.key);
+      return withInputsTarget(state.defaultPreset.inputs, state.patch, sanitized);
     },
     isDefault: (state) => {
       const selected = readCurrentPrimaryId(state, primaryPresets);
@@ -100,23 +97,7 @@ export function buildBassFields(presets: BassPreset[]): FieldDef[] {
     reset: (state) => withInputsTarget(state.defaultPreset.inputs, state.patch, state.defaultPreset.inputs),
   };
 
-  const backVocalField: ToggleFieldDef = {
-    kind: "toggle",
-    id: "bass-back-vocal",
-    label: "Back vocal",
-    getValue: (state) => readPatchedInputs(state).some((item) => item.key.startsWith("voc_back")),
-    setValue: (state, value) => {
-      const current = readPatchedInputs(state).filter((item) => !item.key.startsWith("voc_back"));
-      return withInputsTarget(state.defaultPreset.inputs, state.patch, value ? [...current, findBackVocalInput(state)] : current);
-    },
-    isDefault: (state) => {
-      const defaultHas = state.defaultPreset.inputs.some((item) => item.key.startsWith("voc_back"));
-      return backVocalField.getValue(state) === defaultHas;
-    },
-    reset: (state) => withInputsTarget(state.defaultPreset.inputs, state.patch, state.defaultPreset.inputs),
-  };
-
-  return [connectionField, micField, bassSynthField, backVocalField];
+  return [connectionField, { kind: "toggleGrid", id: "bass-input-toggles", fields: [micField, bassSynthField] }];
 }
 
 export function toBassPresets(presets: Preset[]): BassPreset[] {

@@ -12,11 +12,12 @@ export function MonitoringEditor({ effectiveMonitoring, patch, diffMeta, onChang
   const currentType = patch?.monitoring?.type ?? effectiveMonitoring.type;
 
   return (
-    <>
+    <div className="setup-monitoring-grid">
       <label className="setup-field-block">
         <span className="setup-field-block__label">Monitoring Type</span>
         <div className="setup-field-row">
           <select
+            className="setup-field-control"
             value={currentType}
             onChange={(e) =>
               onChangePatch({
@@ -40,6 +41,7 @@ export function MonitoringEditor({ effectiveMonitoring, patch, diffMeta, onChang
           <span className="setup-field-block__label">Mode</span>
           <div className="setup-field-row">
             <select
+              className="setup-field-control"
               value={patch?.monitoring?.mode ?? effectiveMonitoring.mode}
               onChange={(e) =>
                 onChangePatch({
@@ -57,6 +59,6 @@ export function MonitoringEditor({ effectiveMonitoring, patch, diffMeta, onChang
           </div>
         </label>
       ) : null}
-    </>
+    </div>
   );
 }

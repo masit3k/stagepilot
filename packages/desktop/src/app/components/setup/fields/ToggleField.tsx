@@ -15,19 +15,18 @@ export function ToggleField({ field, state, onPatch }: ToggleFieldProps) {
   return (
     <div className="setup-field-block">
       <span className="setup-field-block__label">{field.label}</span>
-      <div className="setup-field-row">
-        <label className="setup-toggle-control" htmlFor={controlId}>
-          <input
-            id={controlId}
-            className="setup-checkbox"
-            type="checkbox"
-            checked={checked}
-            disabled={isDisabled}
-            onChange={(e) => onPatch(field.setValue(state, e.target.checked))}
-          />
-        </label>
+      <label className="setup-field-row setup-toggle-row" htmlFor={controlId}>
+        <input
+          id={controlId}
+          className="setup-checkbox"
+          type="checkbox"
+          checked={checked}
+          disabled={isDisabled}
+          onChange={(e) => onPatch(field.setValue(state, e.target.checked))}
+        />
+        <span className="setup-toggle-row__text">Enable</span>
         <span className={isDefault ? "setup-badge" : "setup-badge setup-badge--override"}>{isDefault ? "Default" : "Overridden"}</span>
-      </div>
+      </label>
     </div>
   );
 }

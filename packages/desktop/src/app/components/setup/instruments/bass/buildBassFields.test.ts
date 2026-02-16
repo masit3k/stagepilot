@@ -35,13 +35,10 @@ const presets = toBassPresets([
     setupGroup: "bass_synth",
     inputs: [{ key: "bass_synth", label: "Bass synth", note: "TS jack 6.3mm – DI box", group: "bass" }],
   },
-] as Preset[]);
+] as unknown as Preset[]);
 
 const defaultPreset: MusicianSetupPreset = {
-  inputs: [
-    { key: "el_bass_xlr_amp", label: "Electric bass guitar", group: "bass" },
-    { key: "voc_back_bass", label: "Back vocal – bass", group: "vocs" },
-  ],
+  inputs: [{ key: "el_bass_xlr_amp", label: "Electric bass guitar", group: "bass" }],
   monitoring: { type: "wedge", mode: "mono", mixCount: 1 },
 };
 
@@ -54,20 +51,19 @@ describe("buildBassFields", () => {
     expect(labels).toEqual(["XLR out from amp", "XLR out from pedalboard"]);
   });
 
-  it("exposes mic, bass synth and back vocal as boolean toggles", () => {
+  it("exposes only mic and bass synth as boolean toggles", () => {
     const fields = buildBassFields(presets);
-    expect(fields.filter((field) => field.kind === "toggle").map((field) => field.label)).toEqual([
-      "Mic on cabinet",
-      "Bass synth",
-      "Back vocal",
-    ]);
-    expect(fields.some((field) => field.kind === "additionalPicker")).toBe(false);
+    const toggleGrid = fields.find((field) => field.kind === "toggleGrid");
+    if (!toggleGrid || toggleGrid.kind !== "toggleGrid") throw new Error("toggle grid missing");
+    expect(toggleGrid.fields.map((field) => field.label)).toEqual(["Mic on cabinet", "Bass synth"]);
   });
 
   it("disables mic toggle when no connection is selected", () => {
     const fields = buildBassFields(presets);
-    const mic = fields.find((field) => field.kind === "toggle" && field.id === "bass-mic-on-cabinet");
-    if (!mic || mic.kind !== "toggle") throw new Error("mic field missing");
+    const toggleGrid = fields.find((field) => field.kind === "toggleGrid");
+    if (!toggleGrid || toggleGrid.kind !== "toggleGrid") throw new Error("toggle grid missing");
+    const mic = toggleGrid.fields.find((field) => field.id === "bass-mic-on-cabinet");
+    if (!mic) throw new Error("mic field missing");
 
     const noConnectionState = {
       defaultPreset: { ...defaultPreset, inputs: [] },
@@ -75,25 +71,15 @@ describe("buildBassFields", () => {
     };
 
     expect(mic.isDisabled?.(noConnectionState)).toBe(true);
-  });
-
-  it("treats back vocal default from resolved defaults", () => {
-    const fields = buildBassFields(presets);
-    const backVocal = fields.find((field) => field.kind === "toggle" && field.id === "bass-back-vocal");
-    if (!backVocal || backVocal.kind !== "toggle") throw new Error("back vocal field missing");
-
-    const pristineState = { defaultPreset, effectivePreset: defaultPreset };
-    expect(backVocal.getValue(pristineState)).toBe(true);
-    expect(backVocal.isDefault(pristineState)).toBe(true);
-
-    const toggledOffPatch = backVocal.setValue(pristineState, false);
-    expect(backVocal.isDefault({ ...pristineState, patch: toggledOffPatch })).toBe(false);
+    expect(mic.getValue(noConnectionState)).toBe(false);
   });
 
   it("adds and removes bass synth via toggle", () => {
     const fields = buildBassFields(presets);
-    const bassSynth = fields.find((field) => field.kind === "toggle" && field.id === "bass-synth");
-    if (!bassSynth || bassSynth.kind !== "toggle") throw new Error("bass synth field missing");
+    const toggleGrid = fields.find((field) => field.kind === "toggleGrid");
+    if (!toggleGrid || toggleGrid.kind !== "toggleGrid") throw new Error("toggle grid missing");
+    const bassSynth = toggleGrid.fields.find((field) => field.id === "bass-synth");
+    if (!bassSynth) throw new Error("bass synth field missing");
 
     const pristineState = { defaultPreset, effectivePreset: defaultPreset };
     const enabledPatch = bassSynth.setValue(pristineState, true);

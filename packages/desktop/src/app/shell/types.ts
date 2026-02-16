@@ -83,6 +83,7 @@ export type NewProjectPayload = {
   lineup?: LineupMap;
   bandLeaderId?: string;
   talkbackOwnerId?: string;
+  backVocalIds?: string[];
 };
 
 export type NavigationGuard = {

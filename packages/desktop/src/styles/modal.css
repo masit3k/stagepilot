@@ -69,6 +69,7 @@
   max-height: min(90vh, 980px);
   display: grid;
   grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  overflow: hidden;
 }
 
 .selector-dialog--setup-editor .selector-dialog__body {

@@ -39,3 +39,11 @@ export type AdditionalPickerFieldDef = FieldBase<string[], "additionalPicker"> &
 };
 
 export type FieldDef = DropdownFieldDef | ToggleFieldDef | AdditionalPickerFieldDef;
+
+export type ToggleGridGroupDef = {
+  kind: "toggleGrid";
+  id: string;
+  fields: ToggleFieldDef[];
+};
+
+export type SchemaNode = FieldDef | ToggleGridGroupDef;
