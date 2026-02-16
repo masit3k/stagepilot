@@ -1,25 +1,18 @@
 import type {
-  Band,
   Musician,
   Project,
   StageplanInstrumentKey,
   PowerRequirement,
 } from "../model/types.js";
-import type { LineupValue } from "../model/types.js";
-
-function firstMemberId(value: LineupValue | undefined): string | null {
-  if (!value) return null;
-  const ids = Array.isArray(value) ? value : [value];
-  return ids[0] ?? null;
-}
+import type { Group } from "../model/groups.js";
 
 export function resolvePowerForStageplan(
   roleKey: StageplanInstrumentKey,
-  band: Band,
+  lineup: Record<Group, string[]>,
   project: Project,
   musiciansById: Map<string, Musician>
 ): PowerRequirement | null {
-  const musicianId = firstMemberId(band.defaultLineup?.[roleKey]);
+  const musicianId = lineup[roleKey]?.[0] ?? null;
   if (!musicianId) return null;
 
   const override = project.stageplan?.powerOverridesByMusician?.[musicianId];

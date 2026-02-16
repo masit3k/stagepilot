@@ -562,7 +562,7 @@
 /* Two-column layout: Inputs vs Monitoring */
 .setup-editor-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: 1fr;
   gap: var(--space-3);
   align-items: start;
 }
@@ -679,24 +679,26 @@
 }
 
 /* Badges look consistent and never push layout weirdly */
-.setup-badge {
-  display: inline-flex;
-  width: auto;
-  justify-self: start;
-  align-self: center;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 2px 8px;
-  font-size: 0.68rem;
+.setup-section-modified {
+  margin-left: 8px;
+  font-size: 0.8rem;
+  font-weight: 500;
   color: var(--muted);
-  white-space: nowrap;
-  line-height: 1.2;
 }
 
-.setup-badge--override {
-  color: #7c2d12;
-  border-color: #fdba74;
-  background: #ffedd5;
+.setup-modified-dot {
+  color: var(--primary);
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.setup-field-block--modified {
+  border-left: 2px solid var(--primary);
+  padding-left: 8px;
+}
+
+.setup-editor-list__row--modified {
+  border-left: 2px solid var(--primary);
 }
 
 /* Monitoring fields block */
@@ -725,8 +727,7 @@
 }
 
 @media (min-width: 640px) {
-  .setup-toggle-grid,
-  .setup-monitoring-grid {
+  .setup-toggle-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

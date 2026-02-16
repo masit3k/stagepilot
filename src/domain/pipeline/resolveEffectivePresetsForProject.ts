@@ -9,7 +9,16 @@ import type {
 
 type ProjectWithBackVocalIds = Project & {
   backVocalIds?: unknown;
+  lineup?: Record<string, unknown>;
 };
+
+function normalizeIdList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter(
+        (id): id is string => typeof id === "string" && id.trim().length > 0,
+      )
+    : [];
+}
 
 function presetRef(item: PresetItem): string | undefined {
   return "ref" in item && typeof item.ref === "string" ? item.ref : undefined;
@@ -65,17 +74,18 @@ export function resolveEffectivePresetsForProject(args: {
   const basePresets = [...(musician.presets ?? [])];
 
   const rawBackVocalIds = (project as ProjectWithBackVocalIds).backVocalIds;
-  const explicitBackVocalIds = Array.isArray(rawBackVocalIds)
-    ? rawBackVocalIds.filter(
-        (id): id is string => typeof id === "string" && id.trim().length > 0,
-      )
-    : [];
+  const explicitBackVocalIds = normalizeIdList(rawBackVocalIds);
+  const lineupBackVocalIds = normalizeIdList(
+    (project as ProjectWithBackVocalIds).lineup?.back_vocs,
+  );
+  const selectedBackVocalIds =
+    lineupBackVocalIds.length > 0 ? lineupBackVocalIds : explicitBackVocalIds;
 
-  if (explicitBackVocalIds.length === 0) {
+  if (selectedBackVocalIds.length === 0) {
     return basePresets;
   }
 
-  const selectedIds = new Set(explicitBackVocalIds);
+  const selectedIds = new Set(selectedBackVocalIds);
   const withoutBackVocal = basePresets.filter((item) => !isBackVocalItem(item));
 
   if (!selectedIds.has(musician.id)) {

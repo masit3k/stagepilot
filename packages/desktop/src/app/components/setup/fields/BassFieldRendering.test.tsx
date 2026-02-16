@@ -30,13 +30,13 @@ const defaultPreset: MusicianSetupPreset = {
 };
 
 describe("Bass setup field rendering", () => {
-  it("renders compact badge and wide control classes", () => {
+  it("renders compact control classes", () => {
     const connection = buildBassFields(presets).find((field) => field.kind === "dropdown");
     if (!connection || connection.kind !== "dropdown") throw new Error("connection field missing");
 
     const html = renderToStaticMarkup(<DropdownField field={connection} state={{ defaultPreset, effectivePreset: defaultPreset }} onPatch={() => {}} />);
     expect(html).toContain("setup-field-control");
-    expect(html).toContain("setup-badge");
+    expect(html).not.toContain("setup-badge");
     expect(html).not.toContain("w-100");
   });
 
@@ -47,6 +47,6 @@ describe("Bass setup field rendering", () => {
     const html = renderToStaticMarkup(<ToggleField field={toggleGrid.fields[0]} state={{ defaultPreset, effectivePreset: defaultPreset }} onPatch={() => {}} />);
     expect(html).toContain("setup-toggle-row");
     expect(html).toContain("setup-checkbox");
-    expect(html).toContain("Default");
+    expect(html).not.toContain("Default");
   });
 });

@@ -11,7 +11,7 @@ export function AdditionalPickerField({ field, state, onPatch }: AdditionalPicke
   const selected = new Set(field.getValue(state));
   const isDefault = field.isDefault(state);
   return (
-    <div className="setup-field-block">
+    <div className={`setup-field-block ${!isDefault ? "setup-field-block--modified" : ""}`}>
       <span className="setup-field-block__label">{field.label}</span>
       <div className="setup-field-list">
         {field.options(state).map((option) => {
@@ -37,7 +37,7 @@ export function AdditionalPickerField({ field, state, onPatch }: AdditionalPicke
           );
         })}
       </div>
-      <span className={isDefault ? "setup-badge" : "setup-badge setup-badge--override"}>{isDefault ? "Default" : "Overridden"}</span>
+      {!isDefault ? <span className="setup-modified-dot" aria-label="Modified from defaults">●</span> : null}
     </div>
   );
 }

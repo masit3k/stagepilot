@@ -38,6 +38,8 @@ import { MonitoringEditor } from "../../components/setup/MonitoringEditor";
 import { SetupModalShell } from "../components/setup/SetupModalShell";
 import { SetupSection } from "../components/setup/SetupSection";
 import { SchemaRenderer } from "../components/setup/SchemaRenderer";
+import { migrateProjectLineupVocsToLeadBack } from "../domain/project/migrateProjectLineup";
+import { isLineupSetupDirty } from "../domain/ui/isLineupSetupDirty";
 import {
   computeIsDirty,
   resetOverrides,
@@ -160,11 +162,14 @@ export function ProjectSetupPage({
   useEffect(() => {
     snapshotHydratedRef.current = false;
     (async () => {
-      const parsed = JSON.parse(
+      const parsedRaw = JSON.parse(
         await invoke<string>("read_project", { projectId: id }),
       ) as NewProjectPayload;
+      const parsed = migrateProjectLineupVocsToLeadBack(parsedRaw);
       setProject(parsed);
-      setBackVocalIds(parsed.backVocalIds ?? []);
+      setBackVocalIds(
+        normalizeLineupValue((parsed.lineup ?? {}).back_vocs, 8),
+      );
       let data: BandSetupData;
       try {
         data = await invoke<BandSetupData>("get_band_setup_data", {
@@ -206,6 +211,11 @@ export function ProjectSetupPage({
       const initialLineup = {
         ...(hasStoredLineup ? parsed.lineup : fallbackLineup),
       };
+      if (initialLineup.lead_vocs && !initialLineup.vocs) {
+        initialLineup.vocs = initialLineup.lead_vocs;
+      }
+      delete initialLineup.lead_vocs;
+      delete initialLineup.back_vocs;
       const initialState = buildSetupSnapshot(
         initialLineup,
         data,
@@ -221,11 +231,17 @@ export function ProjectSetupPage({
       if (!hasStoredLineup) {
         const updatedProject: NewProjectPayload = {
           ...parsed,
-          lineup: serializeLineupForProject(
-            initialState.lineup,
-            data.constraints,
-            ROLE_ORDER,
-          ),
+          lineup: {
+            ...serializeLineupForProject(
+              initialState.lineup,
+              data.constraints,
+              ROLE_ORDER,
+            ),
+            back_vocs: normalizeLineupValue(
+              (parsed.lineup ?? {}).back_vocs,
+              8,
+            ),
+          },
           bandLeaderId: initialState.bandLeaderId || undefined,
           ...(initialState.talkbackOwnerId &&
           initialState.talkbackOwnerId !== initialState.bandLeaderId
@@ -246,6 +262,7 @@ export function ProjectSetupPage({
           data.constraints,
           ROLE_ORDER,
         ),
+        backVocalIds: normalizeLineupValue((parsed.lineup ?? {}).back_vocs, 8),
       });
     })().catch((error) => {
       console.error("Failed to initialize setup page", {
@@ -432,7 +449,21 @@ export function ProjectSetupPage({
     });
   }, [defaultSelectedBackVocalIds, setupData, buildSetupSnapshot]);
   const isDirty = Boolean(
-    project && currentSnapshot !== initialSnapshotRef.current,
+    project &&
+      isLineupSetupDirty({
+        baselineProject: JSON.parse(initialSnapshotRef.current || "null") ?? {
+          lineup: {},
+          bandLeaderId: "",
+          talkbackOwnerId: "",
+          backVocalIds: [],
+        },
+        currentDraftProject: {
+          lineup: serializedLineup,
+          bandLeaderId,
+          talkbackOwnerId: talkbackCurrentOwnerId,
+          backVocalIds: selectedBackVocalIds,
+        },
+      }),
   );
 
   useEffect(() => {
@@ -445,12 +476,14 @@ export function ProjectSetupPage({
     if (!project) return;
     const payload: NewProjectPayload = {
       ...project,
-      lineup: serializedLineup,
+      lineup: {
+        ...serializedLineup,
+        back_vocs: [...selectedBackVocalIds],
+      },
       bandLeaderId,
       ...(talkbackCurrentOwnerId && talkbackCurrentOwnerId !== bandLeaderId
         ? { talkbackOwnerId: talkbackCurrentOwnerId }
         : {}),
-      ...(backVocalIds.length > 0 ? { backVocalIds } : {}),
       ...next,
     };
     await projectsApi.saveProject({
@@ -1101,7 +1134,10 @@ export function ProjectSetupPage({
                       />
                       {selectedSetupMusician.role === "bass" ? (
                         <div className="setup-editor-stack">
-                          <SetupSection title="Inputs">
+                          <SetupSection
+                            title="Inputs"
+                            modified={resolved.diffMeta.inputs.some((item) => item.origin === "override")}
+                          >
                             <SchemaRenderer
                               fields={BASS_FIELDS}
                               state={
@@ -1119,7 +1155,14 @@ export function ProjectSetupPage({
                               }
                             />
                           </SetupSection>
-                          <SetupSection title="Monitoring">
+                          <SetupSection
+                            title="Monitoring"
+                            modified={
+                              resolved.diffMeta.monitoring.type.origin === "override" ||
+                              resolved.diffMeta.monitoring.mode.origin === "override" ||
+                              resolved.diffMeta.monitoring.mixCount.origin === "override"
+                            }
+                          >
                             <MonitoringEditor
                               effectiveMonitoring={effective.monitoring}
                               patch={currentPatch}
@@ -1238,7 +1281,14 @@ export function ProjectSetupPage({
                             />
                           </div>
                           <div className="setup-editor-column">
-                            <SetupSection title="Monitoring">
+                            <SetupSection
+                              title="Monitoring"
+                              modified={
+                                resolved.diffMeta.monitoring.type.origin === "override" ||
+                                resolved.diffMeta.monitoring.mode.origin === "override" ||
+                                resolved.diffMeta.monitoring.mixCount.origin === "override"
+                              }
+                            >
                               <MonitoringEditor
                                 effectiveMonitoring={effective.monitoring}
                                 patch={currentPatch}
@@ -1363,4 +1413,3 @@ export function ProjectSetupPage({
     </section>
   );
 }
-

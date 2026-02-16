@@ -13,7 +13,7 @@ export function ToggleField({ field, state, onPatch }: ToggleFieldProps) {
   const isDisabled = field.isDisabled?.(state) ?? false;
   const controlId = `setup-toggle-${field.id}`;
   return (
-    <div className="setup-field-block">
+    <div className={`setup-field-block ${!isDefault ? "setup-field-block--modified" : ""}`}>
       <span className="setup-field-block__label">{field.label}</span>
       <label className="setup-field-row setup-toggle-row" htmlFor={controlId}>
         <input
@@ -25,7 +25,7 @@ export function ToggleField({ field, state, onPatch }: ToggleFieldProps) {
           onChange={(e) => onPatch(field.setValue(state, e.target.checked))}
         />
         <span className="setup-toggle-row__text">Enable</span>
-        <span className={isDefault ? "setup-badge" : "setup-badge setup-badge--override"}>{isDefault ? "Default" : "Overridden"}</span>
+        {!isDefault ? <span className="setup-modified-dot" aria-label="Modified from defaults">●</span> : null}
       </label>
     </div>
   );

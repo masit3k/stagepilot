@@ -12,7 +12,7 @@ export function DropdownField({ field, state, onPatch }: DropdownFieldProps) {
   const options = field.options(state);
   const isDefault = field.isDefault(state);
   return (
-    <div className="setup-field-block">
+    <div className={`setup-field-block ${!isDefault ? "setup-field-block--modified" : ""}`}>
       <span className="setup-field-block__label">{field.label}</span>
       <div className="setup-field-row">
         <select className="setup-field-control" value={value} onChange={(e) => onPatch(field.setValue(state, e.target.value))}>
@@ -20,7 +20,7 @@ export function DropdownField({ field, state, onPatch }: DropdownFieldProps) {
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}
         </select>
-        <span className={isDefault ? "setup-badge" : "setup-badge setup-badge--override"}>{isDefault ? "Default" : "Overridden"}</span>
+        {!isDefault ? <span className="setup-modified-dot" aria-label="Modified from defaults">●</span> : null}
       </div>
     </div>
   );

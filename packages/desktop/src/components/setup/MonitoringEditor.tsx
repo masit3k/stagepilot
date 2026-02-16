@@ -10,10 +10,12 @@ type MonitoringEditorProps = {
 
 export function MonitoringEditor({ effectiveMonitoring, patch, diffMeta, onChangePatch }: MonitoringEditorProps) {
   const currentType = patch?.monitoring?.type ?? effectiveMonitoring.type;
+  const typeModified = diffMeta.monitoring.type.origin === "override";
+  const modeModified = diffMeta.monitoring.mode.origin === "override";
 
   return (
     <div className="setup-monitoring-grid">
-      <label className="setup-field-block">
+      <label className={`setup-field-block ${typeModified ? "setup-field-block--modified" : ""}`}>
         <span className="setup-field-block__label">Monitoring Type</span>
         <div className="setup-field-row">
           <select
@@ -26,18 +28,16 @@ export function MonitoringEditor({ effectiveMonitoring, patch, diffMeta, onChang
               })
             }
           >
-            <option value="wedge">Wedge</option>
-            <option value="iem_wired">IEM wired</option>
             <option value="iem_wireless">IEM wireless</option>
+            <option value="iem_wired">IEM wired</option>
+            <option value="wedge">Wedge</option>
           </select>
-          <span className={diffMeta.monitoring.type.origin === "override" ? "setup-badge setup-badge--override" : "setup-badge"}>
-            {diffMeta.monitoring.type.origin === "override" ? "Overridden" : "Default"}
-          </span>
+          {typeModified ? <span className="setup-modified-dot" aria-label="Modified from defaults" title="Modified from defaults">●</span> : null}
         </div>
       </label>
 
       {currentType !== "wedge" ? (
-        <label className="setup-field-block">
+        <label className={`setup-field-block ${modeModified ? "setup-field-block--modified" : ""}`}>
           <span className="setup-field-block__label">Mode</span>
           <div className="setup-field-row">
             <select
@@ -53,9 +53,7 @@ export function MonitoringEditor({ effectiveMonitoring, patch, diffMeta, onChang
               <option value="mono">Mono</option>
               <option value="stereo">Stereo</option>
             </select>
-            <span className={diffMeta.monitoring.mode.origin === "override" ? "setup-badge setup-badge--override" : "setup-badge"}>
-              {diffMeta.monitoring.mode.origin === "override" ? "Overridden" : "Default"}
-            </span>
+            {modeModified ? <span className="setup-modified-dot" aria-label="Modified from defaults" title="Modified from defaults">●</span> : null}
           </div>
         </label>
       ) : null}

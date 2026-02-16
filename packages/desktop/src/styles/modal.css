@@ -68,7 +68,7 @@
   width: min(760px, 96vw);
   max-height: min(90vh, 980px);
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   overflow: hidden;
 }
 
@@ -83,6 +83,7 @@
   background: var(--surface);
   position: sticky;
   bottom: 0;
+  z-index: 2;
 }
 
 .selector-dialog__title {

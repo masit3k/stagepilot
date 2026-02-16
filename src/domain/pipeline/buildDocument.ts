@@ -9,6 +9,7 @@ import type {
   PresetItem,
   Project,
   InputChannel,
+  PresetOverridePatch,
   NotesTemplate,
   NoteLine,
   MetaLineModel,
@@ -28,6 +29,7 @@ import {
   formatVocalLabel,
   resolveStereoPair,
 } from "../formatters/index.js";
+import { applyPresetOverride } from "../rules/presetOverride.js";
 import { migrateLegacyDrumPresetRefs } from "../drums/drumSetup.js";
 import {
   drumRankByResolvedKey,
@@ -87,6 +89,28 @@ type DisplayRow = {
   label: string;
   note?: string;
 };
+
+function applyInputOverridePatch(
+  source: BuiltInput[],
+  patch: PresetOverridePatch,
+): BuiltInput[] {
+  const defaultPreset = {
+    inputs: source.map((item) => ({
+      key: item.key,
+      label: item.label,
+      group: item.group,
+      note: item.note,
+    })),
+    monitoring: { type: "wedge" as const, mode: "mono" as const, mixCount: 1 },
+  };
+  const patched = applyPresetOverride(defaultPreset, patch).inputs;
+  return patched.map((input) => ({
+    key: input.key,
+    label: input.label,
+    group: input.group ?? source[0]?.group ?? "vocs",
+    note: input.note,
+  }));
+}
 
 /* ============================================================
  * 1) Assign channels with odd-start stereo (except overheads)
@@ -398,6 +422,17 @@ export function buildDocument(
         })),
       );
     }
+
+    const eventOverride = ctx.presetOverrideByMusicianId.get(musician.id);
+    if (eventOverride) {
+      const affected = inputs.filter((input) => input.group === group);
+      const patched = applyInputOverridePatch(affected, eventOverride);
+      for (const input of affected) {
+        const idx = inputs.indexOf(input);
+        if (idx >= 0) inputs.splice(idx, 1);
+      }
+      inputs.push(...patched);
+    }
   }
 
   const stageplanRoles: StageplanInstrumentKey[] = [
@@ -410,7 +445,12 @@ export function buildDocument(
   const lineupByRole: Partial<Record<StageplanInstrumentKey, StageplanPerson>> =
     {};
   for (const role of stageplanRoles) {
-    lineupByRole[role] = resolveStageplanPerson(band, role, ctx.membersById);
+    lineupByRole[role] = resolveStageplanPerson(
+      role,
+      ctx.lineup,
+      band.bandLeader,
+      ctx.membersById,
+    );
   }
   const powerByRole: Partial<
     Record<
@@ -424,7 +464,7 @@ export function buildDocument(
   for (const role of stageplanRoles) {
     const power = resolvePowerForStageplan(
       role,
-      band,
+      ctx.lineup,
       project,
       ctx.membersById,
     );

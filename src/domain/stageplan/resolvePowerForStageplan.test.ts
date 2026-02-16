@@ -1,14 +1,13 @@
 import { describe, expect, it } from "vitest";
-import type { Band, Musician, Project } from "../model/types.js";
+import type { Musician, Project } from "../model/types.js";
 import { resolvePowerForStageplan } from "./resolvePowerForStageplan.js";
-
-const baseBand: Band = {
-  id: "test-band",
-  name: "Test Band",
-  bandLeader: "musician-1",
-  defaultLineup: {
-    drums: "musician-1",
-  },
+const baseLineup = {
+  drums: ["musician-1"],
+  bass: [],
+  guitar: [],
+  keys: [],
+  vocs: [],
+  talkback: [],
 };
 
 const baseProject: Project = {
@@ -32,7 +31,7 @@ describe("resolvePowerForStageplan", () => {
     };
     const musiciansById = new Map<string, Musician>([["musician-1", musician]]);
 
-    const power = resolvePowerForStageplan("drums", baseBand, baseProject, musiciansById);
+    const power = resolvePowerForStageplan("drums", baseLineup, baseProject, musiciansById);
     expect(power).toEqual({ voltage: 230, sockets: 3 });
   });
 
@@ -57,7 +56,7 @@ describe("resolvePowerForStageplan", () => {
       },
     };
 
-    const power = resolvePowerForStageplan("drums", baseBand, project, musiciansById);
+    const power = resolvePowerForStageplan("drums", baseLineup, project, musiciansById);
     expect(power).toEqual({ voltage: 230, sockets: 5 });
   });
 
@@ -71,7 +70,7 @@ describe("resolvePowerForStageplan", () => {
     };
     const musiciansById = new Map<string, Musician>([["musician-1", musician]]);
 
-    const power = resolvePowerForStageplan("drums", baseBand, baseProject, musiciansById);
+    const power = resolvePowerForStageplan("drums", baseLineup, baseProject, musiciansById);
     expect(power).toBeNull();
   });
 });

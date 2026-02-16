@@ -3,6 +3,7 @@ import { generateUuidV7, isUuidV7 } from "../../../../../src/domain/projectNamin
 import type { NewProjectPayload, ProjectSummary } from "../shell/types";
 import { toPersistableProject } from "../shell/types";
 import * as projectsApi from "./projectsApi";
+import { migrateProjectLineupVocsToLeadBack } from "../domain/project/migrateProjectLineup";
 
 export async function refreshProjectsAndMigrate(): Promise<{ projects: ProjectSummary[]; migratedIds: Map<string, string> }> {
   const availableBands = await projectsApi.listBands();
@@ -21,7 +22,9 @@ export async function refreshProjectsAndMigrate(): Promise<{ projects: ProjectSu
     const raw = await projectsApi.readProject(summary.id);
     const parsedRaw = projectsApi.parseProjectPayload(raw);
     const { legacyId: _legacyId, ...withoutLegacy } = parsedRaw as NewProjectPayload & { legacyId?: unknown };
-    const project = withoutLegacy as NewProjectPayload;
+    const project = migrateProjectLineupVocsToLeadBack(
+      withoutLegacy as NewProjectPayload,
+    );
 
     if (project.status === "trashed" && project.purgeAt && new Date(project.purgeAt).getTime() < now.getTime()) {
       await projectsApi.deleteProjectPermanently(project.id);

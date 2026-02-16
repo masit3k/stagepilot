@@ -53,6 +53,8 @@ export interface Project {
 
   /** Volitelně: volba template/layoutu */
   template?: string;
+  lineup?: Record<string, unknown>;
+  backVocalIds?: string[];
 
   stageplan?: {
     powerOverridesByMusician?: Record<string, PowerRequirement>;
@@ -95,6 +97,8 @@ export interface ProjectJsonV2 {
   /** Legacy read-compat only. */
   title?: string;
   template?: string;
+  lineup?: Record<string, unknown>;
+  backVocalIds?: string[];
   stageplan?: {
     powerOverridesByMusician?: Record<string, PowerRequirement>;
   };

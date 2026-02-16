@@ -19,6 +19,10 @@ export function normalizeProject(input: ProjectJson): Project {
   const slug = typeof raw.slug === "string" ? raw.slug.trim() || undefined : undefined;
   const displayName = typeof raw.displayName === "string" ? raw.displayName.trim() || undefined : undefined;
   const stageplan = (input as ProjectJson).stageplan;
+  const lineup = "lineup" in input ? input.lineup : undefined;
+  const backVocalIds = "backVocalIds" in input && Array.isArray(input.backVocalIds)
+    ? input.backVocalIds.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : undefined;
 
   if ("purpose" in input) {
     const purpose = assertPurpose(input.purpose);
@@ -38,6 +42,8 @@ export function normalizeProject(input: ProjectJson): Project {
         documentDate,
         note: input.note?.trim() || input.title?.trim() || undefined,
         template: input.template?.trim() || undefined,
+        lineup,
+        backVocalIds,
         stageplan,
       };
     }
@@ -51,6 +57,8 @@ export function normalizeProject(input: ProjectJson): Project {
       documentDate,
       note: input.note?.trim() || input.title?.trim() || undefined,
       template: input.template?.trim() || undefined,
+      lineup,
+      backVocalIds,
       stageplan,
     };
   }
@@ -68,6 +76,8 @@ export function normalizeProject(input: ProjectJson): Project {
       eventDate,
       eventVenue,
       documentDate: eventDate,
+      lineup,
+      backVocalIds,
       stageplan,
     };
   }

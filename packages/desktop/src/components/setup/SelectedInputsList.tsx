@@ -32,12 +32,12 @@ export function SelectedInputsList({
           const overridden = meta?.origin === "override";
           const isLocked = nonRemovableKeys.includes(input.key);
           return (
-            <div key={input.key} className="setup-editor-list__row">
+            <div key={input.key} className={`setup-editor-list__row ${overridden ? "setup-editor-list__row--modified" : ""}`}>
               <div className="setup-input-row__main">
                 <strong>{resolveInputDisplayLabel(input)}</strong>
                 {input.note ? <p className="subtle">{input.note}</p> : null}
               </div>
-              <span className={overridden ? "setup-badge setup-badge--override" : "setup-badge"}>{overridden ? "Overridden" : "Default"}</span>
+              {overridden ? <span className="setup-modified-dot" aria-label="Modified from defaults">●</span> : null}
               <button type="button" className="button-secondary" onClick={() => onRemoveInput(input.key)} disabled={isLocked}>
                 Remove
               </button>
