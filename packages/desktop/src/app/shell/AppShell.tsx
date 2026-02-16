@@ -41,7 +41,7 @@ import {
 } from "../../../../../src/domain/rules/presetOverride";
 import { generateUuidV7 } from "../../../../../src/domain/projectNaming";
 import type { Group } from "../../../../../src/domain/model/groups";
-import type { InputChannel, MusicianSetupPreset, Preset, PresetOverridePatch as DomainPresetOverridePatch } from "../../../../../src/domain/model/types";
+import type { InputChannel, Musician, MusicianSetupPreset, Preset, PresetOverridePatch as DomainPresetOverridePatch } from "../../../../../src/domain/model/types";
 import { resolveEffectiveMusicianSetup } from "../../../../../src/domain/setup/resolveEffectiveMusicianSetup";
 import { inferDrumSetupFromLegacyInputs, STANDARD_10_SETUP } from "../../../../../src/domain/drums/drumSetup";
 import { resolveDrumInputs } from "../../../../../src/domain/drums/resolveDrumInputs";
@@ -56,6 +56,7 @@ import { buildBassFields, toBassPresets } from "../components/setup/instruments/
 import { computeIsDirty, resetOverrides, type EventSetupEditState } from "../components/setup/adapters/eventSetupAdapter";
 import { BackVocsBlock } from "../components/roles/BackVocsBlock";
 import { ChangeBackVocsModal } from "../components/roles/modals/ChangeBackVocsModal";
+import { getBackVocalCandidatesFromTemplate, getBackVocsFromTemplate, getLeadVocsFromTemplate, sanitizeBackVocsSelection } from "../components/roles/utils/backVocs";
 import { useAppNavigation } from "./navigation/useAppNavigation";
 import { refreshProjectsAndMigrate } from "../services/projectMaintenance";
 import * as projectsApi from "../services/projectsApi";
@@ -1854,8 +1855,43 @@ function ProjectSetupPage({
   const defaultBackVocalRef = useMemo(() => backVocalPresetRefs.find((item) => item.id === "vocal_back_no_mic")?.id ?? [...backVocalPresetRefs].sort((a, b) => a.id.localeCompare(b.id))[0]?.id ?? "", [backVocalPresetRefs]);
   const templateMusicians = selectedOptions;
   const templateMusicianIds = useMemo(() => new Set(templateMusicians.map((item) => item.id)), [templateMusicians]);
-  const selectedBackVocalIds = useMemo(() => backVocalIds.filter((idValue) => templateMusicianIds.has(idValue)), [backVocalIds, templateMusicianIds]);
+  const selectedTemplateMusicians = useMemo<Musician[]>(() => {
+    if (!setupData) return [];
+    const roleByMusicianId = new Map<string, Group>();
+    ROLE_ORDER.forEach((role) => {
+      const roleConstraint = normalizeRoleConstraint(role, setupData.constraints[role]);
+      normalizeLineupSlots(lineup[role], roleConstraint.max).forEach((slot) => {
+        roleByMusicianId.set(slot.musicianId, role as Group);
+      });
+    });
+
+    return templateMusicians.map((member) => {
+      const defaults = setupData.musicianDefaults?.[member.id]?.inputs ?? [];
+      const presets: Musician["presets"] = [];
+      if (defaults.some((input) => input.key.startsWith("voc_back"))) {
+        presets.push({ kind: "vocal", ref: "vocal_back_no_mic", ownerKey: "vocs", ownerLabel: "vocs" });
+      }
+      if (defaults.some((input) => input.key.startsWith("voc_lead"))) {
+        presets.push({ kind: "vocal", ref: "vocal_lead_no_mic", ownerKey: "vocs", ownerLabel: "vocs" });
+      }
+      return {
+        id: member.id,
+        firstName: member.name,
+        lastName: "",
+        group: roleByMusicianId.get(member.id) ?? "vocs",
+        presets,
+      };
+    });
+  }, [lineup, setupData, templateMusicians]);
+  const leadVocalIds = useMemo(() => getLeadVocsFromTemplate(selectedTemplateMusicians), [selectedTemplateMusicians]);
+  const defaultBackVocalIds = useMemo(() => sanitizeBackVocsSelection(getBackVocsFromTemplate(selectedTemplateMusicians), leadVocalIds), [leadVocalIds, selectedTemplateMusicians]);
+  const selectedBackVocalIds = useMemo(
+    () => Array.from(sanitizeBackVocsSelection(new Set(backVocalIds.length > 0 ? backVocalIds : Array.from(defaultBackVocalIds)), leadVocalIds)).filter((idValue) => templateMusicianIds.has(idValue)),
+    [backVocalIds, defaultBackVocalIds, leadVocalIds, templateMusicianIds],
+  );
   const backVocalMembers = useMemo(() => templateMusicians.filter((item) => selectedBackVocalIds.includes(item.id)), [selectedBackVocalIds, templateMusicians]);
+  const backVocalCandidateIds = useMemo(() => new Set(getBackVocalCandidatesFromTemplate(selectedTemplateMusicians).map((musician) => musician.id)), [selectedTemplateMusicians]);
+  const backVocalCandidates = useMemo(() => templateMusicians.filter((item) => backVocalCandidateIds.has(item.id)), [backVocalCandidateIds, templateMusicians]);
 
   const currentSnapshot = JSON.stringify({
     lineup,
@@ -2507,13 +2543,14 @@ function ProjectSetupPage({
         <div ref={backVocsModalRef}>
           <ChangeBackVocsModal
             open={isBackVocsModalOpen}
-            members={selectedOptions}
-            initialSelectedIds={new Set(selectedBackVocalIds)}
+            members={backVocalCandidates}
+            initialSelectedIds={sanitizeBackVocsSelection(new Set(selectedBackVocalIds), leadVocalIds)}
             saveDisabled={!defaultBackVocalRef}
             saveError={!defaultBackVocalRef ? "No back vocal preset is available." : undefined}
             onCancel={() => setIsBackVocsModalOpen(false)}
             onSave={(nextSelectedIds) => {
-              setBackVocalIds(Array.from(nextSelectedIds));
+              const sanitizedSelectedIds = sanitizeBackVocsSelection(nextSelectedIds, leadVocalIds);
+              setBackVocalIds(Array.from(sanitizedSelectedIds));
               setIsBackVocsModalOpen(false);
             }}
           />

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MemberOption } from "../../../shell/types";
 
 type ChangeBackVocsModalProps = {
@@ -21,23 +21,25 @@ export function ChangeBackVocsModal({
   onSave,
 }: ChangeBackVocsModalProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(initialSelectedIds));
+  const wasOpenRef = useRef(false);
+  const hasCandidates = members.length > 0;
 
   useEffect(() => {
-    if (!open) return;
-    setSelectedIds(new Set(initialSelectedIds));
+    if (open && !wasOpenRef.current) setSelectedIds(new Set(initialSelectedIds));
+    wasOpenRef.current = open;
   }, [open, initialSelectedIds]);
 
   if (!open) return null;
 
   return (
-    <div className="selector-dialog selector-dialog--musician-select" role="dialog" aria-modal="true" aria-label="Change back vocs">
+    <div className="selector-dialog selector-dialog--musician-select" role="dialog" aria-modal="true" aria-label="Select BACK VOCS">
       <button type="button" className="modal-close" onClick={onCancel} aria-label="Close">×</button>
       <div className="panel__header panel__header--stack selector-dialog__title">
-        <h3>Change Back vocs</h3>
+        <h3>Select BACK VOCS</h3>
       </div>
       <div className="selector-dialog__divider section-divider" />
       <div className="selector-list">
-        {members.map((member) => {
+        {!hasCandidates ? <p className="subtle">No eligible vocalists available.</p> : members.map((member) => {
           const checked = selectedIds.has(member.id);
           const id = `back-vocs-${member.id}`;
           return (
@@ -62,7 +64,7 @@ export function ChangeBackVocsModal({
       {saveError ? <p className="status status--error">{saveError}</p> : null}
       <div className="modal-actions">
         <button type="button" className="button-secondary" onClick={onCancel}>Cancel</button>
-        <button type="button" disabled={saveDisabled} onClick={() => onSave(selectedIds)}>Save</button>
+        <button type="button" disabled={saveDisabled || !hasCandidates} onClick={() => onSave(selectedIds)}>Save</button>
       </div>
     </div>
   );

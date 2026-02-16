@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Musician, PresetEntity } from "../../../../../../../src/domain/model/types";
-import { applyBackVocsSelection, getBackVocsFromTemplate, resolveDefaultBackVocalRef } from "./backVocs";
+import { applyBackVocsSelection, getBackVocalCandidatesFromTemplate, getBackVocsFromTemplate, getLeadVocsFromTemplate, resolveDefaultBackVocalRef, sanitizeBackVocsSelection } from "./backVocs";
 
 const musicians: Musician[] = [
   {
@@ -31,6 +31,50 @@ describe("backVocs utils", () => {
     expect(Array.from(getBackVocsFromTemplate(musicians)).sort()).toEqual(["m1", "m2"]);
   });
 
+
+
+  it("detects lead vocal assignments from vocal_lead refs", () => {
+    const withLead: Musician[] = [
+      ...musicians,
+      {
+        id: "m4",
+        firstName: "D",
+        lastName: "Four",
+        group: "vocs",
+        presets: [{ kind: "vocal", ref: "vocal_lead_no_mic", ownerKey: "vocs", ownerLabel: "vocs" }],
+      },
+    ];
+
+    expect(Array.from(getLeadVocsFromTemplate(withLead))).toEqual(["m4"]);
+  });
+
+  it("excludes lead vocalists from back vocal candidates", () => {
+    const withLead: Musician[] = [
+      {
+        id: "m1",
+        firstName: "A",
+        lastName: "One",
+        group: "vocs",
+        presets: [{ kind: "vocal", ref: "vocal_lead_no_mic", ownerKey: "vocs", ownerLabel: "vocs" }],
+      },
+      {
+        id: "m2",
+        firstName: "B",
+        lastName: "Two",
+        group: "vocs",
+        presets: [{ kind: "vocal", ref: "vocal_back_no_mic", ownerKey: "vocs", ownerLabel: "vocs" }],
+      },
+    ];
+
+    expect(getBackVocalCandidatesFromTemplate(withLead).map((musician) => musician.id)).toEqual(["m2"]);
+  });
+
+  it("sanitizes selected ids by removing lead vocal ids", () => {
+    const selected = new Set(["m1", "m2", "m3"]);
+    const lead = new Set(["m2"]);
+
+    expect(Array.from(sanitizeBackVocsSelection(selected, lead)).sort()).toEqual(["m1", "m3"]);
+  });
   it("adds default ref for newly selected and preserves existing refs", () => {
     const updated = applyBackVocsSelection(musicians, new Set(["m2", "m3"]), "vocal_back_no_mic");
     const m2 = updated.find((item) => item.id === "m2");
