@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Musician, PresetEntity } from "../../../../../../../src/domain/model/types";
-import { applyBackVocsSelection, getBackVocalCandidatesFromTemplate, getBackVocsFromTemplate, getLeadVocsFromTemplate, resolveDefaultBackVocalRef, sanitizeBackVocsSelection } from "./backVocs";
+import { applyBackVocsSelection, detectBackVocalPresetKind, getBackVocalCandidatesFromTemplate, getBackVocsFromTemplate, getLeadVocsFromTemplate, isBackVocalPreset, resolveDefaultBackVocalRef, sanitizeBackVocsSelection } from "./backVocs";
 
 const musicians: Musician[] = [
   {
@@ -29,6 +29,13 @@ const musicians: Musician[] = [
 describe("backVocs utils", () => {
   it("detects back vocal assignments from vocal_back refs", () => {
     expect(Array.from(getBackVocsFromTemplate(musicians)).sort()).toEqual(["m1", "m2"]);
+  });
+
+
+  it("supports vocal and vocal_type back vocal presets", () => {
+    expect(isBackVocalPreset({ kind: "vocal", ref: "vocal_back_no_mic" })).toBe(true);
+    expect(isBackVocalPreset({ kind: "vocal_type", ref: "vocal_back_wired" })).toBe(true);
+    expect(isBackVocalPreset({ kind: "vocal_type", ref: "vocal_lead_no_mic" })).toBe(false);
   });
 
 
@@ -89,6 +96,24 @@ describe("backVocs utils", () => {
     const m2 = updated.find((item) => item.id === "m2");
     expect(m1?.presets.some((preset) => preset.kind === "vocal" && preset.ref.startsWith("vocal_back_"))).toBe(false);
     expect(m2?.presets.some((preset) => preset.kind === "vocal" && preset.ref.startsWith("vocal_back_"))).toBe(false);
+  });
+
+
+
+  it("detects preset kind from existing back vocal presets", () => {
+    const withVocalType = [
+      ...musicians,
+      {
+        id: "m4",
+        firstName: "D",
+        lastName: "Four",
+        group: "vocs",
+        presets: [{ kind: "vocal_type", ref: "vocal_back_no_mic" }],
+      } as Musician,
+    ];
+
+    expect(detectBackVocalPresetKind(musicians)).toBe("vocal");
+    expect(detectBackVocalPresetKind(withVocalType)).toBe("vocal_type");
   });
 
   it("prefers vocal_back_no_mic as deterministic default", () => {

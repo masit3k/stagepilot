@@ -1885,10 +1885,15 @@ function ProjectSetupPage({
   }, [lineup, setupData, templateMusicians]);
   const leadVocalIds = useMemo(() => getLeadVocsFromTemplate(selectedTemplateMusicians), [selectedTemplateMusicians]);
   const defaultBackVocalIds = useMemo(() => sanitizeBackVocsSelection(getBackVocsFromTemplate(selectedTemplateMusicians), leadVocalIds), [leadVocalIds, selectedTemplateMusicians]);
-  const selectedBackVocalIds = useMemo(
-    () => Array.from(sanitizeBackVocsSelection(new Set(backVocalIds.length > 0 ? backVocalIds : Array.from(defaultBackVocalIds)), leadVocalIds)).filter((idValue) => templateMusicianIds.has(idValue)),
-    [backVocalIds, defaultBackVocalIds, leadVocalIds, templateMusicianIds],
-  );
+  const selectedBackVocalIds = useMemo(() => {
+    const explicitSelectedIds = Array.from(
+      sanitizeBackVocsSelection(new Set(backVocalIds), leadVocalIds),
+    ).filter((idValue) => templateMusicianIds.has(idValue));
+
+    if (explicitSelectedIds.length > 0) return explicitSelectedIds;
+
+    return Array.from(defaultBackVocalIds).filter((idValue) => templateMusicianIds.has(idValue));
+  }, [backVocalIds, defaultBackVocalIds, leadVocalIds, templateMusicianIds]);
   const backVocalMembers = useMemo(() => templateMusicians.filter((item) => selectedBackVocalIds.includes(item.id)), [selectedBackVocalIds, templateMusicians]);
   const backVocalCandidateIds = useMemo(() => new Set(getBackVocalCandidatesFromTemplate(selectedTemplateMusicians).map((musician) => musician.id)), [selectedTemplateMusicians]);
   const backVocalCandidates = useMemo(() => templateMusicians.filter((item) => backVocalCandidateIds.has(item.id)), [backVocalCandidateIds, templateMusicians]);

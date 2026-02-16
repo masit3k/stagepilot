@@ -10,10 +10,20 @@ function isLeadVocalRef(ref: string): boolean {
   return ref.startsWith("vocal_lead_");
 }
 
-type VocalPreset = Extract<Musician["presets"][number], { kind: "vocal" | "preset" }>;
+type PresetWithRef = { kind: string; ref: string };
+type BackVocalPresetKind = "vocal" | "vocal_type";
 
-function hasVocalRef(preset: Musician["presets"][number], predicate: (ref: string) => boolean): preset is VocalPreset {
-  return (preset.kind === "vocal" || preset.kind === "preset") && predicate(preset.ref);
+function isPresetWithRef(preset: Musician["presets"][number]): preset is Musician["presets"][number] & PresetWithRef {
+  return "ref" in preset && typeof preset.ref === "string";
+}
+
+function hasVocalRef(preset: Musician["presets"][number], predicate: (ref: string) => boolean): boolean {
+  if (!isPresetWithRef(preset)) return false;
+  return (preset.kind === "vocal" || preset.kind === "vocal_type" || preset.kind === "preset") && predicate(preset.ref);
+}
+
+export function isBackVocalPreset(preset: PresetWithRef): boolean {
+  return (preset.kind === "vocal" || preset.kind === "vocal_type") && isBackVocalRef(preset.ref);
 }
 
 export function getBackVocsFromTemplate(musicians: Musician[]): Set<MusicianId> {
@@ -47,6 +57,8 @@ export function applyBackVocsSelection(
   selectedIds: Set<MusicianId>,
   defaultBackVocalRef: string,
 ): Musician[] {
+  const presetKind = detectBackVocalPresetKind(musicians);
+
   return musicians.map((musician) => {
     const hasBackVocal = musician.presets.some((preset) => hasVocalRef(preset, isBackVocalRef));
     const shouldBeSelected = selectedIds.has(musician.id);
@@ -59,12 +71,7 @@ export function applyBackVocsSelection(
         ...musician,
         presets: [
           ...musician.presets,
-          {
-            kind: "vocal",
-            ref: defaultBackVocalRef,
-            ownerKey: musician.group,
-            ownerLabel: musician.group,
-          },
+          createBackVocalPreset(presetKind, defaultBackVocalRef, musician),
         ],
       };
     }
@@ -74,6 +81,30 @@ export function applyBackVocsSelection(
       presets: musician.presets.filter((preset) => !hasVocalRef(preset, isBackVocalRef)),
     };
   });
+}
+
+export function detectBackVocalPresetKind(musicians: Musician[]): BackVocalPresetKind {
+  const existingKinds = musicians
+    .flatMap((musician) => musician.presets)
+    .filter(isPresetWithRef)
+    .filter((preset) => isBackVocalRef(preset.ref))
+    .map((preset) => preset.kind);
+
+  if (existingKinds.includes("vocal_type")) return "vocal_type";
+  if (existingKinds.includes("vocal")) return "vocal";
+  return "vocal_type";
+}
+
+function createBackVocalPreset(kind: BackVocalPresetKind, ref: string, musician: Musician): Musician["presets"][number] {
+  if (kind === "vocal_type") {
+    return { kind, ref } as Musician["presets"][number];
+  }
+  return {
+    kind,
+    ref,
+    ownerKey: musician.group,
+    ownerLabel: musician.group,
+  };
 }
 
 export function resolveDefaultBackVocalRef(presetsRegistry: PresetEntity[]): string {
