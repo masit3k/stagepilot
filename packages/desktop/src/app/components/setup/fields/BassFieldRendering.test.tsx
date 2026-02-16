@@ -1,17 +1,18 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { MusicianSetupPreset, Preset } from "../../../../../../../../src/domain/model/types";
+import type { MusicianSetupPreset } from "../../../../../../../../src/domain/model/types";
 import { buildBassFields, toBassPresets } from "../instruments/bass/buildBassFields";
 import { DropdownField } from "./DropdownField";
 import { ToggleField } from "./ToggleField";
 
-const presets = toBassPresets([
+type BassPresetSource = Parameters<typeof toBassPresets>[0][number];
+
+const presetSource = [
   {
     type: "preset",
     id: "el_bass_xlr_amp",
     label: "Electric bass guitar",
     group: "bass",
-    setupGroup: "electric_bass",
     inputs: [{ key: "el_bass_xlr_amp", label: "Electric bass guitar", note: "XLR out from amp", group: "bass" }],
   },
   {
@@ -19,10 +20,11 @@ const presets = toBassPresets([
     id: "el_bass_mic",
     label: "Electric bass mic",
     group: "bass",
-    setupGroup: "bass_mic",
     inputs: [{ key: "el_bass_mic", label: "Electric bass mic", note: "Mic on bass amp", group: "bass" }],
   },
-] as Preset[]);
+] satisfies BassPresetSource[];
+
+const presets = toBassPresets(presetSource);
 
 const defaultPreset: MusicianSetupPreset = {
   inputs: [{ key: "el_bass_xlr_amp", label: "Electric bass guitar", group: "bass" }],
