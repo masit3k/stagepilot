@@ -1,5 +1,12 @@
-import type { LineupMap, RoleConstraint, RoleLabelConstraints } from "../../projectRules";
-import type { MusicianSetupPreset, PresetItem } from "../../../../../src/domain/model/types";
+import type {
+  LineupMap,
+  RoleConstraint,
+  RoleLabelConstraints,
+} from "../../projectRules";
+import type {
+  MusicianSetupPreset,
+  PresetItem,
+} from "../../../../../src/domain/model/types";
 
 export type ProjectSummary = {
   id: string;
@@ -20,7 +27,11 @@ export type ProjectSummary = {
 
 export type BandOption = { id: string; name: string; code?: string | null };
 export type MemberOption = { id: string; name: string };
-export type LibraryBandMember = { musicianId: string; roles: string[]; isDefault: boolean };
+export type LibraryBandMember = {
+  musicianId: string;
+  roles: string[];
+  isDefault: boolean;
+};
 export type LibraryContact = {
   id: string;
   name: string;
@@ -93,10 +104,30 @@ export type NavigationGuard = {
   discard?: () => void;
 };
 
-export function toPersistableProject(project: NewProjectPayload): NewProjectPayload {
+export function toPersistableProject(
+  project: NewProjectPayload,
+): NewProjectPayload {
   const {
-    id, slug, displayName, purpose, eventDate, eventVenue, bandRef, documentDate, createdAt,
-    updatedAt, templateType, status, archivedAt, trashedAt, purgeAt, lineup, bandLeaderId, talkbackOwnerId, note,
+    id,
+    slug,
+    displayName,
+    purpose,
+    eventDate,
+    eventVenue,
+    bandRef,
+    documentDate,
+    createdAt,
+    updatedAt,
+    templateType,
+    status,
+    archivedAt,
+    trashedAt,
+    purgeAt,
+    lineup,
+    bandLeaderId,
+    talkbackOwnerId,
+    note,
+    backVocalIds,
   } = project;
 
   return {
@@ -119,5 +150,6 @@ export function toPersistableProject(project: NewProjectPayload): NewProjectPayl
     ...(bandLeaderId ? { bandLeaderId } : {}),
     ...(talkbackOwnerId ? { talkbackOwnerId } : {}),
     ...(note ? { note } : {}),
+    ...(backVocalIds && backVocalIds.length > 0 ? { backVocalIds } : {}),
   };
 }

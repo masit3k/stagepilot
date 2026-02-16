@@ -1,5 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
-import { type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import { ModalOverlay, useModalBehavior } from "../../components/ui/Modal";
 import { LibraryHomePage, SettingsPage, TopTabs } from "../../pages/ShellPages";
@@ -41,27 +49,62 @@ import {
 } from "../../../../../src/domain/rules/presetOverride";
 import { generateUuidV7 } from "../../../../../src/domain/projectNaming";
 import type { Group } from "../../../../../src/domain/model/groups";
-import type { InputChannel, Musician, MusicianSetupPreset, Preset, PresetItem, PresetOverridePatch as DomainPresetOverridePatch } from "../../../../../src/domain/model/types";
+import type {
+  InputChannel,
+  Musician,
+  MusicianSetupPreset,
+  Preset,
+  PresetItem,
+  PresetOverridePatch as DomainPresetOverridePatch,
+} from "../../../../../src/domain/model/types";
 import { resolveEffectiveMusicianSetup } from "../../../../../src/domain/setup/resolveEffectiveMusicianSetup";
-import { inferDrumSetupFromLegacyInputs, STANDARD_10_SETUP } from "../../../../../src/domain/drums/drumSetup";
+import {
+  inferDrumSetupFromLegacyInputs,
+  STANDARD_10_SETUP,
+} from "../../../../../src/domain/drums/drumSetup";
 import { resolveDrumInputs } from "../../../../../src/domain/drums/resolveDrumInputs";
-import { MusicianSelector, type SetupMusicianItem } from "../../components/setup/MusicianSelector";
+import {
+  MusicianSelector,
+  type SetupMusicianItem,
+} from "../../components/setup/MusicianSelector";
 import { SelectedInputsList } from "../../components/setup/SelectedInputsList";
 import { DrumsPartsEditor } from "../../components/setup/DrumsPartsEditor";
 import { MonitoringEditor } from "../../components/setup/MonitoringEditor";
 import { SetupModalShell } from "../components/setup/SetupModalShell";
 import { SetupSection } from "../components/setup/SetupSection";
 import { SchemaRenderer } from "../components/setup/SchemaRenderer";
-import { buildBassFields, toBassPresets } from "../components/setup/instruments/bass/buildBassFields";
-import { computeIsDirty, resetOverrides, type EventSetupEditState } from "../components/setup/adapters/eventSetupAdapter";
+import {
+  buildBassFields,
+  toBassPresets,
+} from "../components/setup/instruments/bass/buildBassFields";
+import {
+  computeIsDirty,
+  resetOverrides,
+  type EventSetupEditState,
+} from "../components/setup/adapters/eventSetupAdapter";
 import { BackVocsBlock } from "../components/roles/BackVocsBlock";
 import { ChangeBackVocsModal } from "../components/roles/modals/ChangeBackVocsModal";
-import { getBackVocalCandidatesFromTemplate, getBackVocsFromTemplate, getLeadVocsFromTemplate, sanitizeBackVocsSelection } from "../components/roles/utils/backVocs";
+import {
+  getBackVocalCandidatesFromTemplate,
+  getBackVocsFromTemplate,
+  getLeadVocsFromTemplate,
+  sanitizeBackVocsSelection,
+} from "../components/roles/utils/backVocs";
 import { useAppNavigation } from "./navigation/useAppNavigation";
 import { refreshProjectsAndMigrate } from "../services/projectMaintenance";
 import * as projectsApi from "../services/projectsApi";
-import type { BandOption, BandSetupData, LibraryBand, LibraryMusician, MemberOption, NavigationGuard, NewProjectPayload, ProjectSummary } from "./types";
+import type {
+  BandOption,
+  BandSetupData,
+  LibraryBand,
+  LibraryMusician,
+  MemberOption,
+  NavigationGuard,
+  NewProjectPayload,
+  ProjectSummary,
+} from "./types";
 import { toPersistableProject } from "./types";
+import { serializeLineupForProject } from "./lineupSerialize";
 import {
   getSetupPrimaryCtaLabel,
   isGenericSetupDirty,
@@ -134,7 +177,6 @@ const BASS_FIELDS = buildBassFields(
   ] as Preset[]),
 );
 
-
 function getGroupDefaultPreset(group: Group): MusicianSetupPreset {
   return {
     inputs: (GROUP_INPUT_LIBRARY[group] ?? []).map((item) => ({ ...item })),
@@ -146,10 +188,15 @@ function getGroupDefaultPreset(group: Group): MusicianSetupPreset {
   };
 }
 
-function buildInputsPatchFromTarget(defaultInputs: InputChannel[], targetInputs: InputChannel[]): NonNullable<DomainPresetOverridePatch["inputs"]> {
+function buildInputsPatchFromTarget(
+  defaultInputs: InputChannel[],
+  targetInputs: InputChannel[],
+): NonNullable<DomainPresetOverridePatch["inputs"]> {
   const defaultByKey = new Map(defaultInputs.map((item) => [item.key, item]));
   const targetByKey = new Map(targetInputs.map((item) => [item.key, item]));
-  const removeKeys = defaultInputs.filter((item) => !targetByKey.has(item.key)).map((item) => item.key);
+  const removeKeys = defaultInputs
+    .filter((item) => !targetByKey.has(item.key))
+    .map((item) => item.key);
   const add = targetInputs.filter((item) => !defaultByKey.has(item.key));
   return {
     ...(add.length > 0 ? { add } : {}),
@@ -168,7 +215,6 @@ function getProjectPurposeLabel(purpose?: string | null) {
   if (purpose === "generic") return "Project type: Generic";
   return "—";
 }
-
 
 function toIdSlug(value: string) {
   return value
@@ -210,7 +256,8 @@ function AppShell() {
   } = useAppNavigation();
 
   const refreshProjects = useCallback(async () => {
-    const { projects: maintainedProjects, migratedIds } = await refreshProjectsAndMigrate();
+    const { projects: maintainedProjects, migratedIds } =
+      await refreshProjectsAndMigrate();
     setProjects(maintainedProjects);
     const activePath = window.location.pathname;
     const match = activePath.match(/^\/projects\/([^/]+)/);
@@ -231,80 +278,103 @@ function AppShell() {
     setBands(await projectsApi.listBands());
   }, []);
 
-  const updateProjectLifecycle = useCallback(async (projectId: string, updater: (project: NewProjectPayload, now: Date) => NewProjectPayload) => {
-    const raw = await projectsApi.readProject(projectId);
-    const project = JSON.parse(raw) as NewProjectPayload;
-    const now = new Date();
-    const updatedProject = updater(project, now);
-    await projectsApi.saveProject({
-      projectId,
-      json: JSON.stringify(toPersistableProject(updatedProject), null, 2),
-    });
-    await refreshProjects();
-  }, [refreshProjects]);
+  const updateProjectLifecycle = useCallback(
+    async (
+      projectId: string,
+      updater: (project: NewProjectPayload, now: Date) => NewProjectPayload,
+    ) => {
+      const raw = await projectsApi.readProject(projectId);
+      const project = JSON.parse(raw) as NewProjectPayload;
+      const now = new Date();
+      const updatedProject = updater(project, now);
+      await projectsApi.saveProject({
+        projectId,
+        json: JSON.stringify(toPersistableProject(updatedProject), null, 2),
+      });
+      await refreshProjects();
+    },
+    [refreshProjects],
+  );
 
-  const archiveProject = useCallback(async (project: ProjectSummary) => {
-    await updateProjectLifecycle(project.id, (source, now) => ({
-      ...source,
-      templateType: source.templateType ?? source.purpose,
-      status: "archived",
-      archivedAt: now.toISOString(),
-      updatedAt: now.toISOString(),
-    }));
-    setStatus("Project archived.");
-  }, [updateProjectLifecycle]);
-
-  const unarchiveProject = useCallback(async (project: ProjectSummary) => {
-    await updateProjectLifecycle(project.id, (source, now) => ({
-      ...source,
-      templateType: source.templateType ?? source.purpose,
-      status: "active",
-      updatedAt: now.toISOString(),
-    }));
-    setStatus("Project moved to Active.");
-  }, [updateProjectLifecycle]);
-
-  const moveProjectToTrash = useCallback(async (project: ProjectSummary) => {
-    await updateProjectLifecycle(project.id, (source, now) => {
-      const purgeAt = new Date(now);
-      purgeAt.setDate(purgeAt.getDate() + 30);
-      return {
+  const archiveProject = useCallback(
+    async (project: ProjectSummary) => {
+      await updateProjectLifecycle(project.id, (source, now) => ({
         ...source,
         templateType: source.templateType ?? source.purpose,
-        status: "trashed",
-        trashedAt: now.toISOString(),
-        purgeAt: purgeAt.toISOString(),
+        status: "archived",
+        archivedAt: now.toISOString(),
         updatedAt: now.toISOString(),
-      };
-    });
-    setStatus("Project moved to Trash.");
-  }, [updateProjectLifecycle]);
+      }));
+      setStatus("Project archived.");
+    },
+    [updateProjectLifecycle],
+  );
 
-  const restoreProject = useCallback(async (project: ProjectSummary) => {
-    await updateProjectLifecycle(project.id, (source, now) => {
-      const todayIso = getTodayIsoLocal(now);
-      const templateType = source.templateType ?? source.purpose;
-      const restoreStatus =
-        templateType === "event" && source.eventDate && isPastIsoDate(source.eventDate, todayIso)
-          ? "archived"
-          : "active";
-      return {
+  const unarchiveProject = useCallback(
+    async (project: ProjectSummary) => {
+      await updateProjectLifecycle(project.id, (source, now) => ({
         ...source,
-        templateType,
-        status: restoreStatus,
-        trashedAt: undefined,
-        purgeAt: undefined,
+        templateType: source.templateType ?? source.purpose,
+        status: "active",
         updatedAt: now.toISOString(),
-      };
-    });
-    setStatus("Project restored.");
-  }, [updateProjectLifecycle]);
+      }));
+      setStatus("Project moved to Active.");
+    },
+    [updateProjectLifecycle],
+  );
 
-  const deleteProjectPermanently = useCallback(async (project: ProjectSummary) => {
-    await projectsApi.deleteProjectPermanently(project.id);
-    await refreshProjects();
-    setStatus("Project permanently deleted.");
-  }, [refreshProjects]);
+  const moveProjectToTrash = useCallback(
+    async (project: ProjectSummary) => {
+      await updateProjectLifecycle(project.id, (source, now) => {
+        const purgeAt = new Date(now);
+        purgeAt.setDate(purgeAt.getDate() + 30);
+        return {
+          ...source,
+          templateType: source.templateType ?? source.purpose,
+          status: "trashed",
+          trashedAt: now.toISOString(),
+          purgeAt: purgeAt.toISOString(),
+          updatedAt: now.toISOString(),
+        };
+      });
+      setStatus("Project moved to Trash.");
+    },
+    [updateProjectLifecycle],
+  );
+
+  const restoreProject = useCallback(
+    async (project: ProjectSummary) => {
+      await updateProjectLifecycle(project.id, (source, now) => {
+        const todayIso = getTodayIsoLocal(now);
+        const templateType = source.templateType ?? source.purpose;
+        const restoreStatus =
+          templateType === "event" &&
+          source.eventDate &&
+          isPastIsoDate(source.eventDate, todayIso)
+            ? "archived"
+            : "active";
+        return {
+          ...source,
+          templateType,
+          status: restoreStatus,
+          trashedAt: undefined,
+          purgeAt: undefined,
+          updatedAt: now.toISOString(),
+        };
+      });
+      setStatus("Project restored.");
+    },
+    [updateProjectLifecycle],
+  );
+
+  const deleteProjectPermanently = useCallback(
+    async (project: ProjectSummary) => {
+      await projectsApi.deleteProjectPermanently(project.id);
+      await refreshProjects();
+      setStatus("Project permanently deleted.");
+    },
+    [refreshProjects],
+  );
 
   useEffect(() => {
     (async () => {
@@ -363,7 +433,11 @@ function AppShell() {
           onClick={() => setIsAboutOpen(true)}
           aria-label="About StagePilot"
         >
-          <svg viewBox="0 0 24 24" aria-hidden="true" className="app-header__about-icon">
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            className="app-header__about-icon"
+          >
             <circle cx="12" cy="12" r="9" />
             <path d="M12 11v5" />
             <circle cx="12" cy="8" r="1" fill="currentColor" stroke="none" />
@@ -373,7 +447,15 @@ function AppShell() {
       <TopTabs pathname={pathname} navigate={navigate} />
       {status ? <p className="status status--error">{status}</p> : null}
       {pathname === "/" ? (
-        <StartPage projects={projects} navigate={navigate} onArchiveProject={archiveProject} onUnarchiveProject={unarchiveProject} onMoveProjectToTrash={moveProjectToTrash} onRestoreProject={restoreProject} onDeleteProjectPermanently={deleteProjectPermanently} />
+        <StartPage
+          projects={projects}
+          navigate={navigate}
+          onArchiveProject={archiveProject}
+          onUnarchiveProject={unarchiveProject}
+          onMoveProjectToTrash={moveProjectToTrash}
+          onRestoreProject={restoreProject}
+          onDeleteProjectPermanently={deleteProjectPermanently}
+        />
       ) : null}
       {pathname === "/projects/new" ? (
         <ChooseProjectTypePage navigate={navigate} />
@@ -432,9 +514,7 @@ function AppShell() {
           search={search}
         />
       ) : null}
-      {pathname === "/library" ? (
-        <LibraryHomePage navigate={navigate} />
-      ) : null}
+      {pathname === "/library" ? <LibraryHomePage navigate={navigate} /> : null}
       {pathname === "/library/bands" ? (
         <LibraryBandsPage
           navigate={navigate}
@@ -508,7 +588,9 @@ function StartPage({
     localStorage.getItem("project-hub-view") === "tiles" ? "tiles" : "list",
   );
   const [activeTab, setActiveTab] = useState<ProjectStatusTab>("active");
-  const [openMenuProjectId, setOpenMenuProjectId] = useState<string | null>(null);
+  const [openMenuProjectId, setOpenMenuProjectId] = useState<string | null>(
+    null,
+  );
   const [modalState, setModalState] = useState<
     | { kind: "trash"; project: ProjectSummary }
     | { kind: "archive"; project: ProjectSummary }
@@ -517,7 +599,9 @@ function StartPage({
     | null
   >(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const confirmDialogRef = useModalBehavior(Boolean(modalState), () => setModalState(null));
+  const confirmDialogRef = useModalBehavior(Boolean(modalState), () =>
+    setModalState(null),
+  );
 
   useEffect(() => {
     localStorage.setItem("project-hub-view", viewMode);
@@ -534,8 +618,12 @@ function StartPage({
   );
   const projectsByTab = useMemo(
     () => ({
-      active: sortedProjects.filter((project) => (project.status ?? "active") === "active"),
-      archived: sortedProjects.filter((project) => project.status === "archived"),
+      active: sortedProjects.filter(
+        (project) => (project.status ?? "active") === "active",
+      ),
+      archived: sortedProjects.filter(
+        (project) => project.status === "archived",
+      ),
       trashed: sortedProjects.filter((project) => project.status === "trashed"),
     }),
     [sortedProjects],
@@ -546,7 +634,10 @@ function StartPage({
   function projectEditPath(project: ProjectSummary) {
     const encodedId = encodeURIComponent(project.id);
     const templateType = project.templateType ?? project.purpose ?? "generic";
-    const route = templateType === "event" ? `/projects/${encodedId}/event` : `/projects/${encodedId}/generic`;
+    const route =
+      templateType === "event"
+        ? `/projects/${encodedId}/event`
+        : `/projects/${encodedId}/generic`;
     return `${route}?from=home`;
   }
 
@@ -554,7 +645,11 @@ function StartPage({
     const onDocumentMouseDown = (event: MouseEvent) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
-      if (target.closest(".project-context-menu-shell") || target.closest(".project-context-menu")) return;
+      if (
+        target.closest(".project-context-menu-shell") ||
+        target.closest(".project-context-menu")
+      )
+        return;
       setOpenMenuProjectId(null);
     };
     document.addEventListener("mousedown", onDocumentMouseDown);
@@ -574,9 +669,12 @@ function StartPage({
     if (!modalState || isSubmitting) return;
     setIsSubmitting(true);
     try {
-      if (modalState.kind === "trash") await onMoveProjectToTrash(modalState.project);
-      if (modalState.kind === "archive") await onArchiveProject(modalState.project);
-      if (modalState.kind === "unarchive") await onUnarchiveProject(modalState.project);
+      if (modalState.kind === "trash")
+        await onMoveProjectToTrash(modalState.project);
+      if (modalState.kind === "archive")
+        await onArchiveProject(modalState.project);
+      if (modalState.kind === "unarchive")
+        await onUnarchiveProject(modalState.project);
       if (modalState.kind === "deletePermanent") {
         await onDeleteProjectPermanently(modalState.project);
       }
@@ -605,7 +703,10 @@ function StartPage({
           label: "Preview",
           onClick: () =>
             navigate(
-              withFrom(`/projects/${encodeURIComponent(project.id)}/preview`, "home"),
+              withFrom(
+                `/projects/${encodeURIComponent(project.id)}/preview`,
+                "home",
+              ),
             ),
           danger: false,
         },
@@ -628,7 +729,10 @@ function StartPage({
           label: "Preview",
           onClick: () =>
             navigate(
-              withFrom(`/projects/${encodeURIComponent(project.id)}/preview`, "home"),
+              withFrom(
+                `/projects/${encodeURIComponent(project.id)}/preview`,
+                "home",
+              ),
             ),
           danger: false,
         },
@@ -669,7 +773,12 @@ function StartPage({
         return;
       }
       if (activeTab === "archived") {
-        navigate(withFrom(`/projects/${encodeURIComponent(project.id)}/preview`, "home"));
+        navigate(
+          withFrom(
+            `/projects/${encodeURIComponent(project.id)}/preview`,
+            "home",
+          ),
+        );
       }
     };
 
@@ -691,7 +800,11 @@ function StartPage({
             key={item.label}
             type="button"
             role="menuitem"
-            className={item.danger ? "project-context-menu__item project-context-menu__item--danger" : "project-context-menu__item"}
+            className={
+              item.danger
+                ? "project-context-menu__item project-context-menu__item--danger"
+                : "project-context-menu__item"
+            }
             onClick={(event) => {
               event.stopPropagation();
               setOpenMenuProjectId(null);
@@ -716,14 +829,23 @@ function StartPage({
         tabIndex={activeTab === "trashed" ? -1 : 0}
         onClick={onCardClick}
         onKeyDown={onCardKeyDown}
-        aria-label={activeTab === "archived" ? `Preview ${projectLabel}` : `Edit ${projectLabel}`}
+        aria-label={
+          activeTab === "archived"
+            ? `Preview ${projectLabel}`
+            : `Edit ${projectLabel}`
+        }
       >
         <div className="project-main-action__content">
           <strong>{projectLabel}</strong>
-          <span>{getProjectPurposeLabel(project.templateType ?? project.purpose)}</span>
+          <span>
+            {getProjectPurposeLabel(project.templateType ?? project.purpose)}
+          </span>
           <span>Last updated: {formatProjectDate(project)}</span>
           {activeTab === "trashed" && project.purgeAt ? (
-            <span>Scheduled for deletion on: {formatIsoToDateTimeDisplay(project.purgeAt)}</span>
+            <span>
+              Scheduled for deletion on:{" "}
+              {formatIsoToDateTimeDisplay(project.purgeAt)}
+            </span>
           ) : null}
         </div>
         <div className="project-context-menu-shell">
@@ -732,11 +854,15 @@ function StartPage({
             className="project-kebab"
             aria-haspopup="menu"
             aria-expanded={isMenuOpen}
-            aria-controls={isMenuOpen ? `project-menu-${project.id}` : undefined}
+            aria-controls={
+              isMenuOpen ? `project-menu-${project.id}` : undefined
+            }
             aria-label={`Open actions for ${projectLabel}`}
             onClick={(event) => {
               event.stopPropagation();
-              setOpenMenuProjectId((current) => (current === project.id ? null : project.id));
+              setOpenMenuProjectId((current) =>
+                current === project.id ? null : project.id,
+              );
             }}
           >
             ⋯
@@ -796,34 +922,53 @@ function StartPage({
         </div>
       </div>
       <div className="hub-tabs" role="tablist" aria-label="Project status tabs">
-        {(["active", "archived", "trashed"] as ProjectStatusTab[]).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === tab}
-            className={activeTab === tab ? "button-secondary is-active" : "button-secondary"}
-            onClick={() => {
-              setActiveTab(tab);
-              setOpenMenuProjectId(null);
-            }}
-          >
-            {tab === "active" ? "Active" : tab === "archived" ? "Archived" : "Trash"}
-          </button>
-        ))}
+        {(["active", "archived", "trashed"] as ProjectStatusTab[]).map(
+          (tab) => (
+            <button
+              key={tab}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab}
+              className={
+                activeTab === tab
+                  ? "button-secondary is-active"
+                  : "button-secondary"
+              }
+              onClick={() => {
+                setActiveTab(tab);
+                setOpenMenuProjectId(null);
+              }}
+            >
+              {tab === "active"
+                ? "Active"
+                : tab === "archived"
+                  ? "Archived"
+                  : "Trash"}
+            </button>
+          ),
+        )}
       </div>
       {visibleProjects.length === 0 ? (
         <p className="subtle">{getEmptyStateCopy(activeTab)}</p>
       ) : (
         <div className="project-sections">
           <section className="project-section">
-            <div className={viewMode === "list" ? "project-list project-list--rows" : "project-list"}>
+            <div
+              className={
+                viewMode === "list"
+                  ? "project-list project-list--rows"
+                  : "project-list"
+              }
+            >
               {visibleProjects.map(renderProjectCard)}
             </div>
           </section>
         </div>
       )}
-      <ModalOverlay open={Boolean(modalState)} onClose={() => setModalState(null)}>
+      <ModalOverlay
+        open={Boolean(modalState)}
+        onClose={() => setModalState(null)}
+      >
         <div
           className="selector-dialog"
           role="alertdialog"
@@ -851,12 +996,21 @@ function StartPage({
                   : "This action cannot be undone."}
           </p>
           <div className="modal-actions">
-            <button type="button" className="button-secondary" onClick={() => setModalState(null)}>
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={() => setModalState(null)}
+            >
               Cancel
             </button>
             <button
               type="button"
-              className={modalState?.kind === "archive" || modalState?.kind === "unarchive" ? "button-primary" : "button-danger"}
+              className={
+                modalState?.kind === "archive" ||
+                modalState?.kind === "unarchive"
+                  ? "button-primary"
+                  : "button-danger"
+              }
               onClick={confirmModalAction}
               disabled={isSubmitting}
             >
@@ -939,7 +1093,12 @@ function ProjectContextMenuPortal({
       id={`project-menu-${project.id}`}
       ref={menuRef}
       className="project-context-menu"
-      style={{ position: "fixed", top: position.top, left: position.left, zIndex: 2000 }}
+      style={{
+        position: "fixed",
+        top: position.top,
+        left: position.left,
+        zIndex: 2000,
+      }}
       role="menu"
       aria-label={`Project actions for ${projectLabel}`}
       onClick={(event) => event.stopPropagation()}
@@ -1200,10 +1359,10 @@ function NewEventProjectPage({
   const selectedBand = bands.find((band) => band.id === bandRef);
   const canSubmit = Boolean(
     eventDateIso &&
-    !isPastIsoDate(eventDateIso, todayIso) &&
-    eventDateIso <= maxEventDateIso &&
-    eventVenue.trim() &&
-    selectedBand,
+      !isPastIsoDate(eventDateIso, todayIso) &&
+      eventDateIso <= maxEventDateIso &&
+      eventVenue.trim() &&
+      selectedBand,
   );
 
   useEffect(() => {
@@ -1254,69 +1413,83 @@ function NewEventProjectPage({
     bandRef,
   });
 
-  const persist = useCallback(async (targetId?: string) => {
-    if (!selectedBand || !eventDateIso || !eventVenue.trim()) return;
-    const namingSource = { purpose: "event" as const, eventDate: eventDateIso, eventVenue, documentDate: todayIso };
-    const slug = formatProjectSlug(namingSource, selectedBand);
-    const displayName = formatProjectDisplayName(namingSource, selectedBand);
-    const id = targetId ?? editingProjectId ?? generateUuidV7();
-    const nowIso = new Date().toISOString();
-    let defaultLineup = existingProject?.lineup;
-    let defaultBandLeaderId = existingProject?.bandLeaderId;
-    if (!editingProjectId) {
-      try {
-        const setupDefaults = await invoke<BandSetupData>("get_band_setup_data", {
-          bandId: selectedBand.id,
-        });
-        defaultLineup = { ...(setupDefaults.defaultLineup ?? {}) };
-        if (!Object.keys(defaultLineup).length) {
-          console.error("Band default lineup is empty during event project creation", {
+  const persist = useCallback(
+    async (targetId?: string) => {
+      if (!selectedBand || !eventDateIso || !eventVenue.trim()) return;
+      const namingSource = {
+        purpose: "event" as const,
+        eventDate: eventDateIso,
+        eventVenue,
+        documentDate: todayIso,
+      };
+      const slug = formatProjectSlug(namingSource, selectedBand);
+      const displayName = formatProjectDisplayName(namingSource, selectedBand);
+      const id = targetId ?? editingProjectId ?? generateUuidV7();
+      const nowIso = new Date().toISOString();
+      let defaultLineup = existingProject?.lineup;
+      let defaultBandLeaderId = existingProject?.bandLeaderId;
+      if (!editingProjectId) {
+        try {
+          const setupDefaults = await invoke<BandSetupData>(
+            "get_band_setup_data",
+            {
+              bandId: selectedBand.id,
+            },
+          );
+          defaultLineup = { ...(setupDefaults.defaultLineup ?? {}) };
+          if (!Object.keys(defaultLineup).length) {
+            console.error(
+              "Band default lineup is empty during event project creation",
+              {
+                bandRef: selectedBand.id,
+              },
+            );
+          }
+          defaultBandLeaderId = setupDefaults.bandLeader ?? "";
+        } catch (error) {
+          console.error("Failed to load setup defaults for new event project", {
             bandRef: selectedBand.id,
+            error,
           });
+          defaultLineup = {};
+          defaultBandLeaderId = "";
         }
-        defaultBandLeaderId = setupDefaults.bandLeader ?? "";
-      } catch (error) {
-        console.error("Failed to load setup defaults for new event project", {
-          bandRef: selectedBand.id,
-          error,
-        });
-        defaultLineup = {};
-        defaultBandLeaderId = "";
       }
-    }
-    const payload: NewProjectPayload = {
-      id,
-      slug,
-      displayName,
-      purpose: "event",
-      templateType: "event",
-      status: "active",
-      eventDate: eventDateIso,
-      eventVenue: eventVenue.trim(),
-      bandRef: selectedBand.id,
-      documentDate: todayIso,
-      createdAt: existingProject?.createdAt ?? nowIso,
-      updatedAt: nowIso,
-      lineup: defaultLineup,
-      bandLeaderId: defaultBandLeaderId || undefined,
-      talkbackOwnerId: existingProject?.talkbackOwnerId,
-      note: existingProject?.note,
-    };
-    await projectsApi.saveProject({
-      projectId: id,
-      json: JSON.stringify(toPersistableProject(payload), null, 2),
-    });
-    await onCreated();
-    return id;
-  }, [
-    selectedBand,
-    eventDateIso,
-    eventVenue,
-    editingProjectId,
-    todayIso,
-    existingProject,
-    onCreated,
-  ]);
+      const payload: NewProjectPayload = {
+        id,
+        slug,
+        displayName,
+        purpose: "event",
+        templateType: "event",
+        status: "active",
+        eventDate: eventDateIso,
+        eventVenue: eventVenue.trim(),
+        bandRef: selectedBand.id,
+        documentDate: todayIso,
+        createdAt: existingProject?.createdAt ?? nowIso,
+        updatedAt: nowIso,
+        lineup: defaultLineup,
+        bandLeaderId: defaultBandLeaderId || undefined,
+        talkbackOwnerId: existingProject?.talkbackOwnerId,
+        note: existingProject?.note,
+      };
+      await projectsApi.saveProject({
+        projectId: id,
+        json: JSON.stringify(toPersistableProject(payload), null, 2),
+      });
+      await onCreated();
+      return id;
+    },
+    [
+      selectedBand,
+      eventDateIso,
+      eventVenue,
+      editingProjectId,
+      todayIso,
+      existingProject,
+      onCreated,
+    ],
+  );
 
   useEffect(() => {
     registerNavigationGuard({
@@ -1462,7 +1635,11 @@ function NewGenericProjectPage({
   const [bandRef, setBandRef] = useState("");
   const [status, setStatus] = useState("");
   const [isCommitting, setIsCommitting] = useState(false);
-  const initialSnapshotRef = useRef({ bandRef: "", note: "", validityYear: "" });
+  const initialSnapshotRef = useRef({
+    bandRef: "",
+    note: "",
+    validityYear: "",
+  });
   function validateValidityYear(raw: string): string | null {
     const value = raw.trim();
 
@@ -1477,7 +1654,8 @@ function NewGenericProjectPage({
     if (Number.isNaN(year)) return "Enter a valid year (YYYY).";
 
     if (year < currentYear) return "Year cannot be in the past.";
-    if (year > maxYear) return `Year must be between ${currentYear} and ${maxYear}.`;
+    if (year > maxYear)
+      return `Year must be between ${currentYear} and ${maxYear}.`;
 
     return null;
   }
@@ -1486,7 +1664,9 @@ function NewGenericProjectPage({
     ? validateValidityYear(validityYear)
     : null;
   const selectedBand = bands.find((band) => band.id === bandRef);
-  const canSubmit = Boolean(selectedBand && !validateValidityYear(validityYear));
+  const canSubmit = Boolean(
+    selectedBand && !validateValidityYear(validityYear),
+  );
 
   useEffect(() => {
     if (!editingProjectId) return;
@@ -1511,54 +1691,72 @@ function NewGenericProjectPage({
     validityYear,
   });
 
-  const persist = useCallback(async (targetId?: string) => {
-    if (!selectedBand) return;
-    const id = targetId ?? editingProjectId ?? generateUuidV7();
-    const nowIso = new Date().toISOString();
-    let defaultLineup: LineupMap | undefined;
-    let defaultBandLeaderId = "";
-    if (!editingProjectId) {
-      try {
-        const setupDefaults = await invoke<BandSetupData>("get_band_setup_data", {
-          bandId: selectedBand.id,
-        });
-        defaultLineup = { ...(setupDefaults.defaultLineup ?? {}) };
-        if (!Object.keys(defaultLineup).length) {
-          console.error("Band default lineup is empty during generic project creation", {
-            bandRef: selectedBand.id,
-          });
+  const persist = useCallback(
+    async (targetId?: string) => {
+      if (!selectedBand) return;
+      const id = targetId ?? editingProjectId ?? generateUuidV7();
+      const nowIso = new Date().toISOString();
+      let defaultLineup: LineupMap | undefined;
+      let defaultBandLeaderId = "";
+      if (!editingProjectId) {
+        try {
+          const setupDefaults = await invoke<BandSetupData>(
+            "get_band_setup_data",
+            {
+              bandId: selectedBand.id,
+            },
+          );
+          defaultLineup = { ...(setupDefaults.defaultLineup ?? {}) };
+          if (!Object.keys(defaultLineup).length) {
+            console.error(
+              "Band default lineup is empty during generic project creation",
+              {
+                bandRef: selectedBand.id,
+              },
+            );
+          }
+          defaultBandLeaderId = setupDefaults.bandLeader ?? "";
+        } catch (error) {
+          console.error(
+            "Failed to load setup defaults for new generic project",
+            {
+              bandRef: selectedBand.id,
+              error,
+            },
+          );
+          defaultLineup = {};
         }
-        defaultBandLeaderId = setupDefaults.bandLeader ?? "";
-      } catch (error) {
-        console.error("Failed to load setup defaults for new generic project", {
-          bandRef: selectedBand.id,
-          error,
-        });
-        defaultLineup = {};
       }
-    }
-    const payload: NewProjectPayload = {
-      id,
-      slug: formatProjectSlug({ purpose: "generic", documentDate: `${validityYear}-01-01`, note }, selectedBand),
-      displayName: formatProjectDisplayName({ purpose: "generic", documentDate: `${validityYear}-01-01`, note }, selectedBand),
-      purpose: "generic",
-      templateType: "generic",
-      status: "active",
-      bandRef: selectedBand.id,
-      documentDate: `${validityYear}-01-01`,
-      ...(note.trim() ? { note: note.trim() } : {}),
-      createdAt: nowIso,
-      updatedAt: nowIso,
-      lineup: defaultLineup,
-      bandLeaderId: defaultBandLeaderId || undefined,
-    };
-    await projectsApi.saveProject({
-      projectId: id,
-      json: JSON.stringify(toPersistableProject(payload), null, 2),
-    });
-    await onCreated();
-    return id;
-  }, [editingProjectId, note, onCreated, selectedBand, validityYear]);
+      const payload: NewProjectPayload = {
+        id,
+        slug: formatProjectSlug(
+          { purpose: "generic", documentDate: `${validityYear}-01-01`, note },
+          selectedBand,
+        ),
+        displayName: formatProjectDisplayName(
+          { purpose: "generic", documentDate: `${validityYear}-01-01`, note },
+          selectedBand,
+        ),
+        purpose: "generic",
+        templateType: "generic",
+        status: "active",
+        bandRef: selectedBand.id,
+        documentDate: `${validityYear}-01-01`,
+        ...(note.trim() ? { note: note.trim() } : {}),
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        lineup: defaultLineup,
+        bandLeaderId: defaultBandLeaderId || undefined,
+      };
+      await projectsApi.saveProject({
+        projectId: id,
+        json: JSON.stringify(toPersistableProject(payload), null, 2),
+      });
+      await onCreated();
+      return id;
+    },
+    [editingProjectId, note, onCreated, selectedBand, validityYear],
+  );
 
   useEffect(() => {
     registerNavigationGuard({
@@ -1651,7 +1849,11 @@ function NewGenericProjectPage({
           Back to Hub
         </button>
         <button type="button" onClick={createProject} disabled={!canSubmit}>
-          {editingProjectId ? (isDirty ? "Save & Continue" : "Continue") : "Save & Create"}
+          {editingProjectId
+            ? isDirty
+              ? "Save & Continue"
+              : "Continue"
+            : "Save & Create"}
         </button>
       </div>
     </section>
@@ -1683,7 +1885,9 @@ function ProjectSetupPage({
     slotIndex: number;
     musicianId: string;
   } | null>(null);
-  const [setupDraftBySlot, setSetupDraftBySlot] = useState<Record<string, PresetOverridePatch | undefined>>({});
+  const [setupDraftBySlot, setSetupDraftBySlot] = useState<
+    Record<string, PresetOverridePatch | undefined>
+  >({});
   const [selectedSetupSlotKey, setSelectedSetupSlotKey] = useState("");
   const [bandLeaderId, setBandLeaderId] = useState("");
   const [talkbackOwnerId, setTalkbackOwnerId] = useState("");
@@ -1693,6 +1897,7 @@ function ProjectSetupPage({
   const [showResetConfirmation, setShowResetConfirmation] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
   const initialSnapshotRef = useRef("");
+  const snapshotHydratedRef = useRef(false);
 
   const buildSetupSnapshot = useCallback(
     (
@@ -1747,6 +1952,7 @@ function ProjectSetupPage({
   );
 
   useEffect(() => {
+    snapshotHydratedRef.current = false;
     (async () => {
       const parsed = JSON.parse(
         await invoke<string>("read_project", { projectId: id }),
@@ -1778,15 +1984,22 @@ function ProjectSetupPage({
         setStatus(data.loadWarnings.join("\n"));
       }
       setSetupData(data);
-      const hasStoredLineup = Boolean(parsed.lineup && Object.keys(parsed.lineup).length > 0);
+      const hasStoredLineup = Boolean(
+        parsed.lineup && Object.keys(parsed.lineup).length > 0,
+      );
       const fallbackLineup = { ...(data.defaultLineup ?? {}) };
       if (!hasStoredLineup && !Object.keys(fallbackLineup).length) {
-        console.error("Band default lineup is empty during setup initialization", {
-          projectId: id,
-          bandRef: parsed.bandRef,
-        });
+        console.error(
+          "Band default lineup is empty during setup initialization",
+          {
+            projectId: id,
+            bandRef: parsed.bandRef,
+          },
+        );
       }
-      const initialLineup = { ...(hasStoredLineup ? parsed.lineup : fallbackLineup) };
+      const initialLineup = {
+        ...(hasStoredLineup ? parsed.lineup : fallbackLineup),
+      };
       const initialState = buildSetupSnapshot(
         initialLineup,
         data,
@@ -1802,9 +2015,14 @@ function ProjectSetupPage({
       if (!hasStoredLineup) {
         const updatedProject: NewProjectPayload = {
           ...parsed,
-          lineup: initialState.lineup,
+          lineup: serializeLineupForProject(
+            initialState.lineup,
+            data.constraints,
+            ROLE_ORDER,
+          ),
           bandLeaderId: initialState.bandLeaderId || undefined,
-          ...(initialState.talkbackOwnerId && initialState.talkbackOwnerId !== initialState.bandLeaderId
+          ...(initialState.talkbackOwnerId &&
+          initialState.talkbackOwnerId !== initialState.bandLeaderId
             ? { talkbackOwnerId: initialState.talkbackOwnerId }
             : {}),
           updatedAt: new Date().toISOString(),
@@ -1815,9 +2033,19 @@ function ProjectSetupPage({
         });
         setProject(updatedProject);
       }
-      initialSnapshotRef.current = JSON.stringify(initialState);
+      initialSnapshotRef.current = JSON.stringify({
+        ...initialState,
+        lineup: serializeLineupForProject(
+          initialState.lineup,
+          data.constraints,
+          ROLE_ORDER,
+        ),
+      });
     })().catch((error) => {
-      console.error("Failed to initialize setup page", { projectId: id, error });
+      console.error("Failed to initialize setup page", {
+        projectId: id,
+        error,
+      });
       setStatus("Failed to load setup.");
     });
   }, [id, applyState, buildSetupSnapshot]);
@@ -1827,11 +2055,11 @@ function ProjectSetupPage({
       !setupData
         ? []
         : validateLineup(
-          lineup,
-          setupData.constraints,
-          ROLE_ORDER,
-          setupData.roleConstraints,
-        ),
+            lineup,
+            setupData.constraints,
+            ROLE_ORDER,
+            setupData.roleConstraints,
+          ),
     [lineup, setupData],
   );
   const selectedMusicianIds = useMemo(
@@ -1852,16 +2080,32 @@ function ProjectSetupPage({
       .filter(Boolean) as MemberOption[];
   }, [selectedMusicianIds, setupData]);
   const talkbackCurrentOwnerId = talkbackOwnerId || bandLeaderId;
-  const backVocalPresetRefs = useMemo(() => [vocalBackNoMicPreset, vocalBackWiredPreset], []);
-  const defaultBackVocalRef = useMemo(() => backVocalPresetRefs.find((item) => item.id === "vocal_back_no_mic")?.id ?? [...backVocalPresetRefs].sort((a, b) => a.id.localeCompare(b.id))[0]?.id ?? "", [backVocalPresetRefs]);
+  const backVocalPresetRefs = useMemo(
+    () => [vocalBackNoMicPreset, vocalBackWiredPreset],
+    [],
+  );
+  const defaultBackVocalRef = useMemo(
+    () =>
+      backVocalPresetRefs.find((item) => item.id === "vocal_back_no_mic")?.id ??
+      [...backVocalPresetRefs].sort((a, b) => a.id.localeCompare(b.id))[0]
+        ?.id ??
+      "",
+    [backVocalPresetRefs],
+  );
   const templateMusicians = selectedOptions;
-  const templateMusicianIds = useMemo(() => new Set(templateMusicians.map((item) => item.id)), [templateMusicians]);
+  const templateMusicianIds = useMemo(
+    () => new Set(templateMusicians.map((item) => item.id)),
+    [templateMusicians],
+  );
   const selectedTemplateMusicians = useMemo<Musician[]>(() => {
     if (!setupData) return [];
 
     const roleByMusicianId = new Map<string, Group>();
     ROLE_ORDER.forEach((role) => {
-      const roleConstraint = normalizeRoleConstraint(role, setupData.constraints[role]);
+      const roleConstraint = normalizeRoleConstraint(
+        role,
+        setupData.constraints[role],
+      );
       normalizeLineupSlots(lineup[role], roleConstraint.max).forEach((slot) => {
         roleByMusicianId.set(slot.musicianId, role as Group);
       });
@@ -1872,11 +2116,22 @@ function ProjectSetupPage({
       firstName: "",
       lastName: "",
       group: roleByMusicianId.get(musicianId) ?? "vocs",
-      presets: (setupData.musicianPresetsById?.[musicianId] ?? []) as PresetItem[],
+      presets: (setupData.musicianPresetsById?.[musicianId] ??
+        []) as PresetItem[],
     }));
   }, [lineup, selectedMusicianIds, setupData]);
-  const leadVocalIds = useMemo(() => getLeadVocsFromTemplate(selectedTemplateMusicians), [selectedTemplateMusicians]);
-  const defaultBackVocalIds = useMemo(() => sanitizeBackVocsSelection(getBackVocsFromTemplate(selectedTemplateMusicians), leadVocalIds), [leadVocalIds, selectedTemplateMusicians]);
+  const leadVocalIds = useMemo(
+    () => getLeadVocsFromTemplate(selectedTemplateMusicians),
+    [selectedTemplateMusicians],
+  );
+  const defaultBackVocalIds = useMemo(
+    () =>
+      sanitizeBackVocsSelection(
+        getBackVocsFromTemplate(selectedTemplateMusicians),
+        leadVocalIds,
+      ),
+    [leadVocalIds, selectedTemplateMusicians],
+  );
   const selectedBackVocalIds = useMemo(() => {
     const explicitSelectedIds = Array.from(
       sanitizeBackVocsSelection(new Set(backVocalIds), leadVocalIds),
@@ -1884,17 +2139,75 @@ function ProjectSetupPage({
 
     if (backVocalIds.length > 0) return explicitSelectedIds;
 
-    return Array.from(defaultBackVocalIds).filter((idValue) => templateMusicianIds.has(idValue));
+    return Array.from(defaultBackVocalIds).filter((idValue) =>
+      templateMusicianIds.has(idValue),
+    );
   }, [backVocalIds, defaultBackVocalIds, leadVocalIds, templateMusicianIds]);
-  const backVocalMembers = useMemo(() => templateMusicians.filter((item) => selectedBackVocalIds.includes(item.id)), [selectedBackVocalIds, templateMusicians]);
-  const backVocalCandidateIds = useMemo(() => new Set(getBackVocalCandidatesFromTemplate(selectedTemplateMusicians).map((musician) => musician.id)), [selectedTemplateMusicians]);
-  const backVocalCandidates = useMemo(() => templateMusicians.filter((item) => backVocalCandidateIds.has(item.id)), [backVocalCandidateIds, templateMusicians]);
+  const backVocalMembers = useMemo(
+    () =>
+      templateMusicians.filter((item) =>
+        selectedBackVocalIds.includes(item.id),
+      ),
+    [selectedBackVocalIds, templateMusicians],
+  );
+  const backVocalCandidateIds = useMemo(
+    () =>
+      new Set(
+        getBackVocalCandidatesFromTemplate(selectedTemplateMusicians).map(
+          (musician) => musician.id,
+        ),
+      ),
+    [selectedTemplateMusicians],
+  );
+  const backVocalCandidates = useMemo(
+    () =>
+      templateMusicians.filter((item) => backVocalCandidateIds.has(item.id)),
+    [backVocalCandidateIds, templateMusicians],
+  );
+
+  const serializedLineup = useMemo(() => {
+    if (!setupData) return {} as LineupMap;
+    return serializeLineupForProject(lineup, setupData.constraints, ROLE_ORDER);
+  }, [lineup, setupData]);
+  const defaultSelectedBackVocalIds = useMemo(() => {
+    if (!setupData) return [] as string[];
+    const defaultLineup = { ...(setupData.defaultLineup ?? {}) };
+    const selectedIds = getUniqueSelectedMusicians(
+      defaultLineup,
+      setupData.constraints,
+      ROLE_ORDER,
+    );
+    const roleByMusicianId = new Map<string, Group>();
+    ROLE_ORDER.forEach((role) => {
+      const roleConstraint = normalizeRoleConstraint(
+        role,
+        setupData.constraints[role],
+      );
+      normalizeLineupSlots(defaultLineup[role], roleConstraint.max).forEach(
+        (slot) => {
+          roleByMusicianId.set(slot.musicianId, role as Group);
+        },
+      );
+    });
+    const musicians = selectedIds.map((musicianId) => ({
+      id: musicianId,
+      firstName: "",
+      lastName: "",
+      group: roleByMusicianId.get(musicianId) ?? "vocs",
+      presets: (setupData.musicianPresetsById?.[musicianId] ??
+        []) as PresetItem[],
+    }));
+    const leadIds = getLeadVocsFromTemplate(musicians);
+    return Array.from(
+      sanitizeBackVocsSelection(getBackVocsFromTemplate(musicians), leadIds),
+    ).sort((a, b) => a.localeCompare(b));
+  }, [setupData]);
 
   const currentSnapshot = JSON.stringify({
-    lineup,
+    lineup: serializedLineup,
     bandLeaderId,
     talkbackOwnerId: talkbackCurrentOwnerId,
-    backVocalIds,
+    backVocalIds: [...selectedBackVocalIds].sort((a, b) => a.localeCompare(b)),
   });
   const defaultSnapshot = useMemo(() => {
     if (!setupData) return "";
@@ -1902,17 +2215,31 @@ function ProjectSetupPage({
       { ...(setupData.defaultLineup ?? {}) },
       setupData,
     );
-    return JSON.stringify(defaults);
-  }, [setupData, buildSetupSnapshot]);
+    return JSON.stringify({
+      ...defaults,
+      lineup: serializeLineupForProject(
+        defaults.lineup,
+        setupData.constraints,
+        ROLE_ORDER,
+      ),
+      backVocalIds: defaultSelectedBackVocalIds,
+    });
+  }, [defaultSelectedBackVocalIds, setupData, buildSetupSnapshot]);
   const isDirty = Boolean(
     project && currentSnapshot !== initialSnapshotRef.current,
   );
+
+  useEffect(() => {
+    if (!project || !setupData || snapshotHydratedRef.current) return;
+    initialSnapshotRef.current = currentSnapshot;
+    snapshotHydratedRef.current = true;
+  }, [currentSnapshot, project, setupData]);
 
   async function persistProject(next?: Partial<NewProjectPayload>) {
     if (!project) return;
     const payload: NewProjectPayload = {
       ...project,
-      lineup: { ...lineup },
+      lineup: serializedLineup,
       bandLeaderId,
       ...(talkbackCurrentOwnerId && talkbackCurrentOwnerId !== bandLeaderId
         ? { talkbackOwnerId: talkbackCurrentOwnerId }
@@ -1926,11 +2253,18 @@ function ProjectSetupPage({
     });
     setProject(payload);
     initialSnapshotRef.current = JSON.stringify({
-      lineup: payload.lineup ?? {},
+      lineup: serializeLineupForProject(
+        payload.lineup ?? {},
+        setupData?.constraints ?? {},
+        ROLE_ORDER,
+      ),
       bandLeaderId: payload.bandLeaderId ?? "",
       talkbackOwnerId: payload.talkbackOwnerId ?? payload.bandLeaderId ?? "",
-      backVocalIds: payload.backVocalIds ?? [],
+      backVocalIds: [...selectedBackVocalIds].sort((a, b) =>
+        a.localeCompare(b),
+      ),
     });
+    snapshotHydratedRef.current = true;
   }
 
   useEffect(() => {
@@ -1943,7 +2277,10 @@ function ProjectSetupPage({
 
   function setRoleSlots(role: string, slots: LineupSlotValue[]) {
     if (!setupData) return;
-    const constraint = normalizeRoleConstraint(role, setupData.constraints[role]);
+    const constraint = normalizeRoleConstraint(
+      role,
+      setupData.constraints[role],
+    );
     const compact = slots.filter((slot) => Boolean(slot.musicianId));
     const value = constraint.max <= 1 ? compact[0] : compact;
     const nextLineup = { ...lineup, [role]: value as LineupMap[string] };
@@ -1952,57 +2289,109 @@ function ProjectSetupPage({
 
   function updateSlot(role: string, slotIndex: number, musicianId: string) {
     if (!setupData) return;
-    const constraint = normalizeRoleConstraint(role, setupData.constraints[role]);
+    const constraint = normalizeRoleConstraint(
+      role,
+      setupData.constraints[role],
+    );
     const current = normalizeLineupSlots(lineup[role], constraint.max);
-    while (current.length < Math.max(constraint.max, slotIndex + 1)) current.push({ musicianId: "" });
+    while (current.length < Math.max(constraint.max, slotIndex + 1))
+      current.push({ musicianId: "" });
     const previous = current[slotIndex];
     current[slotIndex] = musicianId
-      ? { musicianId, ...(previous?.musicianId === musicianId && previous?.presetOverride ? { presetOverride: previous.presetOverride } : {}) }
+      ? {
+          musicianId,
+          ...(previous?.musicianId === musicianId && previous?.presetOverride
+            ? { presetOverride: previous.presetOverride }
+            : {}),
+        }
       : { musicianId: "" };
     setRoleSlots(role, current);
   }
 
-  function applySetupDraftOverrides(draftOverrides: Record<string, PresetOverridePatch | undefined>) {
+  function applySetupDraftOverrides(
+    draftOverrides: Record<string, PresetOverridePatch | undefined>,
+  ) {
     if (!setupData) return;
     const nextLineup: LineupMap = { ...lineup };
     ROLE_ORDER.forEach((role) => {
-      const constraint = normalizeRoleConstraint(role, setupData.constraints[role]);
-      const slots = normalizeLineupSlots(lineup[role], constraint.max).map((slot, slotIndex) => {
-        if (!slot.musicianId) return slot;
-        const override = draftOverrides[`${role}:${slotIndex}`];
-        return { musicianId: slot.musicianId, ...(override ? { presetOverride: override } : {}) };
-      });
-      nextLineup[role] = (constraint.max <= 1 ? slots[0] : slots) as LineupMap[string];
+      const constraint = normalizeRoleConstraint(
+        role,
+        setupData.constraints[role],
+      );
+      const slots = normalizeLineupSlots(lineup[role], constraint.max).map(
+        (slot, slotIndex) => {
+          if (!slot.musicianId) return slot;
+          const override = draftOverrides[`${role}:${slotIndex}`];
+          return {
+            musicianId: slot.musicianId,
+            ...(override ? { presetOverride: override } : {}),
+          };
+        },
+      );
+      nextLineup[role] = (
+        constraint.max <= 1 ? slots[0] : slots
+      ) as LineupMap[string];
     });
     applyState(nextLineup, setupData, bandLeaderId, talkbackOwnerId);
   }
 
-  const resolveSlotSetup = useCallback((role: Group, musicianId: string, patch?: PresetOverridePatch) => {
-    const resolved = resolveEffectiveMusicianSetup({
-      musicianDefaults: setupData?.musicianDefaults?.[musicianId],
-      bandDefaults: getGroupDefaultPreset(role),
-      eventOverride: patch,
-      group: role,
-    });
-    return { resolved, effective: { inputs: resolved.effectiveInputs, monitoring: resolved.effectiveMonitoring } };
-  }, [setupData]);
+  const resolveSlotSetup = useCallback(
+    (role: Group, musicianId: string, patch?: PresetOverridePatch) => {
+      const resolved = resolveEffectiveMusicianSetup({
+        musicianDefaults: setupData?.musicianDefaults?.[musicianId],
+        bandDefaults: getGroupDefaultPreset(role),
+        eventOverride: patch,
+        group: role,
+      });
+      return {
+        resolved,
+        effective: {
+          inputs: resolved.effectiveInputs,
+          monitoring: resolved.effectiveMonitoring,
+        },
+      };
+    },
+    [setupData],
+  );
 
   const effectiveSlotPresets = useMemo(() => {
-    if (!setupData) return [] as Array<{ role: string; slotIndex: number; musicianId: string; patch?: PresetOverridePatch; effective: MusicianSetupPreset }>;
+    if (!setupData)
+      return [] as Array<{
+        role: string;
+        slotIndex: number;
+        musicianId: string;
+        patch?: PresetOverridePatch;
+        effective: MusicianSetupPreset;
+      }>;
     return ROLE_ORDER.flatMap((role) => {
-      const constraint = normalizeRoleConstraint(role, setupData.constraints[role]);
-      return normalizeLineupSlots(lineup[role], constraint.max).map((slot, slotIndex) => ({
+      const constraint = normalizeRoleConstraint(
         role,
-        slotIndex,
-        musicianId: slot.musicianId,
-        patch: slot.presetOverride,
-        effective: resolveSlotSetup(role as Group, slot.musicianId, slot.presetOverride).effective,
-      })).filter((slot) => Boolean(slot.musicianId));
+        setupData.constraints[role],
+      );
+      return normalizeLineupSlots(lineup[role], constraint.max)
+        .map((slot, slotIndex) => ({
+          role,
+          slotIndex,
+          musicianId: slot.musicianId,
+          patch: slot.presetOverride,
+          effective: resolveSlotSetup(
+            role as Group,
+            slot.musicianId,
+            slot.presetOverride,
+          ).effective,
+        }))
+        .filter((slot) => Boolean(slot.musicianId));
     });
   }, [lineup, resolveSlotSetup, setupData]);
 
   const overrideValidation = useMemo(
-    () => summarizeEffectivePresetValidation(effectiveSlotPresets.map((slot) => ({ group: slot.role, preset: slot.effective }))),
+    () =>
+      summarizeEffectivePresetValidation(
+        effectiveSlotPresets.map((slot) => ({
+          group: slot.role,
+          preset: slot.effective,
+        })),
+      ),
     [effectiveSlotPresets],
   );
 
@@ -2013,26 +2402,40 @@ function ProjectSetupPage({
     project?.purpose === "generic"
       ? `/projects/${encodeURIComponent(id)}/generic`
       : `/projects/${encodeURIComponent(id)}/event`;
-  const editProjectPath = withFrom(backSetupPath, "setup", `${window.location.pathname}${search || ""}`);
-  const bandName = project?.displayName ?? setupData?.name ?? project?.bandRef ?? "—";
-  const selectedMusicianMap = useMemo(() => new Map(selectedOptions.map((item) => [item.id, item.name])), [selectedOptions]);
+  const editProjectPath = withFrom(
+    backSetupPath,
+    "setup",
+    `${window.location.pathname}${search || ""}`,
+  );
+  const bandName =
+    project?.displayName ?? setupData?.name ?? project?.bandRef ?? "—";
+  const selectedMusicianMap = useMemo(
+    () => new Map(selectedOptions.map((item) => [item.id, item.name])),
+    [selectedOptions],
+  );
   const setupMusicians = useMemo(() => {
     if (!setupData || !editingSetup) return [] as SetupMusicianItem[];
     const role = editingSetup.role;
-    const constraint = normalizeRoleConstraint(role, setupData.constraints[role]);
+    const constraint = normalizeRoleConstraint(
+      role,
+      setupData.constraints[role],
+    );
     return normalizeLineupSlots(lineup[role], constraint.max)
       .map((slot, slotIndex) => ({ role, slotIndex, slot }))
       .filter(({ slot }) => Boolean(slot.musicianId))
       .map(({ role, slotIndex, slot }) => ({
         slotKey: `${role}:${slotIndex}`,
         musicianId: slot.musicianId,
-        musicianName: selectedMusicianMap.get(slot.musicianId) ?? slot.musicianId,
+        musicianName:
+          selectedMusicianMap.get(slot.musicianId) ?? slot.musicianId,
         role: role as Group,
         hasOverride: Boolean(slot.presetOverride),
       }));
   }, [editingSetup, lineup, selectedMusicianMap, setupData]);
 
-  const selectedSetupMusician = setupMusicians.find((item) => item.slotKey === selectedSetupSlotKey) ?? setupMusicians[0];
+  const selectedSetupMusician =
+    setupMusicians.find((item) => item.slotKey === selectedSetupSlotKey) ??
+    setupMusicians[0];
 
   const resetModalRef = useModalBehavior(showResetConfirmation, () =>
     setShowResetConfirmation(false),
@@ -2041,7 +2444,9 @@ function ProjectSetupPage({
     Boolean(editing && setupData),
     () => setEditing(null),
   );
-  const backVocsModalRef = useModalBehavior(Boolean(isBackVocsModalOpen), () => setIsBackVocsModalOpen(false));
+  const backVocsModalRef = useModalBehavior(Boolean(isBackVocsModalOpen), () =>
+    setIsBackVocsModalOpen(false),
+  );
   const setupEditorRef = useModalBehavior(Boolean(editingSetup), () => {
     setEditingSetup(null);
     setSetupDraftBySlot({});
@@ -2076,116 +2481,152 @@ function ProjectSetupPage({
       <div className="lineup-grid">
         {setupData
           ? ROLE_ORDER.map((role) => {
-            const constraint = normalizeRoleConstraint(
-              role,
-              setupData.constraints[role],
-            );
-            const selected = normalizeLineupValue(
-              lineup[role],
-              constraint.max,
-            );
-            const members = setupData.members[role] || [];
-            return (
-              <article key={role} className="lineup-card">
-                <h3>
-                  {getRoleDisplayName(
-                    role,
-                    setupData.constraints,
-                    setupData.roleConstraints,
-                  )}
-                </h3>
-                <div className="lineup-card__body section-divider">
-                  <div className="lineup-list lineup-list--single">
-                    {(selected.length ? selected : [""]).map(
-                      (musicianId, index) => {
-                        const alternatives = members.filter(
-                          (m) => m.id !== musicianId,
-                        );
-                        return (
+              const constraint = normalizeRoleConstraint(
+                role,
+                setupData.constraints[role],
+              );
+              const selected = normalizeLineupValue(
+                lineup[role],
+                constraint.max,
+              );
+              const members = setupData.members[role] || [];
+              return (
+                <article key={role} className="lineup-card">
+                  <h3>
+                    {getRoleDisplayName(
+                      role,
+                      setupData.constraints,
+                      setupData.roleConstraints,
+                    )}
+                  </h3>
+                  <div className="lineup-card__body section-divider">
+                    <div className="lineup-list lineup-list--single">
+                      {(selected.length ? selected : [""]).map(
+                        (musicianId, index) => {
+                          const alternatives = members.filter(
+                            (m) => m.id !== musicianId,
+                          );
+                          return (
+                            <div
+                              key={`${role}-${index}`}
+                              className="lineup-list__row"
+                            >
+                              <span className="lineup-list__name">
+                                {musicianId
+                                  ? (members.find((m) => m.id === musicianId)
+                                      ?.name ?? musicianId)
+                                  : "Not selected"}
+                              </span>
+                              <div className="lineup-list__actions">
+                                <button
+                                  type="button"
+                                  className="button-secondary"
+                                  disabled={alternatives.length === 0}
+                                  onClick={() =>
+                                    setEditing({
+                                      role,
+                                      slotIndex: index,
+                                      currentSelectedId:
+                                        musicianId || undefined,
+                                    })
+                                  }
+                                >
+                                  Change
+                                </button>
+                                <button
+                                  type="button"
+                                  className="button-secondary"
+                                  disabled={!musicianId}
+                                  onClick={() => {
+                                    if (!setupData) return;
+                                    const draftEntries: Record<
+                                      string,
+                                      PresetOverridePatch | undefined
+                                    > = {};
+                                    ROLE_ORDER.forEach((setupRole) => {
+                                      const setupConstraint =
+                                        normalizeRoleConstraint(
+                                          setupRole,
+                                          setupData.constraints[setupRole],
+                                        );
+                                      normalizeLineupSlots(
+                                        lineup[setupRole],
+                                        setupConstraint.max,
+                                      ).forEach((setupSlot, setupIndex) => {
+                                        if (!setupSlot.musicianId) return;
+                                        draftEntries[
+                                          `${setupRole}:${setupIndex}`
+                                        ] = setupSlot.presetOverride;
+                                      });
+                                    });
+                                    setSetupDraftBySlot(draftEntries);
+                                    const slotKey = `${role}:${index}`;
+                                    setSelectedSetupSlotKey(slotKey);
+                                    setEditingSetup({
+                                      role,
+                                      slotIndex: index,
+                                      musicianId,
+                                    });
+                                  }}
+                                >
+                                  Setup
+                                  {normalizeLineupSlots(
+                                    lineup[role],
+                                    constraint.max,
+                                  )[index]?.presetOverride
+                                    ? " •"
+                                    : ""}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        },
+                      )}
+                    </div>
+                  </div>
+                </article>
+              );
+            })
+          : ROLE_ORDER.map((role) => {
+              const constraint = normalizeRoleConstraint(role);
+              return (
+                <article key={role} className="lineup-card">
+                  <h3>{getRoleDisplayName(role)}</h3>
+                  <div className="lineup-card__body section-divider">
+                    <div className="lineup-list lineup-list--single">
+                      {Array.from({ length: Math.max(1, constraint.max) }).map(
+                        (_, index) => (
                           <div
                             key={`${role}-${index}`}
                             className="lineup-list__row"
                           >
                             <span className="lineup-list__name">
-                              {musicianId
-                                ? (members.find((m) => m.id === musicianId)
-                                  ?.name ?? musicianId)
-                                : "Not selected"}
+                              Not selected
                             </span>
                             <div className="lineup-list__actions">
                               <button
                                 type="button"
                                 className="button-secondary"
-                                disabled={alternatives.length === 0}
-                                onClick={() =>
-                                  setEditing({
-                                    role,
-                                    slotIndex: index,
-                                    currentSelectedId: musicianId || undefined,
-                                  })
-                                }
+                                disabled
                               >
                                 Change
                               </button>
                               <button
                                 type="button"
                                 className="button-secondary"
-                                disabled={!musicianId}
-                                onClick={() => {
-                                  if (!setupData) return;
-                                  const draftEntries: Record<string, PresetOverridePatch | undefined> = {};
-                                  ROLE_ORDER.forEach((setupRole) => {
-                                    const setupConstraint = normalizeRoleConstraint(setupRole, setupData.constraints[setupRole]);
-                                    normalizeLineupSlots(lineup[setupRole], setupConstraint.max).forEach((setupSlot, setupIndex) => {
-                                      if (!setupSlot.musicianId) return;
-                                      draftEntries[`${setupRole}:${setupIndex}`] = setupSlot.presetOverride;
-                                    });
-                                  });
-                                  setSetupDraftBySlot(draftEntries);
-                                  const slotKey = `${role}:${index}`;
-                                  setSelectedSetupSlotKey(slotKey);
-                                  setEditingSetup({ role, slotIndex: index, musicianId });
-                                }}
+                                disabled
                               >
-                                Setup{normalizeLineupSlots(lineup[role], constraint.max)[index]?.presetOverride ? " •" : ""}
+                                Setup
                               </button>
                             </div>
                           </div>
-                        );
-                      },
-                    )}
+                        ),
+                      )}
+                    </div>
                   </div>
-                </div>
-              </article>
-            );
-          })
-          : ROLE_ORDER.map((role) => {
-            const constraint = normalizeRoleConstraint(role);
-            return (
-              <article key={role} className="lineup-card">
-                <h3>{getRoleDisplayName(role)}</h3>
-                <div className="lineup-card__body section-divider">
-                  <div className="lineup-list lineup-list--single">
-                    {Array.from({ length: Math.max(1, constraint.max) }).map(
-                      (_, index) => (
-                        <div key={`${role}-${index}`} className="lineup-list__row">
-                          <span className="lineup-list__name">Not selected</span>
-                          <div className="lineup-list__actions">
-                            <button type="button" className="button-secondary" disabled>
-                              Change
-                            </button>
-                            <button type="button" className="button-secondary" disabled>
-                              Setup
-                            </button>
-                          </div>
-                        </div>
-                      ),
-                    )}
-                  </div>
-                </div>
-              </article>
-            );
-          })}
+                </article>
+              );
+            })}
         <BackVocsBlock
           members={backVocalMembers}
           changeDisabled={selectedOptions.length === 0}
@@ -2264,7 +2705,10 @@ function ProjectSetupPage({
           {overrideValidationWarnings.map((warning) => (
             <p key={warning}>{warning}</p>
           ))}
-          <p>Review setup overrides in each role to reduce required monitor sends, if needed.</p>
+          <p>
+            Review setup overrides in each role to reduce required monitor
+            sends, if needed.
+          </p>
         </div>
       ) : null}
       {status ? <p className="status status--error">{status}</p> : null}
@@ -2287,7 +2731,8 @@ function ProjectSetupPage({
         <button
           type="button"
           onClick={async () => {
-            if (errors.length > 0 || overrideValidationErrors.length > 0) return;
+            if (errors.length > 0 || overrideValidationErrors.length > 0)
+              return;
             if (isDirty) {
               setIsCommitting(true);
               await persistProject();
@@ -2338,6 +2783,7 @@ function ProjectSetupPage({
               onClick={() => {
                 if (!setupData) return;
                 applyState({ ...(setupData.defaultLineup ?? {}) }, setupData);
+                setBackVocalIds([]);
                 setShowResetConfirmation(false);
               }}
             >
@@ -2347,206 +2793,300 @@ function ProjectSetupPage({
         </div>
       </ModalOverlay>
 
-      <ModalOverlay open={Boolean(editingSetup)} onClose={() => { setEditingSetup(null); setSetupDraftBySlot({}); setSelectedSetupSlotKey(""); }}>
-        {editingSetup && selectedSetupMusician ? (() => {
-          const currentPatch = setupDraftBySlot[selectedSetupMusician.slotKey];
-          const { resolved, effective } = resolveSlotSetup(selectedSetupMusician.role, selectedSetupMusician.musicianId, currentPatch);
-          const availableInputs = (GROUP_INPUT_LIBRARY[selectedSetupMusician.role as keyof typeof GROUP_INPUT_LIBRARY] ?? []).filter(
-            (item: InputChannel) => !effective.inputs.some((effectiveItem) => effectiveItem.key === item.key),
-          );
-          const drumSetup = selectedSetupMusician.role === "drums" ? inferDrumSetupFromLegacyInputs(effective.inputs) : null;
-          const modalErrors = validateEffectivePresets(
-            setupMusicians.map((slot) => {
-              const slotPatch = setupDraftBySlot[slot.slotKey];
-              const { resolved: slotResolved } = resolveSlotSetup(slot.role, slot.musicianId, slotPatch);
-              return { group: slot.role, preset: { inputs: slotResolved.effectiveInputs, monitoring: slotResolved.effectiveMonitoring } };
-            }),
-          );
-          return (
-            <div
-              className="selector-dialog selector-dialog--setup-editor"
-              role="dialog"
-              aria-modal="true"
-              ref={setupEditorRef}
-            >
-              <button
-                type="button"
-                className="modal-close"
-                onClick={() => {
-                  setEditingSetup(null);
-                  setSetupDraftBySlot({});
-                  setSelectedSetupSlotKey("");
-                }}
-                aria-label="Close"
-              >
-                ×
-              </button>
-              <SetupModalShell
-                open={Boolean(editingSetup && selectedSetupMusician)}
-                title={`Setup for this event – ${selectedSetupMusician.musicianName} (${selectedSetupMusician.role})`}
-                subtitle="Changes here apply only to this event. Band defaults are not modified."
-                isDirty={computeIsDirty(currentPatch)}
-                onBack={() => {
-                  setEditingSetup(null);
-                  setSetupDraftBySlot({});
-                  setSelectedSetupSlotKey("");
-                }}
-                onReset={() =>
-                  setSetupDraftBySlot((prev) => ({
-                    ...prev,
-                    [selectedSetupMusician.slotKey]: resetOverrides(),
-                  }))
-                }
-                saveDisabled={modalErrors.length > 0}
-                onSave={() => {
-                  applySetupDraftOverrides(setupDraftBySlot);
-                  setEditingSetup(null);
-                  setSetupDraftBySlot({});
-                  setSelectedSetupSlotKey("");
-                }}
-              >
-                <div className="setup-musician-layout">
-                  <MusicianSelector
-                    items={setupMusicians.map((item) => ({
-                      ...item,
-                      hasOverride: Boolean(setupDraftBySlot[item.slotKey]),
-                    }))}
-                    selectedSlotKey={selectedSetupMusician.slotKey}
-                    onSelect={setSelectedSetupSlotKey}
-                  />
-                  {selectedSetupMusician.role === "bass" ? (
-                    <div className="setup-editor-stack">
-                      <SetupSection title="Inputs">
-                        <SchemaRenderer
-                          fields={BASS_FIELDS}
-                          state={{
-                            defaultPreset: resolved.defaultPreset,
-                            effectivePreset: effective,
-                            patch: currentPatch,
-                          } satisfies EventSetupEditState}
-                          onPatch={(nextPatch) =>
-                            setSetupDraftBySlot((prev) => ({
-                              ...prev,
-                              [selectedSetupMusician.slotKey]: nextPatch,
-                            }))
-                          }
-                        />
-                      </SetupSection>
-                      <SetupSection title="Monitoring">
-                        <MonitoringEditor
-                          effectiveMonitoring={effective.monitoring}
-                          patch={currentPatch}
-                          diffMeta={resolved.diffMeta}
-                          onChangePatch={(nextPatch) =>
-                            setSetupDraftBySlot((prev) => ({
-                              ...prev,
-                              [selectedSetupMusician.slotKey]: nextPatch,
-                            }))
-                          }
-                        />
-                      </SetupSection>
-                    </div>
-                  ) : (
-                    <div className="setup-editor-grid">
-                      <div className="setup-editor-column">
-                      {selectedSetupMusician.role === "drums" && drumSetup ? (
-                        <DrumsPartsEditor
-                          setup={drumSetup}
-                          onChange={(nextSetup) => {
-                            const targetInputs = resolveDrumInputs(nextSetup);
-                            setSetupDraftBySlot((prev) => {
-                              const prior = prev[selectedSetupMusician.slotKey];
-                              const nextInputsPatch = buildInputsPatchFromTarget(resolved.defaultPreset.inputs, targetInputs);
-                              return {
-                                ...prev,
-                                [selectedSetupMusician.slotKey]: {
-                                  ...prior,
-                                  ...(Object.keys(nextInputsPatch).length > 0 ? { inputs: nextInputsPatch } : {}),
-                                },
-                              };
-                            });
-                          }}
-                        />
-                      ) : null}
-                      <SelectedInputsList
-                        effectiveInputs={effective.inputs}
-                        inputDiffMeta={resolved.diffMeta.inputs}
-                        availableInputs={selectedSetupMusician.role === "drums" ? [] : availableInputs}
-                        nonRemovableKeys={selectedSetupMusician.role === "drums" ? ["dr_kick_out", "dr_kick_in", "dr_snare1_top", "dr_snare1_bottom"] : []}
-                        onRemoveInput={(key) => {
-                          setSetupDraftBySlot((prev) => {
-                            const prior = prev[selectedSetupMusician.slotKey];
-                            const nextRemove = Array.from(new Set([...(prior?.inputs?.removeKeys ?? []), key]));
-                            const nextAdd = (prior?.inputs?.add ?? []).filter((item) => item.key !== key);
-                            return {
-                              ...prev,
-                              [selectedSetupMusician.slotKey]: {
-                                ...prior,
-                                inputs: { ...prior?.inputs, removeKeys: nextRemove, add: nextAdd },
-                              },
-                            };
-                          });
-                        }}
-                        onAddInput={(input) => {
-                          setSetupDraftBySlot((prev) => {
-                            const prior = prev[selectedSetupMusician.slotKey];
-                            const hasInput = (prior?.inputs?.add ?? []).some((item) => item.key === input.key);
-                            if (hasInput) return prev;
-                            return {
-                              ...prev,
-                              [selectedSetupMusician.slotKey]: {
-                                ...prior,
-                                inputs: {
-                                  ...prior?.inputs,
-                                  add: [...(prior?.inputs?.add ?? []), input],
-                                  removeKeys: (prior?.inputs?.removeKeys ?? []).filter((item) => item !== input.key),
-                                },
-                              },
-                            };
-                          });
-                        }}
+      <ModalOverlay
+        open={Boolean(editingSetup)}
+        onClose={() => {
+          setEditingSetup(null);
+          setSetupDraftBySlot({});
+          setSelectedSetupSlotKey("");
+        }}
+      >
+        {editingSetup && selectedSetupMusician
+          ? (() => {
+              const currentPatch =
+                setupDraftBySlot[selectedSetupMusician.slotKey];
+              const { resolved, effective } = resolveSlotSetup(
+                selectedSetupMusician.role,
+                selectedSetupMusician.musicianId,
+                currentPatch,
+              );
+              const availableInputs = (
+                GROUP_INPUT_LIBRARY[
+                  selectedSetupMusician.role as keyof typeof GROUP_INPUT_LIBRARY
+                ] ?? []
+              ).filter(
+                (item: InputChannel) =>
+                  !effective.inputs.some(
+                    (effectiveItem) => effectiveItem.key === item.key,
+                  ),
+              );
+              const drumSetup =
+                selectedSetupMusician.role === "drums"
+                  ? inferDrumSetupFromLegacyInputs(effective.inputs)
+                  : null;
+              const modalErrors = validateEffectivePresets(
+                setupMusicians.map((slot) => {
+                  const slotPatch = setupDraftBySlot[slot.slotKey];
+                  const { resolved: slotResolved } = resolveSlotSetup(
+                    slot.role,
+                    slot.musicianId,
+                    slotPatch,
+                  );
+                  return {
+                    group: slot.role,
+                    preset: {
+                      inputs: slotResolved.effectiveInputs,
+                      monitoring: slotResolved.effectiveMonitoring,
+                    },
+                  };
+                }),
+              );
+              return (
+                <div
+                  className="selector-dialog selector-dialog--setup-editor"
+                  role="dialog"
+                  aria-modal="true"
+                  ref={setupEditorRef}
+                >
+                  <button
+                    type="button"
+                    className="modal-close"
+                    onClick={() => {
+                      setEditingSetup(null);
+                      setSetupDraftBySlot({});
+                      setSelectedSetupSlotKey("");
+                    }}
+                    aria-label="Close"
+                  >
+                    ×
+                  </button>
+                  <SetupModalShell
+                    open={Boolean(editingSetup && selectedSetupMusician)}
+                    title={`Setup for this event – ${selectedSetupMusician.musicianName} (${selectedSetupMusician.role})`}
+                    subtitle="Changes here apply only to this event. Band defaults are not modified."
+                    isDirty={computeIsDirty(currentPatch)}
+                    onBack={() => {
+                      setEditingSetup(null);
+                      setSetupDraftBySlot({});
+                      setSelectedSetupSlotKey("");
+                    }}
+                    onReset={() =>
+                      setSetupDraftBySlot((prev) => ({
+                        ...prev,
+                        [selectedSetupMusician.slotKey]: resetOverrides(),
+                      }))
+                    }
+                    saveDisabled={modalErrors.length > 0}
+                    onSave={() => {
+                      applySetupDraftOverrides(setupDraftBySlot);
+                      setEditingSetup(null);
+                      setSetupDraftBySlot({});
+                      setSelectedSetupSlotKey("");
+                    }}
+                  >
+                    <div className="setup-musician-layout">
+                      <MusicianSelector
+                        items={setupMusicians.map((item) => ({
+                          ...item,
+                          hasOverride: Boolean(setupDraftBySlot[item.slotKey]),
+                        }))}
+                        selectedSlotKey={selectedSetupMusician.slotKey}
+                        onSelect={setSelectedSetupSlotKey}
                       />
-                      </div>
-                      <div className="setup-editor-column">
-                        <SetupSection title="Monitoring">
-                          <MonitoringEditor
-                            effectiveMonitoring={effective.monitoring}
-                            patch={currentPatch}
-                            diffMeta={resolved.diffMeta}
-                            onChangePatch={(nextPatch) =>
-                              setSetupDraftBySlot((prev) => ({
-                                ...prev,
-                                [selectedSetupMusician.slotKey]: nextPatch,
-                              }))
-                            }
-                          />
-                        </SetupSection>
-                      </div>
+                      {selectedSetupMusician.role === "bass" ? (
+                        <div className="setup-editor-stack">
+                          <SetupSection title="Inputs">
+                            <SchemaRenderer
+                              fields={BASS_FIELDS}
+                              state={
+                                {
+                                  defaultPreset: resolved.defaultPreset,
+                                  effectivePreset: effective,
+                                  patch: currentPatch,
+                                } satisfies EventSetupEditState
+                              }
+                              onPatch={(nextPatch) =>
+                                setSetupDraftBySlot((prev) => ({
+                                  ...prev,
+                                  [selectedSetupMusician.slotKey]: nextPatch,
+                                }))
+                              }
+                            />
+                          </SetupSection>
+                          <SetupSection title="Monitoring">
+                            <MonitoringEditor
+                              effectiveMonitoring={effective.monitoring}
+                              patch={currentPatch}
+                              diffMeta={resolved.diffMeta}
+                              onChangePatch={(nextPatch) =>
+                                setSetupDraftBySlot((prev) => ({
+                                  ...prev,
+                                  [selectedSetupMusician.slotKey]: nextPatch,
+                                }))
+                              }
+                            />
+                          </SetupSection>
+                        </div>
+                      ) : (
+                        <div className="setup-editor-grid">
+                          <div className="setup-editor-column">
+                            {selectedSetupMusician.role === "drums" &&
+                            drumSetup ? (
+                              <DrumsPartsEditor
+                                setup={drumSetup}
+                                onChange={(nextSetup) => {
+                                  const targetInputs =
+                                    resolveDrumInputs(nextSetup);
+                                  setSetupDraftBySlot((prev) => {
+                                    const prior =
+                                      prev[selectedSetupMusician.slotKey];
+                                    const nextInputsPatch =
+                                      buildInputsPatchFromTarget(
+                                        resolved.defaultPreset.inputs,
+                                        targetInputs,
+                                      );
+                                    return {
+                                      ...prev,
+                                      [selectedSetupMusician.slotKey]: {
+                                        ...prior,
+                                        ...(Object.keys(nextInputsPatch)
+                                          .length > 0
+                                          ? { inputs: nextInputsPatch }
+                                          : {}),
+                                      },
+                                    };
+                                  });
+                                }}
+                              />
+                            ) : null}
+                            <SelectedInputsList
+                              effectiveInputs={effective.inputs}
+                              inputDiffMeta={resolved.diffMeta.inputs}
+                              availableInputs={
+                                selectedSetupMusician.role === "drums"
+                                  ? []
+                                  : availableInputs
+                              }
+                              nonRemovableKeys={
+                                selectedSetupMusician.role === "drums"
+                                  ? [
+                                      "dr_kick_out",
+                                      "dr_kick_in",
+                                      "dr_snare1_top",
+                                      "dr_snare1_bottom",
+                                    ]
+                                  : []
+                              }
+                              onRemoveInput={(key) => {
+                                setSetupDraftBySlot((prev) => {
+                                  const prior =
+                                    prev[selectedSetupMusician.slotKey];
+                                  const nextRemove = Array.from(
+                                    new Set([
+                                      ...(prior?.inputs?.removeKeys ?? []),
+                                      key,
+                                    ]),
+                                  );
+                                  const nextAdd = (
+                                    prior?.inputs?.add ?? []
+                                  ).filter((item) => item.key !== key);
+                                  return {
+                                    ...prev,
+                                    [selectedSetupMusician.slotKey]: {
+                                      ...prior,
+                                      inputs: {
+                                        ...prior?.inputs,
+                                        removeKeys: nextRemove,
+                                        add: nextAdd,
+                                      },
+                                    },
+                                  };
+                                });
+                              }}
+                              onAddInput={(input) => {
+                                setSetupDraftBySlot((prev) => {
+                                  const prior =
+                                    prev[selectedSetupMusician.slotKey];
+                                  const hasInput = (
+                                    prior?.inputs?.add ?? []
+                                  ).some((item) => item.key === input.key);
+                                  if (hasInput) return prev;
+                                  return {
+                                    ...prev,
+                                    [selectedSetupMusician.slotKey]: {
+                                      ...prior,
+                                      inputs: {
+                                        ...prior?.inputs,
+                                        add: [
+                                          ...(prior?.inputs?.add ?? []),
+                                          input,
+                                        ],
+                                        removeKeys: (
+                                          prior?.inputs?.removeKeys ?? []
+                                        ).filter((item) => item !== input.key),
+                                      },
+                                    },
+                                  };
+                                });
+                              }}
+                            />
+                          </div>
+                          <div className="setup-editor-column">
+                            <SetupSection title="Monitoring">
+                              <MonitoringEditor
+                                effectiveMonitoring={effective.monitoring}
+                                patch={currentPatch}
+                                diffMeta={resolved.diffMeta}
+                                onChangePatch={(nextPatch) =>
+                                  setSetupDraftBySlot((prev) => ({
+                                    ...prev,
+                                    [selectedSetupMusician.slotKey]: nextPatch,
+                                  }))
+                                }
+                              />
+                            </SetupSection>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
+                    {modalErrors.length > 0 ? (
+                      <div className="status status--error">
+                        {modalErrors.map((error) => (
+                          <p key={error}>{error}</p>
+                        ))}
+                      </div>
+                    ) : null}
+                  </SetupModalShell>
                 </div>
-                {modalErrors.length > 0 ? (
-                  <div className="status status--error">
-                    {modalErrors.map((error) => <p key={error}>{error}</p>)}
-                  </div>
-                ) : null}
-              </SetupModalShell>
-            </div>
-          );
-        })() : null}
+              );
+            })()
+          : null}
       </ModalOverlay>
 
-      <ModalOverlay open={isBackVocsModalOpen} onClose={() => setIsBackVocsModalOpen(false)}>
+      <ModalOverlay
+        open={isBackVocsModalOpen}
+        onClose={() => setIsBackVocsModalOpen(false)}
+      >
         <div ref={backVocsModalRef}>
           <ChangeBackVocsModal
             open={isBackVocsModalOpen}
             members={backVocalCandidates}
-            initialSelectedIds={sanitizeBackVocsSelection(new Set(selectedBackVocalIds), leadVocalIds)}
+            initialSelectedIds={sanitizeBackVocsSelection(
+              new Set(selectedBackVocalIds),
+              leadVocalIds,
+            )}
             saveDisabled={!defaultBackVocalRef}
-            saveError={!defaultBackVocalRef ? "No back vocal preset is available." : undefined}
+            saveError={
+              !defaultBackVocalRef
+                ? "No back vocal preset is available."
+                : undefined
+            }
             onCancel={() => setIsBackVocsModalOpen(false)}
             onSave={(nextSelectedIds) => {
-              const sanitizedSelectedIds = sanitizeBackVocsSelection(nextSelectedIds, leadVocalIds);
+              const sanitizedSelectedIds = sanitizeBackVocsSelection(
+                nextSelectedIds,
+                leadVocalIds,
+              );
               setBackVocalIds(Array.from(sanitizedSelectedIds));
               setIsBackVocsModalOpen(false);
             }}
@@ -2554,7 +3094,10 @@ function ProjectSetupPage({
         </div>
       </ModalOverlay>
 
-      <ModalOverlay open={Boolean(editing && setupData)} onClose={() => setEditing(null)}>
+      <ModalOverlay
+        open={Boolean(editing && setupData)}
+        onClose={() => setEditing(null)}
+      >
         {editing && setupData ? (
           <div
             className="selector-dialog selector-dialog--musician-select"
@@ -2615,36 +3158,88 @@ function ProjectSetupPage({
   );
 }
 
-
 type LibraryPageProps = {
   navigate: (path: string) => void;
   registerNavigationGuard: (guard: NavigationGuard | null) => void;
 };
 
-function LibraryBandsPage({ navigate, registerNavigationGuard }: LibraryPageProps) {
+function LibraryBandsPage({
+  navigate,
+  registerNavigationGuard,
+}: LibraryPageProps) {
   const [bands, setBands] = useState<LibraryBand[]>([]);
   const [query, setQuery] = useState("");
   useEffect(() => {
-    invoke<LibraryBand[]>("list_library_bands").then(setBands).catch(() => undefined);
+    invoke<LibraryBand[]>("list_library_bands")
+      .then(setBands)
+      .catch(() => undefined);
     registerNavigationGuard(null);
     return () => registerNavigationGuard(null);
   }, [registerNavigationGuard]);
   const filtered = bands.filter((band) => {
     const q = query.trim().toLowerCase();
-    return !q || band.name.toLowerCase().includes(q) || band.code.toLowerCase().includes(q);
+    return (
+      !q ||
+      band.name.toLowerCase().includes(q) ||
+      band.code.toLowerCase().includes(q)
+    );
   });
   return (
     <section className="panel">
-      <div className="panel__header"><h2>Bands</h2><button type="button" onClick={() => navigate('/library/bands/new')}>+ New Band</button></div>
-      <input placeholder="Search by name/code" value={query} onChange={(event) => setQuery(event.target.value)} />
+      <div className="panel__header">
+        <h2>Bands</h2>
+        <button type="button" onClick={() => navigate("/library/bands/new")}>
+          + New Band
+        </button>
+      </div>
+      <input
+        placeholder="Search by name/code"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+      />
       <div className="library-table">
         {filtered.map((band) => (
           <div key={band.id} className="library-row">
-            <span>{band.name}</span><span>{band.code}</span><span>{band.members.length}</span><span>{Object.keys(band.defaultLineup ?? {}).join(', ') || '—'}</span>
+            <span>{band.name}</span>
+            <span>{band.code}</span>
+            <span>{band.members.length}</span>
+            <span>
+              {Object.keys(band.defaultLineup ?? {}).join(", ") || "—"}
+            </span>
             <div className="project-actions">
-              <button type="button" className="button-secondary" onClick={() => navigate(`/library/bands/${encodeURIComponent(band.id)}`)}>Edit</button>
-              <button type="button" className="button-secondary" onClick={async () => { const copy = await invoke<LibraryBand>('duplicate_library_band', { bandId: band.id }); navigate(`/library/bands/${encodeURIComponent(copy.id)}`); }}>Duplicate</button>
-              <button type="button" className="button-secondary" onClick={async () => { if (!window.confirm(`Delete ${band.name}?`)) return; await invoke('delete_library_band', { bandId: band.id }); setBands(await invoke<LibraryBand[]>('list_library_bands')); }}>Delete</button>
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() =>
+                  navigate(`/library/bands/${encodeURIComponent(band.id)}`)
+                }
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={async () => {
+                  const copy = await invoke<LibraryBand>(
+                    "duplicate_library_band",
+                    { bandId: band.id },
+                  );
+                  navigate(`/library/bands/${encodeURIComponent(copy.id)}`);
+                }}
+              >
+                Duplicate
+              </button>
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={async () => {
+                  if (!window.confirm(`Delete ${band.name}?`)) return;
+                  await invoke("delete_library_band", { bandId: band.id });
+                  setBands(await invoke<LibraryBand[]>("list_library_bands"));
+                }}
+              >
+                Delete
+              </button>
             </div>
           </div>
         ))}
@@ -2653,76 +3248,334 @@ function LibraryBandsPage({ navigate, registerNavigationGuard }: LibraryPageProp
   );
 }
 
-function LibraryBandDetailPage({ bandId, navigate, registerNavigationGuard }: LibraryPageProps & { bandId: string }) {
-  const isNew = bandId === 'new';
+function LibraryBandDetailPage({
+  bandId,
+  navigate,
+  registerNavigationGuard,
+}: LibraryPageProps & { bandId: string }) {
+  const isNew = bandId === "new";
   const [musicians, setMusicians] = useState<LibraryMusician[]>([]);
-  const [band, setBand] = useState<LibraryBand>({ id: '', name: '', code: '', description: '', constraints: { drums: { min: 0, max: 1 }, bass: { min: 0, max: 1 }, guitar: { min: 0, max: 1 }, keys: { min: 0, max: 1 }, vocs: { min: 0, max: 4 } }, roleConstraints: undefined, defaultLineup: {}, members: [], contacts: [], messages: [] });
-  const initialRef = useRef('');
-  const [status, setStatus] = useState('');
+  const [band, setBand] = useState<LibraryBand>({
+    id: "",
+    name: "",
+    code: "",
+    description: "",
+    constraints: {
+      drums: { min: 0, max: 1 },
+      bass: { min: 0, max: 1 },
+      guitar: { min: 0, max: 1 },
+      keys: { min: 0, max: 1 },
+      vocs: { min: 0, max: 4 },
+    },
+    roleConstraints: undefined,
+    defaultLineup: {},
+    members: [],
+    contacts: [],
+    messages: [],
+  });
+  const initialRef = useRef("");
+  const [status, setStatus] = useState("");
   useEffect(() => {
     (async () => {
-      setMusicians(await invoke<LibraryMusician[]>('list_library_musicians'));
+      setMusicians(await invoke<LibraryMusician[]>("list_library_musicians"));
       if (!isNew) {
-        const loaded = await invoke<LibraryBand>('read_library_band', { bandId });
+        const loaded = await invoke<LibraryBand>("read_library_band", {
+          bandId,
+        });
         setBand(loaded);
         initialRef.current = JSON.stringify(loaded);
       } else {
         initialRef.current = JSON.stringify(band);
       }
-    })().catch(() => setStatus('Failed to load band'));
+    })().catch(() => setStatus("Failed to load band"));
   }, [bandId, isNew]);
   const isDirty = JSON.stringify(band) !== initialRef.current;
   useEffect(() => {
-    registerNavigationGuard({ isDirty: () => isDirty, save: async () => { await saveBand(); } });
+    registerNavigationGuard({
+      isDirty: () => isDirty,
+      save: async () => {
+        await saveBand();
+      },
+    });
     return () => registerNavigationGuard(null);
   });
   const saveBand = useCallback(async () => {
     const id = band.id || toIdSlug(band.code || band.name);
     const next = { ...band, id };
-    const errors = validateLineup(next.defaultLineup ?? {}, next.constraints, ROLE_ORDER, next.roleConstraints);
+    const errors = validateLineup(
+      next.defaultLineup ?? {},
+      next.constraints,
+      ROLE_ORDER,
+      next.roleConstraints,
+    );
     if (errors.length > 0) {
-      setStatus(errors.join(' '));
+      setStatus(errors.join(" "));
       return;
     }
-    await invoke('upsert_library_band', { band: next });
+    await invoke("upsert_library_band", { band: next });
     initialRef.current = JSON.stringify(next);
     setBand(next);
-    setStatus('Saved.');
+    setStatus("Saved.");
   }, [band]);
   return (
     <section className="panel">
-      <div className="panel__header"><h2>{isNew ? 'New Band' : `Band: ${band.name}`}</h2></div>
-      <div className="form-grid">
-        <label>Name<input value={band.name} onChange={(e) => setBand({ ...band, name: e.target.value })} /></label>
-        <label>Code<input value={band.code} onChange={(e) => setBand({ ...band, code: e.target.value })} /></label>
-        <label>Description<input value={band.description ?? ''} onChange={(e) => setBand({ ...band, description: e.target.value })} /></label>
+      <div className="panel__header">
+        <h2>{isNew ? "New Band" : `Band: ${band.name}`}</h2>
       </div>
-      <article className="lineup-card"><div className="panel__header"><h3>Members</h3><button type="button" className="button-secondary" onClick={() => {
-        const first = musicians[0]; if (!first) return;
-        setBand({ ...band, members: [...band.members, { musicianId: first.id, roles: ['vocs'], isDefault: false }] });
-      }}>+ Add member</button></div>
-        <div className="lineup-list">{band.members.map((member, index) => (
-          <div key={`${member.musicianId}-${index}`} className="lineup-list__row"><span>{musicians.find((m) => m.id === member.musicianId)?.name ?? member.musicianId}</span><span>{member.roles.join(', ')}</span><button type="button" className="button-secondary" onClick={() => setBand({ ...band, members: band.members.filter((_, idx) => idx !== index) })}>Remove</button></div>
-        ))}</div></article>
-      <article className="lineup-card"><div className="panel__header"><h3>Default lineup</h3></div>
-        <div className="lineup-grid">{ROLE_ORDER.map((role) => {
-          const constraint = normalizeRoleConstraint(role, band.constraints[role]);
-          const slots = normalizeLineupValue((band.defaultLineup ?? {})[role], constraint.max);
-          return <div key={role} className="lineup-card"><strong>{getRoleDisplayName(role, band.constraints, band.roleConstraints)}</strong>{Array.from({ length: Math.max(constraint.max, 1) }).map((_, idx) => <div key={idx} className="lineup-list__row"><span>{musicians.find((m) => m.id === slots[idx])?.name ?? 'Not set'}</span><button type="button" className="button-secondary" onClick={() => {
-            const selected = musicians[idx % Math.max(musicians.length, 1)];
-            if (!selected) return;
-            const current = normalizeLineupValue((band.defaultLineup ?? {})[role], constraint.max);
-            while (current.length < Math.max(constraint.max, idx + 1)) current.push('');
-            current[idx] = selected.id;
-            setBand({ ...band, defaultLineup: { ...(band.defaultLineup ?? {}), [role]: constraint.max === 1 ? current[0] : current.filter(Boolean) } });
-          }}>Change</button></div>)}</div>;
-        })}</div></article>
-      <article className="lineup-card"><div className="panel__header"><h3>Contacts</h3><button type="button" className="button-secondary" onClick={() => setBand({ ...band, contacts: [...band.contacts, { id: crypto.randomUUID(), name: 'New Contact' }] })}>+ Add contact</button></div>
-        {band.contacts.map((contact) => <div key={contact.id} className="lineup-list__row"><input value={contact.name} onChange={(e) => setBand({ ...band, contacts: band.contacts.map((item) => item.id === contact.id ? { ...item, name: e.target.value } : item) })} /><button type="button" className="button-secondary" onClick={() => setBand({ ...band, contacts: band.contacts.filter((item) => item.id !== contact.id) })}>Remove</button></div>)}</article>
-      <article className="lineup-card"><div className="panel__header"><h3>Messages</h3><button type="button" className="button-secondary" onClick={() => setBand({ ...band, messages: [...band.messages, { id: crypto.randomUUID(), name: 'New Message', body: '' }] })}>+ Add message</button></div>
-        {band.messages.map((message) => <label key={message.id}>{message.name}<textarea value={message.body} onChange={(e) => setBand({ ...band, messages: band.messages.map((item) => item.id === message.id ? { ...item, body: e.target.value } : item) })} /></label>)}</article>
+      <div className="form-grid">
+        <label>
+          Name
+          <input
+            value={band.name}
+            onChange={(e) => setBand({ ...band, name: e.target.value })}
+          />
+        </label>
+        <label>
+          Code
+          <input
+            value={band.code}
+            onChange={(e) => setBand({ ...band, code: e.target.value })}
+          />
+        </label>
+        <label>
+          Description
+          <input
+            value={band.description ?? ""}
+            onChange={(e) => setBand({ ...band, description: e.target.value })}
+          />
+        </label>
+      </div>
+      <article className="lineup-card">
+        <div className="panel__header">
+          <h3>Members</h3>
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={() => {
+              const first = musicians[0];
+              if (!first) return;
+              setBand({
+                ...band,
+                members: [
+                  ...band.members,
+                  { musicianId: first.id, roles: ["vocs"], isDefault: false },
+                ],
+              });
+            }}
+          >
+            + Add member
+          </button>
+        </div>
+        <div className="lineup-list">
+          {band.members.map((member, index) => (
+            <div
+              key={`${member.musicianId}-${index}`}
+              className="lineup-list__row"
+            >
+              <span>
+                {musicians.find((m) => m.id === member.musicianId)?.name ??
+                  member.musicianId}
+              </span>
+              <span>{member.roles.join(", ")}</span>
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() =>
+                  setBand({
+                    ...band,
+                    members: band.members.filter((_, idx) => idx !== index),
+                  })
+                }
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      </article>
+      <article className="lineup-card">
+        <div className="panel__header">
+          <h3>Default lineup</h3>
+        </div>
+        <div className="lineup-grid">
+          {ROLE_ORDER.map((role) => {
+            const constraint = normalizeRoleConstraint(
+              role,
+              band.constraints[role],
+            );
+            const slots = normalizeLineupValue(
+              (band.defaultLineup ?? {})[role],
+              constraint.max,
+            );
+            return (
+              <div key={role} className="lineup-card">
+                <strong>
+                  {getRoleDisplayName(
+                    role,
+                    band.constraints,
+                    band.roleConstraints,
+                  )}
+                </strong>
+                {Array.from({ length: Math.max(constraint.max, 1) }).map(
+                  (_, idx) => (
+                    <div key={idx} className="lineup-list__row">
+                      <span>
+                        {musicians.find((m) => m.id === slots[idx])?.name ??
+                          "Not set"}
+                      </span>
+                      <button
+                        type="button"
+                        className="button-secondary"
+                        onClick={() => {
+                          const selected =
+                            musicians[idx % Math.max(musicians.length, 1)];
+                          if (!selected) return;
+                          const current = normalizeLineupValue(
+                            (band.defaultLineup ?? {})[role],
+                            constraint.max,
+                          );
+                          while (
+                            current.length < Math.max(constraint.max, idx + 1)
+                          )
+                            current.push("");
+                          current[idx] = selected.id;
+                          setBand({
+                            ...band,
+                            defaultLineup: {
+                              ...(band.defaultLineup ?? {}),
+                              [role]:
+                                constraint.max === 1
+                                  ? current[0]
+                                  : current.filter(Boolean),
+                            },
+                          });
+                        }}
+                      >
+                        Change
+                      </button>
+                    </div>
+                  ),
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </article>
+      <article className="lineup-card">
+        <div className="panel__header">
+          <h3>Contacts</h3>
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={() =>
+              setBand({
+                ...band,
+                contacts: [
+                  ...band.contacts,
+                  { id: crypto.randomUUID(), name: "New Contact" },
+                ],
+              })
+            }
+          >
+            + Add contact
+          </button>
+        </div>
+        {band.contacts.map((contact) => (
+          <div key={contact.id} className="lineup-list__row">
+            <input
+              value={contact.name}
+              onChange={(e) =>
+                setBand({
+                  ...band,
+                  contacts: band.contacts.map((item) =>
+                    item.id === contact.id
+                      ? { ...item, name: e.target.value }
+                      : item,
+                  ),
+                })
+              }
+            />
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={() =>
+                setBand({
+                  ...band,
+                  contacts: band.contacts.filter(
+                    (item) => item.id !== contact.id,
+                  ),
+                })
+              }
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+      </article>
+      <article className="lineup-card">
+        <div className="panel__header">
+          <h3>Messages</h3>
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={() =>
+              setBand({
+                ...band,
+                messages: [
+                  ...band.messages,
+                  { id: crypto.randomUUID(), name: "New Message", body: "" },
+                ],
+              })
+            }
+          >
+            + Add message
+          </button>
+        </div>
+        {band.messages.map((message) => (
+          <label key={message.id}>
+            {message.name}
+            <textarea
+              value={message.body}
+              onChange={(e) =>
+                setBand({
+                  ...band,
+                  messages: band.messages.map((item) =>
+                    item.id === message.id
+                      ? { ...item, body: e.target.value }
+                      : item,
+                  ),
+                })
+              }
+            />
+          </label>
+        ))}
+      </article>
       {status ? <p className="status status--error">{status}</p> : null}
-      <div className="setup-action-bar"><button type="button" className="button-secondary" onClick={() => navigate('/library/bands')}>Back</button><button type="button" className="button-secondary" onClick={() => navigate('/library/bands')}>Cancel</button><button type="button" onClick={async () => { await saveBand(); navigate('/library/bands'); }}>Save</button></div>
+      <div className="setup-action-bar">
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={() => navigate("/library/bands")}
+        >
+          Back
+        </button>
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={() => navigate("/library/bands")}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={async () => {
+            await saveBand();
+            navigate("/library/bands");
+          }}
+        >
+          Save
+        </button>
+      </div>
     </section>
   );
 }
@@ -2731,11 +3584,137 @@ function LibraryMusiciansPage({ registerNavigationGuard }: LibraryPageProps) {
   const [items, setItems] = useState<LibraryMusician[]>([]);
   const [editing, setEditing] = useState<LibraryMusician | null>(null);
   const [draft, setDraft] = useState<LibraryMusician | null>(null);
-  const [status, setStatus] = useState('');
-  const isDirty = Boolean(editing && draft && JSON.stringify(editing) !== JSON.stringify(draft));
-  useEffect(() => { invoke<LibraryMusician[]>('list_library_musicians').then(setItems).catch(() => setStatus('Failed to load musicians')); }, []);
-  useEffect(() => { registerNavigationGuard(editing ? { isDirty: () => isDirty, save: async () => { if (draft) await invoke('upsert_library_musician', { musician: draft }); } } : null); return () => registerNavigationGuard(null); }, [editing, isDirty, draft, registerNavigationGuard]);
-  return <LibrarySimpleEntityPage title="Musicians" status={status} onCreate={() => { const next = { id: crypto.randomUUID(), name: '', defaultRoles: [], notes: '' }; setEditing(next); setDraft(next); }} rows={items.map((item) => ({ id: item.id, name: item.name, detail: item.defaultRoles.join(', ') }))} onEdit={(id) => { const selected = items.find((item) => item.id === id); if (!selected) return; setEditing(selected); setDraft({ ...selected }); }} onDelete={async (id) => { await invoke('delete_library_musician', { musicianId: id }); setItems(await invoke<LibraryMusician[]>('list_library_musicians')); }} modal={draft ? <div className="form-grid"><label>Name<input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label><label>Gender<input value={draft.gender ?? ''} onChange={(e) => setDraft({ ...draft, gender: e.target.value })} /></label><label>Default roles<input value={draft.defaultRoles.join(', ')} onChange={(e) => setDraft({ ...draft, defaultRoles: e.target.value.split(',').map((v) => v.trim()).filter(Boolean) })} /></label><label>Notes<textarea value={draft.notes ?? ''} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} /></label><div className="modal-actions"><button type="button" className="button-secondary" onClick={() => { setEditing(null); setDraft(null); }}>Cancel</button><button type="button" onClick={async () => { if (!draft) return; await invoke('upsert_library_musician', { musician: { ...draft, id: draft.id || toIdSlug(draft.name) } }); setItems(await invoke<LibraryMusician[]>('list_library_musicians')); setEditing(null); setDraft(null); }}>Save</button></div></div> : null} onCloseModal={() => { setEditing(null); setDraft(null); }} />;
+  const [status, setStatus] = useState("");
+  const isDirty = Boolean(
+    editing && draft && JSON.stringify(editing) !== JSON.stringify(draft),
+  );
+  useEffect(() => {
+    invoke<LibraryMusician[]>("list_library_musicians")
+      .then(setItems)
+      .catch(() => setStatus("Failed to load musicians"));
+  }, []);
+  useEffect(() => {
+    registerNavigationGuard(
+      editing
+        ? {
+            isDirty: () => isDirty,
+            save: async () => {
+              if (draft)
+                await invoke("upsert_library_musician", { musician: draft });
+            },
+          }
+        : null,
+    );
+    return () => registerNavigationGuard(null);
+  }, [editing, isDirty, draft, registerNavigationGuard]);
+  return (
+    <LibrarySimpleEntityPage
+      title="Musicians"
+      status={status}
+      onCreate={() => {
+        const next = {
+          id: crypto.randomUUID(),
+          name: "",
+          defaultRoles: [],
+          notes: "",
+        };
+        setEditing(next);
+        setDraft(next);
+      }}
+      rows={items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        detail: item.defaultRoles.join(", "),
+      }))}
+      onEdit={(id) => {
+        const selected = items.find((item) => item.id === id);
+        if (!selected) return;
+        setEditing(selected);
+        setDraft({ ...selected });
+      }}
+      onDelete={async (id) => {
+        await invoke("delete_library_musician", { musicianId: id });
+        setItems(await invoke<LibraryMusician[]>("list_library_musicians"));
+      }}
+      modal={
+        draft ? (
+          <div className="form-grid">
+            <label>
+              Name
+              <input
+                value={draft.name}
+                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+              />
+            </label>
+            <label>
+              Gender
+              <input
+                value={draft.gender ?? ""}
+                onChange={(e) => setDraft({ ...draft, gender: e.target.value })}
+              />
+            </label>
+            <label>
+              Default roles
+              <input
+                value={draft.defaultRoles.join(", ")}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    defaultRoles: e.target.value
+                      .split(",")
+                      .map((v) => v.trim())
+                      .filter(Boolean),
+                  })
+                }
+              />
+            </label>
+            <label>
+              Notes
+              <textarea
+                value={draft.notes ?? ""}
+                onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
+              />
+            </label>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => {
+                  setEditing(null);
+                  setDraft(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!draft) return;
+                  await invoke("upsert_library_musician", {
+                    musician: {
+                      ...draft,
+                      id: draft.id || toIdSlug(draft.name),
+                    },
+                  });
+                  setItems(
+                    await invoke<LibraryMusician[]>("list_library_musicians"),
+                  );
+                  setEditing(null);
+                  setDraft(null);
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        ) : null
+      }
+      onCloseModal={() => {
+        setEditing(null);
+        setDraft(null);
+      }}
+    />
+  );
 }
 
 function LibrarySimpleEntityPage({
@@ -2759,14 +3738,45 @@ function LibrarySimpleEntityPage({
 }) {
   return (
     <section className="panel">
-      <div className="panel__header"><h2>{title}</h2><button type="button" onClick={onCreate}>+ New</button></div>
+      <div className="panel__header">
+        <h2>{title}</h2>
+        <button type="button" onClick={onCreate}>
+          + New
+        </button>
+      </div>
       {status ? <p className="status status--error">{status}</p> : null}
       <div className="library-table">
         {rows.map((row) => (
-          <div key={row.id} className="library-row"><span>{row.name}</span><span>{row.detail || '—'}</span><div className="project-actions"><button type="button" className="button-secondary" onClick={() => onEdit(row.id)}>Edit</button><button type="button" className="button-secondary" onClick={() => onDelete(row.id)}>Delete</button></div></div>
+          <div key={row.id} className="library-row">
+            <span>{row.name}</span>
+            <span>{row.detail || "—"}</span>
+            <div className="project-actions">
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => onEdit(row.id)}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => onDelete(row.id)}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
         ))}
       </div>
-      <ModalOverlay open={Boolean(modal)} onClose={onCloseModal}><div className="selector-dialog"><button type="button" className="modal-close" onClick={onCloseModal}>×</button>{modal}</div></ModalOverlay>
+      <ModalOverlay open={Boolean(modal)} onClose={onCloseModal}>
+        <div className="selector-dialog">
+          <button type="button" className="modal-close" onClick={onCloseModal}>
+            ×
+          </button>
+          {modal}
+        </div>
+      </ModalOverlay>
     </section>
   );
 }
@@ -2790,18 +3800,195 @@ function LibraryEntityCrud({
   const [items, setItems] = useState<Array<Record<string, unknown>>>([]);
   const [editing, setEditing] = useState<Record<string, unknown> | null>(null);
   const [draft, setDraft] = useState<Record<string, unknown> | null>(null);
-  const isDirty = Boolean(editing && draft && JSON.stringify(editing) !== JSON.stringify(draft));
-  useEffect(() => { invoke<Array<Record<string, unknown>>>(listCommand).then(setItems).catch(() => undefined); }, [listCommand]);
-  useEffect(() => { registerNavigationGuard(editing ? { isDirty: () => isDirty, save: async () => { if (draft) await invoke(upsertCommand, Object.fromEntries([[upsertCommand.includes('message') ? 'messageItem' : upsertCommand.includes('contact') ? 'contact' : 'instrument', draft]])); } } : null); return () => registerNavigationGuard(null); }, [editing, draft, isDirty, registerNavigationGuard, upsertCommand]);
-  const upsertArgName = upsertCommand.includes('message') ? 'messageItem' : upsertCommand.includes('contact') ? 'contact' : 'instrument';
-  const deleteArgName = deleteCommand.includes('message') ? 'messageId' : deleteCommand.includes('contact') ? 'contactId' : 'instrumentId';
-  return <LibrarySimpleEntityPage title={title} status="" onCreate={() => { const next = { id: crypto.randomUUID(), name: '', body: '', channels: 1, key: '' }; setEditing(next); setDraft(next); }} rows={items.map((item) => ({ id: String(item.id), name: String(item.name ?? item.id), detail: String(item.key ?? item.email ?? item.body ?? '') }))} onEdit={(id) => { const selected = items.find((item) => String(item.id) === id); if (!selected) return; setEditing(selected); setDraft({ ...selected }); }} onDelete={async (id) => { await invoke(deleteCommand, { [deleteArgName]: id }); setItems(await invoke<Array<Record<string, unknown>>>(listCommand)); }} modal={draft ? <div className="form-grid"><label>Name<input value={String(draft.name ?? '')} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label><label>ID<input value={String(draft.id ?? '')} onChange={(e) => setDraft({ ...draft, id: e.target.value })} /></label>{multiline ? <label>Body<textarea value={String(draft.body ?? '')} onChange={(e) => setDraft({ ...draft, body: e.target.value })} /></label> : <label>Details<input value={String((draft.key ?? draft.email ?? draft.notes) ?? '')} onChange={(e) => setDraft({ ...draft, key: e.target.value, email: e.target.value, notes: e.target.value })} /></label>}<div className="modal-actions"><button type="button" className="button-secondary" onClick={() => { setEditing(null); setDraft(null); }}>Cancel</button><button type="button" onClick={async () => { if (!draft) return; await invoke(upsertCommand, { [upsertArgName]: draft }); setItems(await invoke<Array<Record<string, unknown>>>(listCommand)); setEditing(null); setDraft(null); }}>Save</button></div></div> : null} onCloseModal={() => { setEditing(null); setDraft(null); }} />;
+  const isDirty = Boolean(
+    editing && draft && JSON.stringify(editing) !== JSON.stringify(draft),
+  );
+  useEffect(() => {
+    invoke<Array<Record<string, unknown>>>(listCommand)
+      .then(setItems)
+      .catch(() => undefined);
+  }, [listCommand]);
+  useEffect(() => {
+    registerNavigationGuard(
+      editing
+        ? {
+            isDirty: () => isDirty,
+            save: async () => {
+              if (draft)
+                await invoke(
+                  upsertCommand,
+                  Object.fromEntries([
+                    [
+                      upsertCommand.includes("message")
+                        ? "messageItem"
+                        : upsertCommand.includes("contact")
+                          ? "contact"
+                          : "instrument",
+                      draft,
+                    ],
+                  ]),
+                );
+            },
+          }
+        : null,
+    );
+    return () => registerNavigationGuard(null);
+  }, [editing, draft, isDirty, registerNavigationGuard, upsertCommand]);
+  const upsertArgName = upsertCommand.includes("message")
+    ? "messageItem"
+    : upsertCommand.includes("contact")
+      ? "contact"
+      : "instrument";
+  const deleteArgName = deleteCommand.includes("message")
+    ? "messageId"
+    : deleteCommand.includes("contact")
+      ? "contactId"
+      : "instrumentId";
+  return (
+    <LibrarySimpleEntityPage
+      title={title}
+      status=""
+      onCreate={() => {
+        const next = {
+          id: crypto.randomUUID(),
+          name: "",
+          body: "",
+          channels: 1,
+          key: "",
+        };
+        setEditing(next);
+        setDraft(next);
+      }}
+      rows={items.map((item) => ({
+        id: String(item.id),
+        name: String(item.name ?? item.id),
+        detail: String(item.key ?? item.email ?? item.body ?? ""),
+      }))}
+      onEdit={(id) => {
+        const selected = items.find((item) => String(item.id) === id);
+        if (!selected) return;
+        setEditing(selected);
+        setDraft({ ...selected });
+      }}
+      onDelete={async (id) => {
+        await invoke(deleteCommand, { [deleteArgName]: id });
+        setItems(await invoke<Array<Record<string, unknown>>>(listCommand));
+      }}
+      modal={
+        draft ? (
+          <div className="form-grid">
+            <label>
+              Name
+              <input
+                value={String(draft.name ?? "")}
+                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+              />
+            </label>
+            <label>
+              ID
+              <input
+                value={String(draft.id ?? "")}
+                onChange={(e) => setDraft({ ...draft, id: e.target.value })}
+              />
+            </label>
+            {multiline ? (
+              <label>
+                Body
+                <textarea
+                  value={String(draft.body ?? "")}
+                  onChange={(e) => setDraft({ ...draft, body: e.target.value })}
+                />
+              </label>
+            ) : (
+              <label>
+                Details
+                <input
+                  value={String(draft.key ?? draft.email ?? draft.notes ?? "")}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      key: e.target.value,
+                      email: e.target.value,
+                      notes: e.target.value,
+                    })
+                  }
+                />
+              </label>
+            )}
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => {
+                  setEditing(null);
+                  setDraft(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!draft) return;
+                  await invoke(upsertCommand, { [upsertArgName]: draft });
+                  setItems(
+                    await invoke<Array<Record<string, unknown>>>(listCommand),
+                  );
+                  setEditing(null);
+                  setDraft(null);
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        ) : null
+      }
+      onCloseModal={() => {
+        setEditing(null);
+        setDraft(null);
+      }}
+    />
+  );
 }
 
-function LibraryInstrumentsPage({ registerNavigationGuard }: LibraryPageProps) { return <LibraryEntityCrud commandPrefix="instrument" title="Instruments" listCommand="list_library_instruments" upsertCommand="upsert_library_instrument" deleteCommand="delete_library_instrument" registerNavigationGuard={registerNavigationGuard} />; }
-function LibraryContactsPage({ registerNavigationGuard }: LibraryPageProps) { return <LibraryEntityCrud commandPrefix="contact" title="Contacts" listCommand="list_library_contacts" upsertCommand="upsert_library_contact" deleteCommand="delete_library_contact" registerNavigationGuard={registerNavigationGuard} />; }
-function LibraryMessagesPage({ registerNavigationGuard }: LibraryPageProps) { return <LibraryEntityCrud commandPrefix="message" title="Messages" listCommand="list_library_messages" upsertCommand="upsert_library_message" deleteCommand="delete_library_message" registerNavigationGuard={registerNavigationGuard} multiline />; }
-
+function LibraryInstrumentsPage({ registerNavigationGuard }: LibraryPageProps) {
+  return (
+    <LibraryEntityCrud
+      commandPrefix="instrument"
+      title="Instruments"
+      listCommand="list_library_instruments"
+      upsertCommand="upsert_library_instrument"
+      deleteCommand="delete_library_instrument"
+      registerNavigationGuard={registerNavigationGuard}
+    />
+  );
+}
+function LibraryContactsPage({ registerNavigationGuard }: LibraryPageProps) {
+  return (
+    <LibraryEntityCrud
+      commandPrefix="contact"
+      title="Contacts"
+      listCommand="list_library_contacts"
+      upsertCommand="upsert_library_contact"
+      deleteCommand="delete_library_contact"
+      registerNavigationGuard={registerNavigationGuard}
+    />
+  );
+}
+function LibraryMessagesPage({ registerNavigationGuard }: LibraryPageProps) {
+  return (
+    <LibraryEntityCrud
+      commandPrefix="message"
+      title="Messages"
+      listCommand="list_library_messages"
+      upsertCommand="upsert_library_message"
+      deleteCommand="delete_library_message"
+      registerNavigationGuard={registerNavigationGuard}
+      multiline
+    />
+  );
+}
 
 function ExportResultModal({
   state,
@@ -2904,7 +4091,11 @@ function UnsavedChangesModal({
 }) {
   const dialogRef = useModalBehavior(open, onStay);
   return (
-    <ModalOverlay open={open} onClose={onStay} className="selector-overlay--topmost">
+    <ModalOverlay
+      open={open}
+      onClose={onStay}
+      className="selector-overlay--topmost"
+    >
       <div
         className="selector-dialog"
         role="alertdialog"
@@ -3083,7 +4274,9 @@ function ProjectPreviewPage({
     return () => {
       releasePreviewUrl();
       // Uses slug (human doc key), not id (UUID).
-      invoke("cleanup_preview_pdf", { previewKey: project?.slug || id }).catch(() => undefined);
+      invoke("cleanup_preview_pdf", { previewKey: project?.slug || id }).catch(
+        () => undefined,
+      );
     };
   }, [id, regeneratePreview]);
 
@@ -3130,7 +4323,7 @@ function ProjectPreviewPage({
       <div className="pdf-preview-panel">
         <div className="preview-container">
           {previewState.kind === "generating" ||
-            previewState.kind === "idle" ? (
+          previewState.kind === "idle" ? (
             <p className="subtle">Generating preview…</p>
           ) : null}
           {previewState.kind === "ready" && previewUrl ? (

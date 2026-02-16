@@ -1,8 +1,7 @@
-import { GROUP_ORDER, isGroup } from "../model/groups.js";
+import { GROUP_ORDER } from "../model/groups.js";
 import type { Group } from "../model/groups.js";
 import type {
   DocumentViewModel,
-  LineupValue,
   StageplanInstrumentKey,
   StageplanPerson,
   Musician,
@@ -17,7 +16,8 @@ import type {
 import type { DataRepository } from "../../infra/fs/repo.js";
 import { disambiguateInputKeys } from "./disambiguateInputKeys.js";
 import { reorderAcousticGuitars } from "./reorderAcousticGuitars.js";
-import { validateBandLeader } from "../rules/validateBandLeader.js";
+import { resolveDocumentContext } from "./resolveDocumentContext.js";
+import { resolveEffectivePresetsForProject } from "./resolveEffectivePresetsForProject.js";
 import { resolveStageplanPerson } from "../stageplan/resolveStageplanPerson.js";
 import { resolvePowerForStageplan } from "../stageplan/resolvePowerForStageplan.js";
 import {
@@ -29,15 +29,19 @@ import {
   resolveStereoPair,
 } from "../formatters/index.js";
 import { migrateLegacyDrumPresetRefs } from "../drums/drumSetup.js";
-import { drumRankByResolvedKey, resolveDrumInputs } from "../drums/resolveDrumInputs.js";
+import {
+  drumRankByResolvedKey,
+  resolveDrumInputs,
+} from "../drums/resolveDrumInputs.js";
 
 /* ============================================================
  * Helpers
  * ============================================================ */
 
 function buildMetaLine(project: Project): MetaLineModel {
+  const purpose = project.purpose === "event" ? "event" : "general";
   return formatProjectMetaLine({
-    purpose: project.purpose,
+    purpose,
     eventDate: project.eventDate,
     eventVenue: project.eventVenue,
     documentDate: project.documentDate,
@@ -49,12 +53,6 @@ function groupRank(group: Group): number {
   const i = GROUP_ORDER.indexOf(group);
   return i === -1 ? 999 : i;
 }
-
-function normalizeLineupValue(v: LineupValue | undefined): string[] {
-  if (!v) return [];
-  return Array.isArray(v) ? v : [v];
-}
-
 
 /* ============================================================
  * Notes filtering (no eval, strict predicates)
@@ -94,7 +92,9 @@ type DisplayRow = {
  * 1) Assign channels with odd-start stereo (except overheads)
  * ============================================================ */
 
-function assignChannelsWithOddStereoRule(sorted: BuiltInput[]): BuiltInputWithCh[] {
+function assignChannelsWithOddStereoRule(
+  sorted: BuiltInput[],
+): BuiltInputWithCh[] {
   const out: BuiltInputWithCh[] = [];
   let nextCh = 1;
 
@@ -181,7 +181,7 @@ function expandPresetItem(
   item: PresetItem,
   lineupGroup: Group,
   repo: DataRepository,
-  context?: { drummerLegacyRefs?: string[] }
+  context?: { drummerLegacyRefs?: string[] },
 ): BuiltInput[] {
   switch (item.kind) {
     case "drum_setup": {
@@ -196,7 +196,16 @@ function expandPresetItem(
     case "preset": {
       if (lineupGroup === "drums") {
         const legacyDrumRefs = context?.drummerLegacyRefs ?? [];
-        if (["standard_9", "standard_10", "sample_pad_mono", "sample_pad_stereo", "snare_2", "effect_snare"].includes(item.ref)) {
+        if (
+          [
+            "standard_9",
+            "standard_10",
+            "sample_pad_mono",
+            "sample_pad_stereo",
+            "snare_2",
+            "effect_snare",
+          ].includes(item.ref)
+        ) {
           if (!legacyDrumRefs.includes(item.ref)) {
             legacyDrumRefs.push(item.ref);
           }
@@ -207,7 +216,9 @@ function expandPresetItem(
       const ent: PresetEntity = repo.getPreset(item.ref);
 
       if (ent.type !== "preset") {
-        throw new Error(`PresetItem(kind=preset) ref="${item.ref}" points to type="${ent.type}"`);
+        throw new Error(
+          `PresetItem(kind=preset) ref="${item.ref}" points to type="${ent.type}"`,
+        );
       }
 
       return ent.inputs.map((ch: InputChannel) => ({
@@ -221,7 +232,9 @@ function expandPresetItem(
     case "vocal": {
       const ent: PresetEntity = repo.getPreset(item.ref);
       if (ent.type !== "vocal_type") {
-        throw new Error(`PresetItem(kind=vocal) ref="${item.ref}" points to type="${ent.type}"`);
+        throw new Error(
+          `PresetItem(kind=vocal) ref="${item.ref}" points to type="${ent.type}"`,
+        );
       }
 
       return [
@@ -233,8 +246,8 @@ function expandPresetItem(
           group: ent.group,
           note: ent.input.note
             ? ent.input.note
-              .replace("{ownerKey}", item.ownerKey)
-              .replace("{ownerLabel}", item.ownerLabel ?? item.ownerKey)
+                .replace("{ownerKey}", item.ownerKey)
+                .replace("{ownerLabel}", item.ownerLabel ?? item.ownerKey)
             : undefined,
         },
       ];
@@ -243,7 +256,9 @@ function expandPresetItem(
     case "talkback": {
       const ent: PresetEntity = repo.getPreset(item.ref);
       if (ent.type !== "talkback_type") {
-        throw new Error(`PresetItem(kind=talkback) ref="${item.ref}" points to type="${ent.type}"`);
+        throw new Error(
+          `PresetItem(kind=talkback) ref="${item.ref}" points to type="${ent.type}"`,
+        );
       }
 
       return [
@@ -255,8 +270,8 @@ function expandPresetItem(
           group: ent.group,
           note: ent.input.note
             ? ent.input.note
-              .replace("{ownerKey}", item.ownerKey)
-              .replace("{ownerLabel}", item.ownerLabel ?? item.ownerKey)
+                .replace("{ownerKey}", item.ownerKey)
+                .replace("{ownerLabel}", item.ownerLabel ?? item.ownerKey)
             : undefined,
         },
       ];
@@ -264,7 +279,6 @@ function expandPresetItem(
 
     case "monitor":
       return [];
-
   }
 }
 
@@ -283,7 +297,8 @@ const VOC_ORDER: Record<string, number> = {
 function vocalRank(input: BuiltInput): number {
   if (input.group !== "vocs") return 999;
 
-  if (input.key === "voc_lead" || input.key.startsWith("voc_lead_")) return VOC_ORDER.lead;
+  if (input.key === "voc_lead" || input.key.startsWith("voc_lead_"))
+    return VOC_ORDER.lead;
 
   if (input.key.startsWith("voc_back_")) {
     const suffix = input.key.slice("voc_back_".length).replace(/_\d+$/i, "");
@@ -304,13 +319,17 @@ function guitarRankByKey(input: BuiltInput): number {
  * Public API
  * ============================================================ */
 
-export function buildDocument(project: Project, repo: DataRepository): DocumentViewModel {
-  const band = repo.getBand(project.bandRef);
-  validateBandLeader(band, repo);
-  const legacyStageplanPersons = (band as { stageplanPersons?: unknown }).stageplanPersons;
+export function buildDocument(
+  project: Project,
+  repo: DataRepository,
+): DocumentViewModel {
+  const ctx = resolveDocumentContext(project, repo);
+  const band = ctx.band;
+  const legacyStageplanPersons = (band as { stageplanPersons?: unknown })
+    .stageplanPersons;
   if (legacyStageplanPersons) {
     console.warn(
-      `Ignoring legacy stageplanPersons for band "${band.id}". Use defaultLineup/musicians instead.`
+      `Ignoring legacy stageplanPersons for band "${band.id}". Use defaultLineup/musicians instead.`,
     );
   }
 
@@ -322,62 +341,62 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
   type MonitorTableRow = { no: string; output: string; note: string };
   const monitorTableRows: MonitorTableRow[] = [];
 
-  // Cache lineup musicians for monitor ordering logic
-  const membersById = new Map<string, Musician>();
-  const lineupMusicians: Array<{
-    group: Group;
-    musician: { id: string; gender?: string; presets?: PresetItem[] };
-  }> = [];
+  const effectivePresetItemsByMusicianId = new Map<string, PresetItem[]>();
+  for (const { group, musician } of ctx.lineupMusicians) {
+    const effectivePresetItems = resolveEffectivePresetsForProject({
+      project,
+      band,
+      musician,
+      group,
+      repo,
+    });
+    effectivePresetItemsByMusicianId.set(musician.id, effectivePresetItems);
 
-  const lineup = band.defaultLineup ?? {};
-  for (const [groupRaw, v] of Object.entries(lineup)) {
-    if (!isGroup(groupRaw)) continue;
-    const group = groupRaw as Group;
-
-    for (const musicianId of normalizeLineupValue(v as LineupValue)) {
-      const musician = repo.getMusician(musicianId);
-
-      membersById.set(musicianId, musician);
-      lineupMusicians.push({ group, musician });
-
-      const drummerLegacyRefs: string[] = [];
-      let hasExplicitDrumSetup = false;
-      for (const item of musician.presets ?? []) {
-        if (item.kind === "monitor") {
-          const ent = repo.getPreset(item.ref);
-          if (ent.type !== "monitor") {
-            throw new Error(
-              `PresetItem(kind=monitor) ref="${item.ref}" points to type="${ent.type}"`
-            );
-          }
-
-          // Pragmatické pravidlo: wireless=true => IEM, jinak wedge
-          const kind = ent.wireless === true ? "iem" : "wedge";
-          monitors.push({ id: ent.id, label: ent.label, kind });
-          continue;
+    const drummerLegacyRefs: string[] = [];
+    let hasExplicitDrumSetup = false;
+    for (const item of effectivePresetItems) {
+      if (item.kind === "monitor") {
+        const ent = repo.getPreset(item.ref);
+        if (ent.type !== "monitor") {
+          throw new Error(
+            `PresetItem(kind=monitor) ref="${item.ref}" points to type="${ent.type}"`,
+          );
         }
 
-        const expanded = expandPresetItem(item, group, repo, { drummerLegacyRefs });
-        if (item.kind === "drum_setup") hasExplicitDrumSetup = true;
-        if (item.kind === "preset" && /^vocal_lead/i.test(item.ref)) {
-          for (const input of expanded) {
-            input.ownerGender = musician.gender;
-          }
-        }
-        inputs.push(...expanded);
+        // Pragmatické pravidlo: wireless=true => IEM, jinak wedge
+        const kind = ent.wireless === true ? "iem" : "wedge";
+        monitors.push({ id: ent.id, label: ent.label, kind });
+        continue;
       }
 
-      if (group === "drums" && !hasExplicitDrumSetup && drummerLegacyRefs.length > 0) {
-        const resolvedFromLegacy = resolveDrumInputs(migrateLegacyDrumPresetRefs(drummerLegacyRefs));
-        inputs.push(
-          ...resolvedFromLegacy.map((ch) => ({
-            key: ch.key,
-            label: ch.label,
-            group: ch.group ?? group,
-            note: ch.note,
-          }))
-        );
+      const expanded = expandPresetItem(item, group, repo, {
+        drummerLegacyRefs,
+      });
+      if (item.kind === "drum_setup") hasExplicitDrumSetup = true;
+      if (item.kind === "preset" && /^vocal_lead/i.test(item.ref)) {
+        for (const input of expanded) {
+          input.ownerGender = musician.gender;
+        }
       }
+      inputs.push(...expanded);
+    }
+
+    if (
+      group === "drums" &&
+      !hasExplicitDrumSetup &&
+      drummerLegacyRefs.length > 0
+    ) {
+      const resolvedFromLegacy = resolveDrumInputs(
+        migrateLegacyDrumPresetRefs(drummerLegacyRefs),
+      );
+      inputs.push(
+        ...resolvedFromLegacy.map((ch) => ({
+          key: ch.key,
+          label: ch.label,
+          group: ch.group ?? group,
+          note: ch.note,
+        })),
+      );
     }
   }
 
@@ -388,9 +407,10 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
     "keys",
     "vocs",
   ];
-  const lineupByRole: Partial<Record<StageplanInstrumentKey, StageplanPerson>> = {};
+  const lineupByRole: Partial<Record<StageplanInstrumentKey, StageplanPerson>> =
+    {};
   for (const role of stageplanRoles) {
-    lineupByRole[role] = resolveStageplanPerson(band, role, membersById);
+    lineupByRole[role] = resolveStageplanPerson(band, role, ctx.membersById);
   }
   const powerByRole: Partial<
     Record<
@@ -402,7 +422,12 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
     >
   > = {};
   for (const role of stageplanRoles) {
-    const power = resolvePowerForStageplan(role, band, project, membersById);
+    const power = resolvePowerForStageplan(
+      role,
+      band,
+      project,
+      ctx.membersById,
+    );
     if (power) {
       powerByRole[role] = {
         hasPowerBadge: true,
@@ -419,37 +444,43 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
   // - note is taken from monitor entity label
   // ------------------------------------------------------------
 
-  const firstMonitorLabel = (m: { presets?: PresetItem[] } | undefined): string => {
+  const firstMonitorLabel = (m: Musician | undefined): string => {
     if (!m) return "";
-    const mon = (m.presets ?? []).find((p) => p.kind === "monitor");
+    const mon = (
+      effectivePresetItemsByMusicianId.get(m.id) ??
+      m.presets ??
+      []
+    ).find((p) => p.kind === "monitor");
     if (!mon) return "";
     const ent = repo.getPreset(mon.ref);
     if (ent.type !== "monitor") return "";
     return ent.label ?? "";
   };
 
-  const hasLeadPreset = (m: { presets?: PresetItem[] } | undefined): boolean => {
+  const hasLeadPreset = (m: Musician | undefined): boolean => {
     if (!m) return false;
-    return (m.presets ?? []).some((p) => p.kind === "preset" && /^vocal_lead/i.test(p.ref));
+    return (effectivePresetItemsByMusicianId.get(m.id) ?? m.presets ?? []).some(
+      (p) => p.kind === "preset" && /^vocal_lead/i.test(p.ref),
+    );
   };
 
-  const pickByGroup = (g: Group): Musician | undefined => {
-    return lineupMusicians.find((x) => x.group === g)?.musician;
-  };
+  const guitarM = ctx.pickByGroup("guitar");
+  const keysM = ctx.pickByGroup("keys");
+  const bassM = ctx.pickByGroup("bass");
+  const drumsM = ctx.pickByGroup("drums");
 
-  const guitarM = pickByGroup("guitar");
-  const keysM = pickByGroup("keys");
-  const bassM = pickByGroup("bass");
-  const drumsM = pickByGroup("drums");
-
-  const vocsAll = lineupMusicians.filter((x) => x.group === "vocs").map((x) => x.musician);
+  const vocsAll = ctx.lineupMusicians
+    .filter((x) => x.group === "vocs")
+    .map((x) => x.musician);
   const leads = vocsAll.filter((m) => hasLeadPreset(m));
   const leadResolved = leads.length > 0 ? leads : vocsAll;
   const leadVocalStageplanPersons = leadResolved.map((m) => ({
     firstName: m.firstName ?? null,
     isBandLeader: m.id === band.bandLeader,
   }));
-  const leadVocalCount = inputs.filter((input) => input.key.startsWith("voc_lead")).length;
+  const leadVocalCount = inputs.filter((input) =>
+    input.key.startsWith("voc_lead"),
+  ).length;
   const pushRow = (output: string, musician?: Musician | undefined) => {
     monitorTableRows.push({
       no: String(monitorTableRows.length + 1),
@@ -459,18 +490,33 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
   };
 
   // Base order
-  pushRow(formatMonitorLabel({ kind: "guitar" }, { leadCount: leadResolved.length }), guitarM);
+  pushRow(
+    formatMonitorLabel({ kind: "guitar" }, { leadCount: leadResolved.length }),
+    guitarM,
+  );
 
   leadResolved.forEach((m, index) => {
     pushRow(
-      formatMonitorLabel({ kind: "lead", index: index + 1, gender: m.gender }, { leadCount: leadResolved.length }),
-      m
+      formatMonitorLabel(
+        { kind: "lead", index: index + 1, gender: m.gender },
+        { leadCount: leadResolved.length },
+      ),
+      m,
     );
   });
 
-  pushRow(formatMonitorLabel({ kind: "keys" }, { leadCount: leadResolved.length }), keysM);
-  pushRow(formatMonitorLabel({ kind: "bass" }, { leadCount: leadResolved.length }), bassM);
-  pushRow(formatMonitorLabel({ kind: "drums" }, { leadCount: leadResolved.length }), drumsM);
+  pushRow(
+    formatMonitorLabel({ kind: "keys" }, { leadCount: leadResolved.length }),
+    keysM,
+  );
+  pushRow(
+    formatMonitorLabel({ kind: "bass" }, { leadCount: leadResolved.length }),
+    bassM,
+  );
+  pushRow(
+    formatMonitorLabel({ kind: "drums" }, { leadCount: leadResolved.length }),
+    drumsM,
+  );
 
   inputs.sort((a, b) => {
     const g = groupRank(a.group) - groupRank(b.group);
@@ -506,7 +552,12 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
 
     const indexMatch = /voc_lead_(\d+)/i.exec(input.key);
     const index = indexMatch ? Number(indexMatch[1]) : 1;
-    const label = formatVocalLabel({ role: "lead", index, gender: leadGenderByIndex[index - 1], leadCount: leadVocalCount });
+    const label = formatVocalLabel({
+      role: "lead",
+      index,
+      gender: leadGenderByIndex[index - 1],
+      leadCount: leadVocalCount,
+    });
 
     return { ...input, label };
   });
@@ -514,7 +565,12 @@ export function buildDocument(project: Project, repo: DataRepository): DocumentV
   const inputsWithCh = assignChannelsWithOddStereoRule(finalizedInputs);
   const inputRows = buildInputRows(inputsWithCh);
   const stageplanInputs = inputsWithCh
-    .filter((input) => input.label !== "---" && input.key !== "---" && !input.key.startsWith("spare_ch_"))
+    .filter(
+      (input) =>
+        input.label !== "---" &&
+        input.key !== "---" &&
+        !input.key.startsWith("spare_ch_"),
+    )
     .map((input) => ({
       channelNo: input.ch,
       label: input.label,
