@@ -1,6 +1,7 @@
 import { drumRankByResolvedKey } from "../drums/resolveDrumInputs.js";
 import { GROUP_ORDER, type Group } from "../model/groups.js";
 import type { InputChannel } from "../model/types.js";
+import { compareInputsForRole } from "./orderInputsForRole.js";
 
 function groupRank(group?: Group): number {
   if (!group) return GROUP_ORDER.length;
@@ -9,6 +10,9 @@ function groupRank(group?: Group): number {
 }
 
 function sortWithinGroup(group: Group | undefined, a: InputChannel, b: InputChannel): number {
+  const roleSpecific = compareInputsForRole(group, a, b);
+  if (group === "bass") return roleSpecific;
+
   if (group === "drums") {
     const drumRank = drumRankByResolvedKey(a.key) - drumRankByResolvedKey(b.key);
     if (drumRank !== 0) return drumRank;

@@ -40,7 +40,7 @@ export function UnsavedChangesModal({
             className="button-secondary"
             onClick={onSaveAndExit}
           >
-            Save & exit
+            Save & Exit
           </button>
           <button
             type="button"

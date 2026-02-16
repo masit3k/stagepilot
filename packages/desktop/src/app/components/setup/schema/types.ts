@@ -23,6 +23,8 @@ export type DropdownOption = {
 
 export type DropdownFieldDef = FieldBase<string, "dropdown"> & {
   options: (state: EventSetupEditState) => DropdownOption[];
+  hideVisibleLabel?: boolean;
+  ariaLabel?: string;
 };
 
 export type ToggleFieldDef = FieldBase<boolean, "toggle">;

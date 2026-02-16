@@ -62,6 +62,8 @@ export function buildBassFields(presets: BassPreset[]): SchemaNode[] {
     kind: "dropdown",
     id: "bass-connection",
     label: "Connection",
+    hideVisibleLabel: true,
+    ariaLabel: "Connection",
     options: () =>
       primaryPresets.map((preset) => ({
         value: preset.id,

@@ -17,6 +17,7 @@ import {
 import {
   summarizeEffectivePresetValidation,
   validateEffectivePresets,
+  normalizeBassConnectionOverridePatch,
 } from "../../../../../src/domain/rules/presetOverride";
 import type { Group } from "../../../../../src/domain/model/groups";
 import type {
@@ -561,9 +562,13 @@ export function ProjectSetupPage({
         (slot, slotIndex) => {
           if (!slot.musicianId) return slot;
           const override = draftOverrides[`${role}:${slotIndex}`];
+          const normalizedOverride = normalizeBassConnectionOverridePatch(
+            resolveSlotSetup(role as Group, slot.musicianId).resolved.defaultPreset,
+            override,
+          );
           return {
             musicianId: slot.musicianId,
-            ...(override ? { presetOverride: override } : {}),
+            ...(normalizedOverride ? { presetOverride: normalizedOverride } : {}),
           };
         },
       );
@@ -795,7 +800,10 @@ export function ProjectSetupPage({
                                         if (!setupSlot.musicianId) return;
                                         draftEntries[
                                           `${setupRole}:${setupIndex}`
-                                        ] = setupSlot.presetOverride;
+                                        ] = normalizeBassConnectionOverridePatch(
+                                          resolveSlotSetup(setupRole as Group, setupSlot.musicianId).resolved.defaultPreset,
+                                          setupSlot.presetOverride,
+                                        );
                                       });
                                     });
                                     setSetupDraftBySlot(draftEntries);

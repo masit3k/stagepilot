@@ -11,11 +11,13 @@ export function DropdownField({ field, state, onPatch }: DropdownFieldProps) {
   const value = field.getValue(state);
   const options = field.options(state);
   const isDefault = field.isDefault(state);
+  const controlId = `setup-${field.id}`;
+
   return (
     <div className={`setup-field-block ${!isDefault ? "setup-field-block--modified" : ""}`}>
-      <span className="setup-field-block__label">{field.label}</span>
+      {field.hideVisibleLabel ? null : <label className="setup-field-block__label" htmlFor={controlId}>{field.label}</label>}
       <div className="setup-field-row">
-        <select className="setup-field-control" value={value} onChange={(e) => onPatch(field.setValue(state, e.target.value))}>
+        <select id={controlId} aria-label={field.hideVisibleLabel ? (field.ariaLabel ?? field.label) : undefined} className="setup-field-control" value={value} onChange={(e) => onPatch(field.setValue(state, e.target.value))}>
           {options.map((option) => (
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}

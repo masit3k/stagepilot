@@ -12,6 +12,59 @@ import type {
  */
 export const DEFAULT_MONITOR_MIX_LIMIT = 6;
 
+const BASS_MAIN_CONNECTION_KEYS = new Set(["el_bass_xlr_amp", "el_bass_xlr_pedalboard"]);
+
+function normalizePatchShape(patch: PresetOverridePatch): PresetOverridePatch {
+  const add = patch.inputs?.add?.length ? patch.inputs.add : undefined;
+  const remove = patch.inputs?.remove?.length ? patch.inputs.remove : undefined;
+  const removeKeys = patch.inputs?.removeKeys?.length ? patch.inputs.removeKeys : undefined;
+  const replace = patch.inputs?.replace?.length ? patch.inputs.replace : undefined;
+  const update = patch.inputs?.update?.length ? patch.inputs.update : undefined;
+  const monitoring = patch.monitoring && Object.keys(patch.monitoring).length > 0 ? patch.monitoring : undefined;
+  const inputs = add || remove || removeKeys || replace || update
+    ? {
+      ...(add ? { add } : {}),
+      ...(remove ? { remove } : {}),
+      ...(removeKeys ? { removeKeys } : {}),
+      ...(replace ? { replace } : {}),
+      ...(update ? { update } : {}),
+    }
+    : undefined;
+  return {
+    ...(inputs ? { inputs } : {}),
+    ...(monitoring ? { monitoring } : {}),
+  };
+}
+
+export function normalizeBassConnectionOverridePatch(
+  defaultPreset: MusicianSetupPreset,
+  patch?: PresetOverridePatch | null,
+): PresetOverridePatch | undefined {
+  if (!patch) return undefined;
+  const defaultMainBass = defaultPreset.inputs.find((item) => BASS_MAIN_CONNECTION_KEYS.has(item.key));
+  if (!defaultMainBass) return normalizePatchShape(patch);
+
+  const add = patch.inputs?.add ?? [];
+  const replace = patch.inputs?.replace ?? [];
+  const legacyReplacement = add.find((item) => BASS_MAIN_CONNECTION_KEYS.has(item.key));
+
+  const normalizedAdd = add.filter((item) => !BASS_MAIN_CONNECTION_KEYS.has(item.key));
+  const normalizedReplace = replace.length > 0
+    ? replace
+    : legacyReplacement
+      ? [{ targetKey: defaultMainBass.key, with: legacyReplacement }]
+      : [];
+
+  return normalizePatchShape({
+    ...patch,
+    inputs: {
+      ...patch.inputs,
+      add: normalizedAdd,
+      replace: normalizedReplace,
+    },
+  });
+}
+
 export type EffectivePresetValidation = {
   errors: string[];
   warnings: string[];
@@ -37,19 +90,20 @@ export function applyPresetOverride(
     inputs: defaultPreset.inputs.map((input) => ({ ...input })),
     monitoring: { ...defaultPreset.monitoring },
   };
-  if (!patch) return base;
+  const normalizedPatch = normalizeBassConnectionOverridePatch(defaultPreset, patch);
+  if (!normalizedPatch) return base;
 
-  if (patch.monitoring) {
+  if (normalizedPatch.monitoring) {
     base.monitoring = {
       ...base.monitoring,
-      ...patch.monitoring,
+      ...normalizedPatch.monitoring,
     };
   }
 
-  const remove = new Set([...(patch.inputs?.remove ?? []), ...(patch.inputs?.removeKeys ?? [])]);
+  const remove = new Set([...(normalizedPatch.inputs?.remove ?? []), ...(normalizedPatch.inputs?.removeKeys ?? [])]);
   let inputs = base.inputs.filter((input) => !remove.has(input.key));
 
-  for (const update of patch.inputs?.update ?? []) {
+  for (const update of normalizedPatch.inputs?.update ?? []) {
     inputs = inputs.map((input) =>
       input.key === update.key
         ? {
@@ -62,11 +116,10 @@ export function applyPresetOverride(
     );
   }
 
-  const normalizedReplace = normalizeLegacyBassConnectionReplace(inputs, patch.inputs?.replace, patch.inputs?.add ?? []);
-  inputs = applyInputReplacements(inputs, normalizedReplace);
+  inputs = applyInputReplacements(inputs, normalizedPatch.inputs?.replace ?? []);
 
-  const replacementKeys = new Set(normalizedReplace.map((entry) => entry.with.key));
-  for (const add of patch.inputs?.add ?? []) {
+  const replacementKeys = new Set((normalizedPatch.inputs?.replace ?? []).map((entry) => entry.with.key));
+  for (const add of normalizedPatch.inputs?.add ?? []) {
     if (replacementKeys.has(add.key)) continue;
     if (inputs.some((existing) => existing.key === add.key)) {
       throw new Error(`Preset override collision for input key "${add.key}".`);
@@ -93,19 +146,6 @@ function applyInputReplacements(inputs: InputChannel[], replace: InputReplacePat
     out.unshift({ ...entry.with });
   }
   return out;
-}
-
-function normalizeLegacyBassConnectionReplace(
-  defaultInputs: InputChannel[],
-  replace: InputReplacePatch[] | undefined,
-  add: InputChannel[],
-): InputReplacePatch[] {
-  if ((replace?.length ?? 0) > 0) return replace ?? [];
-  const baseMainBass = defaultInputs.find((item) => item.key.startsWith("el_bass_") || item.label === "Electric bass guitar");
-  if (!baseMainBass) return [];
-  const legacyReplacement = add.find((item) => item.key.startsWith("el_bass_") || item.label === "Electric bass guitar");
-  if (!legacyReplacement) return [];
-  return [{ targetKey: baseMainBass.key, with: legacyReplacement }];
 }
 
 export function validateEffectivePresets(

@@ -40,6 +40,17 @@ describe("Bass setup field rendering", () => {
     expect(html).not.toContain("w-100");
   });
 
+
+
+  it("keeps connection label accessible without visible heading", () => {
+    const connection = buildBassFields(presets).find((field) => field.kind === "dropdown");
+    if (!connection || connection.kind !== "dropdown") throw new Error("connection field missing");
+
+    const html = renderToStaticMarkup(<DropdownField field={connection} state={{ defaultPreset, effectivePreset: defaultPreset }} onPatch={() => {}} />);
+    expect(html).toContain('aria-label="Connection"');
+    expect(html).not.toContain(">Connection<");
+  });
+
   it("renders larger checkbox row hit target", () => {
     const toggleGrid = buildBassFields(presets).find((field) => field.kind === "toggleGrid");
     if (!toggleGrid || toggleGrid.kind !== "toggleGrid") throw new Error("toggle grid missing");

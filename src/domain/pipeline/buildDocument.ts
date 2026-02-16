@@ -19,6 +19,7 @@ import { disambiguateInputKeys } from "./disambiguateInputKeys.js";
 import { reorderAcousticGuitars } from "./reorderAcousticGuitars.js";
 import { resolveDocumentContext } from "./resolveDocumentContext.js";
 import { resolveEffectivePresetsForProject } from "./resolveEffectivePresetsForProject.js";
+import { compareInputsForRole } from "../setup/orderInputsForRole.js";
 import { resolveStageplanPerson } from "../stageplan/resolveStageplanPerson.js";
 import { resolvePowerForStageplan } from "../stageplan/resolvePowerForStageplan.js";
 import {
@@ -579,7 +580,7 @@ export function buildDocument(
     }
 
     if (a.group === "bass" && b.group === "bass") {
-      return 0;
+      return compareInputsForRole("bass", a, b);
     }
 
     const l = a.label.localeCompare(b.label, "en");

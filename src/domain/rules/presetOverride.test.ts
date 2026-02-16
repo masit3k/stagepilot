@@ -6,6 +6,7 @@ import {
   applyPresetOverride,
   summarizeEffectivePresetValidation,
   validateEffectivePresets,
+  normalizeBassConnectionOverridePatch,
 } from "./presetOverride.js";
 
 const basePreset: MusicianSetupPreset = {
@@ -79,6 +80,32 @@ describe("applyPresetOverride", () => {
       },
     });
     expect(next.inputs.map((item) => item.key)).toEqual(["el_bass_xlr_amp", "el_bass_mic", "bass_synth"]);
+  });
+
+
+
+  it("normalizes legacy bass add override and keeps other additions", () => {
+    const bassBase: MusicianSetupPreset = {
+      inputs: [{ key: "el_bass_xlr_amp", label: "Electric bass guitar", note: "XLR out from amp", group: "bass" }],
+      monitoring: basePreset.monitoring,
+    };
+    const normalized = normalizeBassConnectionOverridePatch(bassBase, {
+      inputs: {
+        add: [
+          { key: "el_bass_xlr_pedalboard", label: "Electric bass guitar", note: "XLR out from pedalboard", group: "bass" },
+          { key: "el_bass_mic", label: "Electric bass mic", group: "bass" },
+          { key: "bass_synth", label: "Bass synth", group: "bass" },
+        ],
+      },
+    });
+
+    expect(normalized?.inputs?.replace).toEqual([
+      {
+        targetKey: "el_bass_xlr_amp",
+        with: { key: "el_bass_xlr_pedalboard", label: "Electric bass guitar", note: "XLR out from pedalboard", group: "bass" },
+      },
+    ]);
+    expect(normalized?.inputs?.add?.map((item) => item.key)).toEqual(["el_bass_mic", "bass_synth"]);
   });
 
   it("supports remove operation alias", () => {
