@@ -1,5 +1,5 @@
 import type { LineupMap, RoleConstraint, RoleLabelConstraints } from "../../projectRules";
-import type { MusicianSetupPreset } from "../../../../../src/domain/model/types";
+import type { MusicianSetupPreset, PresetItem } from "../../../../../src/domain/model/types";
 
 export type ProjectSummary = {
   id: string;
@@ -60,6 +60,7 @@ export type BandSetupData = {
   defaultLineup?: LineupMap | null;
   members: Record<string, MemberOption[]>;
   musicianDefaults?: Record<string, Partial<MusicianSetupPreset>>;
+  musicianPresetsById?: Record<string, PresetItem[]>;
   loadWarnings?: string[];
 };
 

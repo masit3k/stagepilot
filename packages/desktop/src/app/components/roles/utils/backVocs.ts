@@ -13,13 +13,19 @@ function isLeadVocalRef(ref: string): boolean {
 type PresetWithRef = { kind: string; ref: string };
 type BackVocalPresetKind = "vocal" | "vocal_type";
 
-function isPresetWithRef(preset: Musician["presets"][number]): preset is Musician["presets"][number] & PresetWithRef {
-  return "ref" in preset && typeof preset.ref === "string";
+function asPresetWithRef(preset: unknown): PresetWithRef | null {
+  if (!preset || typeof preset !== "object") return null;
+  if (!("ref" in preset) || !("kind" in preset)) return null;
+  const ref = (preset as { ref?: unknown }).ref;
+  const kind = (preset as { kind?: unknown }).kind;
+  if (typeof ref !== "string" || typeof kind !== "string") return null;
+  return { kind, ref };
 }
 
-function hasVocalRef(preset: Musician["presets"][number], predicate: (ref: string) => boolean): boolean {
-  if (!isPresetWithRef(preset)) return false;
-  return (preset.kind === "vocal" || preset.kind === "vocal_type" || preset.kind === "preset") && predicate(preset.ref);
+function hasRefMatching(preset: Musician["presets"][number], predicate: (ref: string) => boolean): boolean {
+  const withRef = asPresetWithRef(preset);
+  if (!withRef) return false;
+  return (withRef.kind === "vocal" || withRef.kind === "vocal_type" || withRef.kind === "preset") && predicate(withRef.ref);
 }
 
 export function isBackVocalPreset(preset: PresetWithRef): boolean {
@@ -29,7 +35,7 @@ export function isBackVocalPreset(preset: PresetWithRef): boolean {
 export function getBackVocsFromTemplate(musicians: Musician[]): Set<MusicianId> {
   return new Set(
     musicians
-      .filter((musician) => musician.presets.some((preset) => hasVocalRef(preset, isBackVocalRef)))
+      .filter((musician) => musician.presets.some((preset) => hasRefMatching(preset, isBackVocalRef)))
       .map((musician) => musician.id),
   );
 }
@@ -37,7 +43,7 @@ export function getBackVocsFromTemplate(musicians: Musician[]): Set<MusicianId> 
 export function getLeadVocsFromTemplate(musicians: Musician[]): Set<MusicianId> {
   return new Set(
     musicians
-      .filter((musician) => musician.presets.some((preset) => hasVocalRef(preset, isLeadVocalRef)))
+      .filter((musician) => musician.presets.some((preset) => hasRefMatching(preset, isLeadVocalRef)))
       .map((musician) => musician.id),
   );
 }
@@ -60,7 +66,7 @@ export function applyBackVocsSelection(
   const presetKind = detectBackVocalPresetKind(musicians);
 
   return musicians.map((musician) => {
-    const hasBackVocal = musician.presets.some((preset) => hasVocalRef(preset, isBackVocalRef));
+    const hasBackVocal = musician.presets.some((preset) => hasRefMatching(preset, isBackVocalRef));
     const shouldBeSelected = selectedIds.has(musician.id);
 
     if (shouldBeSelected && hasBackVocal) return musician;
@@ -78,7 +84,7 @@ export function applyBackVocsSelection(
 
     return {
       ...musician,
-      presets: musician.presets.filter((preset) => !hasVocalRef(preset, isBackVocalRef)),
+      presets: musician.presets.filter((preset) => !hasRefMatching(preset, isBackVocalRef)),
     };
   });
 }
@@ -86,7 +92,8 @@ export function applyBackVocsSelection(
 export function detectBackVocalPresetKind(musicians: Musician[]): BackVocalPresetKind {
   const existingKinds = musicians
     .flatMap((musician) => musician.presets)
-    .filter(isPresetWithRef)
+    .map((preset) => asPresetWithRef(preset))
+    .filter((preset): preset is PresetWithRef => Boolean(preset))
     .filter((preset) => isBackVocalRef(preset.ref))
     .map((preset) => preset.kind);
 
@@ -97,7 +104,7 @@ export function detectBackVocalPresetKind(musicians: Musician[]): BackVocalPrese
 
 function createBackVocalPreset(kind: BackVocalPresetKind, ref: string, musician: Musician): Musician["presets"][number] {
   if (kind === "vocal_type") {
-    return { kind, ref } as Musician["presets"][number];
+    return { kind, ref } as unknown as Musician["presets"][number];
   }
   return {
     kind,

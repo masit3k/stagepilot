@@ -55,6 +55,22 @@ describe("backVocs utils", () => {
     expect(Array.from(getLeadVocsFromTemplate(withLead))).toEqual(["m4"]);
   });
 
+
+  it("detects lead vocal assignments from preset refs", () => {
+    const withLeadPreset: Musician[] = [
+      ...musicians,
+      {
+        id: "m5",
+        firstName: "E",
+        lastName: "Five",
+        group: "vocs",
+        presets: [{ kind: "preset", ref: "vocal_lead_wireless" }],
+      },
+    ];
+
+    expect(Array.from(getLeadVocsFromTemplate(withLeadPreset))).toContain("m5");
+  });
+
   it("excludes lead vocalists from back vocal candidates", () => {
     const withLead: Musician[] = [
       {
@@ -109,7 +125,7 @@ describe("backVocs utils", () => {
         lastName: "Four",
         group: "vocs",
         presets: [{ kind: "vocal_type", ref: "vocal_back_no_mic" }],
-      } as Musician,
+      } as unknown as Musician,
     ];
 
     expect(detectBackVocalPresetKind(musicians)).toBe("vocal");

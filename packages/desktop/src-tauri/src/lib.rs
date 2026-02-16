@@ -123,6 +123,7 @@ struct BandSetupData {
     default_lineup: Option<Value>,
     members: HashMap<String, Vec<MemberOption>>,
     musician_defaults: HashMap<String, Value>,
+    musician_presets_by_id: HashMap<String, Vec<Value>>,
     load_warnings: Vec<String>,
 }
 
@@ -580,6 +581,7 @@ fn get_band_setup_data(band_id: String) -> Result<BandSetupData, ApiError> {
     let mut members: HashMap<String, Vec<MemberOption>> = HashMap::new();
     let mut musicians_by_id: HashMap<String, (String, String)> = HashMap::new();
     let mut musician_defaults: HashMap<String, Value> = HashMap::new();
+    let mut musician_presets_by_id: HashMap<String, Vec<Value>> = HashMap::new();
     for role in ["drums", "bass", "guitar", "keys", "vocs", "talkback"] {
         let role_dir = members_root.join(role);
         let mut role_members: Vec<MemberOption> = Vec::new();
@@ -630,6 +632,14 @@ fn get_band_setup_data(band_id: String) -> Result<BandSetupData, ApiError> {
                 if let Some(reference) = monitor_ref {
                     musician_defaults.insert(id.to_string(), infer_monitoring_default_from_ref(&reference));
                 }
+                musician_presets_by_id.insert(
+                    id.to_string(),
+                    musician
+                        .get("presets")
+                        .and_then(|v| v.as_array())
+                        .cloned()
+                        .unwrap_or_default(),
+                );
                 let first_name = musician
                     .get("firstName")
                     .and_then(|v| v.as_str())
@@ -752,6 +762,7 @@ fn get_band_setup_data(band_id: String) -> Result<BandSetupData, ApiError> {
         default_lineup: normalize_default_lineup_keys(json.get("defaultLineup").cloned()),
         members,
         musician_defaults,
+        musician_presets_by_id,
         load_warnings,
     })
 }

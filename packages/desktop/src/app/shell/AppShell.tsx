@@ -41,7 +41,7 @@ import {
 } from "../../../../../src/domain/rules/presetOverride";
 import { generateUuidV7 } from "../../../../../src/domain/projectNaming";
 import type { Group } from "../../../../../src/domain/model/groups";
-import type { InputChannel, Musician, MusicianSetupPreset, Preset, PresetOverridePatch as DomainPresetOverridePatch } from "../../../../../src/domain/model/types";
+import type { InputChannel, Musician, MusicianSetupPreset, Preset, PresetItem, PresetOverridePatch as DomainPresetOverridePatch } from "../../../../../src/domain/model/types";
 import { resolveEffectiveMusicianSetup } from "../../../../../src/domain/setup/resolveEffectiveMusicianSetup";
 import { inferDrumSetupFromLegacyInputs, STANDARD_10_SETUP } from "../../../../../src/domain/drums/drumSetup";
 import { resolveDrumInputs } from "../../../../../src/domain/drums/resolveDrumInputs";
@@ -88,6 +88,7 @@ function createFallbackSetupData(project: NewProjectPayload): BandSetupData {
     members: Object.fromEntries(
       [...ROLE_ORDER, "talkback"].map((role) => [role, []]),
     ) as Record<string, MemberOption[]>,
+    musicianPresetsById: {},
   };
 }
 
@@ -1857,6 +1858,7 @@ function ProjectSetupPage({
   const templateMusicianIds = useMemo(() => new Set(templateMusicians.map((item) => item.id)), [templateMusicians]);
   const selectedTemplateMusicians = useMemo<Musician[]>(() => {
     if (!setupData) return [];
+
     const roleByMusicianId = new Map<string, Group>();
     ROLE_ORDER.forEach((role) => {
       const roleConstraint = normalizeRoleConstraint(role, setupData.constraints[role]);
@@ -1865,24 +1867,14 @@ function ProjectSetupPage({
       });
     });
 
-    return templateMusicians.map((member) => {
-      const defaults = setupData.musicianDefaults?.[member.id]?.inputs ?? [];
-      const presets: Musician["presets"] = [];
-      if (defaults.some((input) => input.key.startsWith("voc_back"))) {
-        presets.push({ kind: "vocal", ref: "vocal_back_no_mic", ownerKey: "vocs", ownerLabel: "vocs" });
-      }
-      if (defaults.some((input) => input.key.startsWith("voc_lead"))) {
-        presets.push({ kind: "vocal", ref: "vocal_lead_no_mic", ownerKey: "vocs", ownerLabel: "vocs" });
-      }
-      return {
-        id: member.id,
-        firstName: member.name,
-        lastName: "",
-        group: roleByMusicianId.get(member.id) ?? "vocs",
-        presets,
-      };
-    });
-  }, [lineup, setupData, templateMusicians]);
+    return selectedMusicianIds.map((musicianId) => ({
+      id: musicianId,
+      firstName: "",
+      lastName: "",
+      group: roleByMusicianId.get(musicianId) ?? "vocs",
+      presets: (setupData.musicianPresetsById?.[musicianId] ?? []) as PresetItem[],
+    }));
+  }, [lineup, selectedMusicianIds, setupData]);
   const leadVocalIds = useMemo(() => getLeadVocsFromTemplate(selectedTemplateMusicians), [selectedTemplateMusicians]);
   const defaultBackVocalIds = useMemo(() => sanitizeBackVocsSelection(getBackVocsFromTemplate(selectedTemplateMusicians), leadVocalIds), [leadVocalIds, selectedTemplateMusicians]);
   const selectedBackVocalIds = useMemo(() => {
@@ -1890,7 +1882,7 @@ function ProjectSetupPage({
       sanitizeBackVocsSelection(new Set(backVocalIds), leadVocalIds),
     ).filter((idValue) => templateMusicianIds.has(idValue));
 
-    if (explicitSelectedIds.length > 0) return explicitSelectedIds;
+    if (backVocalIds.length > 0) return explicitSelectedIds;
 
     return Array.from(defaultBackVocalIds).filter((idValue) => templateMusicianIds.has(idValue));
   }, [backVocalIds, defaultBackVocalIds, leadVocalIds, templateMusicianIds]);
