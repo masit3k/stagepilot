@@ -578,6 +578,10 @@ export function buildDocument(
       if (gr !== 0) return gr;
     }
 
+    if (a.group === "bass" && b.group === "bass") {
+      return 0;
+    }
+
     const l = a.label.localeCompare(b.label, "en");
     if (l !== 0) return l;
 

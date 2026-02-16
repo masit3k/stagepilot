@@ -47,6 +47,8 @@ describe("Bass setup field rendering", () => {
     const html = renderToStaticMarkup(<ToggleField field={toggleGrid.fields[0]} state={{ defaultPreset, effectivePreset: defaultPreset }} onPatch={() => {}} />);
     expect(html).toContain("setup-toggle-row");
     expect(html).toContain("setup-checkbox");
+    expect(html).toContain("Mic on cabinet");
+    expect(html).not.toContain("Enable");
     expect(html).not.toContain("Default");
   });
 });

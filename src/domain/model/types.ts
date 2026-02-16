@@ -211,10 +211,18 @@ export type PartialInputUpdate = {
   group?: Group;
 };
 
+export type InputReplacePatch = {
+  targetKey: string;
+  with: InputChannel;
+};
+
 export type PresetOverridePatch = {
   monitoring?: Partial<MonitoringPreset>;
   inputs?: {
     add?: InputChannel[];
+    remove?: string[];
+    replace?: InputReplacePatch[];
+    /** Legacy alias kept for read compatibility. */
     removeKeys?: string[];
     update?: PartialInputUpdate[];
   };

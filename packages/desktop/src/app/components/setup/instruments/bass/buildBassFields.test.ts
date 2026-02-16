@@ -58,7 +58,7 @@ describe("buildBassFields", () => {
     expect(toggleGrid.fields.map((field) => field.label)).toEqual(["Mic on cabinet", "Bass synth"]);
   });
 
-  it("disables mic toggle when no connection is selected", () => {
+  it("keeps mic toggle enabled even when no connection is selected", () => {
     const fields = buildBassFields(presets);
     const toggleGrid = fields.find((field) => field.kind === "toggleGrid");
     if (!toggleGrid || toggleGrid.kind !== "toggleGrid") throw new Error("toggle grid missing");
@@ -70,8 +70,23 @@ describe("buildBassFields", () => {
       effectivePreset: { ...defaultPreset, inputs: [] },
     };
 
-    expect(mic.isDisabled?.(noConnectionState)).toBe(true);
+    expect(mic.isDisabled?.(noConnectionState)).toBeUndefined();
     expect(mic.getValue(noConnectionState)).toBe(false);
+  });
+
+  it("stores connection change as replace operation", () => {
+    const fields = buildBassFields(presets);
+    const dropdown = fields.find((field) => field.kind === "dropdown");
+    if (!dropdown || dropdown.kind !== "dropdown") throw new Error("dropdown field missing");
+
+    const patch = dropdown.setValue({ defaultPreset, effectivePreset: defaultPreset }, "el_bass_xlr_pedalboard");
+    expect(patch?.inputs?.replace).toEqual([
+      {
+        targetKey: "el_bass_xlr_amp",
+        with: { key: "el_bass_xlr_pedalboard", label: "Electric bass guitar", note: "XLR out from pedalboard", group: "bass" },
+      },
+    ]);
+    expect(patch?.inputs?.add).toBeUndefined();
   });
 
   it("adds and removes bass synth via toggle", () => {

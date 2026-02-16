@@ -1,3 +1,4 @@
+import { applyPresetOverride, createDefaultMusicianPreset } from "../../../../../../../src/domain/rules/presetOverride";
 import type { InputChannel, MusicianSetupPreset, PresetOverridePatch } from "../../../../../../../src/domain/model/types";
 
 export type EventSetupEditState = {
@@ -6,17 +7,12 @@ export type EventSetupEditState = {
   patch?: PresetOverridePatch;
 };
 
-function uniqueByKey(inputs: InputChannel[]): InputChannel[] {
-  const byKey = new Map<string, InputChannel>();
-  for (const item of inputs) byKey.set(item.key, item);
-  return Array.from(byKey.values());
-}
-
 export function getPatchedInputs(defaultInputs: InputChannel[], patch?: PresetOverridePatch): InputChannel[] {
-  if (!patch?.inputs) return defaultInputs;
-  const removed = new Set(patch.inputs.removeKeys ?? []);
-  const base = defaultInputs.filter((item) => !removed.has(item.key));
-  return uniqueByKey([...base, ...(patch.inputs.add ?? [])]);
+  const defaultPreset: MusicianSetupPreset = {
+    ...createDefaultMusicianPreset(),
+    inputs: defaultInputs,
+  };
+  return applyPresetOverride(defaultPreset, patch).inputs;
 }
 
 export function mergePatch(current: PresetOverridePatch | undefined, partial: PresetOverridePatch): PresetOverridePatch | undefined {
@@ -27,7 +23,9 @@ export function mergePatch(current: PresetOverridePatch | undefined, partial: Pr
       ...current?.inputs,
       ...partial.inputs,
       ...(partial.inputs?.add ? { add: partial.inputs.add } : {}),
+      ...(partial.inputs?.remove ? { remove: partial.inputs.remove } : {}),
       ...(partial.inputs?.removeKeys ? { removeKeys: partial.inputs.removeKeys } : {}),
+      ...(partial.inputs?.replace ? { replace: partial.inputs.replace } : {}),
     },
     monitoring: {
       ...current?.monitoring,
@@ -40,10 +38,18 @@ export function mergePatch(current: PresetOverridePatch | undefined, partial: Pr
 export function cleanupPatch(patch?: PresetOverridePatch): PresetOverridePatch | undefined {
   if (!patch) return undefined;
   const add = patch.inputs?.add?.length ? patch.inputs.add : undefined;
-  const removeKeys = patch.inputs?.removeKeys?.length ? patch.inputs.removeKeys : undefined;
+  const remove = patch.inputs?.remove?.length ? patch.inputs.remove : undefined;
+  const replace = patch.inputs?.replace?.length ? patch.inputs.replace : undefined;
   const update = patch.inputs?.update?.length ? patch.inputs.update : undefined;
   const monitoring = patch.monitoring && Object.keys(patch.monitoring).length > 0 ? patch.monitoring : undefined;
-  const inputs = add || removeKeys || update ? { ...(add ? { add } : {}), ...(removeKeys ? { removeKeys } : {}), ...(update ? { update } : {}) } : undefined;
+  const inputs = add || remove || replace || update
+    ? {
+      ...(add ? { add } : {}),
+      ...(remove ? { remove } : {}),
+      ...(replace ? { replace } : {}),
+      ...(update ? { update } : {}),
+    }
+    : undefined;
   if (!inputs && !monitoring) return undefined;
   return { ...(inputs ? { inputs } : {}), ...(monitoring ? { monitoring } : {}) };
 }
@@ -59,14 +65,14 @@ export function resetOverrides(): undefined {
 export function withInputsTarget(defaultInputs: InputChannel[], currentPatch: PresetOverridePatch | undefined, targetInputs: InputChannel[]): PresetOverridePatch | undefined {
   const defaultByKey = new Set(defaultInputs.map((item) => item.key));
   const targetByKey = new Set(targetInputs.map((item) => item.key));
-  const removeKeys = defaultInputs.filter((item) => !targetByKey.has(item.key)).map((item) => item.key);
+  const remove = defaultInputs.filter((item) => !targetByKey.has(item.key)).map((item) => item.key);
   const add = targetInputs.filter((item) => !defaultByKey.has(item.key));
   return cleanupPatch({
     ...currentPatch,
     inputs: {
       ...currentPatch?.inputs,
       add,
-      removeKeys,
+      remove,
     },
   });
 }

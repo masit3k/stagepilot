@@ -14,7 +14,6 @@ export function ToggleField({ field, state, onPatch }: ToggleFieldProps) {
   const controlId = `setup-toggle-${field.id}`;
   return (
     <div className={`setup-field-block ${!isDefault ? "setup-field-block--modified" : ""}`}>
-      <span className="setup-field-block__label">{field.label}</span>
       <label className="setup-field-row setup-toggle-row" htmlFor={controlId}>
         <input
           id={controlId}
@@ -24,7 +23,7 @@ export function ToggleField({ field, state, onPatch }: ToggleFieldProps) {
           disabled={isDisabled}
           onChange={(e) => onPatch(field.setValue(state, e.target.checked))}
         />
-        <span className="setup-toggle-row__text">Enable</span>
+        <span className="setup-toggle-row__text">{field.label}</span>
         {!isDefault ? <span className="setup-modified-dot" aria-label="Modified from defaults">●</span> : null}
       </label>
     </div>

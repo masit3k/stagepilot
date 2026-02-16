@@ -1,6 +1,7 @@
 import { GROUP_ORDER } from "../model/groups.js";
 import type {
   InputChannel,
+  InputReplacePatch,
   MusicianSetupPreset,
   PresetOverridePatch,
 } from "../model/types.js";
@@ -45,7 +46,7 @@ export function applyPresetOverride(
     };
   }
 
-  const remove = new Set(patch.inputs?.removeKeys ?? []);
+  const remove = new Set([...(patch.inputs?.remove ?? []), ...(patch.inputs?.removeKeys ?? [])]);
   let inputs = base.inputs.filter((input) => !remove.has(input.key));
 
   for (const update of patch.inputs?.update ?? []) {
@@ -61,7 +62,12 @@ export function applyPresetOverride(
     );
   }
 
+  const normalizedReplace = normalizeLegacyBassConnectionReplace(inputs, patch.inputs?.replace, patch.inputs?.add ?? []);
+  inputs = applyInputReplacements(inputs, normalizedReplace);
+
+  const replacementKeys = new Set(normalizedReplace.map((entry) => entry.with.key));
   for (const add of patch.inputs?.add ?? []) {
+    if (replacementKeys.has(add.key)) continue;
     if (inputs.some((existing) => existing.key === add.key)) {
       throw new Error(`Preset override collision for input key "${add.key}".`);
     }
@@ -72,6 +78,34 @@ export function applyPresetOverride(
     inputs,
     monitoring: base.monitoring,
   };
+}
+
+function applyInputReplacements(inputs: InputChannel[], replace: InputReplacePatch[]): InputChannel[] {
+  const out = inputs.map((item) => ({ ...item }));
+  for (const entry of replace) {
+    const targetIndex = out.findIndex((item) => item.key === entry.targetKey);
+    const duplicateIndex = out.findIndex((item, index) => item.key === entry.with.key && index !== targetIndex);
+    if (duplicateIndex >= 0) out.splice(duplicateIndex, 1);
+    if (targetIndex >= 0) {
+      out[targetIndex] = { ...entry.with };
+      continue;
+    }
+    out.unshift({ ...entry.with });
+  }
+  return out;
+}
+
+function normalizeLegacyBassConnectionReplace(
+  defaultInputs: InputChannel[],
+  replace: InputReplacePatch[] | undefined,
+  add: InputChannel[],
+): InputReplacePatch[] {
+  if ((replace?.length ?? 0) > 0) return replace ?? [];
+  const baseMainBass = defaultInputs.find((item) => item.key.startsWith("el_bass_") || item.label === "Electric bass guitar");
+  if (!baseMainBass) return [];
+  const legacyReplacement = add.find((item) => item.key.startsWith("el_bass_") || item.label === "Electric bass guitar");
+  if (!legacyReplacement) return [];
+  return [{ targetKey: baseMainBass.key, with: legacyReplacement }];
 }
 
 export function validateEffectivePresets(
@@ -130,11 +164,13 @@ export function buildChangedSummary(
 ): string[] {
   if (!patch) return [];
   const added = patch.inputs?.add?.length ?? 0;
-  const removed = patch.inputs?.removeKeys?.length ?? 0;
+  const removed = (patch.inputs?.remove?.length ?? 0) + (patch.inputs?.removeKeys?.length ?? 0);
+  const replaced = patch.inputs?.replace?.length ?? 0;
   const updated = patch.inputs?.update?.length ?? 0;
   const out: string[] = [];
   if (added > 0) out.push(`+${added} input` + (added > 1 ? "s" : ""));
   if (removed > 0) out.push(`-${removed} input` + (removed > 1 ? "s" : ""));
+  if (replaced > 0) out.push(`${replaced} input replacement` + (replaced > 1 ? "s" : ""));
   if (updated > 0) out.push(`${updated} input update` + (updated > 1 ? "s" : ""));
   if (patch.monitoring) {
     const mode = patch.monitoring.mode;

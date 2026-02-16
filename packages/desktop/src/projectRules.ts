@@ -44,6 +44,8 @@ export type PresetOverridePatch = {
   monitoring?: Partial<MonitoringPreset>;
   inputs?: {
     add?: InputDef[];
+    remove?: string[];
+    replace?: Array<{ targetKey: string; with: InputDef }>;
     removeKeys?: string[];
     update?: PartialInputUpdate[];
   };

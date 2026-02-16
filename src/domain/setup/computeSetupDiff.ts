@@ -30,7 +30,7 @@ export function computeSetupDiff(params: {
   eventOverride?: PresetOverridePatch;
 }): SetupDiffMeta {
   const { defaultPreset, effectivePreset, eventOverride } = params;
-  const removedKeys = new Set(eventOverride?.inputs?.removeKeys ?? []);
+  const removedKeys = new Set([...(eventOverride?.inputs?.remove ?? []), ...(eventOverride?.inputs?.removeKeys ?? [])]);
   const addedKeys = new Set((eventOverride?.inputs?.add ?? []).map((input) => input.key));
 
   const inputs: InputDiffMeta[] = [];

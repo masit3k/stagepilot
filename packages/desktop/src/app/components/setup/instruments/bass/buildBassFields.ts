@@ -1,5 +1,5 @@
-import type { InputChannel, Preset } from "../../../../../../../../src/domain/model/types";
-import { getPatchedInputs, withInputsTarget, type EventSetupEditState } from "../../adapters/eventSetupAdapter";
+import type { InputChannel, Preset, PresetOverridePatch } from "../../../../../../../../src/domain/model/types";
+import { cleanupPatch, getPatchedInputs, withInputsTarget, type EventSetupEditState } from "../../adapters/eventSetupAdapter";
 import type { DropdownFieldDef, SchemaNode, ToggleFieldDef } from "../../schema/types";
 
 type BassPreset = Preset & { setupGroup?: "electric_bass" | "bass_synth" | "bass_mic" };
@@ -17,8 +17,38 @@ function readCurrentPrimaryId(state: EventSetupEditState, primaryPresets: BassPr
   return primaryPresets.find((preset) => preset.inputs.some((item) => currentInputKeys.has(item.key)))?.id ?? "";
 }
 
-function hasConnection(state: EventSetupEditState, primaryPresets: BassPreset[]): boolean {
-  return primaryPresets.some((preset) => preset.id === readCurrentPrimaryId(state, primaryPresets));
+function resolveDefaultPrimaryInput(state: EventSetupEditState, primaryPresets: BassPreset[]): InputChannel | undefined {
+  for (const preset of primaryPresets) {
+    const match = preset.inputs.find((candidate) => state.defaultPreset.inputs.some((item) => item.key === candidate.key));
+    if (match) return match;
+  }
+  return state.defaultPreset.inputs.find((item) => item.key.startsWith("el_bass_"));
+}
+
+function mergeConnectionReplacePatch(
+  state: EventSetupEditState,
+  defaultPrimary: InputChannel | undefined,
+  selected: InputChannel,
+  primaryPresets: BassPreset[],
+): PresetOverridePatch | undefined {
+  if (!defaultPrimary) return state.patch;
+  const primaryKeys = new Set(primaryPresets.flatMap((preset) => preset.inputs.map((item) => item.key)));
+  const add = (state.patch?.inputs?.add ?? []).filter((item) => !primaryKeys.has(item.key));
+  const replace = selected.key === defaultPrimary.key
+    ? (state.patch?.inputs?.replace ?? []).filter((entry) => entry.targetKey !== defaultPrimary.key)
+    : [
+      ...(state.patch?.inputs?.replace ?? []).filter((entry) => entry.targetKey !== defaultPrimary.key),
+      { targetKey: defaultPrimary.key, with: selected },
+    ];
+
+  return cleanupPatch({
+    ...state.patch,
+    inputs: {
+      ...state.patch?.inputs,
+      add,
+      replace,
+    },
+  });
 }
 
 export function buildBassFields(presets: BassPreset[]): SchemaNode[] {
@@ -40,14 +70,8 @@ export function buildBassFields(presets: BassPreset[]): SchemaNode[] {
     getValue: (state) => readCurrentPrimaryId(state, primaryPresets),
     setValue: (state, value) => {
       const selectedPreset = primaryPresets.find((preset) => preset.id === value);
-      if (!selectedPreset) return state.patch;
-      const currentInputs = readPatchedInputs(state);
-      const withoutPrimary = currentInputs.filter((input) => !primaryPresets.some((preset) => preset.inputs.some((candidate) => candidate.key === input.key)));
-      const nextInputs = [...withoutPrimary, ...selectedPreset.inputs];
-      const sanitized = micInput && hasInputKey(nextInputs, micInput.key)
-        ? nextInputs
-        : nextInputs.filter((item) => item.key !== micInput?.key);
-      return withInputsTarget(state.defaultPreset.inputs, state.patch, sanitized);
+      if (!selectedPreset || !selectedPreset.inputs[0]) return state.patch;
+      return mergeConnectionReplacePatch(state, resolveDefaultPrimaryInput(state, primaryPresets), selectedPreset.inputs[0], primaryPresets);
     },
     isDefault: (state) => {
       const selected = readCurrentPrimaryId(state, primaryPresets);
@@ -61,16 +85,12 @@ export function buildBassFields(presets: BassPreset[]): SchemaNode[] {
     kind: "toggle",
     id: "bass-mic-on-cabinet",
     label: "Mic on cabinet",
-    getValue: (state) => {
-      if (!micInput || !hasConnection(state, primaryPresets)) return false;
-      return hasInputKey(readPatchedInputs(state), micInput.key);
-    },
+    getValue: (state) => (micInput ? hasInputKey(readPatchedInputs(state), micInput.key) : false),
     setValue: (state, value) => {
-      if (!micInput || (!hasConnection(state, primaryPresets) && value)) return withInputsTarget(state.defaultPreset.inputs, state.patch, readPatchedInputs(state).filter((item) => item.key !== micInput?.key));
+      if (!micInput) return state.patch;
       const current = readPatchedInputs(state).filter((item) => item.key !== micInput.key);
       return withInputsTarget(state.defaultPreset.inputs, state.patch, value ? [...current, micInput] : current);
     },
-    isDisabled: (state) => !hasConnection(state, primaryPresets),
     isDefault: (state) => {
       if (!micInput) return true;
       const defaultHas = hasInputKey(state.defaultPreset.inputs, micInput.key);

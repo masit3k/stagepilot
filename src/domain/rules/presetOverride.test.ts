@@ -37,6 +37,55 @@ describe("applyPresetOverride", () => {
     expect(next.inputs.at(-1)?.key).toBe("gtr_di");
   });
 
+  it("replaces a main input in place", () => {
+    const bassBase: MusicianSetupPreset = {
+      inputs: [{ key: "el_bass_xlr_amp", label: "Electric bass guitar", note: "XLR out from amp", group: "bass" }],
+      monitoring: basePreset.monitoring,
+    };
+    const next = applyPresetOverride(bassBase, {
+      inputs: {
+        replace: [{ targetKey: "el_bass_xlr_amp", with: { key: "el_bass_xlr_pedalboard", label: "Electric bass guitar", note: "XLR out from pedalboard", group: "bass" } }],
+      },
+    });
+    expect(next.inputs).toEqual([
+      { key: "el_bass_xlr_pedalboard", label: "Electric bass guitar", note: "XLR out from pedalboard", group: "bass" },
+    ]);
+  });
+
+  it("normalizes legacy bass add override into replacement", () => {
+    const bassBase: MusicianSetupPreset = {
+      inputs: [{ key: "el_bass_xlr_amp", label: "Electric bass guitar", note: "XLR out from amp", group: "bass" }],
+      monitoring: basePreset.monitoring,
+    };
+    const next = applyPresetOverride(bassBase, {
+      inputs: {
+        add: [{ key: "el_bass_xlr_pedalboard", label: "Electric bass guitar", note: "XLR out from pedalboard", group: "bass" }],
+      },
+    });
+    expect(next.inputs.map((item) => item.key)).toEqual(["el_bass_xlr_pedalboard"]);
+  });
+
+  it("keeps additionals right after the base main group", () => {
+    const bassBase: MusicianSetupPreset = {
+      inputs: [
+        { key: "el_bass_xlr_amp", label: "Electric bass guitar", group: "bass" },
+        { key: "el_bass_mic", label: "Electric bass mic", group: "bass" },
+      ],
+      monitoring: basePreset.monitoring,
+    };
+    const next = applyPresetOverride(bassBase, {
+      inputs: {
+        add: [{ key: "bass_synth", label: "Bass synth", group: "bass" }],
+      },
+    });
+    expect(next.inputs.map((item) => item.key)).toEqual(["el_bass_xlr_amp", "el_bass_mic", "bass_synth"]);
+  });
+
+  it("supports remove operation alias", () => {
+    const next = applyPresetOverride(basePreset, { inputs: { remove: ["gtr_r"] } });
+    expect(next.inputs.map((input) => input.key)).toEqual(["gtr_l"]);
+  });
+
   it("updates label/note/group", () => {
     const next = applyPresetOverride(basePreset, {
       inputs: {

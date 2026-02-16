@@ -28,8 +28,17 @@ export function normalizeMonitoringPreset(monitoring?: Partial<MonitoringPreset>
 
 export function normalizePresetOverridePatch(patch?: PresetOverridePatch): PresetOverridePatch | undefined {
   if (!patch) return undefined;
+  const remove = patch.inputs?.remove ?? patch.inputs?.removeKeys;
   return {
     ...patch,
+    ...(patch.inputs
+      ? {
+        inputs: {
+          ...patch.inputs,
+          ...(remove?.length ? { remove } : {}),
+        },
+      }
+      : {}),
     ...(patch.monitoring ? { monitoring: normalizeMonitoringPreset(patch.monitoring) } : {}),
   };
 }
