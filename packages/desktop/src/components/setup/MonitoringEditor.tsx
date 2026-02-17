@@ -87,7 +87,7 @@ export function MonitoringEditor({ effectiveMonitoring, patch, diffMeta, onChang
             >
               <button
                 type="button"
-                className="setup-stepper__icon"
+                className="setup-stepper__btn"
                 aria-label="Decrease additional wedges"
                 disabled={!hasAdditionalWedge || currentAdditionalWedgeCount <= 1}
                 onClick={(e) => {
@@ -98,12 +98,12 @@ export function MonitoringEditor({ effectiveMonitoring, patch, diffMeta, onChang
               >
                 −
               </button>
-              <span className="setup-stepper__count" aria-label={`Additional wedges: ${currentAdditionalWedgeCount}`}>
+              <span className="setup-stepper__value" aria-label={`Additional wedges: ${currentAdditionalWedgeCount}`}>
                 {currentAdditionalWedgeCount}
               </span>
               <button
                 type="button"
-                className="setup-stepper__icon"
+                className="setup-stepper__btn"
                 aria-label="Increase additional wedges"
                 disabled={!hasAdditionalWedge || currentAdditionalWedgeCount >= 4}
                 onClick={(e) => {
