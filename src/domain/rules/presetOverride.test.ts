@@ -15,9 +15,7 @@ const basePreset: MusicianSetupPreset = {
     { key: "gtr_r", label: "GTR R", group: "guitar" },
   ],
   monitoring: {
-    type: "iem_wired",
-    mode: "stereo",
-    mixCount: 1,
+    monitorRef: "iem_stereo_wired",
   },
 };
 
@@ -137,25 +135,25 @@ describe("validateEffectivePresets", () => {
       group: "guitar",
       preset: {
         inputs: [{ key: `k${idx}`, label: `Input ${idx}`, group: "guitar" as const }],
-        monitoring: { type: "wedge" as const, mode: "mono" as const, mixCount: 0 },
+        monitoring: { monitorRef: "wedge" as const },
       },
     }));
     expect(validateEffectivePresets(slots)).toContain("Total input channels exceed limit: 31/30.");
   });
 
   it("does not block when monitor mix limit is exceeded", () => {
-    const slots = Array.from({ length: 4 }, () => ({
+    const slots = Array.from({ length: 9 }, () => ({
       group: "guitar",
       preset: {
         inputs: [],
-        monitoring: { type: "iem_wired" as const, mode: "stereo" as const, mixCount: 2 },
+        monitoring: { monitorRef: "iem_stereo_wired" as const },
       },
     }));
     expect(validateEffectivePresets(slots)).not.toContain(
-      `Total required monitor mixes (aux sends) exceed the configured limit (8 > ${DEFAULT_MONITOR_MIX_LIMIT}).`,
+      `Total required monitor mixes (aux sends) exceed the configured limit (9 > ${DEFAULT_MONITOR_MIX_LIMIT}).`,
     );
     expect(summarizeEffectivePresetValidation(slots).warnings).toContain(
-      `Total required monitor mixes (aux sends) exceed the configured limit (8 > ${DEFAULT_MONITOR_MIX_LIMIT}).`,
+      `Total required monitor mixes (aux sends) exceed the configured limit (9 > ${DEFAULT_MONITOR_MIX_LIMIT}).`,
     );
   });
 
@@ -164,7 +162,7 @@ describe("validateEffectivePresets", () => {
       group: "vocs",
       preset: {
         inputs: [],
-        monitoring: { type: "wedge" as const, mode: "mono" as const, mixCount: 1 },
+        monitoring: { monitorRef: "wedge" as const },
       },
     }));
     const summary = summarizeEffectivePresetValidation(slots);
@@ -174,10 +172,10 @@ describe("validateEffectivePresets", () => {
 
   it("uses monitoring overrides to update total mixes", () => {
     const effective = applyPresetOverride(basePreset, {
-      monitoring: { type: "iem_wireless", mixCount: 3 },
+      monitoring: { monitorRef: "iem_mono_wireless" },
     });
     const summary = summarizeEffectivePresetValidation([{ group: "guitar", preset: effective }]);
-    expect(summary.totals.monitorMixes).toBe(3);
+    expect(summary.totals.monitorMixes).toBe(1);
     expect(summary.totals.monitorMixLimit).toBe(DEFAULT_MONITOR_MIX_LIMIT);
   });
 

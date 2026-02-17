@@ -1,4 +1,4 @@
-import type { MonitoringPreset, MusicianSetupPreset, PresetOverridePatch } from "../model/types.js";
+import type { MusicianSetupPreset, PresetOverridePatch } from "../model/types.js";
 
 export type SetupDiffOrigin = "default" | "override";
 export type SetupChangeType = "added" | "removed" | "unchanged";
@@ -18,9 +18,8 @@ export type MonitoringFieldDiffMeta = {
 export type SetupDiffMeta = {
   inputs: InputDiffMeta[];
   monitoring: {
-    type: MonitoringFieldDiffMeta;
-    mode: MonitoringFieldDiffMeta;
-    mixCount: MonitoringFieldDiffMeta;
+    monitorRef: MonitoringFieldDiffMeta;
+    additionalWedgeCount: MonitoringFieldDiffMeta;
   };
 };
 
@@ -56,7 +55,7 @@ export function computeSetupDiff(params: {
     }
   }
 
-  function monitoringMeta<K extends keyof MonitoringPreset>(field: K): MonitoringFieldDiffMeta {
+  function monitoringMeta(field: "monitorRef" | "additionalWedgeCount"): MonitoringFieldDiffMeta {
     const hasOverride = eventOverride?.monitoring?.[field] !== undefined;
     return {
       origin: hasOverride ? "override" : "default",
@@ -67,9 +66,8 @@ export function computeSetupDiff(params: {
   return {
     inputs,
     monitoring: {
-      type: monitoringMeta("type"),
-      mode: monitoringMeta("mode"),
-      mixCount: monitoringMeta("mixCount"),
+      monitorRef: monitoringMeta("monitorRef"),
+      additionalWedgeCount: monitoringMeta("additionalWedgeCount"),
     },
   };
 }

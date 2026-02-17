@@ -39,7 +39,7 @@ const presets = toBassPresets([
 
 const defaultPreset: MusicianSetupPreset = {
   inputs: [{ key: "el_bass_xlr_pedalboard", label: "Electric bass guitar", group: "bass" }],
-  monitoring: { type: "wedge", mode: "mono", mixCount: 1 },
+  monitoring: { monitorRef: "wedge" },
 };
 
 describe("buildBassFields", () => {

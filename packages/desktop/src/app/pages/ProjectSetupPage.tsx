@@ -1195,9 +1195,8 @@ export function ProjectSetupPage({
                           <SetupSection
                             title="Monitoring"
                             modified={
-                              resolved.diffMeta.monitoring.type.origin === "override" ||
-                              resolved.diffMeta.monitoring.mode.origin === "override" ||
-                              resolved.diffMeta.monitoring.mixCount.origin === "override"
+                              resolved.diffMeta.monitoring.monitorRef.origin === "override" ||
+                              resolved.diffMeta.monitoring.additionalWedgeCount.origin === "override"
                             }
                           >
                             <MonitoringEditor
@@ -1321,9 +1320,8 @@ export function ProjectSetupPage({
                             <SetupSection
                               title="Monitoring"
                               modified={
-                                resolved.diffMeta.monitoring.type.origin === "override" ||
-                                resolved.diffMeta.monitoring.mode.origin === "override" ||
-                                resolved.diffMeta.monitoring.mixCount.origin === "override"
+                                resolved.diffMeta.monitoring.monitorRef.origin === "override" ||
+                                resolved.diffMeta.monitoring.additionalWedgeCount.origin === "override"
                               }
                             >
                               <MonitoringEditor

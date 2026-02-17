@@ -4,7 +4,7 @@ import type { Band, Musician, NotesTemplate, Preset, Project } from "../model/ty
 import type { DataRepository } from "../../infra/fs/repo.js";
 
 describe("buildDocument setup overrides", () => {
-  it("uses lineup presetOverride monitoring in monitor table", () => {
+  it("uses lineup monitoring + input overrides in monitor table and stageplan", () => {
     const band: Band = {
       id: "band",
       name: "Band",
@@ -18,6 +18,7 @@ describe("buildDocument setup overrides", () => {
       group: "bass",
       presets: [
         { kind: "preset", ref: "el_bass_xlr_pedalboard" },
+        { kind: "monitor", ref: "iem_stereo_wireless" },
       ],
     };
     const bassPreset: Preset = {
@@ -28,20 +29,7 @@ describe("buildDocument setup overrides", () => {
       inputs: [{ key: "el_bass_xlr_pedalboard", label: "Electric bass guitar", group: "bass" }],
     };
 
-    const talkbackPreset = {
-      type: "talkback_type",
-      id: "talkback",
-      label: "Talkback",
-      group: "talkback",
-      input: { key: "tb_{ownerKey}", label: "Talkback ({ownerLabel})" },
-    } as const;
-
-    const notes: NotesTemplate = {
-      id: "notes_default_cs",
-      lang: "cs",
-      inputs: [],
-      monitors: [],
-    };
+    const notes: NotesTemplate = { id: "notes_default_cs", lang: "cs", inputs: [], monitors: [] };
     const project: Project = {
       id: "p1",
       bandRef: "band",
@@ -50,7 +38,15 @@ describe("buildDocument setup overrides", () => {
       lineup: {
         bass: {
           musicianId: "bass-1",
-          presetOverride: { monitoring: { type: "iem_wired" } },
+          presetOverride: {
+            monitoring: { monitorRef: "iem_stereo_wired", additionalWedgeCount: 2 },
+            inputs: {
+              replace: [{
+                targetKey: "el_bass_xlr_pedalboard",
+                with: { key: "el_bass_xlr_amp", label: "Electric bass guitar", note: "XLR out from amp", group: "bass" },
+              }],
+            },
+          },
         },
       },
     };
@@ -61,14 +57,23 @@ describe("buildDocument setup overrides", () => {
       getProject: () => project,
       getPreset: (id: string) => {
         if (id === "el_bass_xlr_pedalboard") return bassPreset;
-        if (id === "talkback") return talkbackPreset;
+        if (id === "iem_stereo_wireless") return { type: "monitor", id, label: "IEM STEREO wireless" };
+        if (id === "iem_stereo_wired") return { type: "monitor", id, label: "IEM STEREO wired" };
+        if (id === "talkback") return {
+          type: "talkback_type",
+          id: "talkback",
+          label: "Talkback",
+          group: "talkback",
+          input: { key: "tb_{ownerKey}", label: "Talkback ({ownerLabel})" },
+        };
         throw new Error(`unknown preset ${id}`);
       },
       getNotesTemplate: () => notes,
     };
 
     const vm = buildDocument(project, repo);
-    expect(vm.stageplan.monitorOutputs.some((row) => row.note === "IEM (wired)")).toBe(true);
-    expect(vm.inputs.filter((item) => item.key === "el_bass_xlr_pedalboard")).toHaveLength(1);
+    expect(vm.stageplan.monitorOutputs.some((row) => row.note === "IEM STEREO wired + Additional wedge x2")).toBe(true);
+    expect(vm.inputs.some((item) => item.key === "el_bass_xlr_amp")).toBe(true);
+    expect(vm.inputs.some((item) => item.key === "el_bass_xlr_pedalboard")).toBe(false);
   });
 });

@@ -205,9 +205,8 @@ export interface Preset {
 }
 
 export type MonitoringPreset = {
-  type: "wedge" | "iem_wired" | "iem_wireless";
-  mode: "mono" | "stereo";
-  mixCount: number;
+  monitorRef: string;
+  additionalWedgeCount?: number;
 };
 
 export type PartialInputUpdate = {
@@ -277,8 +276,6 @@ export interface Monitor {
   type: "monitor";
   id: string;
   label: string;
-  mode?: "mono" | "stereo";
-  wireless?: boolean;
 }
 
 /** Union všech entit v data/assets/presets */

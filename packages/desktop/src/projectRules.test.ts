@@ -190,8 +190,8 @@ describe("unsaved changes", () => {
 describe("lineup slot overrides", () => {
   it("normalizes object-based lineup slots", () => {
     expect(
-      normalizeLineupSlots({ musicianId: "fuchs_tomas", presetOverride: { monitoring: { mode: "mono" } } }, 1),
-    ).toEqual([{ musicianId: "fuchs_tomas", presetOverride: { monitoring: { mode: "mono" } } }]);
+      normalizeLineupSlots({ musicianId: "fuchs_tomas", presetOverride: { monitoring: { monitorRef: "iem_mono_wired" } } }, 1),
+    ).toEqual([{ musicianId: "fuchs_tomas", presetOverride: { monitoring: { monitorRef: "iem_mono_wired" } } }]);
   });
 
   it("collects selected musician ids from mixed lineup shapes", () => {

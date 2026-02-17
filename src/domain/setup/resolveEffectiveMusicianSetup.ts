@@ -3,7 +3,7 @@ import type { Group } from "../model/groups.js";
 import type { MusicianSetupPreset, PresetOverridePatch } from "../model/types.js";
 import { computeSetupDiff, type SetupDiffMeta } from "./computeSetupDiff.js";
 import { orderInputs } from "./orderInputs.js";
-import { normalizeMonitoringPreset, normalizePresetOverridePatch } from "./normalizeMonitoring.js";
+import { normalizePresetOverridePatch } from "./normalizeMonitoring.js";
 
 export type ResolveEffectiveMusicianSetupInput = {
   musicianDefaults?: Partial<MusicianSetupPreset>;
@@ -28,11 +28,7 @@ function mergeDefaults(
 
   return {
     inputs: baseInputs.map((item) => ({ ...item })),
-    monitoring: {
-      ...fallback.monitoring,
-      ...normalizeMonitoringPreset(bandDefaults?.monitoring),
-      ...normalizeMonitoringPreset(musicianDefaults?.monitoring),
-    },
+    monitoring: musicianDefaults?.monitoring ?? bandDefaults?.monitoring ?? fallback.monitoring,
   };
 }
 

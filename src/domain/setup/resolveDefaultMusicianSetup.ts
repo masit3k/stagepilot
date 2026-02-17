@@ -1,8 +1,6 @@
 import type { Group } from "../model/groups.js";
 import type {
   InputChannel,
-  Monitor,
-  MonitoringPreset,
   MusicianSetupPreset,
   Preset,
   PresetEntity,
@@ -19,28 +17,6 @@ function dedupeInputs(inputs: InputChannel[]): InputChannel[] {
     if (!byKey.has(input.key)) byKey.set(input.key, { ...input });
   }
   return Array.from(byKey.values());
-}
-
-function toMonitoringPreset(entity: Monitor): MonitoringPreset {
-  if (entity.wireless === true) {
-    return {
-      type: "iem_wireless",
-      mode: entity.mode ?? "mono",
-      mixCount: 1,
-    };
-  }
-  if (entity.id.startsWith("iem")) {
-    return {
-      type: "iem_wired",
-      mode: entity.mode ?? "mono",
-      mixCount: 1,
-    };
-  }
-  return {
-    type: "wedge",
-    mode: "mono",
-    mixCount: 1,
-  };
 }
 
 type SetupPreset = Preset & { setupGroup?: string };
@@ -67,21 +43,20 @@ export function resolveDefaultMusicianSetup(args: {
   getPresetByRef: (ref: string) => PresetEntity | undefined;
 }): MusicianSetupPreset {
   const fallback = createDefaultMusicianPreset();
-  const resolvedMonitoring: MonitoringPreset = {
-    ...fallback.monitoring,
-    ...(args.bandDefaults?.monitoring ?? {}),
-    ...(args.musicianDefaults?.monitoring ?? {}),
-  };
+  const resolvedMonitoring = args.musicianDefaults?.monitoring ?? args.bandDefaults?.monitoring ?? fallback.monitoring;
 
   const presetEntities = (args.presetItems ?? [])
     .filter((item): item is Extract<PresetItem, { kind: "preset" }> => item.kind === "preset")
     .map((item) => args.getPresetByRef(item.ref))
-    .filter((entity): entity is SetupPreset => Boolean(entity) && entity.type === "preset" && entity.group === args.role);
+    .filter((entity): entity is SetupPreset => entity?.type === "preset" && entity.group === args.role);
 
-  const monitorEntity = (args.presetItems ?? [])
+  const monitorPresetRef = (args.presetItems ?? [])
     .filter((item): item is Extract<PresetItem, { kind: "monitor" }> => item.kind === "monitor")
-    .map((item) => args.getPresetByRef(item.ref))
-    .find((entity): entity is Monitor => Boolean(entity) && entity.type === "monitor");
+    .map((item) => item.ref)
+    .find((monitorRef) => {
+      const entity = args.getPresetByRef(monitorRef);
+      return entity?.type === "monitor";
+    });
 
   const inputsFromPresets =
     args.role === "bass"
@@ -103,6 +78,6 @@ export function resolveDefaultMusicianSetup(args: {
 
   return {
     inputs: orderInputs(baseInputs.map((input) => ({ ...input })), args.role),
-    monitoring: monitorEntity ? { ...resolvedMonitoring, ...toMonitoringPreset(monitorEntity) } : resolvedMonitoring,
+    monitoring: monitorPresetRef ? { ...resolvedMonitoring, monitorRef: monitorPresetRef } : resolvedMonitoring,
   };
 }

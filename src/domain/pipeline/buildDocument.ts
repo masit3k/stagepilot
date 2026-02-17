@@ -32,6 +32,7 @@ import {
   resolveStereoPair,
 } from "../formatters/index.js";
 import { applyPresetOverride } from "../rules/presetOverride.js";
+import { getMonitorLabel, type MonitorPresetIndex } from "../monitors/getMonitorLabel.js";
 import { migrateLegacyDrumPresetRefs } from "../drums/drumSetup.js";
 import {
   drumRankByResolvedKey,
@@ -103,7 +104,7 @@ function applyInputOverridePatch(
       group: item.group,
       note: item.note,
     })),
-    monitoring: { type: "wedge" as const, mode: "mono" as const, mixCount: 1 },
+    monitoring: { monitorRef: "wedge" as const },
   };
   const patched = applyPresetOverride(defaultPreset, patch).inputs;
   return patched.map((input) => ({
@@ -366,6 +367,7 @@ export function buildDocument(
   // and expose extra rows for the PDF table without changing the public type.
   type MonitorTableRow = { no: string; output: string; note: string };
   const monitorTableRows: MonitorTableRow[] = [];
+  const monitorsById: MonitorPresetIndex = {};
   const effectiveSetup = resolveEffectiveProjectSetup({
     project,
     band,
@@ -393,10 +395,15 @@ export function buildDocument(
     const effectiveMusicianSetup = effectiveSetup.byMusicianId.get(musician.id);
 
     if (effectiveMusicianSetup) {
+      const monitorEntity = repo.getPreset(effectiveMusicianSetup.monitoring.monitorRef);
+      if (monitorEntity.type !== "monitor") {
+        throw new Error(`Monitoring ref "${effectiveMusicianSetup.monitoring.monitorRef}" is not a monitor preset.`);
+      }
+      monitorsById[monitorEntity.id] = { id: monitorEntity.id, label: monitorEntity.label };
       monitors.push({
-        id: `${musician.id}:${effectiveMusicianSetup.monitoring.type}`,
-        label: effectiveMusicianSetup.monitoring.type,
-        kind: effectiveMusicianSetup.monitoring.type === "wedge" ? "wedge" : "iem",
+        id: `${musician.id}:${monitorEntity.id}`,
+        label: monitorEntity.label,
+        kind: monitorEntity.id === "wedge" ? "wedge" : "iem",
       });
     }
 
@@ -407,19 +414,6 @@ export function buildDocument(
         continue;
       }
       if (item.kind === "monitor") {
-        if (effectiveMusicianSetup) {
-          continue;
-        }
-        const ent = repo.getPreset(item.ref);
-        if (ent.type !== "monitor") {
-          throw new Error(
-            `PresetItem(kind=monitor) ref="${item.ref}" points to type="${ent.type}"`,
-          );
-        }
-
-        // Pragmatické pravidlo: wireless=true => IEM, jinak wedge
-        const kind = ent.wireless === true ? "iem" : "wedge";
-        monitors.push({ id: ent.id, label: ent.label, kind });
         continue;
       }
 
@@ -528,20 +522,18 @@ export function buildDocument(
   const firstMonitorLabel = (m: Musician | undefined): string => {
     if (!m) return "";
     const effective = effectiveSetup.byMusicianId.get(m.id);
-    if (effective) {
-      if (effective.monitoring.type === "iem_wired") return "IEM (wired)";
-      if (effective.monitoring.type === "iem_wireless") return "IEM (wireless)";
-      return "Wedge";
+    if (!effective) return "";
+    const monitorRef = effective.monitoring.monitorRef;
+    if (!monitorsById[monitorRef]) {
+      const monitorEntity = repo.getPreset(monitorRef);
+      if (monitorEntity.type !== "monitor") {
+        throw new Error(`Monitoring ref "${monitorRef}" is not a monitor preset.`);
+      }
+      monitorsById[monitorEntity.id] = { id: monitorEntity.id, label: monitorEntity.label };
     }
-    const mon = (
-      effectivePresetItemsByMusicianId.get(m.id) ??
-      m.presets ??
-      []
-    ).find((p) => p.kind === "monitor");
-    if (!mon) return "";
-    const ent = repo.getPreset(mon.ref);
-    if (ent.type !== "monitor") return "";
-    return ent.label ?? "";
+    const label = getMonitorLabel(monitorsById, monitorRef);
+    const extra = effective.monitoring.additionalWedgeCount;
+    return extra !== undefined ? `${label} + Additional wedge x${extra}` : label;
   };
 
   const hasLeadPreset = (m: Musician | undefined): boolean => {

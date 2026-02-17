@@ -21,9 +21,8 @@ export type LineupValue = RichLineupValue;
 export type LineupMap = RichLineupMap;
 
 export type MonitoringPreset = {
-  type?: "wedge" | "iem_wired" | "iem_wireless";
-  mode?: "mono" | "stereo";
-  mixCount?: number;
+  monitorRef?: string;
+  additionalWedgeCount?: number;
 };
 
 export type InputDef = {

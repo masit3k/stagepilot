@@ -76,10 +76,8 @@ export type EffectivePresetValidation = {
 };
 
 function getRequiredMonitorMixCount(preset: MusicianSetupPreset): number {
-  // Wedge defaults are intentionally treated as zero required aux sends so
-  // projects without explicit monitor setup are not unexpectedly blocked.
-  if (preset.monitoring.type === "wedge") return 0;
-  return Math.max(0, preset.monitoring.mixCount ?? 0);
+  if (preset.monitoring.monitorRef === "wedge") return 0;
+  return 1;
 }
 
 export function applyPresetOverride(
@@ -213,9 +211,11 @@ export function buildChangedSummary(
   if (replaced > 0) out.push(`${replaced} input replacement` + (replaced > 1 ? "s" : ""));
   if (updated > 0) out.push(`${updated} input update` + (updated > 1 ? "s" : ""));
   if (patch.monitoring) {
-    const mode = patch.monitoring.mode;
-    const type = patch.monitoring.type === "iem_wired" ? "IEM wired" : patch.monitoring.type === "iem_wireless" ? "IEM wireless" : patch.monitoring.type === "wedge" ? "Wedge" : null;
-    if (type || mode) out.push(`Monitoring: ${[type, mode].filter(Boolean).join(" ")}`);
+    const monitorRef = patch.monitoring.monitorRef;
+    if (monitorRef) out.push(`Monitoring: ${monitorRef}`);
+    if (patch.monitoring.additionalWedgeCount !== undefined) {
+      out.push(`Additional wedge x${patch.monitoring.additionalWedgeCount}`);
+    }
   }
   return out;
 }
@@ -224,9 +224,7 @@ export function createDefaultMusicianPreset(): MusicianSetupPreset {
   return {
     inputs: [] as InputChannel[],
     monitoring: {
-      type: "wedge",
-      mode: "mono",
-      mixCount: 1,
+      monitorRef: "wedge",
     },
   };
 }

@@ -81,9 +81,7 @@ export function getGroupDefaultPreset(group: Group): MusicianSetupPreset {
   return {
     inputs: (GROUP_INPUT_LIBRARY[group] ?? []).map((item) => ({ ...item })),
     monitoring: {
-      type: "wedge",
-      mode: "mono",
-      mixCount: 1,
+      monitorRef: "wedge",
     },
   };
 }
