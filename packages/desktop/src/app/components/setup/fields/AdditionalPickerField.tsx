@@ -37,7 +37,6 @@ export function AdditionalPickerField({ field, state, onPatch }: AdditionalPicke
           );
         })}
       </div>
-      {!isDefault ? <span className="setup-modified-dot" aria-label="Modified from defaults">●</span> : null}
     </div>
   );
 }

@@ -686,11 +686,6 @@
   color: var(--muted);
 }
 
-.setup-modified-dot {
-  color: var(--primary);
-  font-size: 0.8rem;
-  line-height: 1;
-}
 
 .setup-field-block--modified {
   border-left: 2px solid var(--primary);
@@ -809,13 +804,20 @@
 
 .setup-stepper__value {
   min-width: 34px;
-  height: 34px;
+  min-height: 34px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: var(--surface);
+  background: transparent;
+  box-shadow: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.setup-toggle-row--checked .setup-stepper__value {
   color: var(--text);
 }
 

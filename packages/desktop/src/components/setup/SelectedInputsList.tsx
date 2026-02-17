@@ -37,7 +37,6 @@ export function SelectedInputsList({
                 <strong>{resolveInputDisplayLabel(input)}</strong>
                 {input.note ? <p className="subtle">{input.note}</p> : null}
               </div>
-              {overridden ? <span className="setup-modified-dot" aria-label="Modified from defaults">●</span> : null}
               <button type="button" className="button-secondary" onClick={() => onRemoveInput(input.key)} disabled={isLocked}>
                 Remove
               </button>

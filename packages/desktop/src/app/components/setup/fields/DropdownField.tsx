@@ -22,7 +22,6 @@ export function DropdownField({ field, state, onPatch }: DropdownFieldProps) {
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}
         </select>
-        {!isDefault ? <span className="setup-modified-dot" aria-label="Modified from defaults">●</span> : null}
       </div>
     </div>
   );

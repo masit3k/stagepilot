@@ -7,15 +7,13 @@ type ToggleFieldProps = {
   state: EventSetupEditState;
   onPatch: (next: ReturnType<ToggleFieldDef["setValue"]>) => void;
   trailing?: ReactNode;
-  showModifiedDot?: boolean;
 };
 
-export function ToggleField({ field, state, onPatch, trailing, showModifiedDot }: ToggleFieldProps) {
+export function ToggleField({ field, state, onPatch, trailing }: ToggleFieldProps) {
   const checked = field.getValue(state);
   const isDefault = field.isDefault(state);
   const isDisabled = field.isDisabled?.(state) ?? false;
   const controlId = `setup-toggle-${field.id}`;
-  const shouldShowModifiedDot = showModifiedDot ?? !isDefault;
 
   return (
     <div className={`setup-field-block ${!isDefault ? "setup-field-block--modified" : ""}`}>
@@ -30,7 +28,6 @@ export function ToggleField({ field, state, onPatch, trailing, showModifiedDot }
         />
         <span className="setup-toggle-row__text">{field.label}</span>
         {trailing ? <span className="setup-toggle-row__trailing" onClick={(e) => e.stopPropagation()}>{trailing}</span> : null}
-        {shouldShowModifiedDot ? <span className="setup-modified-dot" aria-label="Modified from defaults">●</span> : null}
       </label>
     </div>
   );
