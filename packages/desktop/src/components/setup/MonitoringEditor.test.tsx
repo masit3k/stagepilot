@@ -14,7 +14,7 @@ const baseDiffMeta: SetupDiffMeta = {
 };
 
 describe("MonitoringEditor", () => {
-  it("renders Additional wedge as a setup toggle row", () => {
+  it("renders monitoring dropdown plus additional wedge toggle in setup layout primitives", () => {
     const html = renderToStaticMarkup(
       <MonitoringEditor
         effectiveMonitoring={baseMonitoring}
@@ -23,8 +23,11 @@ describe("MonitoringEditor", () => {
       />,
     );
 
+    expect(html).toContain("setup-editor-stack");
+    expect(html).toContain("setup-field-control");
     expect(html).toContain("setup-toggle-row");
     expect(html).toContain("Additional wedge");
+    expect(html).not.toContain("setup-monitoring-grid");
     expect(html).not.toContain("setup-field-control--compact");
   });
 

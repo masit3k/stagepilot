@@ -720,15 +720,13 @@
   gap: 8px;
 }
 
-.setup-toggle-grid,
-.setup-monitoring-grid {
+.setup-toggle-grid {
   display: grid;
   gap: 8px;
 }
 
 @media (min-width: 640px) {
-  .setup-toggle-grid,
-  .setup-monitoring-grid {
+  .setup-toggle-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -763,8 +761,8 @@
 }
 
 .setup-field-control--compact {
-  width: 92px;
-  min-width: 92px;
+  width: 96px;
+  min-width: 96px;
 }
 
 .setup-toggle-row {
@@ -787,7 +785,6 @@
   margin-left: auto;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
 }
 
 .setup-toggle-row--checked .setup-toggle-row__text {

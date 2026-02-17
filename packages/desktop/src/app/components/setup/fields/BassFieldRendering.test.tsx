@@ -73,4 +73,21 @@ describe("Bass setup field rendering", () => {
     expect(html).toContain("checked");
     expect(html).toContain("Mic on cabinet");
   });
+  it("renders trailing controls inside toggle row", () => {
+    const toggleGrid = buildBassFields(presets).find((field) => field.kind === "toggleGrid");
+    if (!toggleGrid || toggleGrid.kind !== "toggleGrid") throw new Error("toggle grid missing");
+
+    const html = renderToStaticMarkup(
+      <ToggleField
+        field={toggleGrid.fields[0]}
+        state={{ defaultPreset, effectivePreset: defaultPreset }}
+        trailing={<select className="setup-field-control setup-field-control--compact" aria-label="Count"><option>1</option></select>}
+        onPatch={() => {}}
+      />,
+    );
+
+    expect(html).toContain("setup-toggle-row__trailing");
+    expect(html).toContain("setup-field-control--compact");
+  });
+
 });
