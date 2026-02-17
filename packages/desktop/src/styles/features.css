@@ -723,12 +723,12 @@
 .setup-toggle-grid {
   display: grid;
   gap: 8px;
+  min-width: 0;
 }
 
-@media (min-width: 640px) {
-  .setup-toggle-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.setup-toggle-grid > * {
+  min-width: 0;
+  width: 100%;
 }
 
 /* Each field row: label/control/badge aligned, NO OVERLAP */
@@ -769,6 +769,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
   min-height: 40px;
   padding: 6px 8px;
   border: 1px solid var(--border);
@@ -785,6 +786,7 @@
   margin-left: auto;
   display: inline-flex;
   align-items: center;
+  gap: 8px;
 }
 
 .setup-toggle-row--checked .setup-toggle-row__text {
@@ -795,6 +797,26 @@
   width: 20px;
   height: 20px;
   cursor: pointer;
+}
+
+.setup-stepper__btn {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0;
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+.setup-stepper__value {
+  min-width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
 }
 
 /* On narrower widths, stack label above control */

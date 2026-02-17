@@ -25,13 +25,15 @@ describe("MonitoringEditor", () => {
 
     expect(html).toContain("setup-editor-stack");
     expect(html).toContain("setup-field-control");
+    expect(html).toContain('aria-label="Monitoring"');
     expect(html).toContain("setup-toggle-row");
     expect(html).toContain("Additional wedge");
+    expect(html).not.toContain("Monitoring Type");
     expect(html).not.toContain("setup-monitoring-grid");
     expect(html).not.toContain("setup-field-control--compact");
   });
 
-  it("renders checked row and compact count selector when additional wedge is set", () => {
+  it("renders checked row and stepper when additional wedge is set", () => {
     const html = renderToStaticMarkup(
       <MonitoringEditor
         effectiveMonitoring={{ ...baseMonitoring, additionalWedgeCount: 2 }}
@@ -41,7 +43,8 @@ describe("MonitoringEditor", () => {
     );
 
     expect(html).toContain("setup-toggle-row setup-toggle-row--checked");
-    expect(html).toContain("setup-field-control--compact");
+    expect(html).toContain("setup-stepper__btn");
+    expect(html).toContain("setup-stepper__value");
     expect(html).toContain('aria-label="Additional wedge count"');
   });
 });

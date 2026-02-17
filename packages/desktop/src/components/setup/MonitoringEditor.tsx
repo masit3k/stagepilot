@@ -30,13 +30,23 @@ export function MonitoringEditor({ effectiveMonitoring, patch, diffMeta, onChang
   const monitorModified = diffMeta.monitoring.monitorRef.origin === "override";
   const additionalWedgeModified = diffMeta.monitoring.additionalWedgeCount.origin === "override";
 
+  const updateAdditionalWedgeCount = (count: number | undefined) => {
+    onChangePatch({
+      ...patch,
+      monitoring: {
+        ...patch?.monitoring,
+        additionalWedgeCount: count,
+      },
+    });
+  };
+
   return (
     <div className="setup-editor-stack">
       <label className={`setup-field-block ${monitorModified ? "setup-field-block--modified" : ""}`}>
-        <span className="setup-field-block__label">Monitoring Type</span>
         <div className="setup-field-row">
           <select
             className="setup-field-control"
+            aria-label="Monitoring"
             value={currentMonitorRef}
             onChange={(e) =>
               onChangePatch({
@@ -54,48 +64,53 @@ export function MonitoringEditor({ effectiveMonitoring, patch, diffMeta, onChang
       </label>
 
       <div className="setup-toggle-grid">
-        <div className={`setup-field-block ${additionalWedgeModified ? "setup-field-block--modified" : ""}`}>
-          <label className={`setup-field-row setup-toggle-row ${hasAdditionalWedge ? "setup-toggle-row--checked" : ""}`}>
-            <input
-              className="setup-checkbox"
-              type="checkbox"
-              checked={hasAdditionalWedge}
-              onChange={(e) => {
-                onChangePatch({
-                  ...patch,
-                  monitoring: {
-                    ...patch?.monitoring,
-                    ...(e.target.checked ? { additionalWedgeCount: currentAdditionalWedgeCount } : { additionalWedgeCount: undefined }),
-                  },
-                });
-              }}
-            />
-            <span className="setup-toggle-row__text">Additional wedge</span>
-            {hasAdditionalWedge ? (
-              <span className="setup-toggle-row__trailing" onClick={(e) => e.stopPropagation()}>
-                <select
-                  className="setup-field-control setup-field-control--compact"
-                  aria-label="Additional wedge count"
-                  value={String(currentAdditionalWedgeCount)}
-                  onClick={(e) => e.stopPropagation()}
-                  onChange={(e) => {
-                    e.stopPropagation();
-                    onChangePatch({
-                      ...patch,
-                      monitoring: { ...patch?.monitoring, additionalWedgeCount: Number(e.target.value) },
-                    });
-                  }}
-                >
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                  <option value="3">3</option>
-                  <option value="4">4</option>
-                </select>
-              </span>
-            ) : null}
-            {additionalWedgeModified ? <span className="setup-modified-dot" aria-label="Modified from defaults" title="Modified from defaults">●</span> : null}
-          </label>
-        </div>
+        <label className={`setup-toggle-row ${hasAdditionalWedge ? "setup-toggle-row--checked" : ""}`}>
+          <input
+            className="setup-checkbox"
+            type="checkbox"
+            checked={hasAdditionalWedge}
+            onChange={(e) => {
+              updateAdditionalWedgeCount(e.target.checked ? currentAdditionalWedgeCount : undefined);
+            }}
+          />
+          <span className="setup-toggle-row__text">Additional wedge</span>
+          {(hasAdditionalWedge || additionalWedgeModified) ? (
+            <span className="setup-toggle-row__trailing">
+              {hasAdditionalWedge ? (
+                <>
+                  <button
+                    type="button"
+                    className="button-secondary setup-stepper__btn"
+                    aria-label="Decrease additional wedge count"
+                    disabled={currentAdditionalWedgeCount <= 1}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      updateAdditionalWedgeCount(Math.max(1, currentAdditionalWedgeCount - 1));
+                    }}
+                  >
+                    −
+                  </button>
+                  <span className="setup-stepper__value" aria-label="Additional wedge count">
+                    {currentAdditionalWedgeCount}
+                  </span>
+                  <button
+                    type="button"
+                    className="button-secondary setup-stepper__btn"
+                    aria-label="Increase additional wedge count"
+                    disabled={currentAdditionalWedgeCount >= 4}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      updateAdditionalWedgeCount(Math.min(4, currentAdditionalWedgeCount + 1));
+                    }}
+                  >
+                    +
+                  </button>
+                </>
+              ) : null}
+              {additionalWedgeModified ? <span className="setup-modified-dot" aria-label="Modified from defaults" title="Modified from defaults">●</span> : null}
+            </span>
+          ) : null}
+        </label>
       </div>
     </div>
   );
