@@ -53,10 +53,12 @@ export function MonitoringEditor({ effectiveMonitoring, patch, diffMeta, onChang
         </div>
       </label>
 
-      <label className={`setup-field-block ${additionalWedgeModified ? "setup-field-block--modified" : ""}`}>
-        <span className="setup-field-block__label">Additional wedge</span>
-        <div className="setup-field-row">
+      <div className="setup-toggle-grid">
+        <label
+          className={`setup-field-row setup-toggle-row ${hasAdditionalWedge ? "setup-toggle-row--checked" : ""} ${additionalWedgeModified ? "setup-field-block--modified" : ""}`}
+        >
           <input
+            className="setup-checkbox"
             type="checkbox"
             checked={hasAdditionalWedge}
             onChange={(e) => {
@@ -69,32 +71,32 @@ export function MonitoringEditor({ effectiveMonitoring, patch, diffMeta, onChang
               });
             }}
           />
+          <span className="setup-toggle-row__text">Additional wedge</span>
+          {hasAdditionalWedge ? (
+            <span className="setup-toggle-row__trailing" onClick={(e) => e.stopPropagation()}>
+              <select
+                className="setup-field-control setup-field-control--compact"
+                aria-label="Additional wedge count"
+                value={String(currentAdditionalWedgeCount)}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  onChangePatch({
+                    ...patch,
+                    monitoring: { ...patch?.monitoring, additionalWedgeCount: Number(e.target.value) },
+                  });
+                }}
+              >
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+              </select>
+            </span>
+          ) : null}
           {additionalWedgeModified ? <span className="setup-modified-dot" aria-label="Modified from defaults" title="Modified from defaults">●</span> : null}
-        </div>
-      </label>
-
-      {hasAdditionalWedge ? (
-        <label className="setup-field-block">
-          <span className="setup-field-block__label">Count</span>
-          <div className="setup-field-row">
-            <select
-              className="setup-field-control"
-              value={String(currentAdditionalWedgeCount)}
-              onChange={(e) =>
-                onChangePatch({
-                  ...patch,
-                  monitoring: { ...patch?.monitoring, additionalWedgeCount: Number(e.target.value) },
-                })
-              }
-            >
-              <option value="1">1</option>
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="4">4</option>
-            </select>
-          </div>
         </label>
-      ) : null}
+      </div>
     </div>
   );
 }
