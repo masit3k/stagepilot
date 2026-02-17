@@ -38,7 +38,7 @@ const presets = toBassPresets([
 ] as unknown as Preset[]);
 
 const defaultPreset: MusicianSetupPreset = {
-  inputs: [{ key: "el_bass_xlr_amp", label: "Electric bass guitar", group: "bass" }],
+  inputs: [{ key: "el_bass_xlr_pedalboard", label: "Electric bass guitar", group: "bass" }],
   monitoring: { type: "wedge", mode: "mono", mixCount: 1 },
 };
 
@@ -48,7 +48,7 @@ describe("buildBassFields", () => {
     const dropdown = fields.find((field) => field.kind === "dropdown");
     if (!dropdown || dropdown.kind !== "dropdown") throw new Error("dropdown field missing");
     const labels = dropdown.options({ defaultPreset, effectivePreset: defaultPreset }).map((item) => item.label);
-    expect(labels).toEqual(["XLR out from amp", "XLR out from pedalboard"]);
+    expect(labels).toEqual(["XLR out from pedalboard", "XLR out from amp"]);
   });
 
   it("exposes only mic and bass synth as boolean toggles", () => {
@@ -79,14 +79,15 @@ describe("buildBassFields", () => {
     const dropdown = fields.find((field) => field.kind === "dropdown");
     if (!dropdown || dropdown.kind !== "dropdown") throw new Error("dropdown field missing");
 
-    const patch = dropdown.setValue({ defaultPreset, effectivePreset: defaultPreset }, "el_bass_xlr_pedalboard");
+    const patch = dropdown.setValue({ defaultPreset, effectivePreset: defaultPreset }, "el_bass_xlr_amp");
     expect(patch?.inputs?.replace).toEqual([
       {
-        targetKey: "el_bass_xlr_amp",
-        with: { key: "el_bass_xlr_pedalboard", label: "Electric bass guitar", note: "XLR out from pedalboard", group: "bass" },
+        targetKey: "el_bass_xlr_pedalboard",
+        with: { key: "el_bass_xlr_amp", label: "Electric bass guitar", note: "XLR out from amp", group: "bass" },
       },
     ]);
     expect(patch?.inputs?.add).toBeUndefined();
+    expect(dropdown.getValue({ defaultPreset, effectivePreset: defaultPreset, patch })).toBe("el_bass_xlr_amp");
   });
 
   it("adds and removes bass synth via toggle", () => {

@@ -9,13 +9,13 @@ function hasInputKey(inputs: InputChannel[], key: string): boolean {
 }
 
 function readResolvedInputs(state: EventSetupEditState): InputChannel[] {
-  if (!state.patch) return state.effectivePreset.inputs;
-  return getPatchedInputs(state.defaultPreset.inputs, state.patch);
+  if (state.patch) return getPatchedInputs(state.defaultPreset.inputs, state.patch);
+  return state.effectivePreset.inputs;
 }
 
-function readCurrentPrimaryId(state: EventSetupEditState, primaryPresets: BassPreset[]): string {
+function readCurrentPrimaryKey(state: EventSetupEditState, primaryPresets: BassPreset[]): string {
   const currentInputKeys = new Set(readResolvedInputs(state).map((item) => item.key));
-  return primaryPresets.find((preset) => preset.inputs.some((item) => currentInputKeys.has(item.key)))?.id ?? "";
+  return primaryPresets.find((preset) => preset.inputs.some((item) => currentInputKeys.has(item.key)))?.inputs[0]?.key ?? "";
 }
 
 function resolveDefaultPrimaryInput(state: EventSetupEditState, primaryPresets: BassPreset[]): InputChannel | undefined {
@@ -65,20 +65,29 @@ export function buildBassFields(presets: BassPreset[]): SchemaNode[] {
     label: "Connection",
     hideVisibleLabel: true,
     ariaLabel: "Connection",
-    options: () =>
-      primaryPresets.map((preset) => ({
-        value: preset.id,
+    options: (state) => {
+      const defaultPrimaryKey = resolveDefaultPrimaryInput(state, primaryPresets)?.key;
+      return [...primaryPresets]
+        .sort((a, b) => {
+          if (!defaultPrimaryKey) return 0;
+          const aPriority = a.inputs[0]?.key === defaultPrimaryKey ? 0 : 1;
+          const bPriority = b.inputs[0]?.key === defaultPrimaryKey ? 0 : 1;
+          return aPriority - bPriority;
+        })
+        .map((preset) => ({
+        value: preset.inputs[0]?.key ?? preset.id,
         label: preset.inputs[0]?.note ?? preset.label,
-      })),
-    getValue: (state) => readCurrentPrimaryId(state, primaryPresets),
+      }));
+    },
+    getValue: (state) => readCurrentPrimaryKey(state, primaryPresets),
     setValue: (state, value) => {
-      const selectedPreset = primaryPresets.find((preset) => preset.id === value);
+      const selectedPreset = primaryPresets.find((preset) => preset.inputs[0]?.key === value);
       if (!selectedPreset || !selectedPreset.inputs[0]) return state.patch;
       return mergeConnectionReplacePatch(state, resolveDefaultPrimaryInput(state, primaryPresets), selectedPreset.inputs[0], primaryPresets);
     },
     isDefault: (state) => {
-      const selected = readCurrentPrimaryId(state, primaryPresets);
-      const defaultSelected = primaryPresets.find((preset) => preset.inputs.some((input) => state.defaultPreset.inputs.some((def) => def.key === input.key)))?.id ?? "";
+      const selected = readCurrentPrimaryKey(state, primaryPresets);
+      const defaultSelected = resolveDefaultPrimaryInput(state, primaryPresets)?.key ?? "";
       return selected === defaultSelected;
     },
     reset: (state) => withInputsTarget(state.defaultPreset.inputs, state.patch, state.defaultPreset.inputs),

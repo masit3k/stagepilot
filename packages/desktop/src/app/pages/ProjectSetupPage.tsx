@@ -74,6 +74,7 @@ import {
   buildInputsPatchFromTarget,
   createFallbackSetupData,
   getGroupDefaultPreset,
+  resolveMusicianDefaultInputsFromPresets,
 } from "./shared/setupConstants";
 
 export function ProjectSetupPage({
@@ -593,8 +594,15 @@ export function ProjectSetupPage({
 
   const resolveSlotSetup = useCallback(
     (role: Group, musicianId: string, patch?: PresetOverridePatch) => {
+      const musicianDefaults = setupData?.musicianDefaults?.[musicianId];
+      const musicianDefaultInputs = resolveMusicianDefaultInputsFromPresets(
+        role,
+        setupData?.musicianPresetsById?.[musicianId],
+      );
       const resolved = resolveEffectiveMusicianSetup({
-        musicianDefaults: setupData?.musicianDefaults?.[musicianId],
+        musicianDefaults: musicianDefaultInputs
+          ? { ...musicianDefaults, inputs: musicianDefaultInputs }
+          : musicianDefaults,
         bandDefaults: getGroupDefaultPreset(role),
         eventOverride: patch,
         group: role,
