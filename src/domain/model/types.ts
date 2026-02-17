@@ -199,6 +199,8 @@ export interface Preset {
   id: string;
   label: string;
   group: Group;
+  /** Optional subgroup used by setup editors (e.g. bass connection variants). */
+  setupGroup?: string;
   inputs: InputChannel[];
 }
 
