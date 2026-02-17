@@ -23,10 +23,12 @@ type MonitoringEditorProps = {
 
 export function MonitoringEditor({ effectiveMonitoring, patch, diffMeta, onChangePatch }: MonitoringEditorProps) {
   const currentMonitorRef = patch?.monitoring?.monitorRef ?? effectiveMonitoring.monitorRef;
+  const explicitAdditionalWedgeCount = patch?.monitoring?.additionalWedgeCount;
+  const effectiveAdditionalWedgeCount = effectiveMonitoring.additionalWedgeCount;
   const hasAdditionalWedge = patch?.monitoring?.additionalWedgeCount !== undefined
     ? true
-    : effectiveMonitoring.additionalWedgeCount !== undefined;
-  const currentAdditionalWedgeCount = patch?.monitoring?.additionalWedgeCount ?? effectiveMonitoring.additionalWedgeCount ?? 1;
+    : effectiveAdditionalWedgeCount !== undefined;
+  const currentAdditionalWedgeCount = explicitAdditionalWedgeCount ?? effectiveAdditionalWedgeCount ?? 1;
   const monitorModified = diffMeta.monitoring.monitorRef.origin === "override";
   const additionalWedgeModified = diffMeta.monitoring.additionalWedgeCount.origin === "override";
 
@@ -65,6 +67,7 @@ export function MonitoringEditor({ effectiveMonitoring, patch, diffMeta, onChang
       <div className="setup-toggle-grid">
         <div
           className={`setup-toggle-row ${hasAdditionalWedge ? "setup-toggle-row--checked" : ""} ${additionalWedgeModified ? "setup-field-block--modified" : ""}`}
+          role="group"
         >
           <input
             id="setup-additional-wedge"
@@ -77,43 +80,37 @@ export function MonitoringEditor({ effectiveMonitoring, patch, diffMeta, onChang
           />
           <label className="setup-toggle-row__text" htmlFor="setup-additional-wedge">Additional wedge</label>
           {hasAdditionalWedge ? (
-            <div className="setup-toggle-row__trailing">
+            <div
+              className="setup-toggle-row__trailing setup-stepper"
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
               <button
                 type="button"
-                className="button-secondary setup-stepper__btn"
-                aria-label="Decrease additional wedge count"
-                disabled={currentAdditionalWedgeCount <= 1}
+                className="setup-stepper__icon"
+                aria-label="Decrease additional wedges"
+                disabled={!hasAdditionalWedge || currentAdditionalWedgeCount <= 1}
                 onClick={(e) => {
-                  e.preventDefault();
                   e.stopPropagation();
-                  onChangePatch({
-                    ...patch,
-                    monitoring: {
-                      ...patch?.monitoring,
-                      additionalWedgeCount: Math.max(1, currentAdditionalWedgeCount - 1),
-                    },
-                  });
+                  updateAdditionalWedgeCount(Math.max(1, currentAdditionalWedgeCount - 1));
                 }}
+                onMouseDown={(e) => e.stopPropagation()}
               >
                 −
               </button>
-              <span className="setup-stepper__value" aria-live="polite">{currentAdditionalWedgeCount}</span>
+              <span className="setup-stepper__count" aria-label={`Additional wedges: ${currentAdditionalWedgeCount}`}>
+                {currentAdditionalWedgeCount}
+              </span>
               <button
                 type="button"
-                className="button-secondary setup-stepper__btn"
-                aria-label="Increase additional wedge count"
-                disabled={currentAdditionalWedgeCount >= 4}
+                className="setup-stepper__icon"
+                aria-label="Increase additional wedges"
+                disabled={!hasAdditionalWedge || currentAdditionalWedgeCount >= 4}
                 onClick={(e) => {
-                  e.preventDefault();
                   e.stopPropagation();
-                  onChangePatch({
-                    ...patch,
-                    monitoring: {
-                      ...patch?.monitoring,
-                      additionalWedgeCount: Math.min(4, currentAdditionalWedgeCount + 1),
-                    },
-                  });
+                  updateAdditionalWedgeCount(Math.min(4, currentAdditionalWedgeCount + 1));
                 }}
+                onMouseDown={(e) => e.stopPropagation()}
               >
                 +
               </button>

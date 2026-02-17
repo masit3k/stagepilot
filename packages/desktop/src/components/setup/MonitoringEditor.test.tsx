@@ -43,9 +43,9 @@ describe("MonitoringEditor", () => {
     );
 
     expect(html).toContain("setup-toggle-row setup-toggle-row--checked");
-    expect(html).toContain("setup-stepper__btn");
-    expect(html).toContain("setup-stepper__value");
-    expect(html).toContain('aria-live="polite"');
+    expect(html).toContain("setup-stepper__icon");
+    expect(html).toContain("setup-stepper__count");
+    expect(html).toContain('aria-label="Decrease additional wedges"');
   });
 
   it("wires checkbox and label separately from stepper controls", () => {
@@ -60,9 +60,10 @@ describe("MonitoringEditor", () => {
     expect(html).toContain('id="setup-additional-wedge"');
     expect(html).toContain('for="setup-additional-wedge"');
     expect(html).toContain('type="button"');
-    expect(html).toContain('<span class="setup-stepper__value"');
+    expect(html).toContain('<span class="setup-stepper__count"');
+    expect(html).toContain('setup-toggle-row__trailing setup-stepper');
     expect(html).not.toContain("setup-modified-dot");
-    expect(html).not.toContain('<input class="setup-stepper__value"');
-    expect(html).not.toContain('<select class="setup-stepper__value"');
+    expect(html).not.toContain("setup-stepper__btn");
+    expect(html).not.toContain("setup-stepper__value");
   });
 });

@@ -765,11 +765,30 @@
   align-items: center;
   gap: 10px;
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   min-height: 40px;
   padding: 6px 8px;
   border: 1px solid var(--border);
   border-radius: 10px;
   cursor: pointer;
+}
+
+.setup-toggle-row.setup-field-block--modified {
+  position: relative;
+  border-left: none;
+  padding-left: 10px;
+}
+
+.setup-toggle-row.setup-field-block--modified::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--primary);
 }
 
 .setup-toggle-row__text {
@@ -781,7 +800,7 @@
   margin-left: auto;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   color: var(--muted);
   font-size: 0.9rem;
   font-weight: 400;
@@ -801,27 +820,48 @@
   cursor: pointer;
 }
 
-.setup-stepper__btn {
-  min-width: 34px;
-  min-height: 34px;
-  padding: 0;
-  border-radius: 10px;
-  box-shadow: none;
-}
-
-.setup-stepper__value {
-  min-width: 34px;
-  min-height: 34px;
+.setup-stepper {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  gap: 10px;
+}
+
+.setup-stepper__icon {
+  border: none;
   background: transparent;
+  padding: 0;
+  min-height: auto;
+  min-width: auto;
+  line-height: 1;
+  font-size: 1rem;
+  font-weight: 400;
+  color: var(--muted);
+  cursor: pointer;
   box-shadow: none;
-  font-size: inherit;
-  font-weight: inherit;
-  color: inherit;
+  transform: none;
+}
+
+.setup-toggle-row--checked .setup-stepper__icon {
+  color: var(--text);
+}
+
+.setup-stepper__icon:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.setup-stepper__icon:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.setup-stepper__count {
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.setup-toggle-row--checked .setup-stepper__count {
+  color: var(--text);
 }
 
 /* On narrower widths, stack label above control */
