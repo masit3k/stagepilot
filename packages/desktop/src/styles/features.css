@@ -782,9 +782,16 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 400;
 }
 
 .setup-toggle-row--checked .setup-toggle-row__text {
+  color: var(--text);
+}
+
+.setup-toggle-row--checked .setup-toggle-row__trailing {
   color: var(--text);
 }
 
@@ -812,13 +819,9 @@
   border-radius: 10px;
   background: transparent;
   box-shadow: none;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--muted);
-}
-
-.setup-toggle-row--checked .setup-stepper__value {
-  color: var(--text);
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
 }
 
 /* On narrower widths, stack label above control */

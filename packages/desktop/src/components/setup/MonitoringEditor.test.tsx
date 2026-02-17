@@ -45,6 +45,24 @@ describe("MonitoringEditor", () => {
     expect(html).toContain("setup-toggle-row setup-toggle-row--checked");
     expect(html).toContain("setup-stepper__btn");
     expect(html).toContain("setup-stepper__value");
-    expect(html).toContain('aria-label="Additional wedge count"');
+    expect(html).toContain('aria-live="polite"');
+  });
+
+  it("wires checkbox and label separately from stepper controls", () => {
+    const html = renderToStaticMarkup(
+      <MonitoringEditor
+        effectiveMonitoring={{ ...baseMonitoring, additionalWedgeCount: 2 }}
+        diffMeta={baseDiffMeta}
+        onChangePatch={() => {}}
+      />,
+    );
+
+    expect(html).toContain('id="setup-additional-wedge"');
+    expect(html).toContain('for="setup-additional-wedge"');
+    expect(html).toContain('type="button"');
+    expect(html).toContain('<span class="setup-stepper__value"');
+    expect(html).not.toContain("setup-modified-dot");
+    expect(html).not.toContain('<input class="setup-stepper__value"');
+    expect(html).not.toContain('<select class="setup-stepper__value"');
   });
 });
