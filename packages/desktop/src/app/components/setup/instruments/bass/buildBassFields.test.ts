@@ -74,6 +74,33 @@ describe("buildBassFields", () => {
     expect(mic.getValue(noConnectionState)).toBe(false);
   });
 
+
+  it("uses effective preset as dropdown value source", () => {
+    const fields = buildBassFields(presets);
+    const dropdown = fields.find((field) => field.kind === "dropdown");
+    if (!dropdown || dropdown.kind !== "dropdown") throw new Error("dropdown field missing");
+    const state = {
+      defaultPreset,
+      effectivePreset: {
+        ...defaultPreset,
+        inputs: [{ key: "el_bass_xlr_amp", label: "Electric bass guitar", group: "bass" }],
+      },
+    };
+    expect(dropdown.getValue(state)).toBe("el_bass_xlr_amp");
+  });
+
+  it("renders mic toggle true when mic is in default preset", () => {
+    const fields = buildBassFields(presets);
+    const toggleGrid = fields.find((field) => field.kind === "toggleGrid");
+    if (!toggleGrid || toggleGrid.kind !== "toggleGrid") throw new Error("toggle grid missing");
+    const mic = toggleGrid.fields.find((field) => field.id === "bass-mic-on-cabinet");
+    if (!mic) throw new Error("mic field missing");
+    const withMicDefault = {
+      ...defaultPreset,
+      inputs: [...defaultPreset.inputs, { key: "el_bass_mic", label: "Electric bass mic", group: "bass" }],
+    };
+    expect(mic.getValue({ defaultPreset: withMicDefault, effectivePreset: withMicDefault })).toBe(true);
+  });
   it("stores connection change as replace operation", () => {
     const fields = buildBassFields(presets);
     const dropdown = fields.find((field) => field.kind === "dropdown");
@@ -87,7 +114,11 @@ describe("buildBassFields", () => {
       },
     ]);
     expect(patch?.inputs?.add).toBeUndefined();
-    expect(dropdown.getValue({ defaultPreset, effectivePreset: defaultPreset, patch })).toBe("el_bass_xlr_amp");
+    expect(dropdown.getValue({
+      defaultPreset,
+      effectivePreset: { ...defaultPreset, inputs: [{ key: "el_bass_xlr_amp", label: "Electric bass guitar", group: "bass" }] },
+      patch,
+    })).toBe("el_bass_xlr_amp");
   });
 
   it("adds and removes bass synth via toggle", () => {

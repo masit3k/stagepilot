@@ -20,6 +20,7 @@ import { reorderAcousticGuitars } from "./reorderAcousticGuitars.js";
 import { resolveDocumentContext } from "./resolveDocumentContext.js";
 import { resolveEffectivePresetsForProject } from "./resolveEffectivePresetsForProject.js";
 import { compareInputsForRole } from "../setup/orderInputsForRole.js";
+import { resolveEffectiveProjectSetup } from "../setup/resolveEffectiveProjectSetup.js";
 import { resolveStageplanPerson } from "../stageplan/resolveStageplanPerson.js";
 import { resolvePowerForStageplan } from "../stageplan/resolvePowerForStageplan.js";
 import {
@@ -365,6 +366,19 @@ export function buildDocument(
   // and expose extra rows for the PDF table without changing the public type.
   type MonitorTableRow = { no: string; output: string; note: string };
   const monitorTableRows: MonitorTableRow[] = [];
+  const effectiveSetup = resolveEffectiveProjectSetup({
+    project,
+    band,
+    bandLeaderId: ctx.bandLeaderId,
+    getMusicianById: (id) => repo.getMusician(id),
+    getPresetByRef: (ref) => {
+      try {
+        return repo.getPreset(ref);
+      } catch {
+        return undefined;
+      }
+    },
+  });
 
   const effectivePresetItemsByMusicianId = new Map<string, PresetItem[]>();
   for (const { group, musician } of ctx.lineupMusicians) {
@@ -376,11 +390,26 @@ export function buildDocument(
       repo,
     });
     effectivePresetItemsByMusicianId.set(musician.id, effectivePresetItems);
+    const effectiveMusicianSetup = effectiveSetup.byMusicianId.get(musician.id);
+
+    if (effectiveMusicianSetup) {
+      monitors.push({
+        id: `${musician.id}:${effectiveMusicianSetup.monitoring.type}`,
+        label: effectiveMusicianSetup.monitoring.type,
+        kind: effectiveMusicianSetup.monitoring.type === "wedge" ? "wedge" : "iem",
+      });
+    }
 
     const drummerLegacyRefs: string[] = [];
     let hasExplicitDrumSetup = false;
     for (const item of effectivePresetItems) {
+      if (group === "bass" && item.kind === "preset") {
+        continue;
+      }
       if (item.kind === "monitor") {
+        if (effectiveMusicianSetup) {
+          continue;
+        }
         const ent = repo.getPreset(item.ref);
         if (ent.type !== "monitor") {
           throw new Error(
@@ -406,6 +435,17 @@ export function buildDocument(
       inputs.push(...expanded);
     }
 
+    if (group === "bass" && effectiveMusicianSetup) {
+      inputs.push(
+        ...effectiveMusicianSetup.inputs.map((input) => ({
+          key: input.key,
+          label: input.label,
+          group,
+          note: input.note,
+        })),
+      );
+    }
+
     if (
       group === "drums" &&
       !hasExplicitDrumSetup &&
@@ -424,7 +464,7 @@ export function buildDocument(
       );
     }
 
-    const eventOverride = ctx.presetOverrideByMusicianId.get(musician.id);
+    const eventOverride = group === "bass" ? undefined : ctx.presetOverrideByMusicianId.get(musician.id);
     if (eventOverride) {
       const affected = inputs.filter((input) => input.group === group);
       const patched = applyInputOverridePatch(affected, eventOverride);
@@ -487,6 +527,12 @@ export function buildDocument(
 
   const firstMonitorLabel = (m: Musician | undefined): string => {
     if (!m) return "";
+    const effective = effectiveSetup.byMusicianId.get(m.id);
+    if (effective) {
+      if (effective.monitoring.type === "iem_wired") return "IEM (wired)";
+      if (effective.monitoring.type === "iem_wireless") return "IEM (wireless)";
+      return "Wedge";
+    }
     const mon = (
       effectivePresetItemsByMusicianId.get(m.id) ??
       m.presets ??

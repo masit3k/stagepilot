@@ -8,6 +8,7 @@ import type {
 } from "../../../../../../src/domain/model/types";
 import { STANDARD_10_SETUP } from "../../../../../../src/domain/drums/drumSetup";
 import { resolveDrumInputs } from "../../../../../../src/domain/drums/resolveDrumInputs";
+import { resolveDefaultMusicianSetup } from "../../../../../../src/domain/setup/resolveDefaultMusicianSetup";
 import {
   buildBassFields,
   toBassPresets,
@@ -56,6 +57,20 @@ const BASS_PRESET_INPUTS_BY_REF: Record<string, InputChannel> = {
 
 export function resolveMusicianDefaultInputsFromPresets(group: Group, presets: PresetItem[] | undefined): InputChannel[] | undefined {
   if (group !== "bass") return undefined;
+  const defaultPreset = resolveDefaultMusicianSetup({
+    role: group,
+    presetItems: presets,
+    getPresetByRef: (ref) => {
+      if (ref === "el_bass_xlr_amp") return elBassXlrAmpPreset as Preset;
+      if (ref === "el_bass_xlr_pedalboard") return elBassXlrPedalboardPreset as Preset;
+      if (ref === "el_bass_mic") return elBassMicPreset as Preset;
+      if (ref === "bass_synth") return bassSynthPreset as Preset;
+      return undefined;
+    },
+  });
+  if (defaultPreset.inputs.length > 0) {
+    return defaultPreset.inputs;
+  }
   const primaryPresetRef = presets?.find((item) => item.kind === "preset")?.ref;
   if (!primaryPresetRef) return undefined;
   const mapped = BASS_PRESET_INPUTS_BY_REF[primaryPresetRef];

@@ -1,5 +1,5 @@
 import type { InputChannel, Preset, PresetOverridePatch } from "../../../../../../../../src/domain/model/types";
-import { cleanupPatch, getPatchedInputs, withInputsTarget, type EventSetupEditState } from "../../adapters/eventSetupAdapter";
+import { cleanupPatch, withInputsTarget, type EventSetupEditState } from "../../adapters/eventSetupAdapter";
 import type { DropdownFieldDef, SchemaNode, ToggleFieldDef } from "../../schema/types";
 
 type BassPreset = Preset & { setupGroup?: "electric_bass" | "bass_synth" | "bass_mic" };
@@ -9,7 +9,6 @@ function hasInputKey(inputs: InputChannel[], key: string): boolean {
 }
 
 function readResolvedInputs(state: EventSetupEditState): InputChannel[] {
-  if (state.patch) return getPatchedInputs(state.defaultPreset.inputs, state.patch);
   return state.effectivePreset.inputs;
 }
 
