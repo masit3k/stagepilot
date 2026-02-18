@@ -1,13 +1,13 @@
 {
   "type": "preset",
   "id": "el_bass_mic",
-  "label": "Electric bass amp mic",
+  "label": "Electric bass cabinet mic",
   "group": "bass",
   "inputs": [
     {
       "key": "el_bass_mic",
-      "label": "Electric bass amp mic",
-      "note": "Mic on bass amp – boom mic stand"
+      "label": "Electric bass cabinet mic",
+      "note": "Mic on bass cabinet – boom mic stand"
     }
   ],
   "setupGroup": "bass_mic"
