@@ -1,13 +1,13 @@
 {
-  "type": "preset",
+  "type": "vocal_type",
   "id": "vocal_back_wireless",
   "label": "Back vocal (wireless)",
   "group": "vocs",
   "inputs": [
     {
-      "key": "voc_back_wireless",
-      "label": "Back Vocal",
-      "note": "Own wireless mic"
+        "key": "voc_back_{ownerKey}",
+        "label": "Back vocal – {ownerLabel}",
+        "note": "Own wireless mic – boom mic stand"
     }
   ]
 }
