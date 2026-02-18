@@ -749,6 +749,7 @@ export function ProjectSetupPage({
   const selectedSetupMusician =
     setupMusicians.find((item) => item.slotKey === selectedSetupSlotKey) ??
     setupMusicians[0];
+  const selectedSetupRoleLabel = selectedSetupMusician?.role === "vocs" ? "lead voc" : selectedSetupMusician?.role;
 
   const resetModalRef = useModalBehavior(showResetConfirmation, () =>
     setShowResetConfirmation(false),
@@ -949,7 +950,9 @@ export function ProjectSetupPage({
         <BackVocsBlock
           members={backVocalMembers}
           changeDisabled={selectedOptions.length === 0}
+          setupDisabled={backVocalMembers.length === 0}
           onChange={() => setIsBackVocsModalOpen(true)}
+          onSetup={() => setIsBackVocsSetupOpen(true)}
         />
         <p className="subtle">
           Select the on-site band lead for coordination and decisions.
@@ -1194,7 +1197,7 @@ export function ProjectSetupPage({
                   </button>
                   <SetupModalShell
                     open={Boolean(editingSetup && selectedSetupMusician)}
-                    title={`Setup for this event – ${selectedSetupMusician.musicianName} (${selectedSetupMusician.role})`}
+                    title={`Setup for this event – ${selectedSetupMusician.musicianName} (${selectedSetupRoleLabel})`}
                     subtitle="Changes here apply only to this event. Band defaults are not modified."
                     isDirty={shouldEnableSetupReset({
                       eventOverride: existingPatch,

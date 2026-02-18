@@ -33,6 +33,7 @@ export type ToggleFieldDef = FieldBase<boolean, "toggle">;
 export type ToggleWithStepperFieldDef = FieldBase<boolean, "toggleWithStepper"> & {
   min: number;
   max: number;
+  alwaysOn?: boolean;
   getCount: (state: EventSetupEditState) => number;
   setCount: (state: EventSetupEditState, value: number) => PresetOverridePatch | undefined;
 };

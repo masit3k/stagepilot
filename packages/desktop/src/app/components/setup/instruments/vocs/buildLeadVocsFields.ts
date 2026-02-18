@@ -11,19 +11,23 @@ const ORDER: Array<{ id: LeadPreset["id"]; label: string }> = [
 ];
 
 function readCurrent(state: EventSetupEditState, presets: Record<string, LeadPreset | undefined>): string {
+  const leadInput = state.effectivePreset.inputs.find((item) => item.key === "voc_lead");
+  if (!leadInput) return ORDER[0].id;
   for (const entry of ORDER) {
-    const preset = presets[entry.id];
-    if (!preset) continue;
-    if (preset.inputs.some((item) => state.effectivePreset.inputs.some((input) => input.key === item.key))) return entry.id;
+    const presetLead = presets[entry.id]?.inputs.find((item) => item.key === "voc_lead");
+    if (!presetLead) continue;
+    if ((presetLead.note ?? "") === (leadInput.note ?? "")) return entry.id;
   }
   return ORDER[0].id;
 }
 
 function readDefault(state: EventSetupEditState, presets: Record<string, LeadPreset | undefined>): string {
+  const leadInput = state.defaultPreset.inputs.find((item) => item.key === "voc_lead");
+  if (!leadInput) return ORDER[0].id;
   for (const entry of ORDER) {
-    const preset = presets[entry.id];
-    if (!preset) continue;
-    if (preset.inputs.some((item) => state.defaultPreset.inputs.some((input) => input.key === item.key))) return entry.id;
+    const presetLead = presets[entry.id]?.inputs.find((item) => item.key === "voc_lead");
+    if (!presetLead) continue;
+    if ((presetLead.note ?? "") === (leadInput.note ?? "")) return entry.id;
   }
   return ORDER[0].id;
 }

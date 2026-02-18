@@ -48,7 +48,8 @@ function createField(args: {
     label: args.label,
     min: 1,
     max: 3,
-    getValue: (state) => (readCounts(state.effectivePreset.inputs)[args.countKey] ?? 0) > 0,
+    alwaysOn: args.countKey === "keys",
+    getValue: (state) => args.countKey === "keys" ? true : (readCounts(state.effectivePreset.inputs)[args.countKey] ?? 0) > 0,
     getCount: (state) => clampKeysCount(readCounts(state.effectivePreset.inputs)[args.countKey] ?? MIN_KEYS_COUNT),
     setCount: (state, value) => {
       const counts = readCounts(state.effectivePreset.inputs);
@@ -68,7 +69,7 @@ function createField(args: {
         synth: counts.synth ? clampKeysCount(counts.synth) : 0,
         synthMono: counts.synthMono ? clampKeysCount(counts.synthMono) : 0,
       };
-      normalized[args.countKey] = value ? Math.max(normalized[args.countKey], 1) : 0;
+      normalized[args.countKey] = value || args.countKey === "keys" ? Math.max(normalized[args.countKey], 1) : 0;
       const target = rebuildInputs(state, args.presets, {
         keys: normalized.keys || 0,
         synth: normalized.synth || 0,

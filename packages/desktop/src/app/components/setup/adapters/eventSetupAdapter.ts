@@ -91,16 +91,25 @@ export function resetOverrides(): undefined {
 }
 
 export function withInputsTarget(defaultInputs: InputChannel[], currentPatch: PresetOverridePatch | undefined, targetInputs: InputChannel[]): PresetOverridePatch | undefined {
-  const defaultByKey = new Set(defaultInputs.map((item) => item.key));
-  const targetByKey = new Set(targetInputs.map((item) => item.key));
+  const defaultByKey = new Map(defaultInputs.map((item) => [item.key, item]));
+  const targetByKey = new Map(targetInputs.map((item) => [item.key, item]));
   const remove = defaultInputs.filter((item) => !targetByKey.has(item.key)).map((item) => item.key);
   const add = targetInputs.filter((item) => !defaultByKey.has(item.key));
+  const update = targetInputs
+    .filter((item) => defaultByKey.has(item.key))
+    .filter((item) => {
+      const source = defaultByKey.get(item.key);
+      if (!source) return false;
+      return source.label !== item.label || source.note !== item.note || source.group !== item.group;
+    })
+    .map((item) => ({ key: item.key, label: item.label, note: item.note, group: item.group }));
   return cleanupPatch({
     ...currentPatch,
     inputs: {
       ...currentPatch?.inputs,
       add,
       remove,
+      update,
     },
   });
 }

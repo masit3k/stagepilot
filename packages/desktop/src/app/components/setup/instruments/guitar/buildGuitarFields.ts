@@ -4,28 +4,22 @@ import type { DropdownFieldDef, SchemaNode, ToggleFieldDef } from "../../schema/
 
 type GuitarPreset = Preset & { id: "el_guitar_mic" | "el_guitar_xlr_mono" | "el_guitar_xlr_stereo" | "ac_guitar" };
 
-const ORDERED_MAIN = ["el_guitar_mic", "el_guitar_xlr_mono", "el_guitar_xlr_stereo"] as const;
-
 function hasInput(inputs: InputChannel[], keyPrefix: string): boolean {
   return inputs.some((item) => item.key === keyPrefix || item.key.startsWith(`${keyPrefix}_`));
 }
 
-function currentMainPresetId(state: EventSetupEditState, presets: Record<string, GuitarPreset | undefined>): string {
-  for (const id of ORDERED_MAIN) {
-    const preset = presets[id];
-    if (!preset) continue;
-    if (preset.inputs.some((input) => hasInput(state.effectivePreset.inputs, input.key))) return id;
-  }
-  return ORDERED_MAIN[0];
+function readMainPresetId(inputs: InputChannel[]): GuitarPreset["id"] {
+  if (hasInput(inputs, "el_guitar_xlr_l") || hasInput(inputs, "el_guitar_xlr_r")) return "el_guitar_xlr_stereo";
+  if (hasInput(inputs, "el_guitar_xlr")) return "el_guitar_xlr_mono";
+  return "el_guitar_mic";
 }
 
-function defaultMainPresetId(state: EventSetupEditState, presets: Record<string, GuitarPreset | undefined>): string {
-  for (const id of ORDERED_MAIN) {
-    const preset = presets[id];
-    if (!preset) continue;
-    if (preset.inputs.some((input) => hasInput(state.defaultPreset.inputs, input.key))) return id;
-  }
-  return ORDERED_MAIN[0];
+function currentMainPresetId(state: EventSetupEditState, _presets: Record<string, GuitarPreset | undefined>): GuitarPreset["id"] {
+  return readMainPresetId(state.effectivePreset.inputs);
+}
+
+function defaultMainPresetId(state: EventSetupEditState, _presets: Record<string, GuitarPreset | undefined>): GuitarPreset["id"] {
+  return readMainPresetId(state.defaultPreset.inputs);
 }
 
 function rebuild(state: EventSetupEditState, presets: Record<string, GuitarPreset | undefined>, mainId: string, micOnCab: boolean, acoustic: boolean) {

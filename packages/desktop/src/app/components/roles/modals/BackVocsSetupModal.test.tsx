@@ -20,5 +20,7 @@ describe("BackVocsSetupModal", () => {
     expect(html).toContain("Anna");
     expect(html).toContain("Boris");
     expect(html).toContain("setup-field-block--modified");
+    expect(html).toContain("Setup for this event – back vocalists");
+    expect((html.match(/setup-field-control/g) ?? []).length).toBe(2);
   });
 });
