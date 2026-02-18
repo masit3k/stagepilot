@@ -47,6 +47,7 @@ describe("MonitoringEditor", () => {
     );
 
     expect(html).toContain("setup-field-row setup-toggle-row setup-toggle-row--checked");
+    expect(html).toContain('<span class="setup-toggle-row__text">Additional wedge monitor</span>');
     expect(html).toContain("setup-stepper__btn");
     expect(html).toContain("setup-stepper__value");
     expect(html).toContain('aria-label="Decrease additional wedges"');
@@ -62,8 +63,22 @@ describe("MonitoringEditor", () => {
     );
 
     expect(html).toContain('role="group"');
-    expect(html).toContain('setup-toggle-row__trailing setup-stepper');
+    expect(html).toContain('class="setup-toggle-row__trailing"');
+    expect(html).toContain('class="setup-stepper"');
     expect(html).toContain('<span class="setup-stepper__value"');
+  });
+
+  it("uses the shared toggle row text class instead of a label tag", () => {
+    const html = renderToStaticMarkup(
+      <MonitoringEditor
+        effectiveMonitoring={{ ...baseMonitoring, additionalWedgeCount: 2 }}
+        diffMeta={baseDiffMeta}
+        onChangePatch={() => {}}
+      />,
+    );
+
+    expect(html).toContain('<span class="setup-toggle-row__text">Additional wedge monitor</span>');
+    expect(html).not.toContain('<label class="setup-toggle-row__text"');
   });
 
   it("adds the shared modified field class when additional wedge count is enabled", () => {
