@@ -1,5 +1,5 @@
 import type { MusicianSetupPreset, PresetOverridePatch } from "../../../../../src/domain/model/types";
-import type { SetupDiffMeta } from "../../../../../src/domain/setup/computeSetupDiff";
+import type { SetupDiffMeta, SetupDiffOrigin } from "../../../../../src/domain/setup/computeSetupDiff";
 import iemStereoWirelessPreset from "../../../../../data/assets/presets/monitors/iem_stereo_wireless.json";
 import iemStereoWiredPreset from "../../../../../data/assets/presets/monitors/iem_stereo_wired.json";
 import iemMonoWirelessPreset from "../../../../../data/assets/presets/monitors/iem_mono_wireless.json";
@@ -25,6 +25,10 @@ export function isAdditionalWedgeEnabled(additionalWedgeCount: number | undefine
   return (additionalWedgeCount ?? 0) > 0;
 }
 
+export function isMonitoringFieldModified(origin: SetupDiffOrigin): boolean {
+  return origin === "override";
+}
+
 type MonitoringEditorProps = {
   effectiveMonitoring: MusicianSetupPreset["monitoring"];
   patch?: PresetOverridePatch;
@@ -41,8 +45,8 @@ export function MonitoringEditor({ effectiveMonitoring, patch, diffMeta, onChang
   const currentAdditionalWedgeCount = clampAdditionalWedgeCount(
     explicitAdditionalWedgeCount ?? effectiveAdditionalWedgeCount ?? MIN_ADDITIONAL_WEDGE_COUNT,
   );
-  const monitorModified = diffMeta.monitoring.monitorRef.origin === "override";
-  const additionalWedgeModified = diffMeta.monitoring.additionalWedgeCount.origin === "override" || hasAdditionalWedge;
+  const monitorModified = isMonitoringFieldModified(diffMeta.monitoring.monitorRef.origin);
+  const additionalWedgeModified = isMonitoringFieldModified(diffMeta.monitoring.additionalWedgeCount.origin) || hasAdditionalWedge;
 
   const updateAdditionalWedgeCount = (count: number | undefined) => {
     onChangePatch({
@@ -77,72 +81,74 @@ export function MonitoringEditor({ effectiveMonitoring, patch, diffMeta, onChang
       </label>
 
       <div className="setup-toggle-grid">
-        <div
-          className={`setup-toggle-row ${hasAdditionalWedge ? "setup-toggle-row--checked" : ""} ${additionalWedgeModified ? "setup-field-block--modified" : ""}`}
-          role="group"
-          onClick={() => updateAdditionalWedgeCount(hasAdditionalWedge ? undefined : MIN_ADDITIONAL_WEDGE_COUNT)}
-        >
-          <input
-            id="setup-additional-wedge"
-            className="setup-checkbox"
-            type="checkbox"
-            checked={hasAdditionalWedge}
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-            onChange={(e) => {
-              updateAdditionalWedgeCount(e.target.checked ? currentAdditionalWedgeCount : undefined);
-            }}
-          />
-          <label
-            className="setup-toggle-row__text"
-            htmlFor="setup-additional-wedge"
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
+        <div className={`setup-field-block ${additionalWedgeModified ? "setup-field-block--modified" : ""}`}>
+          <div
+            className={`setup-field-row setup-toggle-row ${hasAdditionalWedge ? "setup-toggle-row--checked" : ""}`}
+            role="group"
+            onClick={() => updateAdditionalWedgeCount(hasAdditionalWedge ? undefined : MIN_ADDITIONAL_WEDGE_COUNT)}
           >
-            Additional wedge monitor
-          </label>
-          {hasAdditionalWedge ? (
-            <div
-              className="setup-toggle-row__trailing setup-stepper"
+            <input
+              id="setup-additional-wedge"
+              className="setup-checkbox"
+              type="checkbox"
+              checked={hasAdditionalWedge}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onChange={(e) => {
+                updateAdditionalWedgeCount(e.target.checked ? currentAdditionalWedgeCount : undefined);
+              }}
+            />
+            <label
+              className="setup-toggle-row__text"
+              htmlFor="setup-additional-wedge"
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
             >
-              <button
-                type="button"
-                className="setup-stepper__btn"
-                aria-label="Decrease additional wedges"
-                disabled={!hasAdditionalWedge || currentAdditionalWedgeCount <= MIN_ADDITIONAL_WEDGE_COUNT}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  updateAdditionalWedgeCount(clampAdditionalWedgeCount(currentAdditionalWedgeCount - 1));
-                }}
-                onMouseDown={(e) => e.stopPropagation()}
-              >
-                −
-              </button>
-              <span
-                className="setup-stepper__value"
-                aria-label={`Additional wedges: ${currentAdditionalWedgeCount}`}
+              Additional wedge monitor
+            </label>
+            {hasAdditionalWedge ? (
+              <div
+                className="setup-toggle-row__trailing setup-stepper"
                 onClick={(e) => e.stopPropagation()}
                 onMouseDown={(e) => e.stopPropagation()}
               >
-                {currentAdditionalWedgeCount}
-              </span>
-              <button
-                type="button"
-                className="setup-stepper__btn"
-                aria-label="Increase additional wedges"
-                disabled={!hasAdditionalWedge || currentAdditionalWedgeCount >= MAX_ADDITIONAL_WEDGE_COUNT}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  updateAdditionalWedgeCount(clampAdditionalWedgeCount(currentAdditionalWedgeCount + 1));
-                }}
-                onMouseDown={(e) => e.stopPropagation()}
-              >
-                +
-              </button>
-            </div>
-          ) : null}
+                <button
+                  type="button"
+                  className="setup-stepper__btn"
+                  aria-label="Decrease additional wedges"
+                  disabled={!hasAdditionalWedge || currentAdditionalWedgeCount <= MIN_ADDITIONAL_WEDGE_COUNT}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    updateAdditionalWedgeCount(clampAdditionalWedgeCount(currentAdditionalWedgeCount - 1));
+                  }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  −
+                </button>
+                <span
+                  className="setup-stepper__value"
+                  aria-label={`Additional wedges: ${currentAdditionalWedgeCount}`}
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  {currentAdditionalWedgeCount}
+                </span>
+                <button
+                  type="button"
+                  className="setup-stepper__btn"
+                  aria-label="Increase additional wedges"
+                  disabled={!hasAdditionalWedge || currentAdditionalWedgeCount >= MAX_ADDITIONAL_WEDGE_COUNT}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    updateAdditionalWedgeCount(clampAdditionalWedgeCount(currentAdditionalWedgeCount + 1));
+                  }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  +
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>

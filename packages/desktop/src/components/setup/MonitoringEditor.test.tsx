@@ -7,6 +7,7 @@ import {
   MonitoringEditor,
   clampAdditionalWedgeCount,
   isAdditionalWedgeEnabled,
+  isMonitoringFieldModified,
 } from "./MonitoringEditor";
 
 const baseMonitoring = { monitorRef: "wedge" };
@@ -45,7 +46,7 @@ describe("MonitoringEditor", () => {
       />,
     );
 
-    expect(html).toContain("setup-toggle-row setup-toggle-row--checked");
+    expect(html).toContain("setup-field-row setup-toggle-row setup-toggle-row--checked");
     expect(html).toContain("setup-stepper__btn");
     expect(html).toContain("setup-stepper__value");
     expect(html).toContain('aria-label="Decrease additional wedges"');
@@ -64,6 +65,36 @@ describe("MonitoringEditor", () => {
     expect(html).toContain('setup-toggle-row__trailing setup-stepper');
     expect(html).toContain('<span class="setup-stepper__value"');
   });
+
+  it("adds the shared modified field class when additional wedge count is enabled", () => {
+    const html = renderToStaticMarkup(
+      <MonitoringEditor
+        effectiveMonitoring={{ ...baseMonitoring, additionalWedgeCount: 2 }}
+        diffMeta={baseDiffMeta}
+        onChangePatch={() => {}}
+      />,
+    );
+
+    expect(html).toContain("setup-field-block setup-field-block--modified");
+  });
+
+  it("adds the shared modified field class when additional wedge origin is override", () => {
+    const html = renderToStaticMarkup(
+      <MonitoringEditor
+        effectiveMonitoring={baseMonitoring}
+        diffMeta={{
+          ...baseDiffMeta,
+          monitoring: {
+            ...baseDiffMeta.monitoring,
+            additionalWedgeCount: { origin: "override", changeType: "added" },
+          },
+        }}
+        onChangePatch={() => {}}
+      />,
+    );
+
+    expect(html).toContain("setup-field-block setup-field-block--modified");
+  });
 });
 
 describe("monitoring helper rules", () => {
@@ -77,5 +108,10 @@ describe("monitoring helper rules", () => {
     expect(clampAdditionalWedgeCount(0)).toBe(MIN_ADDITIONAL_WEDGE_COUNT);
     expect(clampAdditionalWedgeCount(3)).toBe(3);
     expect(clampAdditionalWedgeCount(8)).toBe(MAX_ADDITIONAL_WEDGE_COUNT);
+  });
+
+  it("uses override origin as the canonical field-modified signal", () => {
+    expect(isMonitoringFieldModified("default")).toBe(false);
+    expect(isMonitoringFieldModified("override")).toBe(true);
   });
 });
