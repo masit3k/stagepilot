@@ -1,7 +1,7 @@
 {
     "type": "preset",
     "id": "synth",
-    "label": "Synth (top)",
+    "label": "Synth",
     "group": "keys",
     "inputs": [
         {

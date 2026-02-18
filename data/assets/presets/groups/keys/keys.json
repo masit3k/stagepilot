@@ -1,7 +1,7 @@
 {
     "type": "preset",
     "id": "keys",
-    "label": "Keys (bottom)",
+    "label": "Keys",
     "group": "keys",
     "inputs": [
         {
