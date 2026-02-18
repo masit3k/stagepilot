@@ -4,7 +4,7 @@ import type {
   StageplanInstrumentKey,
 } from "../../../domain/model/types.js";
 import type { DocumentViewModel } from "../../../domain/model/types.js";
-import { formatMonitorBullet, formatStageplanBoxHeader } from "../../../domain/formatters/index.js";
+import { formatMonitorBullets, formatStageplanBoxHeader } from "../../../domain/formatters/index.js";
 import type { StageplanLine } from "../../../domain/stageplan/stereoCollapse.js";
 import { collapseStereoForStageplan } from "../../../domain/stageplan/stereoCollapse.js";
 import { resolveStageplanRoleForInput } from "../../../domain/stageplan/resolveStageplanRoleForInput.js";
@@ -301,10 +301,10 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): { layout: Stag
   for (const output of vm.monitorOutputs) {
     const instrument = resolveMonitorInstrument(output.output);
     if (!instrument) continue;
-    const bullet = formatMonitorBullet(output.note, output.no);
+    const bullets = formatMonitorBullets(output.note, output.no);
     if (instrument === "Lead vocal") {
       const slot = resolveLeadVocalSlotLabel(output.output);
-      monitorBySlot.get(slot)?.push({ no: output.no, label: bullet });
+      for (const bullet of bullets) monitorBySlot.get(slot)?.push({ no: output.no, label: bullet });
       continue;
     }
     const slotByInstrument: Record<Exclude<StageplanInstrument, "Lead vocal">, StageplanRoleSlot> = {
@@ -313,7 +313,7 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): { layout: Stag
       Guitar: "guitar",
       Keys: "keys",
     };
-    monitorBySlot.get(slotByInstrument[instrument])?.push({ no: output.no, label: bullet });
+    for (const bullet of bullets) monitorBySlot.get(slotByInstrument[instrument])?.push({ no: output.no, label: bullet });
   }
 
   const buildInputLines = (items: Array<{ channelNo: number; label: string }>): StageplanLine[] =>

@@ -280,6 +280,27 @@ describe("stageplan render plan", () => {
     );
   });
 
+  it("renders additional wedge monitor on a separate stageplan line", () => {
+    const plan = buildStageplanPlan({
+      lineupByRole: {},
+      inputs: [],
+      monitorOutputs: [
+        {
+          no: 4,
+          output: "Keys",
+          note: "IEM STEREO wireless + Additional wedge monitor 1x",
+        },
+      ],
+      powerByRole: {},
+    });
+
+    const keysBox = plan.boxes.find((box) => box.instrument === "Keys");
+    expect(keysBox?.monitorBullets).toEqual([
+      "IEM STEREO wireless (4)",
+      "+ Additional wedge monitor 1x",
+    ]);
+  });
+
   it("renders power badges based on stageplan power data", () => {
     const plan = buildStageplanPlan({
       lineupByRole: {},

@@ -7,13 +7,27 @@ type SetupSectionProps = {
   children: ReactNode;
 };
 
-export function SetupSection({ title, description, modified = false, children }: SetupSectionProps) {
+export function SetupSection({
+  title,
+  description,
+  modified = false,
+  children,
+}: SetupSectionProps) {
   return (
-    <section className="setup-section-card">
+    <section
+      className={`setup-section-card ${modified ? "setup-section-card--modified" : ""}`}
+    >
       <div className="setup-section-card__header">
         <h4>
           {title}
-          {modified ? <span className="setup-section-modified" aria-label="Section modified">• Modified</span> : null}
+          {modified ? (
+            <span
+              className="setup-section-modified"
+              aria-label="Section modified"
+            >
+              • Modified
+            </span>
+          ) : null}
         </h4>
         {description ? <p className="subtle">{description}</p> : null}
       </div>

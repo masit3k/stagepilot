@@ -560,9 +560,12 @@ export function ProjectSetupPage({
 
   function isMonitoringModified(args: {
     monitorRefOrigin: string;
+    additionalWedgeCountOrigin: string;
     effectiveAdditionalWedgeCount: number | undefined;
   }): boolean {
-    return args.monitorRefOrigin === "override" || (args.effectiveAdditionalWedgeCount ?? 0) > 0;
+    return args.monitorRefOrigin === "override"
+      || args.additionalWedgeCountOrigin === "override"
+      || (args.effectiveAdditionalWedgeCount ?? 0) > 0;
   }
   function getExistingSlotOverride(role: string, slotIndex: number): PresetOverridePatch | undefined {
     if (!setupData) return undefined;
@@ -1229,6 +1232,7 @@ export function ProjectSetupPage({
                             modified={
                               isMonitoringModified({
                                 monitorRefOrigin: resolved.diffMeta.monitoring.monitorRef.origin,
+                                additionalWedgeCountOrigin: resolved.diffMeta.monitoring.additionalWedgeCount.origin,
                                 effectiveAdditionalWedgeCount: effective.monitoring.additionalWedgeCount,
                               })
                             }
@@ -1356,6 +1360,7 @@ export function ProjectSetupPage({
                               modified={
                                 isMonitoringModified({
                                   monitorRefOrigin: resolved.diffMeta.monitoring.monitorRef.origin,
+                                  additionalWedgeCountOrigin: resolved.diffMeta.monitoring.additionalWedgeCount.origin,
                                   effectiveAdditionalWedgeCount: effective.monitoring.additionalWedgeCount,
                                 })
                               }
