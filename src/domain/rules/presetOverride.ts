@@ -20,7 +20,19 @@ function normalizePatchShape(patch: PresetOverridePatch): PresetOverridePatch {
   const removeKeys = patch.inputs?.removeKeys?.length ? patch.inputs.removeKeys : undefined;
   const replace = patch.inputs?.replace?.length ? patch.inputs.replace : undefined;
   const update = patch.inputs?.update?.length ? patch.inputs.update : undefined;
-  const monitoring = patch.monitoring && Object.keys(patch.monitoring).length > 0 ? patch.monitoring : undefined;
+  const normalizedMonitoring = patch.monitoring
+    ? {
+      ...patch.monitoring,
+      ...(patch.monitoring.additionalWedgeCount !== undefined && patch.monitoring.additionalWedgeCount > 0
+        ? { additionalWedgeCount: patch.monitoring.additionalWedgeCount }
+        : { additionalWedgeCount: undefined }),
+    }
+    : undefined;
+  const monitoring = normalizedMonitoring && Object.keys(normalizedMonitoring).some((key) =>
+    normalizedMonitoring[key as keyof typeof normalizedMonitoring] !== undefined,
+  )
+    ? normalizedMonitoring
+    : undefined;
   const inputs = add || remove || removeKeys || replace || update
     ? {
       ...(add ? { add } : {}),
@@ -214,7 +226,7 @@ export function buildChangedSummary(
     const monitorRef = patch.monitoring.monitorRef;
     if (monitorRef) out.push(`Monitoring: ${monitorRef}`);
     if (patch.monitoring.additionalWedgeCount !== undefined) {
-      out.push(`Additional wedge x${patch.monitoring.additionalWedgeCount}`);
+      out.push(`Additional wedge monitor ${patch.monitoring.additionalWedgeCount}x`);
     }
   }
   return out;

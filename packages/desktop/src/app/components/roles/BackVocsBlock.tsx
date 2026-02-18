@@ -22,7 +22,7 @@ export function BackVocsBlock({ members, onChange, changeDisabled = false }: Bac
             </div>
           ))}
           <div className="lineup-list__row">
-            <span className="lineup-list__name subtle">Manage back vocal defaults</span>
+            <span className="lineup-list__name subtle" aria-hidden="true" />
             <button type="button" className="button-secondary" disabled={changeDisabled} onClick={onChange}>Change</button>
           </div>
         </div>

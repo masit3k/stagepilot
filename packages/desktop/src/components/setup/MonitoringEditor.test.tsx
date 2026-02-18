@@ -1,7 +1,13 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { SetupDiffMeta } from "../../../../../src/domain/setup/computeSetupDiff";
-import { MonitoringEditor } from "./MonitoringEditor";
+import {
+  MAX_ADDITIONAL_WEDGE_COUNT,
+  MIN_ADDITIONAL_WEDGE_COUNT,
+  MonitoringEditor,
+  clampAdditionalWedgeCount,
+  isAdditionalWedgeEnabled,
+} from "./MonitoringEditor";
 
 const baseMonitoring = { monitorRef: "wedge" };
 
@@ -27,13 +33,10 @@ describe("MonitoringEditor", () => {
     expect(html).toContain("setup-field-control");
     expect(html).toContain('aria-label="Monitoring"');
     expect(html).toContain("setup-toggle-row");
-    expect(html).toContain("Additional wedge");
-    expect(html).not.toContain("Monitoring Type");
-    expect(html).not.toContain("setup-monitoring-grid");
-    expect(html).not.toContain("setup-field-control--compact");
+    expect(html).toContain("Additional wedge monitor");
   });
 
-  it("renders checked row and stepper when additional wedge is set", () => {
+  it("renders checked row and stepper when additional wedge is enabled", () => {
     const html = renderToStaticMarkup(
       <MonitoringEditor
         effectiveMonitoring={{ ...baseMonitoring, additionalWedgeCount: 2 }}
@@ -48,7 +51,7 @@ describe("MonitoringEditor", () => {
     expect(html).toContain('aria-label="Decrease additional wedges"');
   });
 
-  it("wires checkbox and label separately from stepper controls", () => {
+  it("exposes row-level toggle container and a propagation-safe stepper", () => {
     const html = renderToStaticMarkup(
       <MonitoringEditor
         effectiveMonitoring={{ ...baseMonitoring, additionalWedgeCount: 2 }}
@@ -57,12 +60,22 @@ describe("MonitoringEditor", () => {
       />,
     );
 
-    expect(html).toContain('id="setup-additional-wedge"');
-    expect(html).toContain('for="setup-additional-wedge"');
-    expect(html).toContain('type="button"');
-    expect(html).toContain('<span class="setup-stepper__value"');
+    expect(html).toContain('role="group"');
     expect(html).toContain('setup-toggle-row__trailing setup-stepper');
-    expect(html).not.toContain("setup-modified-dot");
-    
+    expect(html).toContain('<span class="setup-stepper__value"');
+  });
+});
+
+describe("monitoring helper rules", () => {
+  it("normalizes additional wedge enabled state", () => {
+    expect(isAdditionalWedgeEnabled(undefined)).toBe(false);
+    expect(isAdditionalWedgeEnabled(0)).toBe(false);
+    expect(isAdditionalWedgeEnabled(1)).toBe(true);
+  });
+
+  it("clamps additional wedge count to configured limits", () => {
+    expect(clampAdditionalWedgeCount(0)).toBe(MIN_ADDITIONAL_WEDGE_COUNT);
+    expect(clampAdditionalWedgeCount(3)).toBe(3);
+    expect(clampAdditionalWedgeCount(8)).toBe(MAX_ADDITIONAL_WEDGE_COUNT);
   });
 });

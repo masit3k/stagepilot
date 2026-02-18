@@ -27,6 +27,7 @@ import {
   formatInputListLabel,
   formatInputListNote,
   formatMonitorLabel,
+  formatMonitoringLabel,
   formatProjectMetaLine,
   formatVocalLabel,
   resolveStereoPair,
@@ -533,7 +534,7 @@ export function buildDocument(
     }
     const label = getMonitorLabel(monitorsById, monitorRef);
     const extra = effective.monitoring.additionalWedgeCount;
-    return extra !== undefined ? `${label} + Additional wedge x${extra}` : label;
+    return formatMonitoringLabel(label, extra);
   };
 
   const hasLeadPreset = (m: Musician | undefined): boolean => {

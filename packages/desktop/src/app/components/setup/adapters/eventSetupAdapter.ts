@@ -7,6 +7,21 @@ export type EventSetupEditState = {
   patch?: PresetOverridePatch;
 };
 
+function normalizeAdditionalWedgeCount(value: number | undefined): number | undefined {
+  return value !== undefined && value > 0 ? value : undefined;
+}
+
+function normalizeMonitoring(patch?: PresetOverridePatch): PresetOverridePatch["monitoring"] | undefined {
+  if (!patch?.monitoring) return undefined;
+  const monitoring = {
+    ...patch.monitoring,
+    additionalWedgeCount: normalizeAdditionalWedgeCount(patch.monitoring.additionalWedgeCount),
+  };
+  return Object.keys(monitoring).some((key) => monitoring[key as keyof typeof monitoring] !== undefined)
+    ? monitoring
+    : undefined;
+}
+
 export function getPatchedInputs(defaultInputs: InputChannel[], patch?: PresetOverridePatch): InputChannel[] {
   const defaultPreset: MusicianSetupPreset = {
     ...createDefaultMusicianPreset(),
@@ -41,7 +56,7 @@ export function cleanupPatch(patch?: PresetOverridePatch): PresetOverridePatch |
   const remove = patch.inputs?.remove?.length ? patch.inputs.remove : undefined;
   const replace = patch.inputs?.replace?.length ? patch.inputs.replace : undefined;
   const update = patch.inputs?.update?.length ? patch.inputs.update : undefined;
-  const monitoring = patch.monitoring && Object.keys(patch.monitoring).length > 0 ? patch.monitoring : undefined;
+  const monitoring = normalizeMonitoring(patch);
   const inputs = add || remove || replace || update
     ? {
       ...(add ? { add } : {}),
@@ -56,6 +71,19 @@ export function cleanupPatch(patch?: PresetOverridePatch): PresetOverridePatch |
 
 export function computeIsDirty(patch?: PresetOverridePatch): boolean {
   return Boolean(cleanupPatch(patch));
+}
+
+function arePresetsEqual(left: MusicianSetupPreset, right: MusicianSetupPreset): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+export function shouldEnableSetupReset(args: {
+  eventOverride?: PresetOverridePatch;
+  defaultPreset: MusicianSetupPreset;
+  effectivePreset: MusicianSetupPreset;
+}): boolean {
+  if (cleanupPatch(args.eventOverride)) return true;
+  return !arePresetsEqual(args.defaultPreset, args.effectivePreset);
 }
 
 export function resetOverrides(): undefined {

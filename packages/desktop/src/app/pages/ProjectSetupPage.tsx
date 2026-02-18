@@ -43,8 +43,8 @@ import { migrateProjectLineupVocsToLeadBack } from "../domain/project/migratePro
 import { migrateProjectTalkbackOwner } from "../domain/project/migrateProjectTalkbackOwner";
 import { isLineupSetupDirty } from "../domain/ui/isLineupSetupDirty";
 import {
-  computeIsDirty,
   resetOverrides,
+  shouldEnableSetupReset,
   type EventSetupEditState,
 } from "../components/setup/adapters/eventSetupAdapter";
 import { BackVocsBlock } from "../components/roles/BackVocsBlock";
@@ -551,6 +551,19 @@ export function ProjectSetupPage({
     return Number.isFinite(parsed) ? parsed : 0;
   }
 
+
+  function resolveDraftOverride(slotKey: string, fallbackOverride: PresetOverridePatch | undefined): PresetOverridePatch | undefined {
+    return Object.prototype.hasOwnProperty.call(setupDraftBySlot, slotKey)
+      ? setupDraftBySlot[slotKey]
+      : fallbackOverride;
+  }
+
+  function isMonitoringModified(args: {
+    monitorRefOrigin: string;
+    effectiveAdditionalWedgeCount: number | undefined;
+  }): boolean {
+    return args.monitorRefOrigin === "override" || (args.effectiveAdditionalWedgeCount ?? 0) > 0;
+  }
   function getExistingSlotOverride(role: string, slotIndex: number): PresetOverridePatch | undefined {
     if (!setupData) return undefined;
     const constraint = normalizeRoleConstraint(role, setupData.constraints[role]);
@@ -1074,8 +1087,10 @@ export function ProjectSetupPage({
                 selectedSetupMusician.role,
                 parseSlotIndex(selectedSetupMusician.slotKey),
               );
-              const currentPatch =
-                setupDraftBySlot[selectedSetupMusician.slotKey] ?? existingPatch;
+              const currentPatch = resolveDraftOverride(
+                selectedSetupMusician.slotKey,
+                existingPatch,
+              );
               const { resolved, effective } = resolveSlotSetup(
                 selectedSetupMusician.role,
                 selectedSetupMusician.musicianId,
@@ -1101,8 +1116,10 @@ export function ProjectSetupPage({
                     slot.role,
                     parseSlotIndex(slot.slotKey),
                   );
-                  const slotPatch =
-                    setupDraftBySlot[slot.slotKey] ?? existingSlotPatch;
+                  const slotPatch = resolveDraftOverride(
+                    slot.slotKey,
+                    existingSlotPatch,
+                  );
                   const { resolved: slotResolved } = resolveSlotSetup(
                     slot.role,
                     slot.musicianId,
@@ -1140,18 +1157,33 @@ export function ProjectSetupPage({
                     open={Boolean(editingSetup && selectedSetupMusician)}
                     title={`Setup for this event – ${selectedSetupMusician.musicianName} (${selectedSetupMusician.role})`}
                     subtitle="Changes here apply only to this event. Band defaults are not modified."
-                    isDirty={computeIsDirty(currentPatch)}
+                    isDirty={shouldEnableSetupReset({
+                      eventOverride: existingPatch,
+                      defaultPreset: resolved.defaultPreset,
+                      effectivePreset: effective,
+                    })}
                     onBack={() => {
                       setEditingSetup(null);
                       setSetupDraftBySlot({});
                       setSelectedSetupSlotKey("");
                     }}
-                    onReset={() =>
-                      setSetupDraftBySlot((prev) => ({
-                        ...prev,
-                        [selectedSetupMusician.slotKey]: resetOverrides(),
-                      }))
-                    }
+                    onReset={() => {
+                      if (!setupData) return;
+                      setSetupDraftBySlot((prev) => {
+                        const next = { ...prev };
+                        ROLE_ORDER.forEach((role) => {
+                          const constraint = normalizeRoleConstraint(
+                            role,
+                            setupData.constraints[role],
+                          );
+                          normalizeLineupSlots(lineup[role], constraint.max).forEach((slot, slotIndex) => {
+                            if (slot.musicianId !== selectedSetupMusician.musicianId) return;
+                            next[`${role}:${slotIndex}`] = resetOverrides();
+                          });
+                        });
+                        return next;
+                      });
+                    }}
                     saveDisabled={modalErrors.length > 0}
                     onSave={() => {
                       applySetupDraftOverrides(setupDraftBySlot);
@@ -1195,8 +1227,10 @@ export function ProjectSetupPage({
                           <SetupSection
                             title="Monitoring"
                             modified={
-                              resolved.diffMeta.monitoring.monitorRef.origin === "override" ||
-                              resolved.diffMeta.monitoring.additionalWedgeCount.origin === "override"
+                              isMonitoringModified({
+                                monitorRefOrigin: resolved.diffMeta.monitoring.monitorRef.origin,
+                                effectiveAdditionalWedgeCount: effective.monitoring.additionalWedgeCount,
+                              })
                             }
                           >
                             <MonitoringEditor
@@ -1320,8 +1354,10 @@ export function ProjectSetupPage({
                             <SetupSection
                               title="Monitoring"
                               modified={
-                                resolved.diffMeta.monitoring.monitorRef.origin === "override" ||
-                                resolved.diffMeta.monitoring.additionalWedgeCount.origin === "override"
+                                isMonitoringModified({
+                                  monitorRefOrigin: resolved.diffMeta.monitoring.monitorRef.origin,
+                                  effectiveAdditionalWedgeCount: effective.monitoring.additionalWedgeCount,
+                                })
                               }
                             >
                               <MonitoringEditor

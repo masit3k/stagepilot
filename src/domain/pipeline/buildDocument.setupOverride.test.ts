@@ -72,7 +72,7 @@ describe("buildDocument setup overrides", () => {
     };
 
     const vm = buildDocument(project, repo);
-    expect(vm.stageplan.monitorOutputs.some((row) => row.note === "IEM STEREO wired + Additional wedge x2")).toBe(true);
+    expect(vm.stageplan.monitorOutputs.some((row) => row.note === "IEM STEREO wired + Additional wedge monitor 2x")).toBe(true);
     expect(vm.inputs.some((item) => item.key === "el_bass_xlr_amp")).toBe(true);
     expect(vm.inputs.some((item) => item.key === "el_bass_xlr_pedalboard")).toBe(false);
   });
