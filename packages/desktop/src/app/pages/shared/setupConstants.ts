@@ -13,12 +13,25 @@ import {
   buildBassFields,
   toBassPresets,
 } from "../../components/setup/instruments/bass/buildBassFields";
+import { buildGuitarFields } from "../../components/setup/instruments/guitar/buildGuitarFields";
+import { buildKeysFields } from "../../components/setup/instruments/keys/buildKeysFields";
+import { buildLeadVocsFields } from "../../components/setup/instruments/vocs/buildLeadVocsFields";
 import type { BandSetupData, MemberOption, NewProjectPayload } from "../../shell/types";
 import type { RoleConstraint } from "../../../projectRules";
 import elBassXlrAmpPreset from "../../../../../../data/assets/presets/groups/bass/el_bass_xlr_amp.json";
 import elBassMicPreset from "../../../../../../data/assets/presets/groups/bass/el_bass_mic.json";
 import elBassXlrPedalboardPreset from "../../../../../../data/assets/presets/groups/bass/el_bass_xlr_pedalboard.json";
 import bassSynthPreset from "../../../../../../data/assets/presets/groups/bass/bass_synth.json";
+import elGuitarMicPreset from "../../../../../../data/assets/presets/groups/guitar/el_guitar_mic.json";
+import elGuitarXlrMonoPreset from "../../../../../../data/assets/presets/groups/guitar/el_guitar_xlr_mono.json";
+import elGuitarXlrStereoPreset from "../../../../../../data/assets/presets/groups/guitar/el_guitar_xlr_stereo.json";
+import acGuitarPreset from "../../../../../../data/assets/presets/groups/guitar/ac_guitar.json";
+import keysPreset from "../../../../../../data/assets/presets/groups/keys/keys.json";
+import synthPreset from "../../../../../../data/assets/presets/groups/keys/synth.json";
+import synthMonoPreset from "../../../../../../data/assets/presets/groups/keys/synth_mono.json";
+import vocalLeadWirelessPreset from "../../../../../../data/assets/presets/groups/vocs/vocal_lead_wireless.json";
+import vocalLeadWiredPreset from "../../../../../../data/assets/presets/groups/vocs/vocal_lead_wired.json";
+import vocalLeadNoMicPreset from "../../../../../../data/assets/presets/groups/vocs/vocal_lead_no_mic.json";
 
 export const ROLE_ORDER = ["drums", "bass", "guitar", "keys", "vocs"];
 
@@ -49,6 +62,24 @@ export const BASS_FIELDS = buildBassFields(
   ] as Preset[]),
 );
 
+export const GUITAR_FIELDS = buildGuitarFields([
+  elGuitarMicPreset,
+  elGuitarXlrMonoPreset,
+  elGuitarXlrStereoPreset,
+  acGuitarPreset,
+] as Preset[]);
+
+export const KEYS_FIELDS = buildKeysFields([
+  keysPreset,
+  synthPreset,
+  synthMonoPreset,
+] as Preset[]);
+
+export const LEAD_VOCS_FIELDS = buildLeadVocsFields([
+  vocalLeadWirelessPreset,
+  vocalLeadWiredPreset,
+  vocalLeadNoMicPreset,
+] as Preset[]);
 
 const BASS_PRESET_INPUTS_BY_REF: Record<string, InputChannel> = {
   el_bass_xlr_amp: { key: "el_bass_xlr_amp", label: "Electric bass guitar", note: "XLR out from amp", group: "bass" },

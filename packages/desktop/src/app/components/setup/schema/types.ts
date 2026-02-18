@@ -14,6 +14,7 @@ export type FieldBase<TValue, TKind extends string> = {
   reset: (state: EventSetupEditState) => PresetOverridePatch | undefined;
   normalize?: FieldNormalizer<TValue>;
   isDisabled?: (state: EventSetupEditState) => boolean;
+  isVisible?: (state: EventSetupEditState) => boolean;
 };
 
 export type DropdownOption = {
@@ -29,6 +30,13 @@ export type DropdownFieldDef = FieldBase<string, "dropdown"> & {
 
 export type ToggleFieldDef = FieldBase<boolean, "toggle">;
 
+export type ToggleWithStepperFieldDef = FieldBase<boolean, "toggleWithStepper"> & {
+  min: number;
+  max: number;
+  getCount: (state: EventSetupEditState) => number;
+  setCount: (state: EventSetupEditState, value: number) => PresetOverridePatch | undefined;
+};
+
 export type AdditionalPickerOption = {
   id: string;
   label: string;
@@ -40,12 +48,12 @@ export type AdditionalPickerFieldDef = FieldBase<string[], "additionalPicker"> &
   maxSelected: number;
 };
 
-export type FieldDef = DropdownFieldDef | ToggleFieldDef | AdditionalPickerFieldDef;
+export type FieldDef = DropdownFieldDef | ToggleFieldDef | ToggleWithStepperFieldDef | AdditionalPickerFieldDef;
 
 export type ToggleGridGroupDef = {
   kind: "toggleGrid";
   id: string;
-  fields: ToggleFieldDef[];
+  fields: Array<ToggleFieldDef | ToggleWithStepperFieldDef>;
 };
 
 export type SchemaNode = FieldDef | ToggleGridGroupDef;

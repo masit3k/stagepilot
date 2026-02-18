@@ -1,0 +1,13 @@
+{
+  "type": "preset",
+  "id": "vocal_back_wireless",
+  "label": "Back vocal (wireless)",
+  "group": "vocs",
+  "inputs": [
+    {
+      "key": "voc_back_wireless",
+      "label": "Back Vocal",
+      "note": "Own wireless mic"
+    }
+  ]
+}

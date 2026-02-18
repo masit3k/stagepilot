@@ -1,0 +1,13 @@
+{
+  "type": "preset",
+  "id": "synth_mono",
+  "label": "Synth (mono)",
+  "group": "keys",
+  "inputs": [
+    {
+      "key": "synth_mono",
+      "label": "Synth",
+      "note": "TS jack 6.3mm – DI box"
+    }
+  ]
+}

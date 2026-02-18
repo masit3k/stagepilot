@@ -3,10 +3,12 @@ import type { MemberOption } from "../../shell/types";
 type BackVocsBlockProps = {
   members: MemberOption[];
   onChange: () => void;
+  onSetup: () => void;
   changeDisabled?: boolean;
+  setupDisabled?: boolean;
 };
 
-export function BackVocsBlock({ members, onChange, changeDisabled = false }: BackVocsBlockProps) {
+export function BackVocsBlock({ members, onChange, onSetup, changeDisabled = false, setupDisabled = false }: BackVocsBlockProps) {
   return (
     <article className="lineup-card">
       <h3>BACK VOCS</h3>
@@ -23,7 +25,10 @@ export function BackVocsBlock({ members, onChange, changeDisabled = false }: Bac
           ))}
           <div className="lineup-list__row">
             <span className="lineup-list__name subtle" aria-hidden="true" />
-            <button type="button" className="button-secondary" disabled={changeDisabled} onClick={onChange}>Change</button>
+            <div className="lineup-list__actions">
+              <button type="button" className="button-secondary" disabled={changeDisabled} onClick={onChange}>Change</button>
+              <button type="button" className="button-secondary" disabled={setupDisabled} onClick={onSetup}>Setup</button>
+            </div>
           </div>
         </div>
       </div>

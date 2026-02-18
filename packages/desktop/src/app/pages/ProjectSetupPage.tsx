@@ -45,10 +45,12 @@ import { isLineupSetupDirty } from "../domain/ui/isLineupSetupDirty";
 import {
   resetOverrides,
   shouldEnableSetupReset,
+  withInputsTarget,
   type EventSetupEditState,
 } from "../components/setup/adapters/eventSetupAdapter";
 import { BackVocsBlock } from "../components/roles/BackVocsBlock";
 import { ChangeBackVocsModal } from "../components/roles/modals/ChangeBackVocsModal";
+import { BackVocsSetupModal } from "../components/roles/modals/BackVocsSetupModal";
 import {
   getBackVocalCandidatesFromTemplate,
   getBackVocsFromTemplate,
@@ -66,9 +68,13 @@ import { toPersistableProject } from "../shell/types";
 import { serializeLineupForProject } from "../shell/lineupSerialize";
 import vocalBackNoMicPreset from "../../../../../data/assets/presets/groups/vocs/vocal_back_no_mic.json";
 import vocalBackWiredPreset from "../../../../../data/assets/presets/groups/vocs/vocal_back_wired.json";
+import vocalBackWirelessPreset from "../../../../../data/assets/presets/groups/vocs/vocal_back_wireless.json";
 import type { ProjectRouteProps } from "./shared/pageTypes";
 import {
   BASS_FIELDS,
+  GUITAR_FIELDS,
+  KEYS_FIELDS,
+  LEAD_VOCS_FIELDS,
   GROUP_INPUT_LIBRARY,
   ROLE_ORDER,
   buildInputsPatchFromTarget,
@@ -104,6 +110,8 @@ export function ProjectSetupPage({
   const [talkbackOwnerId, setTalkbackOwnerId] = useState("");
   const [backVocalIds, setBackVocalIds] = useState<string[]>([]);
   const [isBackVocsModalOpen, setIsBackVocsModalOpen] = useState(false);
+  const [isBackVocsSetupOpen, setIsBackVocsSetupOpen] = useState(false);
+  const [backVocsSetupDraft, setBackVocsSetupDraft] = useState<Record<string, PresetOverridePatch | undefined>>({});
   const [status, setStatus] = useState("");
   const [showResetConfirmation, setShowResetConfirmation] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
@@ -304,7 +312,7 @@ export function ProjectSetupPage({
   }, [selectedMusicianIds, setupData]);
   const talkbackCurrentOwnerId = talkbackOwnerId || bandLeaderId;
   const backVocalPresetRefs = useMemo(
-    () => [vocalBackNoMicPreset, vocalBackWiredPreset],
+    () => [vocalBackNoMicPreset, vocalBackWiredPreset, vocalBackWirelessPreset],
     [],
   );
   const defaultBackVocalRef = useMemo(
@@ -373,6 +381,7 @@ export function ProjectSetupPage({
       ),
     [selectedBackVocalIds, templateMusicians],
   );
+
   const backVocalCandidateIds = useMemo(
     () =>
       new Set(
@@ -634,6 +643,30 @@ export function ProjectSetupPage({
     [setupData],
   );
 
+  const backVocalMembersSorted = useMemo(
+    () => [...backVocalMembers].sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)),
+    [backVocalMembers],
+  );
+  const backVocsSetupItems = useMemo(
+    () => backVocalMembersSorted.map((member) => {
+      const defaultPreset = resolveSlotSetup("vocs", member.id).resolved.defaultPreset;
+      const defaultInputKeys = new Set(defaultPreset.inputs.map((item) => item.key));
+      const slots = normalizeLineupSlots(lineup.back_vocs, 8);
+      const existing = slots.find((slot) => slot.musicianId === member.id)?.presetOverride;
+      const draft = backVocsSetupDraft[member.id];
+      const patch = Object.prototype.hasOwnProperty.call(backVocsSetupDraft, member.id) ? draft : existing;
+      const { effective } = resolveSlotSetup("vocs", member.id, patch);
+      const value = effective.inputs.some((input) => input.key === "voc_back_wired")
+        ? "vocal_back_wired"
+        : effective.inputs.some((input) => input.key === "voc_back_wireless")
+          ? "vocal_back_wireless"
+          : "vocal_back_no_mic";
+      const isModified = !effective.inputs.every((input) => defaultInputKeys.has(input.key)) || effective.inputs.length !== defaultInputKeys.size;
+      return { musicianId: member.id, name: member.name, value, isModified };
+    }),
+    [backVocalMembersSorted, backVocsSetupDraft, lineup.back_vocs, resolveSlotSetup],
+  );
+
   const effectiveSlotPresets = useMemo(() => {
     if (!setupData)
       return [] as Array<{
@@ -726,6 +759,9 @@ export function ProjectSetupPage({
   );
   const backVocsModalRef = useModalBehavior(Boolean(isBackVocsModalOpen), () =>
     setIsBackVocsModalOpen(false),
+  );
+  const backVocsSetupModalRef = useModalBehavior(Boolean(isBackVocsSetupOpen), () =>
+    setIsBackVocsSetupOpen(false),
   );
   const setupEditorRef = useModalBehavior(Boolean(editingSetup), () => {
     setEditingSetup(null);
@@ -1282,77 +1318,50 @@ export function ProjectSetupPage({
                                 }}
                               />
                             ) : null}
-                            <SelectedInputsList
-                              effectiveInputs={effective.inputs}
-                              inputDiffMeta={resolved.diffMeta.inputs}
-                              availableInputs={
-                                selectedSetupMusician.role === "drums"
-                                  ? []
-                                  : availableInputs
-                              }
-                              nonRemovableKeys={
-                                selectedSetupMusician.role === "drums"
-                                  ? [
-                                      "dr_kick_out",
-                                      "dr_kick_in",
-                                      "dr_snare1_top",
-                                      "dr_snare1_bottom",
-                                    ]
-                                  : []
-                              }
-                              onRemoveInput={(key) => {
-                                setSetupDraftBySlot((prev) => {
-                                  const prior =
-                                    prev[selectedSetupMusician.slotKey];
-                                  const nextRemove = Array.from(
-                                    new Set([
-                                      ...(prior?.inputs?.removeKeys ?? []),
-                                      key,
-                                    ]),
-                                  );
-                                  const nextAdd = (
-                                    prior?.inputs?.add ?? []
-                                  ).filter((item) => item.key !== key);
-                                  return {
-                                    ...prev,
-                                    [selectedSetupMusician.slotKey]: {
-                                      ...prior,
-                                      inputs: {
-                                        ...prior?.inputs,
-                                        removeKeys: nextRemove,
-                                        add: nextAdd,
+                            {selectedSetupMusician.role === "drums" ? (
+                              <SelectedInputsList
+                                effectiveInputs={effective.inputs}
+                                inputDiffMeta={resolved.diffMeta.inputs}
+                                availableInputs={[]}
+                                nonRemovableKeys={[
+                                  "dr_kick_out",
+                                  "dr_kick_in",
+                                  "dr_snare1_top",
+                                  "dr_snare1_bottom",
+                                ]}
+                                onRemoveInput={(key) => {
+                                  setSetupDraftBySlot((prev) => {
+                                    const prior = prev[selectedSetupMusician.slotKey];
+                                    const nextRemove = Array.from(new Set([...(prior?.inputs?.removeKeys ?? []), key]));
+                                    const nextAdd = (prior?.inputs?.add ?? []).filter((item) => item.key !== key);
+                                    return {
+                                      ...prev,
+                                      [selectedSetupMusician.slotKey]: {
+                                        ...prior,
+                                        inputs: { ...prior?.inputs, removeKeys: nextRemove, add: nextAdd },
                                       },
-                                    },
-                                  };
-                                });
-                              }}
-                              onAddInput={(input) => {
-                                setSetupDraftBySlot((prev) => {
-                                  const prior =
-                                    prev[selectedSetupMusician.slotKey];
-                                  const hasInput = (
-                                    prior?.inputs?.add ?? []
-                                  ).some((item) => item.key === input.key);
-                                  if (hasInput) return prev;
-                                  return {
-                                    ...prev,
-                                    [selectedSetupMusician.slotKey]: {
-                                      ...prior,
-                                      inputs: {
-                                        ...prior?.inputs,
-                                        add: [
-                                          ...(prior?.inputs?.add ?? []),
-                                          input,
-                                        ],
-                                        removeKeys: (
-                                          prior?.inputs?.removeKeys ?? []
-                                        ).filter((item) => item !== input.key),
-                                      },
-                                    },
-                                  };
-                                });
-                              }}
-                            />
+                                    };
+                                  });
+                                }}
+                                onAddInput={() => {}}
+                              />
+                            ) : (
+                              <SetupSection
+                                title="Inputs"
+                                modified={resolved.diffMeta.inputs.some((item) => item.origin === "override")}
+                              >
+                                <SchemaRenderer
+                                  fields={selectedSetupMusician.role === "guitar" ? GUITAR_FIELDS : selectedSetupMusician.role === "keys" ? KEYS_FIELDS : LEAD_VOCS_FIELDS}
+                                  state={{ defaultPreset: resolved.defaultPreset, effectivePreset: effective, patch: currentPatch }}
+                                  onPatch={(nextPatch) =>
+                                    setSetupDraftBySlot((prev) => ({
+                                      ...prev,
+                                      [selectedSetupMusician.slotKey]: nextPatch,
+                                    }))
+                                  }
+                                />
+                              </SetupSection>
+                            )}
                           </div>
                           <div className="setup-editor-column">
                             <SetupSection
@@ -1421,6 +1430,45 @@ export function ProjectSetupPage({
               );
               setBackVocalIds(Array.from(sanitizedSelectedIds));
               setIsBackVocsModalOpen(false);
+            }}
+          />
+        </div>
+      </ModalOverlay>
+
+      <ModalOverlay
+        open={isBackVocsSetupOpen}
+        onClose={() => setIsBackVocsSetupOpen(false)}
+      >
+        <div ref={backVocsSetupModalRef}>
+          <BackVocsSetupModal
+            open={isBackVocsSetupOpen}
+            items={backVocsSetupItems}
+            onBack={() => setIsBackVocsSetupOpen(false)}
+            onReset={() => {
+              const next = Object.fromEntries(backVocsSetupItems.map((item) => [item.musicianId, undefined]));
+              setBackVocsSetupDraft(next);
+            }}
+            onSave={() => {
+              const current = normalizeLineupSlots(lineup.back_vocs, 8);
+              const nextById = new Map(current.map((slot) => [slot.musicianId, slot]));
+              for (const item of backVocsSetupItems) {
+                const override = Object.prototype.hasOwnProperty.call(backVocsSetupDraft, item.musicianId)
+                  ? backVocsSetupDraft[item.musicianId]
+                  : nextById.get(item.musicianId)?.presetOverride;
+                nextById.set(item.musicianId, { musicianId: item.musicianId, ...(override ? { presetOverride: override } : {}) });
+              }
+              setLineup((prev) => ({ ...prev, back_vocs: Array.from(nextById.values()) }));
+              setIsBackVocsSetupOpen(false);
+            }}
+            onChange={(musicianId, presetId) => {
+              const targetPreset = backVocalPresetRefs.find((item) => item.id === presetId);
+              if (!targetPreset) return;
+              const nextPatch = withInputsTarget(
+                resolveSlotSetup("vocs", musicianId).resolved.defaultPreset.inputs,
+                backVocsSetupDraft[musicianId],
+                targetPreset.inputs as InputChannel[],
+              );
+              setBackVocsSetupDraft((prev) => ({ ...prev, [musicianId]: nextPatch }));
             }}
           />
         </div>
