@@ -24,14 +24,14 @@ This is the last known-good baseline before desktop UI work.
 ## Data model
 - System assets are shipped in `data/` (read-only).
 - User data is stored in OS app data under `stagepilot/`:
-  - Windows: `%APPDATA%/stagepilot`
-  - macOS: `~/Library/Application Support/stagepilot`
-  - Linux: `$XDG_DATA_HOME/stagepilot` (or `~/.local/share/stagepilot`)
+  - Windows: `%APPDATA%/com.mkrecmer.stagepilot-desktop/stagepilot`
+  - macOS: `~/Library/Application Support/com.mkrecmer.stagepilot-desktop/stagepilot`
+  - Linux: `$XDG_DATA_HOME/com.mkrecmer.stagepilot-desktop/stagepilot` (or `~/.local/share/com.mkrecmer.stagepilot-desktop/stagepilot`)
 
 ## Desktop storage cleanup
 - Runtime user data is **not** stored in repo-local `user_data/`.
 - To wipe desktop storage on dev startup, run with `STAGEPILOT_DEV_WIPE_STORAGE=1` (dev builds only).
 - Manual cleanup paths:
-  - Windows: `%APPDATA%/stagepilot`
-  - macOS: `~/Library/Application Support/stagepilot`
-  - Linux: `$XDG_DATA_HOME/stagepilot` (or `~/.local/share/stagepilot`)
+  - Windows: `%APPDATA%/com.mkrecmer.stagepilot-desktop/stagepilot`
+  - macOS: `~/Library/Application Support/com.mkrecmer.stagepilot-desktop/stagepilot`
+  - Linux: `$XDG_DATA_HOME/com.mkrecmer.stagepilot-desktop/stagepilot` (or `~/.local/share/com.mkrecmer.stagepilot-desktop/stagepilot`)

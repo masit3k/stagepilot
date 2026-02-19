@@ -741,6 +741,11 @@ fn read_project(app: tauri::AppHandle, project_id: String) -> Result<String, Api
         export_pdf_path: None,
         version_pdf_path: None,
     })?;
+    eprintln!(
+        "[project] read path={} exists={}",
+        project_path.display(),
+        project_path.exists()
+    );
     fs::read_to_string(&project_path)
         .map_err(|err| map_io_error(err, "PROJECT_READ_FAILED", "Failed to read project"))
 }
@@ -772,6 +777,7 @@ fn save_project(
 
     let project_path = project_json_path(&projects_dir, &project_id)
         .map_err(|err| map_storage_error(err, "PROJECT_SAVE_FAILED", "Invalid project path"))?;
+    eprintln!("[project] save path={}", project_path.display());
     atomic_write_bytes(&project_path, json.as_bytes())
         .map_err(|err| map_storage_error(err, "PROJECT_SAVE_FAILED", "Failed to save project"))?;
 

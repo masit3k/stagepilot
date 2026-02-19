@@ -27,3 +27,5 @@ dist-icons/StagePilot_Icon_StageLayout_CurrentColor/png/StagePilot_Icon_StageLay
 dist-icons/StagePilot_Icon_StageLayout_CurrentColor/png/StagePilot_Icon_StageLayout_CurrentColor-128.png
 dist-icons/StagePilot_Icon_StageLayout_CurrentColor/png/StagePilot_Icon_StageLayout_CurrentColor-256.png
 dist-icons/StagePilot_Icon_StageLayout_CurrentColor/png/StagePilot_Icon_StageLayout_CurrentColor-512.png
+
+packages/**/user_data/

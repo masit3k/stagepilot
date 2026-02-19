@@ -204,4 +204,18 @@ mod tests {
         assert!(safe_join(root, "ok.json").is_ok());
         assert!(safe_join(root, "../bad.json").is_err());
     }
+
+    #[test]
+    fn sanitize_and_safe_join_never_use_legacy_user_data_segments() {
+        let root = Path::new("/tmp/root");
+        let sanitized = sanitize_id_to_filename("../user_data/../../bad");
+        assert!(!sanitized.contains(".."));
+        assert!(!sanitized.contains("/"));
+        assert!(!sanitized.contains(r"\"));
+
+        let path = safe_join(root, &format!("{}.json", sanitized)).expect("safe path");
+        let rendered = path.to_string_lossy();
+        assert!(!rendered.contains(".."));
+    }
 }
+

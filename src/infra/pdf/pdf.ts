@@ -39,6 +39,10 @@ function resolveChromiumExecutablePath(): string | undefined {
     }
 }
 
+function hasExplicitExecutablePath(): boolean {
+    return Boolean(process.env.PUPPETEER_EXECUTABLE_PATH?.trim());
+}
+
 type LaunchStrategy = {
     name: string;
     launchOptions: LaunchOptions;
@@ -172,9 +176,15 @@ export async function renderPdf(vm: DocumentViewModel, opts: RenderPdfOptions): 
 
     const launchStrategies: LaunchStrategy[] = [];
 
+    const explicitExecutablePath = hasExplicitExecutablePath();
+
+    if (!explicitExecutablePath) {
+        launchStrategies.push(...getSystemBrowserFallbacks(baseLaunchOptions));
+    }
+
     if (executablePath) {
         launchStrategies.push({
-            name: process.env.PUPPETEER_EXECUTABLE_PATH?.trim()
+            name: explicitExecutablePath
                 ? "env:PUPPETEER_EXECUTABLE_PATH"
                 : "puppeteer.executablePath()",
             executablePath,
@@ -190,10 +200,6 @@ export async function renderPdf(vm: DocumentViewModel, opts: RenderPdfOptions): 
                 ...baseLaunchOptions,
             },
         });
-    }
-
-    if (!process.env.PUPPETEER_EXECUTABLE_PATH?.trim()) {
-        launchStrategies.push(...getSystemBrowserFallbacks(baseLaunchOptions));
     }
 
     console.error("[pdf] chromium launch plan", {
