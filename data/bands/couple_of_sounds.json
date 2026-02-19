@@ -4,7 +4,7 @@
   "code": "CoS",
   "name": "Couple of Sounds",
   "bandLeader": "krecmer_matej",
-  "logoFile": "user_data/assets/logos/couple_of_sounds.png",
+  "logoFile": "assets/logos/couple_of_sounds.png",
   "defaultContactId": "krecmer_matej",
   "constraints": {
     "drums": {

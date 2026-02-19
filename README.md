@@ -20,3 +20,10 @@
 - Ready to start desktop (Tauri) feature development
 
 This is the last known-good baseline before desktop UI work.
+
+## Data model
+- System assets are shipped in `data/` (read-only).
+- User data is stored in OS app data under `stagepilot/`:
+  - Windows: `%APPDATA%/stagepilot`
+  - macOS: `~/Library/Application Support/stagepilot`
+  - Linux: `$XDG_DATA_HOME/stagepilot` (or `~/.local/share/stagepilot`)

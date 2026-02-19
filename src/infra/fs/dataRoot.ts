@@ -1,12 +1,17 @@
-// Co? Určuje absolutní cestu ke složce /data.
-// Proč? Zajišťuje správné načítání dat bez ohledu na cwd.
-
+import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 export const PROJECT_ROOT = process.cwd();
 export const DATA_ROOT = path.resolve(PROJECT_ROOT, "data");
-export const USER_DATA_ROOT = path.resolve(PROJECT_ROOT, "user_data");
+
+function resolveAppDataBaseDir(): string {
+  if (process.platform === "win32") {
+    return process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
+  }
+  if (process.platform === "darwin") {
+    return path.join(os.homedir(), "Library", "Application Support");
+  }
+  return process.env.XDG_DATA_HOME || path.join(os.homedir(), ".local", "share");
+}
+
+export const USER_DATA_ROOT = path.join(resolveAppDataBaseDir(), "stagepilot");

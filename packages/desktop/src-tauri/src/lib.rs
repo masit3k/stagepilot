@@ -1,3 +1,5 @@
+mod storage_paths;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
@@ -6,9 +8,13 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
     sync::mpsc,
-    sync::{Mutex, OnceLock},
 };
-use tauri::Manager;
+use storage_paths::{
+    atomic_write_bytes, ensure_user_storage, exports_dir, library_dir as storage_library_dir,
+    project_json_path, projects_dir as storage_projects_dir, sanitize_id_to_filename,
+    temp_dir as storage_temp_dir, user_storage_root, versions_dir as storage_versions_dir,
+    StorageError,
+};
 use tauri_plugin_dialog::DialogExt;
 
 #[derive(Debug, Serialize)]
@@ -39,13 +45,6 @@ struct BandOption {
     name: String,
     code: Option<String>,
 }
-
-static PROJECT_FILE_MAP: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
-
-fn project_file_map() -> &'static Mutex<HashMap<String, String>> {
-    PROJECT_FILE_MAP.get_or_init(|| Mutex::new(HashMap::new()))
-}
-
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct LibraryBand {
@@ -154,7 +153,6 @@ struct NodeExportResponse {
     version_pdf_path: Option<String>,
 }
 
-
 fn normalize_default_lineup_keys(default_lineup: Option<Value>) -> Option<Value> {
     let Some(Value::Object(mut lineup)) = default_lineup else {
         return default_lineup;
@@ -182,7 +180,11 @@ fn infer_monitoring_default_from_ref(monitor_ref: &str) -> Value {
     } else {
         "wedge"
     };
-    let mode = if normalized.contains("stereo") { "stereo" } else { "mono" };
+    let mode = if normalized.contains("stereo") {
+        "stereo"
+    } else {
+        "mono"
+    };
 
     serde_json::json!({
         "monitoring": {
@@ -200,25 +202,21 @@ fn resolve_repo_root() -> PathBuf {
         .join("..")
 }
 
-fn resolve_user_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, ApiError> {
-    if let Ok(env_dir) = std::env::var("STAGEPILOT_USER_DATA") {
-        if !env_dir.trim().is_empty() {
-            return Ok(PathBuf::from(env_dir));
-        }
-    }
-
-    if cfg!(debug_assertions) {
-        return Ok(resolve_repo_root().join("user_data"));
-    }
-
-    let app_data_dir = app.path().app_data_dir().map_err(|e| ApiError {
-        code: "APP_DATA_DIR_FAILED".into(),
-        message: format!("Failed to resolve app_data_dir: {e}"),
+fn map_storage_error(err: StorageError, code: &str, context: &str) -> ApiError {
+    let message = match err {
+        StorageError::Io(e) => format!("{} ({})", context, e),
+        StorageError::Resolve(msg) => format!("{} ({})", context, msg),
+        StorageError::InvalidSchema(schema) => format!(
+            "{} (Unsupported user storage schemaVersion {}. Please update StagePilot.)",
+            context, schema
+        ),
+    };
+    ApiError {
+        code: code.into(),
+        message,
         export_pdf_path: None,
         version_pdf_path: None,
-    })?;
-
-    Ok(app_data_dir)
+    }
 }
 
 fn map_io_error(err: std::io::Error, code: &str, message: &str) -> ApiError {
@@ -230,74 +228,29 @@ fn map_io_error(err: std::io::Error, code: &str, message: &str) -> ApiError {
     }
 }
 
-fn resolve_project_path_by_id(projects_dir: &Path, project_id: &str) -> Result<Option<PathBuf>, ApiError> {
-    if !projects_dir.exists() {
+fn resolve_project_path_by_id(
+    app: &tauri::AppHandle,
+    project_id: &str,
+) -> Result<Option<PathBuf>, ApiError> {
+    let projects_dir = storage_projects_dir(app).map_err(|err| {
+        map_storage_error(err, "PROJECT_READ_FAILED", "Failed to resolve projects dir")
+    })?;
+    let project_path = project_json_path(&projects_dir, project_id)
+        .map_err(|err| map_storage_error(err, "PROJECT_READ_FAILED", "Invalid project path"))?;
+    if !project_path.exists() {
         return Ok(None);
     }
-
-    if let Some(file_name) = project_file_map()
-        .lock()
-        .ok()
-        .and_then(|map| map.get(project_id).cloned())
-    {
-        let candidate = projects_dir.join(file_name);
-        if candidate.exists() {
-            return Ok(Some(candidate));
-        }
-    }
-
-    let entries = fs::read_dir(projects_dir)
-        .map_err(|err| map_io_error(err, "PROJECT_READ_FAILED", "Failed to list projects"))?;
-    for entry in entries {
-        let path = entry
-            .map_err(|err| map_io_error(err, "PROJECT_READ_FAILED", "Failed to read projects"))?
-            .path();
-        if path.extension().and_then(|s| s.to_str()) != Some("json") {
-            continue;
-        }
-        let contents = fs::read_to_string(&path)
-            .map_err(|err| map_io_error(err, "PROJECT_READ_FAILED", "Failed to read project file"))?;
-        let json: Value = serde_json::from_str(&contents).map_err(|err| ApiError {
-            code: "PROJECT_READ_FAILED".into(),
-            message: format!("Invalid project JSON: {}", err),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        })?;
-        if json.get("id").and_then(|v| v.as_str()) == Some(project_id) {
-            if let Some(file_name) = path.file_name().and_then(|v| v.to_str()) {
-                if let Ok(mut map) = project_file_map().lock() {
-                    map.insert(project_id.to_string(), file_name.to_string());
-                }
-            }
-            return Ok(Some(path));
-        }
-    }
-
-    Ok(None)
+    Ok(Some(project_path))
 }
-
-fn project_file_name_from_slug(slug: &str) -> String {
-    format!("{}.json", slug)
-}
-
-fn reserve_project_file_name(projects_dir: &Path, preferred_slug: &str) -> Result<String, ApiError> {
-    let mut suffix = 1usize;
-    loop {
-        let file_name = if suffix == 1 {
-            project_file_name_from_slug(preferred_slug)
-        } else {
-            format!("{}__{}.json", preferred_slug, suffix)
-        };
-        if !projects_dir.join(&file_name).exists() {
-            return Ok(file_name);
-        }
-        suffix += 1;
-    }
-}
-
 
 fn library_dir(app: &tauri::AppHandle) -> Result<PathBuf, ApiError> {
-    Ok(resolve_user_data_dir(app)?.join("library"))
+    storage_library_dir(app).map_err(|err| {
+        map_storage_error(
+            err,
+            "LIBRARY_READ_FAILED",
+            "Failed to resolve library directory",
+        )
+    })
 }
 
 fn library_file(app: &tauri::AppHandle, file_name: &str) -> Result<PathBuf, ApiError> {
@@ -335,7 +288,11 @@ fn save_library_list<T: Serialize>(
     let path = library_file(app, file_name)?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|err| {
-            map_io_error(err, "LIBRARY_WRITE_FAILED", "Failed to create library directory")
+            map_io_error(
+                err,
+                "LIBRARY_WRITE_FAILED",
+                "Failed to create library directory",
+            )
         })?;
     }
     let json = serde_json::to_string_pretty(items).map_err(|err| ApiError {
@@ -355,18 +312,28 @@ fn save_library_list<T: Serialize>(
 
 #[tauri::command]
 fn get_user_data_dir(app: tauri::AppHandle) -> Result<String, ApiError> {
-    let dir = resolve_user_data_dir(&app)?;
+    let dir = user_storage_root(&app).map_err(|err| {
+        map_storage_error(
+            err,
+            "APP_DATA_DIR_FAILED",
+            "Failed to resolve user storage root",
+        )
+    })?;
+    ensure_user_storage(&app).map_err(|err| {
+        map_storage_error(
+            err,
+            "APP_DATA_DIR_FAILED",
+            "Failed to initialize user storage",
+        )
+    })?;
     Ok(dir.to_string_lossy().to_string())
 }
 
 #[tauri::command]
 fn list_projects(app: tauri::AppHandle) -> Result<Vec<ProjectSummary>, ApiError> {
-    let user_data_dir = resolve_user_data_dir(&app)?;
-    let projects_dir = user_data_dir.join("projects");
-
-    if !projects_dir.exists() {
-        return Ok(Vec::new());
-    }
+    let projects_dir = storage_projects_dir(&app).map_err(|err| {
+        map_storage_error(err, "PROJECT_LIST_FAILED", "Failed to resolve projects dir")
+    })?;
 
     let mut results = Vec::new();
     let entries = fs::read_dir(&projects_dir)
@@ -415,12 +382,6 @@ fn list_projects(app: tauri::AppHandle) -> Result<Vec<ProjectSummary>, ApiError>
                     .and_then(|v| v.as_str())
                     .map(|s| format!("{}T00:00:00Z", s))
             });
-
-        if let Some(file_name) = path.file_name().and_then(|v| v.to_str()) {
-            if let Ok(mut map) = project_file_map().lock() {
-                map.insert(id.clone(), file_name.to_string());
-            }
-        }
 
         let summary = ProjectSummary {
             id,
@@ -615,22 +576,26 @@ fn get_band_setup_data(band_id: String) -> Result<BandSetupData, ApiError> {
                 if id.is_empty() {
                     continue;
                 }
-                let monitor_ref = musician
-                    .get("presets")
-                    .and_then(|v| v.as_array())
-                    .and_then(|presets| {
-                        presets.iter().find_map(|preset| {
-                            if preset.get("kind").and_then(|v| v.as_str()) == Some("monitor") {
-                                return preset
-                                    .get("ref")
-                                    .and_then(|v| v.as_str())
-                                    .map(|v| v.to_string());
-                            }
-                            None
-                        })
-                    });
+                let monitor_ref =
+                    musician
+                        .get("presets")
+                        .and_then(|v| v.as_array())
+                        .and_then(|presets| {
+                            presets.iter().find_map(|preset| {
+                                if preset.get("kind").and_then(|v| v.as_str()) == Some("monitor") {
+                                    return preset
+                                        .get("ref")
+                                        .and_then(|v| v.as_str())
+                                        .map(|v| v.to_string());
+                                }
+                                None
+                            })
+                        });
                 if let Some(reference) = monitor_ref {
-                    musician_defaults.insert(id.to_string(), infer_monitoring_default_from_ref(&reference));
+                    musician_defaults.insert(
+                        id.to_string(),
+                        infer_monitoring_default_from_ref(&reference),
+                    );
                 }
                 musician_presets_by_id.insert(
                     id.to_string(),
@@ -715,7 +680,8 @@ fn get_band_setup_data(band_id: String) -> Result<BandSetupData, ApiError> {
     })?;
 
     let mut load_warnings: Vec<String> = Vec::new();
-    if let Some(default_lineup) = normalize_default_lineup_keys(json.get("defaultLineup").cloned()) {
+    if let Some(default_lineup) = normalize_default_lineup_keys(json.get("defaultLineup").cloned())
+    {
         if let Some(obj) = default_lineup.as_object() {
             for (role, value) in obj {
                 let ids: Vec<String> = match value {
@@ -769,9 +735,7 @@ fn get_band_setup_data(band_id: String) -> Result<BandSetupData, ApiError> {
 
 #[tauri::command]
 fn read_project(app: tauri::AppHandle, project_id: String) -> Result<String, ApiError> {
-    let user_data_dir = resolve_user_data_dir(&app)?;
-    let projects_dir = user_data_dir.join("projects");
-    let project_path = resolve_project_path_by_id(&projects_dir, &project_id)?.ok_or(ApiError {
+    let project_path = resolve_project_path_by_id(&app, &project_id)?.ok_or(ApiError {
         code: "PROJECT_READ_FAILED".into(),
         message: format!("Project not found: {}", project_id),
         export_pdf_path: None,
@@ -788,59 +752,32 @@ fn save_project(
     json: String,
     legacy_project_id: Option<String>,
 ) -> Result<(), ApiError> {
-    let user_data_dir = resolve_user_data_dir(&app)?;
-    let projects_dir = user_data_dir.join("projects");
-    fs::create_dir_all(&projects_dir)
-        .map_err(|err| map_io_error(err, "PROJECT_SAVE_FAILED", "Failed to create projects dir"))?;
+    let projects_dir = storage_projects_dir(&app).map_err(|err| {
+        map_storage_error(err, "PROJECT_SAVE_FAILED", "Failed to resolve projects dir")
+    })?;
     let parsed: Value = serde_json::from_str(&json).map_err(|err| ApiError {
         code: "PROJECT_SAVE_FAILED".into(),
         message: format!("Invalid project JSON payload ({})", err),
         export_pdf_path: None,
         version_pdf_path: None,
     })?;
-    let slug = parsed
-        .get("slug")
-        .and_then(|v| v.as_str())
-        .ok_or(ApiError {
+    if parsed.get("slug").and_then(|v| v.as_str()).is_none() {
+        return Err(ApiError {
             code: "PROJECT_SAVE_FAILED".into(),
             message: "Project slug is required.".into(),
             export_pdf_path: None,
             version_pdf_path: None,
-        })?;
-
-    let existing_path = resolve_project_path_by_id(&projects_dir, &project_id)?;
-    let preferred_file_name = project_file_name_from_slug(slug);
-    let target_file_name = if let Some(existing) = &existing_path {
-        let existing_name = existing
-            .file_name()
-            .and_then(|v| v.to_str())
-            .unwrap_or_default()
-            .to_string();
-        if existing_name == preferred_file_name || existing_name.starts_with(&format!("{}__", slug)) {
-            existing_name
-        } else {
-            reserve_project_file_name(&projects_dir, slug)?
-        }
-    } else {
-        reserve_project_file_name(&projects_dir, slug)?
-    };
-    let project_path = projects_dir.join(&target_file_name);
-    let temp_path = projects_dir.join(format!("{}.tmp", target_file_name));
-
-    fs::write(&temp_path, json)
-        .map_err(|err| map_io_error(err, "PROJECT_SAVE_FAILED", "Failed to write project temp file"))?;
-    fs::rename(&temp_path, &project_path)
-        .map_err(|err| map_io_error(err, "PROJECT_SAVE_FAILED", "Failed to finalize project save"))?;
-
-    if let Some(old_path) = existing_path {
-        if old_path != project_path && old_path.exists() {
-            let _ = fs::remove_file(old_path);
-        }
+        });
     }
+
+    let project_path = project_json_path(&projects_dir, &project_id)
+        .map_err(|err| map_storage_error(err, "PROJECT_SAVE_FAILED", "Invalid project path"))?;
+    atomic_write_bytes(&project_path, json.as_bytes())
+        .map_err(|err| map_storage_error(err, "PROJECT_SAVE_FAILED", "Failed to save project"))?;
 
     if let Some(legacy_id) = legacy_project_id {
         if legacy_id != project_id {
-            if let Some(legacy_path) = resolve_project_path_by_id(&projects_dir, &legacy_id)? {
+            if let Ok(legacy_path) = project_json_path(&projects_dir, &legacy_id) {
                 if legacy_path.exists() {
                     let _ = fs::remove_file(legacy_path);
                 }
@@ -848,15 +785,15 @@ fn save_project(
         }
     }
 
-    if let Ok(mut map) = project_file_map().lock() {
-        map.insert(project_id, target_file_name);
-    }
-
     Ok(())
 }
 
-fn remove_export_artifacts(user_data_dir: &Path, project_path: &Path, project_id: &str) {
-    let versions_dir = user_data_dir.join("versions").join(project_id);
+fn remove_export_artifacts(app: &tauri::AppHandle, project_path: &Path, project_id: &str) {
+    let versions_root = match storage_versions_dir(app) {
+        Ok(path) => path,
+        Err(_) => return,
+    };
+    let versions_dir = versions_root.join(sanitize_id_to_filename(project_id));
     if versions_dir.exists() {
         let _ = fs::remove_dir_all(versions_dir);
     }
@@ -864,7 +801,10 @@ fn remove_export_artifacts(user_data_dir: &Path, project_path: &Path, project_id
     if let Ok(contents) = fs::read_to_string(project_path) {
         if let Ok(json) = serde_json::from_str::<Value>(&contents) {
             if let Some(slug) = json.get("slug").and_then(|v| v.as_str()) {
-                let exports_dir = user_data_dir.join("exports");
+                let exports_dir = match exports_dir(app) {
+                    Ok(path) => path,
+                    Err(_) => return,
+                };
                 if exports_dir.exists() {
                     if let Ok(entries) = fs::read_dir(&exports_dir) {
                         for entry in entries.flatten() {
@@ -890,23 +830,17 @@ fn remove_export_artifacts(user_data_dir: &Path, project_path: &Path, project_id
 
 #[tauri::command]
 fn delete_project_permanently(app: tauri::AppHandle, project_id: String) -> Result<(), ApiError> {
-    let user_data_dir = resolve_user_data_dir(&app)?;
-    let projects_dir = user_data_dir.join("projects");
-    let project_path = resolve_project_path_by_id(&projects_dir, &project_id)?.ok_or(ApiError {
+    let project_path = resolve_project_path_by_id(&app, &project_id)?.ok_or(ApiError {
         code: "PROJECT_DELETE_FAILED".into(),
         message: format!("Project not found: {}", project_id),
         export_pdf_path: None,
         version_pdf_path: None,
     })?;
 
-    remove_export_artifacts(&user_data_dir, &project_path, &project_id);
+    remove_export_artifacts(&app, &project_path, &project_id);
 
     fs::remove_file(&project_path)
         .map_err(|err| map_io_error(err, "PROJECT_DELETE_FAILED", "Failed to delete project"))?;
-
-    if let Ok(mut map) = project_file_map().lock() {
-        map.remove(&project_id);
-    }
 
     Ok(())
 }
@@ -918,9 +852,13 @@ fn delete_project(app: tauri::AppHandle, project_id: String) -> Result<(), ApiEr
 
 #[tauri::command]
 fn export_pdf(app: tauri::AppHandle, project_id: String) -> Result<ExportPdfResult, ApiError> {
-    let user_data_dir = resolve_user_data_dir(&app)?;
-    let projects_dir = user_data_dir.join("projects");
-    let project_path = resolve_project_path_by_id(&projects_dir, &project_id)?.ok_or(ApiError {
+    let user_data_dir = user_storage_root(&app).map_err(|err| {
+        map_storage_error(err, "EXPORT_FAILED", "Failed to resolve user storage root")
+    })?;
+    ensure_user_storage(&app).map_err(|err| {
+        map_storage_error(err, "EXPORT_FAILED", "Failed to initialize user storage")
+    })?;
+    let project_path = resolve_project_path_by_id(&app, &project_id)?.ok_or(ApiError {
         code: "PROJECT_NOT_FOUND".into(),
         message: format!("Project file not found for id: {}", project_id),
         export_pdf_path: None,
@@ -1003,7 +941,12 @@ fn build_project_pdf_preview(
     app: tauri::AppHandle,
     project_id: String,
 ) -> Result<PreviewPdfPathResult, ApiError> {
-    let user_data_dir = resolve_user_data_dir(&app)?;
+    let user_data_dir = user_storage_root(&app).map_err(|err| {
+        map_storage_error(err, "PREVIEW_FAILED", "Failed to resolve user storage root")
+    })?;
+    ensure_user_storage(&app).map_err(|err| {
+        map_storage_error(err, "PREVIEW_FAILED", "Failed to initialize user storage")
+    })?;
     let repo_root = resolve_repo_root();
     let script_path = repo_root.join("scripts").join("desktop_preview.ts");
     eprintln!(
@@ -1029,9 +972,7 @@ fn build_project_pdf_preview(
     let stderr = String::from_utf8_lossy(&output.stderr);
     eprintln!(
         "[preview] node exit status={} stdout={} stderr={}",
-        output.status,
-        stdout,
-        stderr
+        output.status, stdout, stderr
     );
 
     let response: NodeExportResponse =
@@ -1065,7 +1006,10 @@ fn build_project_pdf_preview(
     eprintln!(
         "[preview] command failed project_id={} code={} message={}",
         project_id,
-        response.code.clone().unwrap_or_else(|| "PREVIEW_FAILED".into()),
+        response
+            .code
+            .clone()
+            .unwrap_or_else(|| "PREVIEW_FAILED".into()),
         response
             .message
             .clone()
@@ -1094,10 +1038,12 @@ fn read_preview_pdf_bytes(preview_pdf_path: String) -> Result<Vec<u8>, ApiError>
 
 #[tauri::command]
 fn cleanup_preview_pdf(app: tauri::AppHandle, preview_key: String) -> Result<(), ApiError> {
-    let user_data_dir = resolve_user_data_dir(&app)?;
-    let preview_path = user_data_dir
-        .join("temp")
-        .join(format!("preview_{}.pdf", preview_key));
+    let temp_dir = storage_temp_dir(&app)
+        .map_err(|err| map_storage_error(err, "PREVIEW_FAILED", "Failed to resolve temp dir"))?;
+    let preview_path = temp_dir.join(format!(
+        "preview_{}.pdf",
+        sanitize_id_to_filename(&preview_key)
+    ));
     if preview_path.exists() {
         fs::remove_file(&preview_path)
             .map_err(|err| map_io_error(err, "PREVIEW_FAILED", "Failed to remove preview PDF"))?;
@@ -1107,21 +1053,20 @@ fn cleanup_preview_pdf(app: tauri::AppHandle, preview_key: String) -> Result<(),
 
 #[tauri::command]
 fn get_exports_dir(app: tauri::AppHandle) -> Result<String, ApiError> {
-    let user_data_dir = resolve_user_data_dir(&app)?;
-    let exports_dir = user_data_dir.join("exports");
-    fs::create_dir_all(&exports_dir)
-        .map_err(|err| map_io_error(err, "EXPORT_FAILED", "Failed to create exports dir"))?;
-    Ok(exports_dir.to_string_lossy().to_string())
+    let out_dir = exports_dir(&app)
+        .map_err(|err| map_storage_error(err, "EXPORT_FAILED", "Failed to resolve exports dir"))?;
+    Ok(out_dir.to_string_lossy().to_string())
 }
 
 #[tauri::command]
-fn default_export_pdf_path(app: tauri::AppHandle, project_slug: String) -> Result<String, ApiError> {
-    let user_data_dir = resolve_user_data_dir(&app)?;
-    let exports_dir = user_data_dir.join("exports");
-    fs::create_dir_all(&exports_dir)
-        .map_err(|err| map_io_error(err, "EXPORT_FAILED", "Failed to create exports dir"))?;
-    Ok(exports_dir
-        .join(format!("{}.pdf", project_slug))
+fn default_export_pdf_path(
+    app: tauri::AppHandle,
+    project_slug: String,
+) -> Result<String, ApiError> {
+    let out_dir = exports_dir(&app)
+        .map_err(|err| map_storage_error(err, "EXPORT_FAILED", "Failed to resolve exports dir"))?;
+    Ok(out_dir
+        .join(format!("{}.pdf", sanitize_id_to_filename(&project_slug)))
         .to_string_lossy()
         .to_string())
 }
@@ -1187,13 +1132,8 @@ fn pick_export_pdf_path(
     app: tauri::AppHandle,
     default_file_name: String,
 ) -> Result<Option<String>, ApiError> {
-    let default_dir = PathBuf::from(r"C:\Users\mkrecmer\dev\stagepilot\user_data\exports");
-    fs::create_dir_all(&default_dir).map_err(|err| {
-        map_io_error(
-            err,
-            "EXPORT_DIALOG_FAILED",
-            "Failed to create default export dir",
-        )
+    let default_dir = exports_dir(&app).map_err(|err| {
+        map_storage_error(err, "EXPORT_DIALOG_FAILED", "Failed to resolve exports dir")
     })?;
 
     let (tx, rx) = mpsc::channel::<Option<PathBuf>>();
@@ -1216,7 +1156,6 @@ fn pick_export_pdf_path(
     Ok(selected.map(|path| path.to_string_lossy().to_string()))
 }
 
-
 #[tauri::command]
 fn list_library_bands(app: tauri::AppHandle) -> Result<Vec<LibraryBand>, ApiError> {
     let mut items = load_library_list::<LibraryBand>(&app, "bands.json")?;
@@ -1227,22 +1166,38 @@ fn list_library_bands(app: tauri::AppHandle) -> Result<Vec<LibraryBand>, ApiErro
 #[tauri::command]
 fn read_library_band(app: tauri::AppHandle, band_id: String) -> Result<LibraryBand, ApiError> {
     let items = load_library_list::<LibraryBand>(&app, "bands.json")?;
-    items.into_iter().find(|item| item.id == band_id).ok_or(ApiError {
-        code: "LIBRARY_NOT_FOUND".into(),
-        message: format!("Band not found: {}", band_id),
-        export_pdf_path: None,
-        version_pdf_path: None,
-    })
+    items
+        .into_iter()
+        .find(|item| item.id == band_id)
+        .ok_or(ApiError {
+            code: "LIBRARY_NOT_FOUND".into(),
+            message: format!("Band not found: {}", band_id),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        })
 }
 
 #[tauri::command]
 fn upsert_library_band(app: tauri::AppHandle, band: LibraryBand) -> Result<(), ApiError> {
     if band.name.trim().is_empty() || band.code.trim().is_empty() || band.id.trim().is_empty() {
-        return Err(ApiError { code: "LIBRARY_VALIDATION_FAILED".into(), message: "Band id, name, and code are required.".into(), export_pdf_path: None, version_pdf_path: None });
+        return Err(ApiError {
+            code: "LIBRARY_VALIDATION_FAILED".into(),
+            message: "Band id, name, and code are required.".into(),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        });
     }
     let mut items = load_library_list::<LibraryBand>(&app, "bands.json")?;
-    if items.iter().any(|existing| existing.id != band.id && existing.code.eq_ignore_ascii_case(&band.code)) {
-        return Err(ApiError { code: "LIBRARY_VALIDATION_FAILED".into(), message: format!("Band code '{}' is already used.", band.code), export_pdf_path: None, version_pdf_path: None });
+    if items
+        .iter()
+        .any(|existing| existing.id != band.id && existing.code.eq_ignore_ascii_case(&band.code))
+    {
+        return Err(ApiError {
+            code: "LIBRARY_VALIDATION_FAILED".into(),
+            message: format!("Band code '{}' is already used.", band.code),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        });
     }
     if let Some(existing) = items.iter_mut().find(|existing| existing.id == band.id) {
         *existing = band;
@@ -1255,8 +1210,16 @@ fn upsert_library_band(app: tauri::AppHandle, band: LibraryBand) -> Result<(), A
 #[tauri::command]
 fn delete_library_band(app: tauri::AppHandle, band_id: String) -> Result<(), ApiError> {
     let projects = list_projects(app.clone())?;
-    if projects.iter().any(|project| project.band_ref.as_deref() == Some(band_id.as_str())) {
-        return Err(ApiError { code: "LIBRARY_DELETE_BLOCKED".into(), message: "Band is referenced by existing projects and cannot be deleted.".into(), export_pdf_path: None, version_pdf_path: None });
+    if projects
+        .iter()
+        .any(|project| project.band_ref.as_deref() == Some(band_id.as_str()))
+    {
+        return Err(ApiError {
+            code: "LIBRARY_DELETE_BLOCKED".into(),
+            message: "Band is referenced by existing projects and cannot be deleted.".into(),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        });
     }
     let mut items = load_library_list::<LibraryBand>(&app, "bands.json")?;
     items.retain(|item| item.id != band_id);
@@ -1266,7 +1229,16 @@ fn delete_library_band(app: tauri::AppHandle, band_id: String) -> Result<(), Api
 #[tauri::command]
 fn duplicate_library_band(app: tauri::AppHandle, band_id: String) -> Result<LibraryBand, ApiError> {
     let mut items = load_library_list::<LibraryBand>(&app, "bands.json")?;
-    let existing = items.iter().find(|item| item.id == band_id).cloned().ok_or(ApiError { code: "LIBRARY_NOT_FOUND".into(), message: format!("Band not found: {}", band_id), export_pdf_path: None, version_pdf_path: None })?;
+    let existing = items
+        .iter()
+        .find(|item| item.id == band_id)
+        .cloned()
+        .ok_or(ApiError {
+            code: "LIBRARY_NOT_FOUND".into(),
+            message: format!("Band not found: {}", band_id),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        })?;
     let mut candidate_id = format!("{}_copy", existing.id);
     let mut index: usize = 2;
     while items.iter().any(|item| item.id == candidate_id) {
@@ -1290,9 +1262,17 @@ fn list_library_musicians(app: tauri::AppHandle) -> Result<Vec<LibraryMusician>,
 }
 
 #[tauri::command]
-fn upsert_library_musician(app: tauri::AppHandle, musician: LibraryMusician) -> Result<(), ApiError> {
+fn upsert_library_musician(
+    app: tauri::AppHandle,
+    musician: LibraryMusician,
+) -> Result<(), ApiError> {
     if musician.id.trim().is_empty() || musician.name.trim().is_empty() {
-        return Err(ApiError { code: "LIBRARY_VALIDATION_FAILED".into(), message: "Musician id and name are required.".into(), export_pdf_path: None, version_pdf_path: None });
+        return Err(ApiError {
+            code: "LIBRARY_VALIDATION_FAILED".into(),
+            message: "Musician id and name are required.".into(),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        });
     }
     let mut items = load_library_list::<LibraryMusician>(&app, "musicians.json")?;
     if let Some(existing) = items.iter_mut().find(|item| item.id == musician.id) {
@@ -1306,8 +1286,17 @@ fn upsert_library_musician(app: tauri::AppHandle, musician: LibraryMusician) -> 
 #[tauri::command]
 fn delete_library_musician(app: tauri::AppHandle, musician_id: String) -> Result<(), ApiError> {
     let bands = load_library_list::<LibraryBand>(&app, "bands.json")?;
-    if bands.iter().any(|band| band.members.iter().any(|member| member.musician_id == musician_id)) {
-        return Err(ApiError { code: "LIBRARY_DELETE_BLOCKED".into(), message: "Musician is referenced by a band and cannot be deleted.".into(), export_pdf_path: None, version_pdf_path: None });
+    if bands.iter().any(|band| {
+        band.members
+            .iter()
+            .any(|member| member.musician_id == musician_id)
+    }) {
+        return Err(ApiError {
+            code: "LIBRARY_DELETE_BLOCKED".into(),
+            message: "Musician is referenced by a band and cannot be deleted.".into(),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        });
     }
     let mut items = load_library_list::<LibraryMusician>(&app, "musicians.json")?;
     items.retain(|item| item.id != musician_id);
@@ -1315,11 +1304,20 @@ fn delete_library_musician(app: tauri::AppHandle, musician_id: String) -> Result
 }
 
 #[tauri::command]
-fn list_library_instruments(app: tauri::AppHandle) -> Result<Vec<LibraryInstrument>, ApiError> { load_library_list::<LibraryInstrument>(&app, "instruments.json") }
+fn list_library_instruments(app: tauri::AppHandle) -> Result<Vec<LibraryInstrument>, ApiError> {
+    load_library_list::<LibraryInstrument>(&app, "instruments.json")
+}
 #[tauri::command]
-fn upsert_library_instrument(app: tauri::AppHandle, instrument: LibraryInstrument) -> Result<(), ApiError> {
+fn upsert_library_instrument(
+    app: tauri::AppHandle,
+    instrument: LibraryInstrument,
+) -> Result<(), ApiError> {
     let mut items = load_library_list::<LibraryInstrument>(&app, "instruments.json")?;
-    if let Some(existing) = items.iter_mut().find(|item| item.id == instrument.id) { *existing = instrument; } else { items.push(instrument); }
+    if let Some(existing) = items.iter_mut().find(|item| item.id == instrument.id) {
+        *existing = instrument;
+    } else {
+        items.push(instrument);
+    }
     save_library_list(&app, "instruments.json", &items)
 }
 #[tauri::command]
@@ -1330,11 +1328,17 @@ fn delete_library_instrument(app: tauri::AppHandle, instrument_id: String) -> Re
 }
 
 #[tauri::command]
-fn list_library_contacts(app: tauri::AppHandle) -> Result<Vec<LibraryContact>, ApiError> { load_library_list::<LibraryContact>(&app, "contacts.json") }
+fn list_library_contacts(app: tauri::AppHandle) -> Result<Vec<LibraryContact>, ApiError> {
+    load_library_list::<LibraryContact>(&app, "contacts.json")
+}
 #[tauri::command]
 fn upsert_library_contact(app: tauri::AppHandle, contact: LibraryContact) -> Result<(), ApiError> {
     let mut items = load_library_list::<LibraryContact>(&app, "contacts.json")?;
-    if let Some(existing) = items.iter_mut().find(|item| item.id == contact.id) { *existing = contact; } else { items.push(contact); }
+    if let Some(existing) = items.iter_mut().find(|item| item.id == contact.id) {
+        *existing = contact;
+    } else {
+        items.push(contact);
+    }
     save_library_list(&app, "contacts.json", &items)
 }
 #[tauri::command]
@@ -1345,11 +1349,20 @@ fn delete_library_contact(app: tauri::AppHandle, contact_id: String) -> Result<(
 }
 
 #[tauri::command]
-fn list_library_messages(app: tauri::AppHandle) -> Result<Vec<LibraryMessage>, ApiError> { load_library_list::<LibraryMessage>(&app, "messages.json") }
+fn list_library_messages(app: tauri::AppHandle) -> Result<Vec<LibraryMessage>, ApiError> {
+    load_library_list::<LibraryMessage>(&app, "messages.json")
+}
 #[tauri::command]
-fn upsert_library_message(app: tauri::AppHandle, message_item: LibraryMessage) -> Result<(), ApiError> {
+fn upsert_library_message(
+    app: tauri::AppHandle,
+    message_item: LibraryMessage,
+) -> Result<(), ApiError> {
     let mut items = load_library_list::<LibraryMessage>(&app, "messages.json")?;
-    if let Some(existing) = items.iter_mut().find(|item| item.id == message_item.id) { *existing = message_item; } else { items.push(message_item); }
+    if let Some(existing) = items.iter_mut().find(|item| item.id == message_item.id) {
+        *existing = message_item;
+    } else {
+        items.push(message_item);
+    }
     save_library_list(&app, "messages.json", &items)
 }
 #[tauri::command]
@@ -1422,6 +1435,15 @@ fn open_path(path: &str, reveal: bool) -> Result<(), ApiError> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .setup(|app| {
+            ensure_user_storage(&app.handle()).map_err(|err| {
+                tauri::Error::from(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("Failed to initialize user storage: {:?}", err),
+                ))
+            })?;
+            Ok(())
+        })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
