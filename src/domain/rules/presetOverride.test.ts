@@ -7,6 +7,7 @@ import {
   summarizeEffectivePresetValidation,
   validateEffectivePresets,
   normalizeBassConnectionOverridePatch,
+  normalizeSetupOverridePatch,
 } from "./presetOverride.js";
 
 const basePreset: MusicianSetupPreset = {
@@ -119,6 +120,14 @@ describe("applyPresetOverride", () => {
     });
     expect(next.inputs[0]).toMatchObject({ label: "Electric guitar left", note: "Radial DI", group: "keys" });
   });
+
+  it("drops no-op overrides after normalization", () => {
+    const normalized = normalizeSetupOverridePatch(basePreset, {
+      monitoring: { monitorRef: "iem_stereo_wired" },
+    });
+    expect(normalized).toBeUndefined();
+  });
+
 
   it("throws on duplicate add key collision", () => {
     expect(() =>

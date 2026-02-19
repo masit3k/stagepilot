@@ -17,7 +17,7 @@ import {
 import {
   summarizeEffectivePresetValidation,
   validateEffectivePresets,
-  normalizeBassConnectionOverridePatch,
+  normalizeSetupOverridePatch,
 } from "../../../../../src/domain/rules/presetOverride";
 import type { Group } from "../../../../../src/domain/model/groups";
 import type {
@@ -81,6 +81,7 @@ import {
   createFallbackSetupData,
   getGroupDefaultPreset,
   resolveMusicianDefaultInputsFromPresets,
+  resolveSetupCardLabel,
 } from "./shared/setupConstants";
 
 export function ProjectSetupPage({
@@ -567,14 +568,14 @@ export function ProjectSetupPage({
       : fallbackOverride;
   }
 
-  function isMonitoringModified(args: {
-    monitorRefOrigin: string;
-    additionalWedgeCountOrigin: string;
-    effectiveAdditionalWedgeCount: number | undefined;
-  }): boolean {
-    return args.monitorRefOrigin === "override"
-      || args.additionalWedgeCountOrigin === "override"
-      || (args.effectiveAdditionalWedgeCount ?? 0) > 0;
+  function isDiffOriginOverridden(origin: string): boolean {
+    return origin === "override";
+  }
+
+  function hasSetupOverrideDiff(resolved: ReturnType<typeof resolveSlotSetup>["resolved"]): boolean {
+    return resolved.diffMeta.inputs.some((item) => isDiffOriginOverridden(item.origin))
+      || isDiffOriginOverridden(resolved.diffMeta.monitoring.monitorRef.origin)
+      || isDiffOriginOverridden(resolved.diffMeta.monitoring.additionalWedgeCount.origin);
   }
   function getExistingSlotOverride(role: string, slotIndex: number): PresetOverridePatch | undefined {
     if (!setupData) return undefined;
@@ -600,7 +601,7 @@ export function ProjectSetupPage({
           const override = Object.prototype.hasOwnProperty.call(draftOverrides, slotKey)
             ? draftOverrides[slotKey]
             : slot.presetOverride;
-          const normalizedOverride = normalizeBassConnectionOverridePatch(
+          const normalizedOverride = normalizeSetupOverridePatch(
             resolveSlotSetup(role as Group, slot.musicianId).resolved.defaultPreset,
             override,
           );
@@ -650,18 +651,20 @@ export function ProjectSetupPage({
   const backVocsSetupItems = useMemo(
     () => backVocalMembersSorted.map((member) => {
       const defaultPreset = resolveSlotSetup("vocs", member.id).resolved.defaultPreset;
-      const defaultInputKeys = new Set(defaultPreset.inputs.map((item) => item.key));
       const slots = normalizeLineupSlots(lineup.back_vocs, 8);
       const existing = slots.find((slot) => slot.musicianId === member.id)?.presetOverride;
       const draft = backVocsSetupDraft[member.id];
-      const patch = Object.prototype.hasOwnProperty.call(backVocsSetupDraft, member.id) ? draft : existing;
-      const { effective } = resolveSlotSetup("vocs", member.id, patch);
+      const patch = normalizeSetupOverridePatch(
+        defaultPreset,
+        Object.prototype.hasOwnProperty.call(backVocsSetupDraft, member.id) ? draft : existing,
+      );
+      const { resolved, effective } = resolveSlotSetup("vocs", member.id, patch);
       const value = effective.inputs.some((input) => input.key === "voc_back_wired")
         ? "vocal_back_wired"
         : effective.inputs.some((input) => input.key === "voc_back_wireless")
           ? "vocal_back_wireless"
           : "vocal_back_no_mic";
-      const isModified = !effective.inputs.every((input) => defaultInputKeys.has(input.key)) || effective.inputs.length !== defaultInputKeys.size;
+      const isModified = resolved.diffMeta.inputs.some((item) => isDiffOriginOverridden(item.origin));
       return { musicianId: member.id, name: member.name, value, isModified };
     }),
     [backVocalMembersSorted, backVocsSetupDraft, lineup.back_vocs, resolveSlotSetup],
@@ -810,11 +813,22 @@ export function ProjectSetupPage({
               return (
                 <article key={role} className="lineup-card">
                   <h3>
-                    {getRoleDisplayName(
-                      role,
-                      setupData.constraints,
-                      setupData.roleConstraints,
-                    )}
+                    {role === "guitar"
+                      ? resolveSetupCardLabel({
+                          role: "guitar",
+                          musicianId: selected[0],
+                          resolveInputs: (musicianId) => resolveSlotSetup("guitar", musicianId).resolved.defaultPreset.inputs,
+                          fallback: getRoleDisplayName(
+                            role,
+                            setupData.constraints,
+                            setupData.roleConstraints,
+                          ),
+                        })
+                      : getRoleDisplayName(
+                          role,
+                          setupData.constraints,
+                          setupData.roleConstraints,
+                        )}
                   </h3>
                   <div className="lineup-card__body section-divider">
                     <div className="lineup-list lineup-list--single">
@@ -873,7 +887,7 @@ export function ProjectSetupPage({
                                         if (!setupSlot.musicianId) return;
                                         draftEntries[
                                           `${setupRole}:${setupIndex}`
-                                        ] = normalizeBassConnectionOverridePatch(
+                                        ] = normalizeSetupOverridePatch(
                                           resolveSlotSetup(setupRole as Group, setupSlot.musicianId).resolved.defaultPreset,
                                           setupSlot.presetOverride,
                                         );
@@ -1198,7 +1212,7 @@ export function ProjectSetupPage({
                   <SetupModalShell
                     open={Boolean(editingSetup && selectedSetupMusician)}
                     title={`Setup for this event – ${selectedSetupMusician.musicianName} (${selectedSetupRoleLabel})`}
-                    subtitle="Changes here apply only to this event. Band defaults are not modified."
+                    subtitle="Changes here apply only to this event. Musicians defaults are not modified."
                     isDirty={shouldEnableSetupReset({
                       eventOverride: existingPatch,
                       defaultPreset: resolved.defaultPreset,
@@ -1238,7 +1252,7 @@ export function ProjectSetupPage({
                       <MusicianSelector
                         items={setupMusicians.map((item) => ({
                           ...item,
-                          hasOverride: Boolean(setupDraftBySlot[item.slotKey]),
+                          hasOverride: hasSetupOverrideDiff(resolveSlotSetup(item.role, item.musicianId, resolveDraftOverride(item.slotKey, getExistingSlotOverride(item.role, parseSlotIndex(item.slotKey)))).resolved),
                         }))}
                         selectedSlotKey={selectedSetupMusician.slotKey}
                         onSelect={setSelectedSetupSlotKey}
@@ -1247,7 +1261,7 @@ export function ProjectSetupPage({
                         <div className="setup-editor-stack">
                           <SetupSection
                             title="Inputs"
-                            modified={resolved.diffMeta.inputs.some((item) => item.origin === "override")}
+                            modified={resolved.diffMeta.inputs.some((item) => isDiffOriginOverridden(item.origin))}
                           >
                             <SchemaRenderer
                               fields={BASS_FIELDS}
@@ -1261,7 +1275,7 @@ export function ProjectSetupPage({
                               onPatch={(nextPatch) =>
                                 setSetupDraftBySlot((prev) => ({
                                   ...prev,
-                                  [selectedSetupMusician.slotKey]: nextPatch,
+                                  [selectedSetupMusician.slotKey]: normalizeSetupOverridePatch(resolved.defaultPreset, nextPatch),
                                 }))
                               }
                             />
@@ -1269,11 +1283,8 @@ export function ProjectSetupPage({
                           <SetupSection
                             title="Monitoring"
                             modified={
-                              isMonitoringModified({
-                                monitorRefOrigin: resolved.diffMeta.monitoring.monitorRef.origin,
-                                additionalWedgeCountOrigin: resolved.diffMeta.monitoring.additionalWedgeCount.origin,
-                                effectiveAdditionalWedgeCount: effective.monitoring.additionalWedgeCount,
-                              })
+                              isDiffOriginOverridden(resolved.diffMeta.monitoring.monitorRef.origin)
+                                || isDiffOriginOverridden(resolved.diffMeta.monitoring.additionalWedgeCount.origin)
                             }
                           >
                             <MonitoringEditor
@@ -1283,7 +1294,7 @@ export function ProjectSetupPage({
                               onChangePatch={(nextPatch) =>
                                 setSetupDraftBySlot((prev) => ({
                                   ...prev,
-                                  [selectedSetupMusician.slotKey]: nextPatch,
+                                  [selectedSetupMusician.slotKey]: normalizeSetupOverridePatch(resolved.defaultPreset, nextPatch),
                                 }))
                               }
                             />
@@ -1307,15 +1318,16 @@ export function ProjectSetupPage({
                                         resolved.defaultPreset.inputs,
                                         targetInputs,
                                       );
+                                    const nextPatch = {
+                                      ...prior,
+                                      ...(Object.keys(nextInputsPatch)
+                                        .length > 0
+                                        ? { inputs: nextInputsPatch }
+                                        : {}),
+                                    };
                                     return {
                                       ...prev,
-                                      [selectedSetupMusician.slotKey]: {
-                                        ...prior,
-                                        ...(Object.keys(nextInputsPatch)
-                                          .length > 0
-                                          ? { inputs: nextInputsPatch }
-                                          : {}),
-                                      },
+                                      [selectedSetupMusician.slotKey]: normalizeSetupOverridePatch(resolved.defaultPreset, nextPatch),
                                     };
                                   });
                                 }}
@@ -1337,12 +1349,13 @@ export function ProjectSetupPage({
                                     const prior = prev[selectedSetupMusician.slotKey];
                                     const nextRemove = Array.from(new Set([...(prior?.inputs?.removeKeys ?? []), key]));
                                     const nextAdd = (prior?.inputs?.add ?? []).filter((item) => item.key !== key);
+                                    const nextPatch = {
+                                      ...prior,
+                                      inputs: { ...prior?.inputs, removeKeys: nextRemove, add: nextAdd },
+                                    };
                                     return {
                                       ...prev,
-                                      [selectedSetupMusician.slotKey]: {
-                                        ...prior,
-                                        inputs: { ...prior?.inputs, removeKeys: nextRemove, add: nextAdd },
-                                      },
+                                      [selectedSetupMusician.slotKey]: normalizeSetupOverridePatch(resolved.defaultPreset, nextPatch),
                                     };
                                   });
                                 }}
@@ -1351,7 +1364,7 @@ export function ProjectSetupPage({
                             ) : (
                               <SetupSection
                                 title="Inputs"
-                                modified={resolved.diffMeta.inputs.some((item) => item.origin === "override")}
+                                modified={resolved.diffMeta.inputs.some((item) => isDiffOriginOverridden(item.origin))}
                               >
                                 <SchemaRenderer
                                   fields={selectedSetupMusician.role === "guitar" ? GUITAR_FIELDS : selectedSetupMusician.role === "keys" ? KEYS_FIELDS : LEAD_VOCS_FIELDS}
@@ -1359,7 +1372,7 @@ export function ProjectSetupPage({
                                   onPatch={(nextPatch) =>
                                     setSetupDraftBySlot((prev) => ({
                                       ...prev,
-                                      [selectedSetupMusician.slotKey]: nextPatch,
+                                      [selectedSetupMusician.slotKey]: normalizeSetupOverridePatch(resolved.defaultPreset, nextPatch),
                                     }))
                                   }
                                 />
@@ -1370,11 +1383,8 @@ export function ProjectSetupPage({
                             <SetupSection
                               title="Monitoring"
                               modified={
-                                isMonitoringModified({
-                                  monitorRefOrigin: resolved.diffMeta.monitoring.monitorRef.origin,
-                                  additionalWedgeCountOrigin: resolved.diffMeta.monitoring.additionalWedgeCount.origin,
-                                  effectiveAdditionalWedgeCount: effective.monitoring.additionalWedgeCount,
-                                })
+                                isDiffOriginOverridden(resolved.diffMeta.monitoring.monitorRef.origin)
+                                || isDiffOriginOverridden(resolved.diffMeta.monitoring.additionalWedgeCount.origin)
                               }
                             >
                               <MonitoringEditor
@@ -1384,7 +1394,7 @@ export function ProjectSetupPage({
                                 onChangePatch={(nextPatch) =>
                                   setSetupDraftBySlot((prev) => ({
                                     ...prev,
-                                    [selectedSetupMusician.slotKey]: nextPatch,
+                                    [selectedSetupMusician.slotKey]: normalizeSetupOverridePatch(resolved.defaultPreset, nextPatch),
                                   }))
                                 }
                               />
@@ -1442,7 +1452,12 @@ export function ProjectSetupPage({
         open={isBackVocsSetupOpen}
         onClose={() => setIsBackVocsSetupOpen(false)}
       >
-        <div ref={backVocsSetupModalRef}>
+        <div
+          className="selector-dialog selector-dialog--setup-editor"
+          role="dialog"
+          aria-modal="true"
+          ref={backVocsSetupModalRef}
+        >
           <BackVocsSetupModal
             open={isBackVocsSetupOpen}
             items={backVocsSetupItems}
@@ -1458,7 +1473,8 @@ export function ProjectSetupPage({
                 const override = Object.prototype.hasOwnProperty.call(backVocsSetupDraft, item.musicianId)
                   ? backVocsSetupDraft[item.musicianId]
                   : nextById.get(item.musicianId)?.presetOverride;
-                nextById.set(item.musicianId, { musicianId: item.musicianId, ...(override ? { presetOverride: override } : {}) });
+                const normalizedOverride = normalizeSetupOverridePatch(resolveSlotSetup("vocs", item.musicianId).resolved.defaultPreset, override);
+                nextById.set(item.musicianId, { musicianId: item.musicianId, ...(normalizedOverride ? { presetOverride: normalizedOverride } : {}) });
               }
               setLineup((prev) => ({ ...prev, back_vocs: Array.from(nextById.values()) }));
               setIsBackVocsSetupOpen(false);
@@ -1471,7 +1487,10 @@ export function ProjectSetupPage({
                 backVocsSetupDraft[musicianId],
                 targetPreset.inputs as InputChannel[],
               );
-              setBackVocsSetupDraft((prev) => ({ ...prev, [musicianId]: nextPatch }));
+              setBackVocsSetupDraft((prev) => ({
+                ...prev,
+                [musicianId]: normalizeSetupOverridePatch(resolveSlotSetup("vocs", musicianId).resolved.defaultPreset, nextPatch),
+              }));
             }}
           />
         </div>

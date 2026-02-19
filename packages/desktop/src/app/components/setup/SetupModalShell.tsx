@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 type SetupModalShellProps = {
   open: boolean;
   title: string;
-  subtitle: string;
+  subtitle?: string;
   onBack: () => void;
   onSave: () => void;
   onReset: () => void;
@@ -12,7 +12,7 @@ type SetupModalShellProps = {
   children: ReactNode;
 };
 
-export function SetupModalShell({ open, title, subtitle, onBack, onSave, onReset, saveDisabled, isDirty = false, children }: SetupModalShellProps) {
+export function SetupModalShell({ open, title, subtitle = "Changes here apply only to this event. Musicians defaults are not modified.", onBack, onSave, onReset, saveDisabled, isDirty = false, children }: SetupModalShellProps) {
   if (!open) return null;
   return (
     <>

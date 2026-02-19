@@ -47,7 +47,7 @@ export function MonitoringEditor({ effectiveMonitoring, patch, diffMeta, onChang
     explicitAdditionalWedgeCount ?? effectiveAdditionalWedgeCount ?? MIN_ADDITIONAL_WEDGE_COUNT,
   );
   const monitorModified = isMonitoringFieldModified(diffMeta.monitoring.monitorRef.origin);
-  const additionalWedgeModified = isMonitoringFieldModified(diffMeta.monitoring.additionalWedgeCount.origin) || hasAdditionalWedge;
+  const additionalWedgeModified = isMonitoringFieldModified(diffMeta.monitoring.additionalWedgeCount.origin);
 
   const updateAdditionalWedgeCount = (count: number | undefined) => {
     onChangePatch({

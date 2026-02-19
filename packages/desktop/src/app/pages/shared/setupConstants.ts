@@ -81,13 +81,8 @@ export const LEAD_VOCS_FIELDS = buildLeadVocsFields([
   vocalLeadNoMicPreset,
 ] as Preset[]);
 
-const BASS_PRESET_INPUTS_BY_REF: Record<string, InputChannel> = {
-  el_bass_xlr_amp: { key: "el_bass_xlr_amp", label: "Electric bass guitar", note: "XLR out from amp", group: "bass" },
-  el_bass_xlr_pedalboard: { key: "el_bass_xlr_pedalboard", label: "Electric bass guitar", note: "XLR out from pedalboard", group: "bass" },
-};
-
 export function resolveMusicianDefaultInputsFromPresets(group: Group, presets: PresetItem[] | undefined): InputChannel[] | undefined {
-  if (group !== "bass") return undefined;
+  if (!presets?.length) return undefined;
   const defaultPreset = resolveDefaultMusicianSetup({
     role: group,
     presetItems: presets,
@@ -96,16 +91,35 @@ export function resolveMusicianDefaultInputsFromPresets(group: Group, presets: P
       if (ref === "el_bass_xlr_pedalboard") return elBassXlrPedalboardPreset as Preset;
       if (ref === "el_bass_mic") return elBassMicPreset as Preset;
       if (ref === "bass_synth") return bassSynthPreset as Preset;
+      if (ref === "el_guitar_mic") return elGuitarMicPreset as Preset;
+      if (ref === "el_guitar_xlr_mono") return elGuitarXlrMonoPreset as Preset;
+      if (ref === "el_guitar_xlr_stereo") return elGuitarXlrStereoPreset as Preset;
+      if (ref === "ac_guitar") return acGuitarPreset as Preset;
+      if (ref === "keys") return keysPreset as Preset;
+      if (ref === "synth") return synthPreset as Preset;
+      if (ref === "synth_mono") return synthMonoPreset as Preset;
+      if (ref === "vocal_lead_wireless") return vocalLeadWirelessPreset as Preset;
+      if (ref === "vocal_lead_wired") return vocalLeadWiredPreset as Preset;
+      if (ref === "vocal_lead_no_mic") return vocalLeadNoMicPreset as Preset;
       return undefined;
     },
   });
-  if (defaultPreset.inputs.length > 0) {
-    return defaultPreset.inputs;
-  }
-  const primaryPresetRef = presets?.find((item) => item.kind === "preset")?.ref;
-  if (!primaryPresetRef) return undefined;
-  const mapped = BASS_PRESET_INPUTS_BY_REF[primaryPresetRef];
-  return mapped ? [{ ...mapped }] : undefined;
+  return defaultPreset.inputs.length > 0 ? defaultPreset.inputs : undefined;
+}
+
+export function resolveSetupCardLabel(args: {
+  role: Group;
+  musicianId?: string;
+  resolveInputs: (musicianId: string) => InputChannel[];
+  fallback: string;
+}): string {
+  if (args.role !== "guitar" || !args.musicianId) return args.fallback;
+  const inputs = args.resolveInputs(args.musicianId);
+  const hasAcoustic = inputs.some((input) => input.key.startsWith("ac_guitar"));
+  const hasElectric = inputs.some((input) => input.key.startsWith("el_guitar"));
+  if (hasAcoustic && !hasElectric) return "AC. GUITAR";
+  if (hasElectric) return "EL. GUITAR";
+  return args.fallback;
 }
 
 export function getGroupDefaultPreset(group: Group): MusicianSetupPreset {

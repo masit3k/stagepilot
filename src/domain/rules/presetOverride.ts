@@ -77,6 +77,29 @@ export function normalizeBassConnectionOverridePatch(
   });
 }
 
+function presetsEqual(a: MusicianSetupPreset, b: MusicianSetupPreset): boolean {
+  if (a.monitoring.monitorRef !== b.monitoring.monitorRef) return false;
+  if ((a.monitoring.additionalWedgeCount ?? 0) !== (b.monitoring.additionalWedgeCount ?? 0)) return false;
+  if (a.inputs.length !== b.inputs.length) return false;
+  return a.inputs.every((input, index) => {
+    const other = b.inputs[index];
+    return input.key === other?.key
+      && input.label === other?.label
+      && input.note === other?.note
+      && input.group === other?.group;
+  });
+}
+
+export function normalizeSetupOverridePatch(
+  defaultPreset: MusicianSetupPreset,
+  patch?: PresetOverridePatch | null,
+): PresetOverridePatch | undefined {
+  const normalizedPatch = normalizeBassConnectionOverridePatch(defaultPreset, patch);
+  if (!normalizedPatch) return undefined;
+  const effective = applyPresetOverride(defaultPreset, normalizedPatch, true);
+  return presetsEqual(defaultPreset, effective) ? undefined : normalizedPatch;
+}
+
 export type EffectivePresetValidation = {
   errors: string[];
   warnings: string[];
@@ -95,12 +118,15 @@ function getRequiredMonitorMixCount(preset: MusicianSetupPreset): number {
 export function applyPresetOverride(
   defaultPreset: MusicianSetupPreset,
   patch?: PresetOverridePatch | null,
+  skipNormalization = false,
 ): MusicianSetupPreset {
   const base: MusicianSetupPreset = {
     inputs: defaultPreset.inputs.map((input) => ({ ...input })),
     monitoring: { ...defaultPreset.monitoring },
   };
-  const normalizedPatch = normalizeBassConnectionOverridePatch(defaultPreset, patch);
+  const normalizedPatch = skipNormalization
+    ? (patch ? normalizePatchShape(patch) : undefined)
+    : normalizeSetupOverridePatch(defaultPreset, patch);
   if (!normalizedPatch) return base;
 
   if (normalizedPatch.monitoring) {

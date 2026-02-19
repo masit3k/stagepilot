@@ -29,7 +29,7 @@ export function BackVocsSetupModal({ open, items, onBack, onReset, onSave, onCha
     <SetupModalShell
       open={open}
       title="Setup for this event – back vocalists"
-      subtitle="Changes here apply only to this event. Band defaults are not modified."
+      subtitle="Changes here apply only to this event. Musicians defaults are not modified."
       onBack={onBack}
       onReset={onReset}
       onSave={onSave}

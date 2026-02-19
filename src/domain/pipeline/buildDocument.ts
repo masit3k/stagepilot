@@ -16,6 +16,7 @@ import type {
 } from "../model/types.js";
 import type { DataRepository } from "../../infra/fs/repo.js";
 import { disambiguateInputKeys } from "./disambiguateInputKeys.js";
+import { formatKeysInputInstances } from "./formatKeysInputs.js";
 import { reorderAcousticGuitars } from "./reorderAcousticGuitars.js";
 import { resolveDocumentContext } from "./resolveDocumentContext.js";
 import { resolveEffectivePresetsForProject } from "./resolveEffectivePresetsForProject.js";
@@ -629,7 +630,8 @@ export function buildDocument(
   });
 
   const reorderedInputs = reorderAcousticGuitars(inputs);
-  const disambiguatedInputs = disambiguateInputKeys(reorderedInputs);
+  const formattedKeysInputs = formatKeysInputInstances(reorderedInputs);
+  const disambiguatedInputs = disambiguateInputKeys(formattedKeysInputs);
   const leadGenderByIndex = leadResolved.map((m) => m.gender);
   const finalizedInputs = disambiguatedInputs.map((input) => {
     if (!input.key.startsWith("voc_lead")) return input;

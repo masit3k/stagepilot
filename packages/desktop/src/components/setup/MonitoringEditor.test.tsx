@@ -81,7 +81,7 @@ describe("MonitoringEditor", () => {
     expect(html).not.toContain('<label class="setup-toggle-row__text"');
   });
 
-  it("adds the shared modified field class when additional wedge count is enabled", () => {
+  it("does not add modified field class when additional wedge is from defaults", () => {
     const html = renderToStaticMarkup(
       <MonitoringEditor
         effectiveMonitoring={{ ...baseMonitoring, additionalWedgeCount: 2 }}
@@ -90,7 +90,7 @@ describe("MonitoringEditor", () => {
       />,
     );
 
-    expect(html).toContain("setup-field-block setup-field-block--modified");
+    expect(html).not.toContain("setup-field-block setup-field-block--modified");
   });
 
   it("adds the shared modified field class when additional wedge origin is override", () => {

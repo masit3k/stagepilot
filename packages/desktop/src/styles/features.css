@@ -510,6 +510,22 @@
   gap: 8px;
 }
 
+
+.lineup-card__body--split {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lineup-list--compact {
+  gap: 8px;
+}
+
+.lineup-list__actions--column {
+  flex-direction: column;
+  justify-content: center;
+}
 /* --------------------------------------------------------------------------
    Setup action bar (page-level sticky bar)
    -------------------------------------------------------------------------- */
