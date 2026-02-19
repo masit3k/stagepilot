@@ -11,9 +11,9 @@ use std::{
 };
 use storage_paths::{
     atomic_write_bytes, ensure_user_storage, exports_dir, library_dir as storage_library_dir,
-    project_json_path, projects_dir as storage_projects_dir, sanitize_id_to_filename,
-    temp_dir as storage_temp_dir, user_storage_root, versions_dir as storage_versions_dir,
-    StorageError,
+    maybe_wipe_storage_for_dev, project_json_path, projects_dir as storage_projects_dir,
+    sanitize_id_to_filename, temp_dir as storage_temp_dir, user_storage_root,
+    versions_dir as storage_versions_dir, StorageError,
 };
 use tauri_plugin_dialog::DialogExt;
 
@@ -1436,6 +1436,12 @@ fn open_path(path: &str, reveal: bool) -> Result<(), ApiError> {
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
+            maybe_wipe_storage_for_dev(&app.handle()).map_err(|err| {
+                tauri::Error::from(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("Failed to apply dev storage wipe: {:?}", err),
+                ))
+            })?;
             ensure_user_storage(&app.handle()).map_err(|err| {
                 tauri::Error::from(std::io::Error::new(
                     std::io::ErrorKind::Other,

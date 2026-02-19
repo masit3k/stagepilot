@@ -3,6 +3,7 @@ use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
+use tauri::Manager;
 
 const STORAGE_DIR_NAME: &str = "stagepilot";
 const STORAGE_SCHEMA_VERSION: u32 = 1;
@@ -43,11 +44,33 @@ fn storage_meta_path(root: &Path) -> PathBuf {
 }
 
 pub fn user_storage_root(app: &tauri::AppHandle) -> Result<PathBuf, StorageError> {
+    // StagePilot desktop currently targets Tauri v2 (`tauri = "2"`), where
+    // app-data paths are resolved via `app.path().app_data_dir()`.
     let app_data_dir = app
         .path()
         .app_data_dir()
         .map_err(|e| StorageError::Resolve(format!("Failed to resolve app data dir: {e}")))?;
     Ok(app_data_dir.join(STORAGE_DIR_NAME))
+}
+
+pub fn maybe_wipe_storage_for_dev(app: &tauri::AppHandle) -> Result<(), StorageError> {
+    if !cfg!(debug_assertions) {
+        return Ok(());
+    }
+
+    let should_wipe = std::env::var("STAGEPILOT_DEV_WIPE_STORAGE")
+        .map(|value| value == "1")
+        .unwrap_or(false);
+    if !should_wipe {
+        return Ok(());
+    }
+
+    let root = user_storage_root(app)?;
+    if root.exists() {
+        fs::remove_dir_all(&root)?;
+    }
+    println!("Wiped StagePilot storage at {}", root.display());
+    Ok(())
 }
 
 pub fn ensure_user_storage(app: &tauri::AppHandle) -> Result<UserStorageMeta, StorageError> {

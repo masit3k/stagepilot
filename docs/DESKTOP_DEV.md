@@ -41,3 +41,22 @@ Subdirectories created on first run:
 - **WebView2 missing (Windows):** Install the Evergreen WebView2 runtime.
 - **Export lock errors:** If the export PDF is open, the export will fail with `EXPORT_LOCKED`.
   Close the PDF and re-export. The version PDF is still saved in `stagepilot/versions`.
+
+
+## Wiping local data
+Runtime user data is **never** read from repo-local `user_data/`; desktop uses OS app data `stagepilot/` only.
+
+- One-shot wipe for development startup (debug/dev only):
+
+```bash
+STAGEPILOT_DEV_WIPE_STORAGE=1 npm run tauri dev
+```
+
+On startup, StagePilot logs `Wiped StagePilot storage at <path>` and then recreates required folders.
+
+- Manual cleanup:
+  - Windows: `%APPDATA%/stagepilot`
+  - macOS: `~/Library/Application Support/stagepilot`
+  - Linux: `$XDG_DATA_HOME/stagepilot` (or `~/.local/share/stagepilot`)
+
+In production builds, `STAGEPILOT_DEV_WIPE_STORAGE` is ignored for safety.
