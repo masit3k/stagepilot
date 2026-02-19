@@ -55,7 +55,6 @@ describe("stageplan render plan", () => {
       expect(inputBullets).toEqual(
         expect.arrayContaining([
           expect.stringMatching(/^PAD \(\d+(\+\d+)?\)$/),
-          expect.stringMatching(/^Back vocal – drums \(\d+(–\d+)?\)$/),
         ])
       );
 
@@ -242,8 +241,11 @@ describe("stageplan render plan", () => {
         { channelNo: 12, label: "PAD R", group: "drums" },
         { channelNo: 15, label: "Keys L", group: "keys" },
         { channelNo: 16, label: "Keys R", group: "keys" },
-        { channelNo: 17, label: "Synth L", group: "keys" },
-        { channelNo: 18, label: "Synth R", group: "keys" },
+        { channelNo: 13, label: "Electric guitar L", group: "guitar" },
+        { channelNo: 14, label: "Electric guitar R", group: "guitar" },
+        { channelNo: 17, label: "Synth", group: "keys" },
+        { channelNo: 18, label: "Synth", group: "keys" },
+        { channelNo: 19, label: "Synth (mono)", group: "keys" },
       ],
       monitorOutputs: [
         {
@@ -257,27 +259,28 @@ describe("stageplan render plan", () => {
 
     const keysBox = plan.boxes.find((box) => box.instrument === "Keys");
     expect(keysBox?.inputBullets).toEqual(
-      expect.arrayContaining(["2x Keys (15+16)", "2x Synth (17+18)"])
+      expect.arrayContaining(["Keys (15+16)", "Synth (17+18)", "Synth (mono) (19)"])
     );
     expect(keysBox?.inputBullets.join(" ")).not.toContain("Keys L (15)");
     expect(keysBox?.inputBullets.join(" ")).not.toContain("Keys R (16)");
 
     const guitarBox = plan.boxes.find((box) => box.instrument === "Guitar");
     expect(guitarBox?.inputBullets).toEqual(
-      expect.arrayContaining(["OH L (8)", "OH R (9)"])
+      expect.arrayContaining(["OH L (8)", "OH R (9)", "Electric guitar (13+14)"])
     );
     expect(guitarBox?.inputBullets.join(" ")).not.toContain("2x OH");
 
     const bassBox = plan.boxes.find((box) => box.instrument === "Bass");
-    expect(bassBox?.inputBullets).toEqual(expect.arrayContaining(["2x Bass (5+6)"]));
+    expect(bassBox?.inputBullets).toEqual(expect.arrayContaining(["Bass (5+6)"]));
     expect(bassBox?.inputBullets.join(" ")).not.toContain("Bass L (5)");
     expect(bassBox?.inputBullets.join(" ")).not.toContain("Bass R (6)");
 
     const drumsBox = plan.boxes.find((box) => box.instrument === "Drums");
-    expect(drumsBox?.inputBullets.join(" ")).toContain("2x PAD (11+12)");
+    expect(drumsBox?.inputBullets.join(" ")).toContain("PAD (11+12)");
     expect(drumsBox?.monitorBullets).toEqual(
       expect.arrayContaining(["IEM STEREO wired (3)"])
     );
+    expect(plan.boxes.flatMap((box) => box.inputBullets).join(" ")).not.toContain("2x ");
   });
 
   it("renders additional wedge monitor on a separate stageplan line", () => {

@@ -316,12 +316,21 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): { layout: Stag
     for (const bullet of bullets) monitorBySlot.get(slotByInstrument[instrument])?.push({ no: output.no, label: bullet });
   }
 
-  const buildInputLines = (items: Array<{ channelNo: number; label: string }>): StageplanLine[] =>
+  const buildInputLines = (items: Array<{ channelNo: number; label: string; group?: Group }>): StageplanLine[] =>
     items.map((item) => ({
       kind: "input",
       label: item.label,
       no: item.channelNo,
+      group: item.group,
     }));
+
+  const rankKeysStageplanInput = (label: string): number => {
+    const normalized = label.trim().toLowerCase();
+    if (normalized.startsWith("keys")) return 0;
+    if (normalized.startsWith("synth (mono)") || normalized.startsWith("synth mono")) return 2;
+    if (normalized.startsWith("synth")) return 1;
+    return 3;
+  };
 
   const isPadInput = (label: string): boolean => /pad/i.test(label);
   const isDummyInput = (label: string): boolean => /dummy/i.test(label);
@@ -363,7 +372,13 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): { layout: Stag
       isBandLeader: roleData.isBandLeader,
     });
 
-    const inputs = (inputBySlot.get(slot) ?? []).slice().sort((a, b) => a.channelNo - b.channelNo);
+    const inputs = (inputBySlot.get(slot) ?? []).slice().sort((a, b) => {
+      if (slot === "keys") {
+        const rank = rankKeysStageplanInput(a.label) - rankKeysStageplanInput(b.label);
+        if (rank !== 0) return rank;
+      }
+      return a.channelNo - b.channelNo;
+    });
     const inputBullets =
       slot === "drums"
         ? (() => {
