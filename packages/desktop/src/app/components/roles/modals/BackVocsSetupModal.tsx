@@ -1,4 +1,5 @@
 import { SetupModalShell } from "../../setup/SetupModalShell";
+import { SetupSection } from "../../setup/SetupSection";
 
 export type BackVocsSetupItem = {
   musicianId: string;
@@ -35,25 +36,27 @@ export function BackVocsSetupModal({ open, items, onBack, onReset, onSave, onCha
       onSave={onSave}
       isDirty={items.some((item) => item.isModified)}
     >
-      <div className="setup-editor-stack">
-        {items.map((item) => (
-          <div key={item.musicianId} className={`setup-field-block ${item.isModified ? "setup-field-block--modified" : ""}`}>
-            <label className="setup-field-block__label" htmlFor={`back-voc-${item.musicianId}`}>{item.name}</label>
-            <div className="setup-field-row">
-              <select
-                id={`back-voc-${item.musicianId}`}
-                className="setup-field-control"
-                value={item.value}
-                onChange={(event) => onChange(item.musicianId, event.target.value)}
-              >
-                {OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
+      <SetupSection title="Microphones" modified={items.some((item) => item.isModified)}>
+        <div className="setup-editor-stack">
+          {items.map((item) => (
+            <div key={item.musicianId} className={`setup-field-block ${item.isModified ? "setup-field-block--modified" : ""}`}>
+              <label className="setup-field-block__label" htmlFor={`back-voc-${item.musicianId}`}>{item.name}</label>
+              <div className="setup-field-row">
+                <select
+                  id={`back-voc-${item.musicianId}`}
+                  className="setup-field-control"
+                  value={item.value}
+                  onChange={(event) => onChange(item.musicianId, event.target.value)}
+                >
+                  {OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </SetupSection>
     </SetupModalShell>
   );
 }
