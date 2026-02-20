@@ -73,8 +73,35 @@ export function computeIsDirty(patch?: PresetOverridePatch): boolean {
   return Boolean(cleanupPatch(patch));
 }
 
-function arePresetsEqual(left: MusicianSetupPreset, right: MusicianSetupPreset): boolean {
+
+function normalizeInput(input: InputChannel): InputChannel {
+  return {
+    key: input.key,
+    label: input.label,
+    ...(input.note ? { note: input.note } : {}),
+    ...(input.group ? { group: input.group } : {}),
+  };
+}
+
+export function normalizeSetup(setup: MusicianSetupPreset): MusicianSetupPreset {
+  const additionalWedgeCount = normalizeAdditionalWedgeCount(setup.monitoring?.additionalWedgeCount);
+  return {
+    inputs: [...setup.inputs]
+      .map(normalizeInput)
+      .sort((a, b) => a.key.localeCompare(b.key)),
+    monitoring: {
+      monitorRef: setup.monitoring.monitorRef,
+      ...(additionalWedgeCount !== undefined ? { additionalWedgeCount } : {}),
+    },
+  };
+}
+
+function deepEqual(left: unknown, right: unknown): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+export function areSetupsEqual(left: MusicianSetupPreset, right: MusicianSetupPreset): boolean {
+  return deepEqual(normalizeSetup(left), normalizeSetup(right));
 }
 
 export function shouldEnableSetupReset(args: {
@@ -83,7 +110,7 @@ export function shouldEnableSetupReset(args: {
   effectivePreset: MusicianSetupPreset;
 }): boolean {
   if (cleanupPatch(args.eventOverride)) return true;
-  return !arePresetsEqual(args.defaultPreset, args.effectivePreset);
+  return !areSetupsEqual(args.defaultPreset, args.effectivePreset);
 }
 
 export function resetOverrides(): undefined {

@@ -15,6 +15,7 @@ import {
   validateLineup,
 } from "../../projectRules";
 import {
+  createDefaultMusicianPreset,
   summarizeEffectivePresetValidation,
   validateEffectivePresets,
   normalizeSetupOverridePatch,
@@ -43,6 +44,7 @@ import { migrateProjectLineupVocsToLeadBack } from "../domain/project/migratePro
 import { migrateProjectTalkbackOwner } from "../domain/project/migrateProjectTalkbackOwner";
 import { isLineupSetupDirty } from "../domain/ui/isLineupSetupDirty";
 import {
+  areSetupsEqual,
   resetOverrides,
   shouldEnableSetupReset,
   withInputsTarget,
@@ -114,10 +116,19 @@ export function ProjectSetupPage({
   const [isBackVocsSetupOpen, setIsBackVocsSetupOpen] = useState(false);
   const [backVocsSetupDraft, setBackVocsSetupDraft] = useState<Record<string, PresetOverridePatch | undefined>>({});
   const [status, setStatus] = useState("");
+  const [toastMessage, setToastMessage] = useState("");
   const [showResetConfirmation, setShowResetConfirmation] = useState(false);
+  const [showUpdateMusicianDefaultsConfirmation, setShowUpdateMusicianDefaultsConfirmation] = useState(false);
+  const [isUpdatingMusicianDefaults, setIsUpdatingMusicianDefaults] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
   const initialSnapshotRef = useRef("");
   const snapshotHydratedRef = useRef(false);
+
+  useEffect(() => {
+    if (!toastMessage) return undefined;
+    const timer = window.setTimeout(() => setToastMessage(""), 2400);
+    return () => window.clearTimeout(timer);
+  }, [toastMessage]);
 
   const buildSetupSnapshot = useCallback(
     (
@@ -618,17 +629,32 @@ export function ProjectSetupPage({
     applyState(nextLineup, setupData, bandLeaderId, talkbackOwnerId);
   }
 
-  const resolveSlotSetup = useCallback(
-    (role: Group, musicianId: string, patch?: PresetOverridePatch) => {
-      const musicianDefaults = setupData?.musicianDefaults?.[musicianId];
-      const musicianDefaultInputs = resolveMusicianDefaultInputsFromPresets(
+  const resolveMusicianDefaultPreset = useCallback(
+    (role: Group, musicianId: string): MusicianSetupPreset => {
+      const roleScopedDefaults = setupData?.musicianDefaults?.[`${musicianId}:${role}`];
+      const genericDefaults = setupData?.musicianDefaults?.[musicianId];
+      const presetInputs = resolveMusicianDefaultInputsFromPresets(
         role,
         setupData?.musicianPresetsById?.[musicianId],
       );
+      const base = createDefaultMusicianPreset();
+      return {
+        ...base,
+        ...genericDefaults,
+        ...roleScopedDefaults,
+        ...(presetInputs ? { inputs: presetInputs } : {}),
+        ...(genericDefaults?.monitoring ? { monitoring: { ...base.monitoring, ...genericDefaults.monitoring } } : {}),
+        ...(roleScopedDefaults?.monitoring ? { monitoring: { ...base.monitoring, ...genericDefaults?.monitoring, ...roleScopedDefaults.monitoring } } : {}),
+      };
+    },
+    [setupData],
+  );
+
+  const resolveSlotSetup = useCallback(
+    (role: Group, musicianId: string, patch?: PresetOverridePatch) => {
+      const musicianDefaults = resolveMusicianDefaultPreset(role, musicianId);
       const resolved = resolveEffectiveMusicianSetup({
-        musicianDefaults: musicianDefaultInputs
-          ? { ...musicianDefaults, inputs: musicianDefaultInputs }
-          : musicianDefaults,
+        musicianDefaults,
         bandDefaults: getGroupDefaultPreset(role),
         eventOverride: patch,
         group: role,
@@ -641,7 +667,7 @@ export function ProjectSetupPage({
         },
       };
     },
-    [setupData],
+    [resolveMusicianDefaultPreset],
   );
 
   const backVocalMembersSorted = useMemo(
@@ -756,6 +782,10 @@ export function ProjectSetupPage({
 
   const resetModalRef = useModalBehavior(showResetConfirmation, () =>
     setShowResetConfirmation(false),
+  );
+  const updateMusicianDefaultsModalRef = useModalBehavior(
+    showUpdateMusicianDefaultsConfirmation,
+    () => setShowUpdateMusicianDefaultsConfirmation(false),
   );
   const musicianSelectorRef = useModalBehavior(
     Boolean(editing && setupData),
@@ -1048,6 +1078,7 @@ export function ProjectSetupPage({
         </div>
       ) : null}
       {status ? <p className="status status--error">{status}</p> : null}
+      {toastMessage ? <p className="status status--success">{toastMessage}</p> : null}
 
       <div className="setup-action-bar">
         <button
@@ -1130,6 +1161,87 @@ export function ProjectSetupPage({
       </ModalOverlay>
 
       <ModalOverlay
+        open={showUpdateMusicianDefaultsConfirmation && Boolean(selectedSetupMusician)}
+        onClose={() => {
+          setShowUpdateMusicianDefaultsConfirmation(false);
+        }}
+      >
+        <div
+          className="selector-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="update-musician-defaults-title"
+          ref={updateMusicianDefaultsModalRef}
+        >
+          <div className="panel__header panel__header--stack selector-dialog__title">
+            <h3 id="update-musician-defaults-title">Update musician defaults?</h3>
+            <p className="subtle">
+              {`You are about to update default setup for: ${selectedSetupMusician?.musicianName ?? ""}.`}
+            </p>
+            <p className="subtle">This will affect all future projects and all bands.</p>
+            <p className="subtle">This does not change the band defaults.</p>
+          </div>
+          <div className="selector-dialog__divider section-divider" />
+          <div className="modal-actions">
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={() => setShowUpdateMusicianDefaultsConfirmation(false)}
+              disabled={isUpdatingMusicianDefaults}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!selectedSetupMusician) return;
+                const existingPatch = getExistingSlotOverride(
+                  selectedSetupMusician.role,
+                  parseSlotIndex(selectedSetupMusician.slotKey),
+                );
+                const currentPatch = resolveDraftOverride(
+                  selectedSetupMusician.slotKey,
+                  existingPatch,
+                );
+                const { effective } = resolveSlotSetup(
+                  selectedSetupMusician.role,
+                  selectedSetupMusician.musicianId,
+                  currentPatch,
+                );
+                setIsUpdatingMusicianDefaults(true);
+                try {
+                  await invoke("update_musician_defaults", {
+                    musicianId: selectedSetupMusician.musicianId,
+                    role: selectedSetupMusician.role,
+                    setup: effective,
+                  });
+                  setSetupData((prev) => {
+                    if (!prev) return prev;
+                    return {
+                      ...prev,
+                      musicianDefaults: {
+                        ...(prev.musicianDefaults ?? {}),
+                        [`${selectedSetupMusician.musicianId}:${selectedSetupMusician.role}`]: effective,
+                      },
+                    };
+                  });
+                  setToastMessage("Musician defaults updated.");
+                  setShowUpdateMusicianDefaultsConfirmation(false);
+                } catch {
+                  setStatus("Failed to update musician defaults.");
+                } finally {
+                  setIsUpdatingMusicianDefaults(false);
+                }
+              }}
+              disabled={isUpdatingMusicianDefaults}
+            >
+              Update defaults
+            </button>
+          </div>
+        </div>
+      </ModalOverlay>
+
+      <ModalOverlay
         open={Boolean(editingSetup)}
         onClose={() => {
           setEditingSetup(null);
@@ -1166,6 +1278,14 @@ export function ProjectSetupPage({
                 selectedSetupMusician.role === "drums"
                   ? inferDrumSetupFromLegacyInputs(effective.inputs)
                   : null;
+              const musicianDefaultPreset = resolveMusicianDefaultPreset(
+                selectedSetupMusician.role,
+                selectedSetupMusician.musicianId,
+              );
+              const canUpdateMusicianDefault = !areSetupsEqual(
+                effective,
+                musicianDefaultPreset,
+              );
               const modalErrors = validateEffectivePresets(
                 setupMusicians.map((slot) => {
                   const existingSlotPatch = getExistingSlotOverride(
@@ -1239,6 +1359,11 @@ export function ProjectSetupPage({
                         });
                         return next;
                       });
+                    }}
+                    defaultAction={{
+                      label: "Save as musician default…",
+                      disabled: !canUpdateMusicianDefault,
+                      onClick: () => setShowUpdateMusicianDefaultsConfirmation(true),
                     }}
                     saveDisabled={modalErrors.length > 0}
                     onSave={() => {
@@ -1337,7 +1462,7 @@ export function ProjectSetupPage({
                               <SelectedInputsList
                                 effectiveInputs={effective.inputs}
                                 inputDiffMeta={resolved.diffMeta.inputs}
-                                availableInputs={[]}
+                                availableInputs={availableInputs}
                                 nonRemovableKeys={[
                                   "dr_kick_out",
                                   "dr_kick_in",

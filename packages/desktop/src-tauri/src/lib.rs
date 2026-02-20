@@ -280,6 +280,59 @@ fn load_library_list<T: for<'de> Deserialize<'de>>(
     })
 }
 
+fn load_library_map<T: for<'de> Deserialize<'de>>(
+    app: &tauri::AppHandle,
+    file_name: &str,
+) -> Result<HashMap<String, T>, ApiError> {
+    let path = library_file(app, file_name)?;
+    if !path.exists() {
+        return Ok(HashMap::new());
+    }
+    let content = fs::read_to_string(&path).map_err(|err| {
+        map_io_error(
+            err,
+            "LIBRARY_READ_FAILED",
+            &format!("Failed to read {}", file_name),
+        )
+    })?;
+    serde_json::from_str::<HashMap<String, T>>(&content).map_err(|err| ApiError {
+        code: "LIBRARY_READ_FAILED".into(),
+        message: format!("Invalid {} JSON ({})", file_name, err),
+        export_pdf_path: None,
+        version_pdf_path: None,
+    })
+}
+
+fn save_library_map<T: Serialize>(
+    app: &tauri::AppHandle,
+    file_name: &str,
+    items: &HashMap<String, T>,
+) -> Result<(), ApiError> {
+    let path = library_file(app, file_name)?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|err| {
+            map_io_error(
+                err,
+                "LIBRARY_WRITE_FAILED",
+                "Failed to create library directory",
+            )
+        })?;
+    }
+    let json = serde_json::to_vec_pretty(items).map_err(|err| ApiError {
+        code: "LIBRARY_WRITE_FAILED".into(),
+        message: format!("Failed to serialize {} ({})", file_name, err),
+        export_pdf_path: None,
+        version_pdf_path: None,
+    })?;
+    atomic_write_bytes(&path, &json).map_err(|err| {
+        map_storage_error(
+            err,
+            "LIBRARY_WRITE_FAILED",
+            &format!("Failed to save {}", file_name),
+        )
+    })
+}
+
 fn save_library_list<T: Serialize>(
     app: &tauri::AppHandle,
     file_name: &str,
@@ -295,14 +348,14 @@ fn save_library_list<T: Serialize>(
             )
         })?;
     }
-    let json = serde_json::to_string_pretty(items).map_err(|err| ApiError {
+    let json = serde_json::to_vec_pretty(items).map_err(|err| ApiError {
         code: "LIBRARY_WRITE_FAILED".into(),
         message: format!("Failed to serialize {} ({})", file_name, err),
         export_pdf_path: None,
         version_pdf_path: None,
     })?;
-    fs::write(&path, json).map_err(|err| {
-        map_io_error(
+    atomic_write_bytes(&path, &json).map_err(|err| {
+        map_storage_error(
             err,
             "LIBRARY_WRITE_FAILED",
             &format!("Failed to save {}", file_name),
@@ -477,7 +530,7 @@ fn list_bands() -> Result<Vec<BandOption>, ApiError> {
 }
 
 #[tauri::command]
-fn get_band_setup_data(band_id: String) -> Result<BandSetupData, ApiError> {
+fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSetupData, ApiError> {
     let repo_root = resolve_repo_root();
     let bands_dir = repo_root.join("data").join("bands");
     let entries = fs::read_dir(&bands_dir).map_err(|err| ApiError {
@@ -702,6 +755,12 @@ fn get_band_setup_data(band_id: String) -> Result<BandSetupData, ApiError> {
                 }
             }
         }
+    }
+
+    let musician_default_overrides =
+        load_library_map::<Value>(&app, "musician_defaults.json").unwrap_or_default();
+    for (key, value) in musician_default_overrides {
+        musician_defaults.insert(key, value);
     }
 
     Ok(BandSetupData {
@@ -1290,6 +1349,28 @@ fn upsert_library_musician(
 }
 
 #[tauri::command]
+fn update_musician_defaults(
+    app: tauri::AppHandle,
+    musician_id: String,
+    role: String,
+    setup: Value,
+) -> Result<(), ApiError> {
+    if musician_id.trim().is_empty() {
+        return Err(ApiError {
+            code: "LIBRARY_VALIDATION_FAILED".into(),
+            message: "Musician id is required.".into(),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        });
+    }
+    let normalized_role = role.trim().to_lowercase();
+    let key = format!("{}:{}", musician_id.trim(), normalized_role);
+    let mut defaults = load_library_map::<Value>(&app, "musician_defaults.json")?;
+    defaults.insert(key, setup);
+    save_library_map(&app, "musician_defaults.json", &defaults)
+}
+
+#[tauri::command]
 fn delete_library_musician(app: tauri::AppHandle, musician_id: String) -> Result<(), ApiError> {
     let bands = load_library_list::<LibraryBand>(&app, "bands.json")?;
     if bands.iter().any(|band| {
@@ -1484,6 +1565,7 @@ pub fn run() {
             duplicate_library_band,
             list_library_musicians,
             upsert_library_musician,
+            update_musician_defaults,
             delete_library_musician,
             list_library_instruments,
             upsert_library_instrument,

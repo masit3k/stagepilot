@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { MusicianSetupPreset, PresetOverridePatch } from "../../../../../../../../src/domain/model/types";
-import { cleanupPatch, shouldEnableSetupReset } from "./eventSetupAdapter";
+import type { MusicianSetupPreset, PresetOverridePatch } from "../../../../../../../src/domain/model/types";
+import { areSetupsEqual, cleanupPatch, normalizeSetup, shouldEnableSetupReset } from "./eventSetupAdapter";
 
 const defaultPreset: MusicianSetupPreset = {
   monitoring: { monitorRef: "wedge" },
@@ -38,5 +38,28 @@ describe("shouldEnableSetupReset", () => {
       defaultPreset,
       effectivePreset: defaultPreset,
     })).toBe(false);
+  });
+});
+
+
+describe("normalizeSetup / areSetupsEqual", () => {
+  it("ignores input order and redundant wedge count", () => {
+    const left: MusicianSetupPreset = {
+      inputs: [
+        { key: "voc_b", label: "Vocal B" },
+        { key: "voc_a", label: "Vocal A" },
+      ],
+      monitoring: { monitorRef: "wedge", additionalWedgeCount: 0 },
+    };
+    const right: MusicianSetupPreset = {
+      inputs: [
+        { key: "voc_a", label: "Vocal A" },
+        { key: "voc_b", label: "Vocal B" },
+      ],
+      monitoring: { monitorRef: "wedge" },
+    };
+
+    expect(areSetupsEqual(left, right)).toBe(true);
+    expect(normalizeSetup(left)).toEqual(normalizeSetup(right));
   });
 });
