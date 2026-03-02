@@ -3,6 +3,7 @@ import type { MetaLineModel } from "../../domain/model/types.js";
 import { pdfStyles } from "./styles.js";
 import { pdfLayout } from "./layout.js";
 import { renderStageplanSection } from "./sections/stageplan.js";
+import type { StageplanRenderOptions } from "./stageplanRenderOptions.js";
 
 function esc(s: unknown): string {
   const str = s == null ? "" : String(s);
@@ -107,6 +108,7 @@ export interface RenderTemplateOptions {
   baseHref: string; // file:///.../src/infra/pdf/
   contactLine?: string;
   logoHref?: string;
+  stageplan?: Partial<StageplanRenderOptions>;
 }
 
 export function renderInputlistHtml(vm: DocumentViewModel, opts: RenderTemplateOptions): string {
@@ -123,7 +125,7 @@ export function renderInputlistHtml(vm: DocumentViewModel, opts: RenderTemplateO
   // NOTES: vždy až POD oběma tabulkami
   const inputNotesHtml = renderNotesBlock(null, vm.notes?.inputs);
   const monitorNotesHtml = renderNotesBlock(null, vm.notes?.monitors);
-  const stageplanHtml = renderStageplanSection(vm);
+  const stageplanHtml = renderStageplanSection(vm, opts.stageplan);
 
   return `<!doctype html>
 <html lang="cs">

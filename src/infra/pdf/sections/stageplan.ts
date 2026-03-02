@@ -9,6 +9,10 @@ import type { StageplanLine } from "../../../domain/stageplan/stereoCollapse.js"
 import { collapseStereoForStageplan } from "../../../domain/stageplan/stereoCollapse.js";
 import { resolveStageplanRoleForInput } from "../../../domain/stageplan/resolveStageplanRoleForInput.js";
 import { pdfLayout } from "../layout.js";
+import {
+  resolveStageplanRenderOptions,
+  type StageplanRenderOptions,
+} from "../stageplanRenderOptions.js";
 
 const MM_TO_PT = 72 / 25.4;
 
@@ -270,7 +274,11 @@ export function matchStageplanLayout(vm: DocumentViewModel["stageplan"]): Stagep
   return STAGEPLAN_LAYOUTS.layout_5_party;
 }
 
-function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): { layout: StageplanLayoutDefinition; boxes: StageplanBoxPlan[]; areaHeightMm: number } {
+function buildStageplanBoxes(
+  vm: DocumentViewModel["stageplan"],
+  options?: Partial<StageplanRenderOptions>,
+): { layout: StageplanLayoutDefinition; boxes: StageplanBoxPlan[]; areaHeightMm: number } {
+  const resolvedOptions = resolveStageplanRenderOptions(options);
   const selectedLayout = matchStageplanLayout(vm);
   const allSlots = [...selectedLayout.topRow.map((item) => item.slot), ...selectedLayout.bottomRow.slots];
 
@@ -370,6 +378,7 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): { layout: Stag
       instrumentLabel: roleData.instrument,
       firstName: roleData.firstName,
       isBandLeader: roleData.isBandLeader,
+      hideMusicianNames: resolvedOptions.hideMusicianNames,
     });
 
     const inputs = (inputBySlot.get(slot) ?? []).slice().sort((a, b) => {
@@ -477,8 +486,11 @@ function buildStageplanBoxes(vm: DocumentViewModel["stageplan"]): { layout: Stag
   };
 }
 
-export function buildStageplanPlan(vm: DocumentViewModel["stageplan"]): StageplanPlan {
-  const built = buildStageplanBoxes(vm);
+export function buildStageplanPlan(
+  vm: DocumentViewModel["stageplan"],
+  options?: Partial<StageplanRenderOptions>,
+): StageplanPlan {
+  const built = buildStageplanBoxes(vm, options);
   const areaHeightMm = built.areaHeightMm;
   const pageHeightMm = 297;
   const marginTopMm = parseMm(pdfLayout.page.margins.top);
@@ -514,8 +526,11 @@ export function buildStageplanPlan(vm: DocumentViewModel["stageplan"]): Stagepla
   };
 }
 
-export function renderStageplanSection(vm: DocumentViewModel): string {
-  const plan = buildStageplanPlan(vm.stageplan);
+export function renderStageplanSection(
+  vm: DocumentViewModel,
+  options?: Partial<StageplanRenderOptions>,
+): string {
+  const plan = buildStageplanPlan(vm.stageplan, options);
   const areaHeight = plan.layout.areaHeightMm;
 
   const boxesHtml = plan.boxes

@@ -9,6 +9,7 @@ import { ExportLockedError } from "../src/app/usecases/publishExportPdf.js";
 type Args = {
   projectId: string;
   userDataDir: string;
+  hideMusicianNames: boolean;
 };
 
 type ExportResponse =
@@ -34,16 +35,21 @@ function parseArgs(args: string[]): Args {
     throw new Error("Invalid args: project-id or user-data-dir missing");
   }
 
-  return { projectId, userDataDir };
+  const hideMusicianNames = args.includes("--hide-musician-names");
+  return { projectId, userDataDir, hideMusicianNames };
 }
 
 async function run(): Promise<ExportResponse> {
-  const { projectId, userDataDir } = parseArgs(argv.slice(2));
+  const { projectId, userDataDir, hideMusicianNames } = parseArgs(argv.slice(2));
   const projectPath = await resolveProjectPathById(path.join(userDataDir, "projects"), projectId);
   const project = await loadJsonFile<ProjectJson>(projectPath);
 
   try {
-    const result = await exportProjectPdf({ userDataDir, project });
+    const result = await exportProjectPdf({
+      userDataDir,
+      project,
+      stageplan: { hideMusicianNames },
+    });
     return { ok: true, result };
   } catch (err) {
     if (err instanceof ExportLockedError) {

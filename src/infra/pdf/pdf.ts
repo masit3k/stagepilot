@@ -8,6 +8,7 @@ import type { Browser, LaunchOptions } from "puppeteer";
 import type { DocumentViewModel } from "../../domain/model/types.js";
 import { renderInputlistHtml } from "./template.js";
 import { pdfLayout } from "./layout.js";
+import type { StageplanRenderOptions } from "./stageplanRenderOptions.js";
 
 const DESKTOP_CHROMIUM_ARGS = [
     "--disable-dev-shm-usage",
@@ -138,6 +139,7 @@ async function launchWithFallback(strategies: LaunchStrategy[]): Promise<Browser
 export interface RenderPdfOptions {
     outFile: string;         // absolutní nebo relativní
     contactLine?: string;    // volitelné (doplníš z usecase)
+    stageplan?: Partial<StageplanRenderOptions>;
 }
 
 /**
@@ -162,6 +164,7 @@ export async function renderPdf(vm: DocumentViewModel, opts: RenderPdfOptions): 
         baseHref,
         contactLine: opts.contactLine,
         logoHref,
+        stageplan: opts.stageplan,
     });
 
     await fs.mkdir(path.dirname(opts.outFile), { recursive: true });

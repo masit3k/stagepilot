@@ -30,6 +30,7 @@ export function ProjectPreviewPage({
     kind: "idle",
   });
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [hideMusicianNames, setHideMusicianNames] = useState(false);
   const [exportModal, setExportModal] = useState<ExportModalState>(null);
   const hasGeneratedOnEntry = useRef(false);
 
@@ -47,7 +48,7 @@ export function ProjectPreviewPage({
     try {
       const result = await invoke<{ previewPdfPath: string }>(
         "build_project_pdf_preview",
-        { projectId: id },
+        { projectId: id, hideMusicianNames },
       );
       console.info("[preview] generated", {
         previewPath: result.previewPdfPath,
@@ -77,7 +78,7 @@ export function ProjectPreviewPage({
         missingPreview,
       });
     }
-  }, [id]);
+  }, [hideMusicianNames, id]);
 
   useEffect(() => {
     invoke<string>("read_project", { projectId: id })
@@ -111,6 +112,11 @@ export function ProjectPreviewPage({
     };
   }, [id, regeneratePreview]);
 
+  useEffect(() => {
+    if (!hasGeneratedOnEntry.current) return;
+    regeneratePreview();
+  }, [hideMusicianNames, regeneratePreview]);
+
   const runExport = useCallback(async () => {
     if (!project) return;
     try {
@@ -123,6 +129,7 @@ export function ProjectPreviewPage({
       await invoke("export_pdf_to_path", {
         projectId: project.id,
         outputPath: selectedPath,
+        hideMusicianNames,
       });
       setExportModal({ kind: "success", path: selectedPath });
     } catch (err) {
@@ -131,7 +138,7 @@ export function ProjectPreviewPage({
     } finally {
       setIsGeneratingPdf(false);
     }
-  }, [project]);
+  }, [hideMusicianNames, project]);
 
   const previewRoute = `${window.location.pathname}${search || ""}`;
   const backToEditPath =
@@ -152,6 +159,19 @@ export function ProjectPreviewPage({
         </button>
       </div>
       <div className="pdf-preview-panel">
+        <div className="field" style={{ marginBottom: "12px" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <input
+              type="checkbox"
+              checked={hideMusicianNames}
+              onChange={(event) => setHideMusicianNames(event.target.checked)}
+            />
+            <span>Skrýt jména muzikantů ve stageplanu</span>
+          </label>
+          <p className="subtle" style={{ margin: "4px 0 0 0" }}>
+            Kontakt list zůstává beze změny.
+          </p>
+        </div>
         <div className="preview-container">
           {previewState.kind === "generating" ||
           previewState.kind === "idle" ? (

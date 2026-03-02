@@ -916,7 +916,11 @@ fn delete_project(app: tauri::AppHandle, project_id: String) -> Result<(), ApiEr
 }
 
 #[tauri::command]
-fn export_pdf(app: tauri::AppHandle, project_id: String) -> Result<ExportPdfResult, ApiError> {
+fn export_pdf(
+    app: tauri::AppHandle,
+    project_id: String,
+    hide_musician_names: Option<bool>,
+) -> Result<ExportPdfResult, ApiError> {
     let user_data_dir = user_storage_root(&app).map_err(|err| {
         map_storage_error(err, "EXPORT_FAILED", "Failed to resolve user storage root")
     })?;
@@ -942,14 +946,20 @@ fn export_pdf(app: tauri::AppHandle, project_id: String) -> Result<ExportPdfResu
     let repo_root = resolve_repo_root();
     let script_path = repo_root.join("scripts").join("desktop_export.ts");
 
-    let output = Command::new("node")
+    let mut command = Command::new("node");
+    command
         .arg("--import")
         .arg("tsx")
         .arg(script_path.as_os_str())
         .arg("--project-id")
         .arg(&project_id)
         .arg("--user-data-dir")
-        .arg(user_data_dir.as_os_str())
+        .arg(user_data_dir.as_os_str());
+    if hide_musician_names.unwrap_or(false) {
+        command.arg("--hide-musician-names");
+    }
+
+    let output = command
         .current_dir(&repo_root)
         .output()
         .map_err(|err| map_io_error(err, "EXPORT_FAILED", "Failed to execute export"))?;
@@ -1005,6 +1015,7 @@ struct PreviewPdfPathResult {
 fn build_project_pdf_preview(
     app: tauri::AppHandle,
     project_id: String,
+    hide_musician_names: Option<bool>,
 ) -> Result<PreviewPdfPathResult, ApiError> {
     let user_data_dir = user_storage_root(&app).map_err(|err| {
         map_storage_error(err, "PREVIEW_FAILED", "Failed to resolve user storage root")
@@ -1021,14 +1032,20 @@ fn build_project_pdf_preview(
         script_path.display()
     );
 
-    let output = Command::new("node")
+    let mut command = Command::new("node");
+    command
         .arg("--import")
         .arg("tsx")
         .arg(script_path.as_os_str())
         .arg("--project-id")
         .arg(&project_id)
         .arg("--user-data-dir")
-        .arg(user_data_dir.as_os_str())
+        .arg(user_data_dir.as_os_str());
+    if hide_musician_names.unwrap_or(false) {
+        command.arg("--hide-musician-names");
+    }
+
+    let output = command
         .current_dir(&repo_root)
         .output()
         .map_err(|err| map_io_error(err, "PREVIEW_FAILED", "Failed to execute preview"))?;
@@ -1141,8 +1158,9 @@ fn export_pdf_to_path(
     app: tauri::AppHandle,
     project_id: String,
     output_path: String,
+    hide_musician_names: Option<bool>,
 ) -> Result<(), ApiError> {
-    let result = export_pdf(app, project_id)?;
+    let result = export_pdf(app, project_id, hide_musician_names)?;
     let bytes = fs::read(&result.export_pdf_path)
         .map_err(|err| map_io_error(err, "EXPORT_FAILED", "Failed to read generated PDF"))?;
 

@@ -16,6 +16,7 @@ import {
   prepareVersionDir,
 } from "../../infra/fs/versionStore.js";
 import { renderPdf } from "../../infra/pdf/pdf.js";
+import type { StageplanRenderOptions } from "../../infra/pdf/stageplanRenderOptions.js";
 import { getGeneratedAtUtc } from "../../infra/time/today.js";
 import { normalizeProject } from "./normalizeProject.js";
 import { publishExportPdf } from "./publishExportPdf.js";
@@ -132,14 +133,16 @@ export async function exportPdfFromProjectFile(
 export async function exportProjectPdf(args: {
   userDataDir: string;
   project: ProjectJson;
+  stageplan?: Partial<StageplanRenderOptions>;
 }): Promise<ExportPdfResult> {
   const project = normalizeProject(args.project);
-  return exportPdfFromProject(project.id, project, args.userDataDir);
+  return exportPdfFromProject(project.id, project, args.userDataDir, args.stageplan);
 }
 async function exportPdfFromProject(
   projectId: string,
   project: Project,
   outDir: string,
+  stageplan?: Partial<StageplanRenderOptions>,
 ): Promise<ExportPdfResult> {
   if (project.id !== projectId) {
     throw new Error(`Project id mismatch: ${projectId} vs ${project.id}`);
@@ -174,7 +177,7 @@ async function exportPdfFromProject(
   const pdfPath = path.join(versionDir, pdfFileName);
 
   await mkdir(versionDir, { recursive: true });
-  await renderPdf(vm, { outFile: pdfPath, contactLine });
+  await renderPdf(vm, { outFile: pdfPath, contactLine, stageplan });
 
   const meta = await createProjectVersion({
     project,

@@ -12,7 +12,7 @@ import { loadJsonFile } from "../src/infra/fs/loadJson.js";
 import { loadRepository } from "../src/infra/fs/repo.js";
 import { renderPdf } from "../src/infra/pdf/pdf.js";
 
-type Args = { projectId: string; userDataDir: string };
+type Args = { projectId: string; userDataDir: string; hideMusicianNames: boolean };
 type Response =
   | { ok: true; result: { previewPdfPath: string } }
   | { ok: false; code: string; message: string };
@@ -26,11 +26,12 @@ function parseArgs(args: string[]): Args {
   const userDataDir = args[userDataIndex + 1];
   if (!projectId || !userDataDir)
     throw new Error("Invalid args: project-id or user-data-dir missing");
-  return { projectId, userDataDir };
+  const hideMusicianNames = args.includes("--hide-musician-names");
+  return { projectId, userDataDir, hideMusicianNames };
 }
 
 async function run(): Promise<Response> {
-  const { projectId, userDataDir } = parseArgs(argv.slice(2));
+  const { projectId, userDataDir, hideMusicianNames } = parseArgs(argv.slice(2));
   const projectsDir = path.join(userDataDir, "projects");
   const projectPath = await resolveProjectPathById(projectsDir, projectId);
   const rawProject = await loadJsonFile<ProjectJson>(projectPath);
@@ -50,7 +51,11 @@ async function run(): Promise<Response> {
   const slug = project.slug ?? formatProjectSlug(project, band);
   // Uses slug (human doc key), not id (UUID).
   const previewPdfPath = path.join(tmpDir, `preview_${slug}.pdf`);
-  await renderPdf(vm, { outFile: previewPdfPath, contactLine });
+  await renderPdf(vm, {
+    outFile: previewPdfPath,
+    contactLine,
+    stageplan: { hideMusicianNames },
+  });
   return { ok: true, result: { previewPdfPath } };
 }
 

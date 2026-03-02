@@ -53,4 +53,33 @@ describe("inputlist template layout", () => {
       await fs.rm(tmpRoot, { recursive: true, force: true });
     }
   });
+
+  it("keeps contact line while hiding names only on stageplan", async () => {
+    const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "stagepilot-"));
+    await fs.mkdir(path.join(tmpRoot, "projects"), { recursive: true });
+
+    try {
+      const repo = await loadRepository({ userDataRoot: tmpRoot });
+      const project: Project = {
+        id: "stageplan-hide-names",
+        bandRef: "pl",
+        purpose: "generic",
+        documentDate: "2024-01-01",
+      };
+
+      const vm = buildDocument(project, repo);
+      const html = renderInputlistHtml(vm, {
+        tabTitle: "Stageplan",
+        baseHref: "file:///tmp/",
+        contactLine: "Kontaktní osoba – Test User, + 420 111 222 333",
+        stageplan: { hideMusicianNames: true },
+      });
+
+      expect(html).toContain("Kontaktní osoba – Test User");
+      expect(html).toContain("BASS");
+      expect(html).not.toContain("BASS – MATĚJ");
+    } finally {
+      await fs.rm(tmpRoot, { recursive: true, force: true });
+    }
+  });
 });

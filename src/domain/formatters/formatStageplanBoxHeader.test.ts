@@ -32,6 +32,16 @@ describe("formatStageplanBoxHeader", () => {
 
     expect(label).toBe("BASS – MATĚJ (band leader)");
   });
+
+  it("hides musician names when requested", () => {
+    const label = formatStageplanBoxHeader({
+      instrumentLabel: "Bass",
+      firstName: "Matěj",
+      hideMusicianNames: true,
+    });
+
+    expect(label).toBe("BASS");
+  });
 });
 
 describe("formatMonitorBullet", () => {

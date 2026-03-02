@@ -184,6 +184,33 @@ describe("stageplan render plan", () => {
     expect(debug).toMatchObject({ layoutId: "layout_6_2_vocs", cols: 4, gutterMm: 4.5, insetMm: 2 });
   });
 
+  it("keeps layout but omits names when hideMusicianNames is enabled", () => {
+    const baseVm = {
+      lineupByRole: {
+        drums: { firstName: "Drummer", isBandLeader: false },
+        bass: { firstName: "Bassist", isBandLeader: false },
+        guitar: { firstName: "Guitarist", isBandLeader: false },
+        keys: { firstName: "Keysman", isBandLeader: false },
+      },
+      leadVocals: [{ firstName: "Alice", isBandLeader: false }],
+      inputs: [],
+      monitorOutputs: [],
+      powerByRole: {},
+    };
+
+    const withNames = buildStageplanPlan(baseVm, { hideMusicianNames: false });
+    const hiddenNames = buildStageplanPlan(baseVm, { hideMusicianNames: true });
+
+    expect(withNames.layout.layoutId).toBe(hiddenNames.layout.layoutId);
+    expect(withNames.boxes.map((box) => box.position)).toEqual(
+      hiddenNames.boxes.map((box) => box.position),
+    );
+    expect(hiddenNames.boxes.map((box) => box.header)).toEqual(
+      expect.arrayContaining(["DRUMS", "BASS", "GUITAR", "LEAD VOC", "KEYS"]),
+    );
+    expect(hiddenNames.boxes.some((box) => /ALICE|BASSIST|GUITARIST/i.test(box.header))).toBe(false);
+  });
+
   it("keeps stageplan boxes inside stage area and page safe height for layout_6_2_vocs", () => {
     const plan = buildStageplanPlan({
       lineupByRole: {
