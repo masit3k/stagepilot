@@ -149,7 +149,19 @@ export function ProjectPreviewPage({
   return (
     <section className="panel panel--preview">
       <div className="panel__header">
-        <h2>PDF Preview</h2>
+        <div className="preview-header-copy">
+          <h2>PDF Preview</h2>
+          <div className="field preview-hide-names-field">
+            <label className="preview-hide-names-label">
+              <input
+                type="checkbox"
+                checked={hideMusicianNames}
+                onChange={(event) => setHideMusicianNames(event.target.checked)}
+              />
+              <span>Hide musician names on stageplan</span>
+            </label>
+          </div>
+        </div>
         <button
           type="button"
           className="button-secondary"
@@ -159,19 +171,6 @@ export function ProjectPreviewPage({
         </button>
       </div>
       <div className="pdf-preview-panel">
-        <div className="field" style={{ marginBottom: "12px" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <input
-              type="checkbox"
-              checked={hideMusicianNames}
-              onChange={(event) => setHideMusicianNames(event.target.checked)}
-            />
-            <span>Skrýt jména muzikantů ve stageplanu</span>
-          </label>
-          <p className="subtle" style={{ margin: "4px 0 0 0" }}>
-            Kontakt list zůstává beze změny.
-          </p>
-        </div>
         <div className="preview-container">
           {previewState.kind === "generating" ||
           previewState.kind === "idle" ? (
