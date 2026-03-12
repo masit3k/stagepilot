@@ -1,3 +1,5 @@
+// NOTE: Desktop runtime bootstrap authority lives in Tauri/Rust (packages/desktop/src-tauri/src/storage_paths.rs).
+// This helper is kept only for Node-side tests/scripts and must not be used by desktop runtime startup.
 import fs from "node:fs/promises";
 import path from "node:path";
 import { catalogPaths } from "./catalogPaths.js";

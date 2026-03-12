@@ -11,6 +11,7 @@ import {
 } from "./MonitoringEditor";
 
 const baseMonitoring = { monitorRef: "wedge" };
+const monitorOptions = [{ value: "wedge", label: "Wedge" }];
 
 const baseDiffMeta: SetupDiffMeta = {
   inputs: [],
@@ -24,6 +25,7 @@ describe("MonitoringEditor", () => {
   it("renders monitoring dropdown plus additional wedge toggle in setup layout primitives", () => {
     const html = renderToStaticMarkup(
       <MonitoringEditor
+        monitorOptions={monitorOptions}
         effectiveMonitoring={baseMonitoring}
         diffMeta={baseDiffMeta}
         onChangePatch={() => {}}
@@ -40,6 +42,7 @@ describe("MonitoringEditor", () => {
   it("renders checked row and stepper when additional wedge is enabled", () => {
     const html = renderToStaticMarkup(
       <MonitoringEditor
+        monitorOptions={monitorOptions}
         effectiveMonitoring={{ ...baseMonitoring, additionalWedgeCount: 2 }}
         diffMeta={baseDiffMeta}
         onChangePatch={() => {}}
@@ -56,6 +59,7 @@ describe("MonitoringEditor", () => {
   it("exposes row-level toggle container and a propagation-safe stepper", () => {
     const html = renderToStaticMarkup(
       <MonitoringEditor
+        monitorOptions={monitorOptions}
         effectiveMonitoring={{ ...baseMonitoring, additionalWedgeCount: 2 }}
         diffMeta={baseDiffMeta}
         onChangePatch={() => {}}
@@ -71,6 +75,7 @@ describe("MonitoringEditor", () => {
   it("uses the shared toggle row text class instead of a label tag", () => {
     const html = renderToStaticMarkup(
       <MonitoringEditor
+        monitorOptions={monitorOptions}
         effectiveMonitoring={{ ...baseMonitoring, additionalWedgeCount: 2 }}
         diffMeta={baseDiffMeta}
         onChangePatch={() => {}}
@@ -84,6 +89,7 @@ describe("MonitoringEditor", () => {
   it("does not add modified field class when additional wedge is from defaults", () => {
     const html = renderToStaticMarkup(
       <MonitoringEditor
+        monitorOptions={monitorOptions}
         effectiveMonitoring={{ ...baseMonitoring, additionalWedgeCount: 2 }}
         diffMeta={baseDiffMeta}
         onChangePatch={() => {}}
@@ -96,6 +102,7 @@ describe("MonitoringEditor", () => {
   it("adds the shared modified field class when additional wedge origin is override", () => {
     const html = renderToStaticMarkup(
       <MonitoringEditor
+        monitorOptions={monitorOptions}
         effectiveMonitoring={baseMonitoring}
         diffMeta={{
           ...baseDiffMeta,

@@ -25,6 +25,7 @@ import type {
   InputChannel,
   Musician,
   MusicianSetupPreset,
+  Preset,
   PresetItem,
 } from "../../../../../src/domain/model/types";
 import { resolveEffectiveMusicianSetup } from "../../../../../src/domain/setup/resolveEffectiveMusicianSetup";
@@ -68,9 +69,6 @@ import type {
 } from "../shell/types";
 import { toPersistableProject } from "../shell/types";
 import { serializeLineupForProject } from "../shell/lineupSerialize";
-import vocalBackNoMicPreset from "../../../../../data/assets/presets/groups/vocs/vocal_back_no_mic.json";
-import vocalBackWiredPreset from "../../../../../data/assets/presets/groups/vocs/vocal_back_wired.json";
-import vocalBackWirelessPreset from "../../../../../data/assets/presets/groups/vocs/vocal_back_wireless.json";
 import type { ProjectRouteProps } from "./shared/pageTypes";
 import {
   buildSetupFieldCatalog,
@@ -323,8 +321,18 @@ export function ProjectSetupPage({
   }, [selectedMusicianIds, setupData]);
   const talkbackCurrentOwnerId = talkbackOwnerId || bandLeaderId;
   const backVocalPresetRefs = useMemo(
-    () => [vocalBackNoMicPreset, vocalBackWiredPreset, vocalBackWirelessPreset],
-    [],
+    () => ["vocal_back_no_mic", "vocal_back_wired", "vocal_back_wireless"]
+      .map((ref) => presetCatalog[ref])
+      .filter((preset): preset is Preset => Boolean(preset)),
+    [presetCatalog],
+  );
+
+  const monitorOptions = useMemo(
+    () => Object.values(presetCatalog)
+      .filter((preset): preset is Preset => preset.kind === "monitor")
+      .map((preset) => ({ value: preset.id, label: preset.label }))
+      .sort((a, b) => a.label.localeCompare(b.label)),
+    [presetCatalog],
   );
   const defaultBackVocalRef = useMemo(
     () =>
@@ -1412,6 +1420,7 @@ export function ProjectSetupPage({
                             }
                           >
                             <MonitoringEditor
+                              monitorOptions={monitorOptions}
                               effectiveMonitoring={effective.monitoring}
                               patch={currentPatch}
                               diffMeta={resolved.diffMeta}
@@ -1512,6 +1521,7 @@ export function ProjectSetupPage({
                               }
                             >
                               <MonitoringEditor
+                                monitorOptions={monitorOptions}
                                 effectiveMonitoring={effective.monitoring}
                                 patch={currentPatch}
                                 diffMeta={resolved.diffMeta}

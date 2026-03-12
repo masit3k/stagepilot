@@ -1,3 +1,5 @@
+// NOTE: Desktop runtime metadata authority lives in Tauri/Rust storage bootstrap.
+// This helper is read-only for Node-side tooling/tests.
 import fs from "node:fs/promises";
 import { catalogPaths } from "./catalogPaths.js";
 

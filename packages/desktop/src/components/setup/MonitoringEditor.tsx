@@ -1,19 +1,5 @@
 import type { MusicianSetupPreset, PresetOverridePatch } from "../../../../../src/domain/model/types";
 import type { SetupDiffMeta, SetupDiffOrigin } from "../../../../../src/domain/setup/computeSetupDiff";
-import iemStereoWirelessPreset from "../../../../../data/assets/presets/monitors/iem_stereo_wireless.json";
-import iemStereoWiredPreset from "../../../../../data/assets/presets/monitors/iem_stereo_wired.json";
-import iemMonoWirelessPreset from "../../../../../data/assets/presets/monitors/iem_mono_wireless.json";
-import iemMonoWiredPreset from "../../../../../data/assets/presets/monitors/iem_mono_wired.json";
-import wedgePreset from "../../../../../data/assets/presets/monitors/wedge.json";
-
-const MONITOR_OPTIONS = [
-  iemStereoWirelessPreset,
-  iemStereoWiredPreset,
-  iemMonoWirelessPreset,
-  iemMonoWiredPreset,
-  wedgePreset,
-].map((preset) => ({ value: preset.id, label: preset.label }));
-
 export const MIN_ADDITIONAL_WEDGE_COUNT = 1;
 export const MAX_ADDITIONAL_WEDGE_COUNT = 4;
 
@@ -29,14 +15,17 @@ export function isMonitoringFieldModified(origin: SetupDiffOrigin): boolean {
   return origin === "override";
 }
 
+type MonitoringOption = { value: string; label: string };
+
 type MonitoringEditorProps = {
+  monitorOptions: MonitoringOption[];
   effectiveMonitoring: MusicianSetupPreset["monitoring"];
   patch?: PresetOverridePatch;
   diffMeta: SetupDiffMeta;
   onChangePatch: (next: PresetOverridePatch) => void;
 };
 
-export function MonitoringEditor({ effectiveMonitoring, patch, diffMeta, onChangePatch }: MonitoringEditorProps) {
+export function MonitoringEditor({ monitorOptions, effectiveMonitoring, patch, diffMeta, onChangePatch }: MonitoringEditorProps) {
   const additionalWedgeControlId = "setup-additional-wedge";
   const currentMonitorRef = patch?.monitoring?.monitorRef ?? effectiveMonitoring.monitorRef;
   const explicitAdditionalWedgeCount = patch?.monitoring?.additionalWedgeCount;
@@ -74,7 +63,7 @@ export function MonitoringEditor({ effectiveMonitoring, patch, diffMeta, onChang
               })
             }
           >
-            {MONITOR_OPTIONS.map((option) => (
+            {monitorOptions.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>

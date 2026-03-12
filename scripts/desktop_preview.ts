@@ -44,6 +44,7 @@ async function run(): Promise<Response> {
     band.defaultContactId,
     band,
     repo,
+    userDataDir,
   );
 
   const tmpDir = path.join(userDataDir, "temp");

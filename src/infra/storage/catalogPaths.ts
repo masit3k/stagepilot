@@ -14,7 +14,7 @@ export function resolveStorageRoot(): string {
   return path.join(resolveAppDataBaseDir(), TAURI_APP_ID, "stagepilot");
 }
 
-export function catalogPaths(root = resolveStorageRoot()) {
+export function catalogPathsForRoot(root: string) {
   return {
     root,
     projects: path.join(root, "projects"),
@@ -29,4 +29,8 @@ export function catalogPaths(root = resolveStorageRoot()) {
     templatesNotes: path.join(root, "catalog", "templates", "notes"),
     storageMeta: path.join(root, "storage.json"),
   };
+}
+
+export function catalogPaths(root = resolveStorageRoot()) {
+  return catalogPathsForRoot(root);
 }

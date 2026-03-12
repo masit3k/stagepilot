@@ -1,8 +1,9 @@
-import type { Band, LineupValue, Musician, NotesTemplate, PresetEntity, Project } from "../../domain/model/types.js";
+import path from "node:path";
+import type { Band, Group, LineupValue, Musician, NotesTemplate, PresetEntity, Project } from "../../domain/model/types.js";
 import { resolvePresetIdAlias } from "../../domain/model/presetAliases.js";
 import { loadJsonFile } from "../fs/loadJson.js";
 import { listJsonFiles } from "../fs/loadTree.js";
-import { catalogPaths, resolveStorageRoot } from "./catalogPaths.js";
+import { catalogPathsForRoot, resolveStorageRoot } from "./catalogPaths.js";
 
 export interface DataRepository {
   getBand(id: string): Band;
@@ -13,7 +14,7 @@ export interface DataRepository {
 }
 
 export async function loadCatalogRepository(userDataRoot = resolveStorageRoot()): Promise<DataRepository> {
-  const paths = catalogPaths(userDataRoot);
+  const paths = catalogPathsForRoot(userDataRoot);
   const projects = await loadMap<Project>(paths.projects);
   const bands = await loadBandsMap(paths.bands);
   const bandRefs = new Map<string, Band>();
@@ -23,7 +24,7 @@ export async function loadCatalogRepository(userDataRoot = resolveStorageRoot())
       bandRefs.set((band as { code: string }).code.trim().toLowerCase(), band);
     }
   }
-  const musicians = await loadMap<Musician>(paths.musicians);
+  const musicians = await loadMusiciansMap(paths.musicians);
   const groupPresets = await loadMap<PresetEntity>(paths.presetsGroups);
   const monitorPresets = await loadMap<PresetEntity>(paths.presetsMonitors);
   const presets = new Map<string, PresetEntity>([...groupPresets, ...monitorPresets]);
@@ -40,6 +41,31 @@ export async function loadCatalogRepository(userDataRoot = resolveStorageRoot())
     getPreset: (id) => must(presets, resolvePresetIdAlias(id), "PresetEntity"),
     getNotesTemplate: (id) => must(notesTemplates, id, "NotesTemplate"),
   };
+}
+
+
+const MUSICIAN_ROLES: Group[] = ["drums", "bass", "guitar", "keys", "vocs", "talkback"];
+
+function isGroup(value: string): value is Group {
+  return (MUSICIAN_ROLES as string[]).includes(value);
+}
+
+async function loadMusiciansMap(absDir: string): Promise<Map<string, Musician>> {
+  const files = await listJsonFiles(absDir);
+  const map = new Map<string, Musician>();
+  for (const f of files) {
+    const musician = await loadJsonFile<Musician>(f);
+    const id = musician.id;
+    if (typeof id !== "string" || !id.trim()) throw new Error(`Missing or invalid id in: ${f}`);
+    if (!isGroup(musician.group)) throw new Error(`Invalid musician group '${String(musician.group)}' in ${f}`);
+    const relative = path.relative(absDir, f);
+    const roleDir = relative.split(path.sep)[0];
+    if (!isGroup(roleDir)) throw new Error(`Musician path must be catalog/musicians/<role>/<id>.json: ${f}`);
+    if (roleDir !== musician.group) throw new Error(`Musician group/path mismatch for ${id}: ${roleDir} != ${musician.group}`);
+    if (map.has(id)) throw new Error(`Duplicate id ${id} in ${absDir}`);
+    map.set(id, musician);
+  }
+  return map;
 }
 
 async function loadBandsMap(absDir: string): Promise<Map<string, Band>> {

@@ -15,6 +15,9 @@ pub enum StorageError {
     Io(std::io::Error),
     Resolve(String),
     InvalidSchema(u32),
+    MalformedMetadata(String),
+    UnsupportedMetadataSchema(u32),
+    InvalidMetadata(String),
 }
 
 impl From<std::io::Error> for StorageError {
@@ -89,7 +92,12 @@ fn ensure_dirs(root: &Path) -> Result<(), StorageError> {
         "temp",
         "versions",
         "catalog/bands",
-        "catalog/musicians",
+        "catalog/musicians/drums",
+        "catalog/musicians/bass",
+        "catalog/musicians/guitar",
+        "catalog/musicians/keys",
+        "catalog/musicians/vocs",
+        "catalog/musicians/talkback",
         "catalog/contacts",
         "catalog/presets/groups",
         "catalog/presets/monitors",
@@ -123,19 +131,45 @@ fn copy_seed_dir_if_missing(seed: &Path, target: &Path) -> Result<(), StorageErr
     Ok(())
 }
 
+fn resolve_musician_role(item: &serde_json::Value) -> Result<String, StorageError> {
+    if let Some(group) = item.get("group").and_then(|v| v.as_str()) {
+        let normalized = group.trim().to_lowercase();
+        if matches!(normalized.as_str(), "drums" | "bass" | "guitar" | "keys" | "vocs" | "talkback") {
+            return Ok(normalized);
+        }
+        return Err(StorageError::Resolve(format!(
+            "Invalid legacy musician role '{}': expected one of drums,bass,guitar,keys,vocs,talkback",
+            group
+        )));
+    }
+    if let Some(default_roles) = item
+        .get("defaultRoles")
+        .and_then(|v| v.as_array())
+        .or_else(|| item.get("default_roles").and_then(|v| v.as_array()))
+    {
+        if let Some(role) = default_roles.iter().find_map(|v| v.as_str()) {
+            let normalized = role.trim().to_lowercase();
+            if matches!(normalized.as_str(), "drums" | "bass" | "guitar" | "keys" | "vocs" | "talkback") {
+                return Ok(normalized);
+            }
+            return Err(StorageError::Resolve(format!(
+                "Invalid legacy musician default role '{}': expected one of drums,bass,guitar,keys,vocs,talkback",
+                role
+            )));
+        }
+    }
+    Err(StorageError::Resolve(
+        "Legacy musician is missing required role/group information".into(),
+    ))
+}
+
 fn migrate_legacy_library(root: &Path) -> Result<bool, StorageError> {
     let legacy = root.join("library");
     if !legacy.exists() {
         return Ok(false);
     }
     let mut migrated = false;
-    let map_files = [
-        ("bands.json", root.join("catalog/bands")),
-        ("musicians.json", root.join("catalog/musicians/migrated")),
-        ("contacts.json", root.join("catalog/contacts")),
-    ];
-
-    for (file_name, target_dir) in map_files {
+    for file_name in ["bands.json", "musicians.json", "contacts.json"] {
         let file = legacy.join(file_name);
         if !file.exists() {
             continue;
@@ -143,16 +177,35 @@ fn migrate_legacy_library(root: &Path) -> Result<bool, StorageError> {
         let content = fs::read_to_string(&file)?;
         let items: Vec<serde_json::Value> = serde_json::from_str(&content)
             .map_err(|e| StorageError::Resolve(format!("Invalid legacy JSON {} ({e})", file_name)))?;
-        fs::create_dir_all(&target_dir)?;
         for item in items {
             let Some(id) = item.get("id").and_then(|v| v.as_str()) else {
                 continue;
             };
-            let target = target_dir.join(format!("{}.json", sanitize_id_to_filename(id)));
+            let target = if file_name == "musicians.json" {
+                let role = resolve_musician_role(&item)?;
+                let role_dir = root.join("catalog/musicians").join(role);
+                fs::create_dir_all(&role_dir)?;
+                role_dir.join(format!("{}.json", sanitize_id_to_filename(id)))
+            } else {
+                let target_dir = if file_name == "bands.json" {
+                    root.join("catalog/bands")
+                } else {
+                    root.join("catalog/contacts")
+                };
+                fs::create_dir_all(&target_dir)?;
+                target_dir.join(format!("{}.json", sanitize_id_to_filename(id)))
+            };
+
             if !target.exists() {
                 let bytes = serde_json::to_vec_pretty(&item)
                     .map_err(|e| StorageError::Resolve(format!("Serialize migrated JSON failed ({e})")))?;
                 atomic_write_bytes(&target, &bytes)?;
+            } else if file_name == "musicians.json" {
+                println!(
+                    "Skipped migrated musician '{}' because canonical target already exists: {}",
+                    id,
+                    target.display()
+                );
             }
             migrated = true;
         }
@@ -190,6 +243,7 @@ pub fn ensure_user_storage(app: &tauri::AppHandle) -> Result<UserStorageMeta, St
     ensure_dirs(&root)?;
 
     let meta_path = storage_meta_path(&root);
+    let mut metadata_migrated = false;
     let mut meta = if !meta_path.exists() {
         UserStorageMeta {
             schema_version: STORAGE_SCHEMA_VERSION,
@@ -200,16 +254,59 @@ pub fn ensure_user_storage(app: &tauri::AppHandle) -> Result<UserStorageMeta, St
         }
     } else {
         let content = fs::read_to_string(&meta_path)?;
-        let parsed: UserStorageMeta = serde_json::from_str(&content)
-            .map_err(|e| StorageError::Resolve(format!("Invalid storage metadata JSON: {e}")))?;
-        if parsed.schema_version != STORAGE_SCHEMA_VERSION {
-            return Err(StorageError::InvalidSchema(parsed.schema_version));
+        let value: serde_json::Value = serde_json::from_str(&content)
+            .map_err(|e| StorageError::MalformedMetadata(e.to_string()))?;
+
+        let schema_version = value
+            .get("schemaVersion")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| StorageError::InvalidMetadata("Missing schemaVersion".into()))?
+            as u32;
+        if schema_version > STORAGE_SCHEMA_VERSION {
+            return Err(StorageError::UnsupportedMetadataSchema(schema_version));
         }
-        parsed
+
+        let mut migrated = schema_version != STORAGE_SCHEMA_VERSION;
+        let seed_version = value
+            .get("seedVersion")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as u32)
+            .unwrap_or_else(|| {
+                migrated = true;
+                STORAGE_SEED_VERSION
+            });
+        let seed_completed = value
+            .get("seedCompleted")
+            .and_then(|v| v.as_bool())
+            .unwrap_or_else(|| {
+                migrated = true;
+                false
+            });
+        let created_at = value
+            .get("createdAt")
+            .and_then(|v| v.as_str())
+            .map(|v| v.to_string())
+            .unwrap_or_else(|| {
+                migrated = true;
+                now_iso()
+            });
+        let last_migrated_at = value
+            .get("lastMigratedAt")
+            .and_then(|v| v.as_str())
+            .map(|v| v.to_string());
+
+        metadata_migrated = migrated;
+        UserStorageMeta {
+            schema_version: STORAGE_SCHEMA_VERSION,
+            seed_version,
+            seed_completed,
+            created_at,
+            last_migrated_at,
+        }
     };
 
     let migrated = migrate_legacy_library(&root)?;
-    if migrated {
+    if migrated || metadata_migrated {
         meta.last_migrated_at = Some(now_iso());
     }
 

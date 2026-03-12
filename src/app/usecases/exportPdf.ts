@@ -8,7 +8,7 @@ import {
 import { buildDocument } from "../../domain/pipeline/buildDocument.js";
 import { validateDocument } from "../../domain/rules/validateDocument.js";
 import { USER_DATA_ROOT } from "../../infra/fs/dataRoot.js";
-import { catalogPaths } from "../../infra/storage/catalogPaths.js";
+import { catalogPathsForRoot } from "../../infra/storage/catalogPaths.js";
 import { loadJsonFile } from "../../infra/fs/loadJson.js";
 import { loadRepository } from "../../infra/fs/repo.js";
 import type { DataRepository } from "../../infra/fs/repo.js";
@@ -103,11 +103,12 @@ export async function loadDefaultContactLine(
   defaultContactId: string | undefined,
   band: Band,
   repo: DataRepository,
+  runtimeRoot: string,
 ): Promise<string | undefined> {
   if (!defaultContactId) return undefined;
 
   const contactPath = path.resolve(
-    catalogPaths().contacts,
+    catalogPathsForRoot(runtimeRoot).contacts,
     `${defaultContactId}.json`,
   );
   const contact = await loadJsonFile<ContactEntity>(contactPath);
@@ -166,6 +167,7 @@ async function exportPdfFromProject(
     band.defaultContactId,
     band,
     repo,
+    outDir,
   );
 
   const slug = project.slug ?? formatProjectSlug(project, band);

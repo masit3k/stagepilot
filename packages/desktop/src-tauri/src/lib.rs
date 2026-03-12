@@ -229,6 +229,16 @@ fn map_storage_error(err: StorageError, code: &str, context: &str) -> ApiError {
             "{} (Unsupported user storage schemaVersion {}. Please update StagePilot.)",
             context, schema
         ),
+        StorageError::MalformedMetadata(msg) => {
+            format!("{} (Malformed storage metadata JSON: {})", context, msg)
+        }
+        StorageError::UnsupportedMetadataSchema(schema) => format!(
+            "{} (Unsupported storage metadata schemaVersion {}. Please update StagePilot.)",
+            context, schema
+        ),
+        StorageError::InvalidMetadata(msg) => {
+            format!("{} (Invalid storage metadata: {})", context, msg)
+        }
     };
     ApiError {
         code: code.into(),
@@ -289,12 +299,16 @@ fn load_library_list<T: for<'de> Deserialize<'de>>(
         return Ok(Vec::new());
     }
     let mut items: Vec<T> = Vec::new();
-    for entry in fs::read_dir(&dir)
-        .map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read catalog"))?
-    {
-        let entry =
-            entry.map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read entry"))?;
-        let path = entry.path();
+    let files = if file_name == "musicians.json" {
+        list_json_files_recursive(&dir)
+            .map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read musicians"))?
+    } else {
+        fs::read_dir(&dir)
+            .map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read catalog"))?
+            .filter_map(|entry| entry.ok().map(|e| e.path()))
+            .collect()
+    };
+    for path in files {
         if path.extension().and_then(|s| s.to_str()) != Some("json") {
             continue;
         }
@@ -388,7 +402,35 @@ fn save_library_list<T: Serialize>(
         let Some(id) = value.get("id").and_then(|v| v.as_str()) else {
             continue;
         };
-        let path = dir.join(format!("{}.json", sanitize_id_to_filename(id)));
+        let path = if file_name == "musicians.json" {
+            let role = value
+                .get("defaultRoles")
+                .or_else(|| value.get("default_roles"))
+                .and_then(|v| v.as_array())
+                .and_then(|roles| roles.iter().find_map(|role| role.as_str()))
+                .map(|role| role.trim().to_lowercase())
+                .ok_or(ApiError {
+                    code: "LIBRARY_VALIDATION_FAILED".into(),
+                    message: format!("Musician '{}' is missing default role.", id),
+                    export_pdf_path: None,
+                    version_pdf_path: None,
+                })?;
+            if !matches!(role.as_str(), "drums" | "bass" | "guitar" | "keys" | "vocs" | "talkback") {
+                return Err(ApiError {
+                    code: "LIBRARY_VALIDATION_FAILED".into(),
+                    message: format!("Musician '{}' has invalid role '{}'.", id, role),
+                    export_pdf_path: None,
+                    version_pdf_path: None,
+                });
+            }
+            let role_dir = dir.join(role);
+            fs::create_dir_all(&role_dir).map_err(|err| {
+                map_io_error(err, "LIBRARY_WRITE_FAILED", "Failed to create musician role directory")
+            })?;
+            role_dir.join(format!("{}.json", sanitize_id_to_filename(id)))
+        } else {
+            dir.join(format!("{}.json", sanitize_id_to_filename(id)))
+        };
         let json = serde_json::to_vec_pretty(item).map_err(|err| ApiError {
             code: "LIBRARY_WRITE_FAILED".into(),
             message: format!("Failed to serialize {} ({})", id, err),
@@ -1416,6 +1458,14 @@ fn upsert_library_musician(
         return Err(ApiError {
             code: "LIBRARY_VALIDATION_FAILED".into(),
             message: "Musician id and name are required.".into(),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        });
+    }
+    if musician.default_roles.is_empty() {
+        return Err(ApiError {
+            code: "LIBRARY_VALIDATION_FAILED".into(),
+            message: "Musician must define at least one default role.".into(),
             export_pdf_path: None,
             version_pdf_path: None,
         });
