@@ -300,8 +300,7 @@ fn load_library_list<T: for<'de> Deserialize<'de>>(
     }
     let mut items: Vec<T> = Vec::new();
     let files = if file_name == "musicians.json" {
-        list_json_files_recursive(&dir)
-            .map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read musicians"))?
+        list_json_files_recursive(&dir)?
     } else {
         fs::read_dir(&dir)
             .map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read catalog"))?
