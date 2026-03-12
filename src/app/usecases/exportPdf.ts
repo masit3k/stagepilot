@@ -7,7 +7,8 @@ import {
 } from "../../domain/projectNaming.js";
 import { buildDocument } from "../../domain/pipeline/buildDocument.js";
 import { validateDocument } from "../../domain/rules/validateDocument.js";
-import { DATA_ROOT, USER_DATA_ROOT } from "../../infra/fs/dataRoot.js";
+import { USER_DATA_ROOT } from "../../infra/fs/dataRoot.js";
+import { catalogPaths } from "../../infra/storage/catalogPaths.js";
 import { loadJsonFile } from "../../infra/fs/loadJson.js";
 import { loadRepository } from "../../infra/fs/repo.js";
 import type { DataRepository } from "../../infra/fs/repo.js";
@@ -106,8 +107,7 @@ export async function loadDefaultContactLine(
   if (!defaultContactId) return undefined;
 
   const contactPath = path.resolve(
-    DATA_ROOT,
-    "contacts",
+    catalogPaths().contacts,
     `${defaultContactId}.json`,
   );
   const contact = await loadJsonFile<ContactEntity>(contactPath);

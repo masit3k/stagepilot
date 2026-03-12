@@ -9,29 +9,12 @@ import type {
 import { STANDARD_10_SETUP } from "../../../../../../src/domain/drums/drumSetup";
 import { resolveDrumInputs } from "../../../../../../src/domain/drums/resolveDrumInputs";
 import { resolveDefaultMusicianSetup } from "../../../../../../src/domain/setup/resolveDefaultMusicianSetup";
-import {
-  buildBassFields,
-  toBassPresets,
-} from "../../components/setup/instruments/bass/buildBassFields";
+import { buildBassFields, toBassPresets } from "../../components/setup/instruments/bass/buildBassFields";
 import { buildGuitarFields } from "../../components/setup/instruments/guitar/buildGuitarFields";
 import { buildKeysFields } from "../../components/setup/instruments/keys/buildKeysFields";
 import { buildLeadVocsFields } from "../../components/setup/instruments/vocs/buildLeadVocsFields";
 import type { BandSetupData, MemberOption, NewProjectPayload } from "../../shell/types";
 import type { RoleConstraint } from "../../../projectRules";
-import elBassXlrAmpPreset from "../../../../../../data/assets/presets/groups/bass/el_bass_xlr_amp.json";
-import elBassMicPreset from "../../../../../../data/assets/presets/groups/bass/el_bass_mic.json";
-import elBassXlrPedalboardPreset from "../../../../../../data/assets/presets/groups/bass/el_bass_xlr_pedalboard.json";
-import bassSynthPreset from "../../../../../../data/assets/presets/groups/bass/bass_synth.json";
-import elGuitarMicPreset from "../../../../../../data/assets/presets/groups/guitar/el_guitar_mic.json";
-import elGuitarXlrMonoPreset from "../../../../../../data/assets/presets/groups/guitar/el_guitar_xlr_mono.json";
-import elGuitarXlrStereoPreset from "../../../../../../data/assets/presets/groups/guitar/el_guitar_xlr_stereo.json";
-import acGuitarPreset from "../../../../../../data/assets/presets/groups/guitar/ac_guitar.json";
-import keysPreset from "../../../../../../data/assets/presets/groups/keys/keys.json";
-import synthPreset from "../../../../../../data/assets/presets/groups/keys/synth.json";
-import synthMonoPreset from "../../../../../../data/assets/presets/groups/keys/synth_mono.json";
-import vocalLeadWirelessPreset from "../../../../../../data/assets/presets/groups/vocs/vocal_lead_wireless.json";
-import vocalLeadWiredPreset from "../../../../../../data/assets/presets/groups/vocs/vocal_lead_wired.json";
-import vocalLeadNoMicPreset from "../../../../../../data/assets/presets/groups/vocs/vocal_lead_no_mic.json";
 
 export const ROLE_ORDER = ["drums", "bass", "guitar", "keys", "vocs"];
 
@@ -53,66 +36,33 @@ export const GROUP_INPUT_LIBRARY: Record<Group, InputChannel[]> = {
   talkback: [{ key: "talkback", label: "Talkback", group: "talkback" }],
 };
 
-export const BASS_FIELDS = buildBassFields(
-  toBassPresets([
-    elBassXlrAmpPreset,
-    elBassMicPreset,
-    elBassXlrPedalboardPreset,
-    bassSynthPreset,
-  ] as Preset[]),
-);
+const PRESET_REFS = {
+  bass: ["el_bass_xlr_amp", "el_bass_mic", "el_bass_xlr_pedalboard", "bass_synth"],
+  guitar: ["el_guitar_mic", "el_guitar_xlr_mono", "el_guitar_xlr_stereo", "ac_guitar"],
+  keys: ["keys", "synth", "synth_mono"],
+  vocs: ["vocal_lead_wireless", "vocal_lead_wired", "vocal_lead_no_mic"],
+} as const;
 
-export const GUITAR_FIELDS = buildGuitarFields([
-  elGuitarMicPreset,
-  elGuitarXlrMonoPreset,
-  elGuitarXlrStereoPreset,
-  acGuitarPreset,
-] as Preset[]);
+export function buildSetupFieldCatalog(presetCatalog: Record<string, Preset> = {}) {
+  return {
+    bassFields: buildBassFields(toBassPresets(PRESET_REFS.bass.map((ref) => presetCatalog[ref]).filter(Boolean))),
+    guitarFields: buildGuitarFields(PRESET_REFS.guitar.map((ref) => presetCatalog[ref]).filter(Boolean)),
+    keysFields: buildKeysFields(PRESET_REFS.keys.map((ref) => presetCatalog[ref]).filter(Boolean)),
+    leadVocsFields: buildLeadVocsFields(PRESET_REFS.vocs.map((ref) => presetCatalog[ref]).filter(Boolean)),
+  };
+}
 
-export const KEYS_FIELDS = buildKeysFields([
-  keysPreset,
-  synthPreset,
-  synthMonoPreset,
-] as Preset[]);
-
-export const LEAD_VOCS_FIELDS = buildLeadVocsFields([
-  vocalLeadWirelessPreset,
-  vocalLeadWiredPreset,
-  vocalLeadNoMicPreset,
-] as Preset[]);
-
-export function resolveMusicianDefaultInputsFromPresets(group: Group, presets: PresetItem[] | undefined): InputChannel[] | undefined {
+export function resolveMusicianDefaultInputsFromPresets(
+  group: Group,
+  presets: PresetItem[] | undefined,
+  presetCatalog: Record<string, Preset> = {},
+): InputChannel[] | undefined {
   if (!presets?.length) return undefined;
-  const defaultPreset = resolveDefaultMusicianSetup({
-    role: group,
-    presetItems: presets,
-    getPresetByRef: (ref) => {
-      if (ref === "el_bass_xlr_amp") return elBassXlrAmpPreset as Preset;
-      if (ref === "el_bass_xlr_pedalboard") return elBassXlrPedalboardPreset as Preset;
-      if (ref === "el_bass_mic") return elBassMicPreset as Preset;
-      if (ref === "bass_synth") return bassSynthPreset as Preset;
-      if (ref === "el_guitar_mic") return elGuitarMicPreset as Preset;
-      if (ref === "el_guitar_xlr_mono") return elGuitarXlrMonoPreset as Preset;
-      if (ref === "el_guitar_xlr_stereo") return elGuitarXlrStereoPreset as Preset;
-      if (ref === "ac_guitar") return acGuitarPreset as Preset;
-      if (ref === "keys") return keysPreset as Preset;
-      if (ref === "synth") return synthPreset as Preset;
-      if (ref === "synth_mono") return synthMonoPreset as Preset;
-      if (ref === "vocal_lead_wireless") return vocalLeadWirelessPreset as Preset;
-      if (ref === "vocal_lead_wired") return vocalLeadWiredPreset as Preset;
-      if (ref === "vocal_lead_no_mic") return vocalLeadNoMicPreset as Preset;
-      return undefined;
-    },
-  });
+  const defaultPreset = resolveDefaultMusicianSetup({ role: group, presetItems: presets, getPresetByRef: (ref) => presetCatalog[ref] });
   return defaultPreset.inputs.length > 0 ? defaultPreset.inputs : undefined;
 }
 
-export function resolveSetupCardLabel(args: {
-  role: Group;
-  musicianId?: string;
-  resolveInputs: (musicianId: string) => InputChannel[];
-  fallback: string;
-}): string {
+export function resolveSetupCardLabel(args: { role: Group; musicianId?: string; resolveInputs: (musicianId: string) => InputChannel[]; fallback: string }): string {
   if (args.role !== "guitar" || !args.musicianId) return args.fallback;
   const inputs = args.resolveInputs(args.musicianId);
   const hasAcoustic = inputs.some((input) => input.key.startsWith("ac_guitar"));
@@ -123,42 +73,25 @@ export function resolveSetupCardLabel(args: {
 }
 
 export function getGroupDefaultPreset(group: Group): MusicianSetupPreset {
-  return {
-    inputs: (GROUP_INPUT_LIBRARY[group] ?? []).map((item) => ({ ...item })),
-    monitoring: {
-      monitorRef: "wedge",
-    },
-  };
+  return { inputs: (GROUP_INPUT_LIBRARY[group] ?? []).map((item) => ({ ...item })), monitoring: { monitorRef: "wedge" } };
 }
 
-export function buildInputsPatchFromTarget(
-  defaultInputs: InputChannel[],
-  targetInputs: InputChannel[],
-): NonNullable<DomainPresetOverridePatch["inputs"]> {
+export function buildInputsPatchFromTarget(defaultInputs: InputChannel[], targetInputs: InputChannel[]): NonNullable<DomainPresetOverridePatch["inputs"]> {
   const defaultByKey = new Map(defaultInputs.map((item) => [item.key, item]));
   const targetByKey = new Map(targetInputs.map((item) => [item.key, item]));
-  const removeKeys = defaultInputs
-    .filter((item) => !targetByKey.has(item.key))
-    .map((item) => item.key);
+  const removeKeys = defaultInputs.filter((item) => !targetByKey.has(item.key)).map((item) => item.key);
   const add = targetInputs.filter((item) => !defaultByKey.has(item.key));
-  return {
-    ...(add.length > 0 ? { add } : {}),
-    ...(removeKeys.length > 0 ? { removeKeys } : {}),
-  };
+  return { ...(add.length > 0 ? { add } : {}), ...(removeKeys.length > 0 ? { removeKeys } : {}) };
 }
 
 export function createFallbackSetupData(project: NewProjectPayload): BandSetupData {
-  const constraints = Object.fromEntries(
-    ROLE_ORDER.map((role) => [role, { min: 0, max: 1 }]),
-  ) as Record<string, RoleConstraint>;
+  const constraints = Object.fromEntries(ROLE_ORDER.map((role) => [role, { min: 0, max: 1 }])) as Record<string, RoleConstraint>;
   return {
     id: project.bandRef,
     name: project.displayName || project.bandRef,
     constraints,
     defaultLineup: {},
-    members: Object.fromEntries(
-      [...ROLE_ORDER, "talkback"].map((role) => [role, []]),
-    ) as Record<string, MemberOption[]>,
+    members: Object.fromEntries([...ROLE_ORDER, "talkback"].map((role) => [role, []])) as Record<string, MemberOption[]>,
     musicianPresetsById: {},
   };
 }

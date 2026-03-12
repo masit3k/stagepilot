@@ -20,15 +20,20 @@ async function makeUserDataRoot(): Promise<string> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "stagepilot-user-data-"));
   tmpDirs.push(root);
   await fs.mkdir(path.join(root, "projects"), { recursive: true });
+  await fs.cp(path.resolve("data", "bands"), path.join(root, "catalog", "bands"), { recursive: true });
+  await fs.cp(path.resolve("data", "musicians"), path.join(root, "catalog", "musicians"), { recursive: true });
+  await fs.cp(path.resolve("data", "contacts"), path.join(root, "catalog", "contacts"), { recursive: true });
+  await fs.cp(path.resolve("data", "assets", "presets", "groups"), path.join(root, "catalog", "presets", "groups"), { recursive: true });
+  await fs.cp(path.resolve("data", "assets", "presets", "monitors"), path.join(root, "catalog", "presets", "monitors"), { recursive: true });
+  await fs.cp(path.resolve("data", "assets", "templates", "notes"), path.join(root, "catalog", "templates", "notes"), { recursive: true });
   return root;
 }
 
 describe("loadRepository assets paths", () => {
-  it("loads group presets, monitor presets, and notes templates from data/assets", async () => {
+  it("loads group presets, monitor presets, and notes templates from AppData catalog", async () => {
     const userDataRoot = await makeUserDataRoot();
     const repo = await loadRepository({
       userDataRoot,
-      dataRoot: path.resolve("data"),
     });
 
     const bassPreset = repo.getPreset("el_bass_xlr_amp") as { group: string };

@@ -1,23 +1,11 @@
-// Co? Rekurzivně prochází adresář a vrací cesty ke všem .json souborům.
-// Proč? Data jsou uložena v podsložkách a repo je musí načíst automaticky.
-
 import fs from "node:fs/promises";
 import path from "node:path";
 
 export async function listJsonFiles(dir: string): Promise<string[]> {
   const result: string[] = [];
-
-  const entries = await fs.readdir(dir, { withFileTypes: true }).catch((error: NodeJS.ErrnoException) => {
-    if (error.code === "ENOENT") {
-      console.warn(`Directory not found while loading JSON files: ${dir}`);
-      return [];
-    }
-    throw error;
-  });
-
+  const entries = await fs.readdir(dir, { withFileTypes: true });
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
-
     if (entry.isDirectory()) {
       const nested = await listJsonFiles(fullPath);
       result.push(...nested);
@@ -25,6 +13,5 @@ export async function listJsonFiles(dir: string): Promise<string[]> {
       result.push(fullPath);
     }
   }
-
   return result;
 }

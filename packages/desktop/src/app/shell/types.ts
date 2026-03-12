@@ -5,6 +5,7 @@ import type {
 } from "../../projectRules";
 import type {
   MusicianSetupPreset,
+  Preset,
   PresetItem,
 } from "../../../../../src/domain/model/types";
 
@@ -73,6 +74,7 @@ export type BandSetupData = {
   musicianDefaults?: Record<string, Partial<MusicianSetupPreset>>;
   musicianPresetsById?: Record<string, PresetItem[]>;
   loadWarnings?: string[];
+  presetCatalog?: Record<string, Preset>;
 };
 
 export type NewProjectPayload = {

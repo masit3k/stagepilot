@@ -73,10 +73,7 @@ import vocalBackWiredPreset from "../../../../../data/assets/presets/groups/vocs
 import vocalBackWirelessPreset from "../../../../../data/assets/presets/groups/vocs/vocal_back_wireless.json";
 import type { ProjectRouteProps } from "./shared/pageTypes";
 import {
-  BASS_FIELDS,
-  GUITAR_FIELDS,
-  KEYS_FIELDS,
-  LEAD_VOCS_FIELDS,
+  buildSetupFieldCatalog,
   GROUP_INPUT_LIBRARY,
   ROLE_ORDER,
   buildInputsPatchFromTarget,
@@ -94,6 +91,8 @@ export function ProjectSetupPage({
 }: ProjectRouteProps) {
   const [project, setProject] = useState<NewProjectPayload | null>(null);
   const [setupData, setSetupData] = useState<BandSetupData | null>(null);
+  const presetCatalog = setupData?.presetCatalog ?? {};
+  const { bassFields: BASS_FIELDS, guitarFields: GUITAR_FIELDS, keysFields: KEYS_FIELDS, leadVocsFields: LEAD_VOCS_FIELDS } = useMemo(() => buildSetupFieldCatalog(presetCatalog), [presetCatalog]);
   const [lineup, setLineup] = useState<LineupMap>({});
   const [editing, setEditing] = useState<{
     role: string;

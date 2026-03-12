@@ -10,7 +10,7 @@ use std::{
     sync::mpsc,
 };
 use storage_paths::{
-    atomic_write_bytes, ensure_user_storage, exports_dir, library_dir as storage_library_dir,
+    atomic_write_bytes, catalog_dir as storage_catalog_dir, ensure_user_storage, exports_dir,
     maybe_wipe_storage_for_dev, project_json_path, projects_dir as storage_projects_dir,
     sanitize_id_to_filename, temp_dir as storage_temp_dir, user_storage_root,
     versions_dir as storage_versions_dir, StorageError,
@@ -123,6 +123,7 @@ struct BandSetupData {
     members: HashMap<String, Vec<MemberOption>>,
     musician_defaults: HashMap<String, Value>,
     musician_presets_by_id: HashMap<String, Vec<Value>>,
+    preset_catalog: HashMap<String, Value>,
     load_warnings: Vec<String>,
 }
 
@@ -195,11 +196,29 @@ fn infer_monitoring_default_from_ref(monitor_ref: &str) -> Value {
     })
 }
 
-fn resolve_repo_root() -> PathBuf {
+
+fn resolve_workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
         .join("..")
         .join("..")
+}
+
+fn list_json_files_recursive(root: &Path) -> Result<Vec<PathBuf>, ApiError> {
+    let mut files = Vec::new();
+    for entry in fs::read_dir(root)
+        .map_err(|err| map_io_error(err, "BAND_SETUP_LOAD_FAILED", "Failed to read directory"))?
+    {
+        let entry = entry
+            .map_err(|err| map_io_error(err, "BAND_SETUP_LOAD_FAILED", "Failed to read entry"))?;
+        let p = entry.path();
+        if p.is_dir() {
+            files.extend(list_json_files_recursive(&p)?);
+        } else if p.extension().and_then(|s| s.to_str()) == Some("json") {
+            files.push(p);
+        }
+    }
+    Ok(files)
 }
 
 fn map_storage_error(err: StorageError, code: &str, context: &str) -> ApiError {
@@ -243,64 +262,89 @@ fn resolve_project_path_by_id(
     Ok(Some(project_path))
 }
 
-fn library_dir(app: &tauri::AppHandle) -> Result<PathBuf, ApiError> {
-    storage_library_dir(app).map_err(|err| {
+fn catalog_dir(app: &tauri::AppHandle) -> Result<PathBuf, ApiError> {
+    storage_catalog_dir(app).map_err(|err| {
         map_storage_error(
             err,
             "LIBRARY_READ_FAILED",
-            "Failed to resolve library directory",
+            "Failed to resolve catalog directory",
         )
     })
 }
 
-fn library_file(app: &tauri::AppHandle, file_name: &str) -> Result<PathBuf, ApiError> {
-    Ok(library_dir(app)?.join(file_name))
+fn catalog_entity_dir(app: &tauri::AppHandle, entity: &str) -> Result<PathBuf, ApiError> {
+    Ok(catalog_dir(app)?.join(entity))
+}
+
+fn entity_name(file_name: &str) -> &str {
+    file_name.strip_suffix(".json").unwrap_or(file_name)
 }
 
 fn load_library_list<T: for<'de> Deserialize<'de>>(
     app: &tauri::AppHandle,
     file_name: &str,
 ) -> Result<Vec<T>, ApiError> {
-    let path = library_file(app, file_name)?;
-    if !path.exists() {
+    let dir = catalog_entity_dir(app, entity_name(file_name))?;
+    if !dir.exists() {
         return Ok(Vec::new());
     }
-    let content = fs::read_to_string(&path).map_err(|err| {
-        map_io_error(
-            err,
-            "LIBRARY_READ_FAILED",
-            &format!("Failed to read {}", file_name),
-        )
-    })?;
-    serde_json::from_str::<Vec<T>>(&content).map_err(|err| ApiError {
-        code: "LIBRARY_READ_FAILED".into(),
-        message: format!("Invalid {} JSON ({})", file_name, err),
-        export_pdf_path: None,
-        version_pdf_path: None,
-    })
+    let mut items: Vec<T> = Vec::new();
+    for entry in fs::read_dir(&dir)
+        .map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read catalog"))?
+    {
+        let entry =
+            entry.map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read entry"))?;
+        let path = entry.path();
+        if path.extension().and_then(|s| s.to_str()) != Some("json") {
+            continue;
+        }
+        let content = fs::read_to_string(&path)
+            .map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read entity"))?;
+        let item = serde_json::from_str::<T>(&content).map_err(|err| ApiError {
+            code: "LIBRARY_READ_FAILED".into(),
+            message: format!("Invalid JSON in {} ({})", path.display(), err),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        })?;
+        items.push(item);
+    }
+    Ok(items)
 }
 
 fn load_library_map<T: for<'de> Deserialize<'de>>(
     app: &tauri::AppHandle,
     file_name: &str,
 ) -> Result<HashMap<String, T>, ApiError> {
-    let path = library_file(app, file_name)?;
-    if !path.exists() {
+    let dir = catalog_entity_dir(app, entity_name(file_name))?;
+    if !dir.exists() {
         return Ok(HashMap::new());
     }
-    let content = fs::read_to_string(&path).map_err(|err| {
-        map_io_error(
-            err,
-            "LIBRARY_READ_FAILED",
-            &format!("Failed to read {}", file_name),
-        )
-    })?;
-    serde_json::from_str::<HashMap<String, T>>(&content).map_err(|err| ApiError {
-        code: "LIBRARY_READ_FAILED".into(),
-        message: format!("Invalid {} JSON ({})", file_name, err),
-        export_pdf_path: None,
-        version_pdf_path: None,
-    })
+    let mut items: HashMap<String, T> = HashMap::new();
+    for entry in fs::read_dir(&dir)
+        .map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read catalog"))?
+    {
+        let entry =
+            entry.map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read entry"))?;
+        let path = entry.path();
+        if path.extension().and_then(|s| s.to_str()) != Some("json") {
+            continue;
+        }
+        let key = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default()
+            .to_string();
+        let content = fs::read_to_string(&path)
+            .map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read entity"))?;
+        let item = serde_json::from_str::<T>(&content).map_err(|err| ApiError {
+            code: "LIBRARY_READ_FAILED".into(),
+            message: format!("Invalid JSON in {} ({})", path.display(), err),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        })?;
+        items.insert(key, item);
+    }
+    Ok(items)
 }
 
 fn save_library_map<T: Serialize>(
@@ -308,29 +352,22 @@ fn save_library_map<T: Serialize>(
     file_name: &str,
     items: &HashMap<String, T>,
 ) -> Result<(), ApiError> {
-    let path = library_file(app, file_name)?;
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|err| {
-            map_io_error(
-                err,
-                "LIBRARY_WRITE_FAILED",
-                "Failed to create library directory",
-            )
+    let dir = catalog_entity_dir(app, entity_name(file_name))?;
+    fs::create_dir_all(&dir)
+        .map_err(|err| map_io_error(err, "LIBRARY_WRITE_FAILED", "Failed to create catalog"))?;
+    for (id, item) in items {
+        let path = dir.join(format!("{}.json", sanitize_id_to_filename(id)));
+        let json = serde_json::to_vec_pretty(item).map_err(|err| ApiError {
+            code: "LIBRARY_WRITE_FAILED".into(),
+            message: format!("Failed to serialize {} ({})", id, err),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        })?;
+        atomic_write_bytes(&path, &json).map_err(|err| {
+            map_storage_error(err, "LIBRARY_WRITE_FAILED", "Failed to save entity")
         })?;
     }
-    let json = serde_json::to_vec_pretty(items).map_err(|err| ApiError {
-        code: "LIBRARY_WRITE_FAILED".into(),
-        message: format!("Failed to serialize {} ({})", file_name, err),
-        export_pdf_path: None,
-        version_pdf_path: None,
-    })?;
-    atomic_write_bytes(&path, &json).map_err(|err| {
-        map_storage_error(
-            err,
-            "LIBRARY_WRITE_FAILED",
-            &format!("Failed to save {}", file_name),
-        )
-    })
+    Ok(())
 }
 
 fn save_library_list<T: Serialize>(
@@ -338,29 +375,31 @@ fn save_library_list<T: Serialize>(
     file_name: &str,
     items: &Vec<T>,
 ) -> Result<(), ApiError> {
-    let path = library_file(app, file_name)?;
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|err| {
-            map_io_error(
-                err,
-                "LIBRARY_WRITE_FAILED",
-                "Failed to create library directory",
-            )
+    let dir = catalog_entity_dir(app, entity_name(file_name))?;
+    fs::create_dir_all(&dir)
+        .map_err(|err| map_io_error(err, "LIBRARY_WRITE_FAILED", "Failed to create catalog"))?;
+    for item in items {
+        let value = serde_json::to_value(item).map_err(|err| ApiError {
+            code: "LIBRARY_WRITE_FAILED".into(),
+            message: format!("Failed to serialize entity ({})", err),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        })?;
+        let Some(id) = value.get("id").and_then(|v| v.as_str()) else {
+            continue;
+        };
+        let path = dir.join(format!("{}.json", sanitize_id_to_filename(id)));
+        let json = serde_json::to_vec_pretty(item).map_err(|err| ApiError {
+            code: "LIBRARY_WRITE_FAILED".into(),
+            message: format!("Failed to serialize {} ({})", id, err),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        })?;
+        atomic_write_bytes(&path, &json).map_err(|err| {
+            map_storage_error(err, "LIBRARY_WRITE_FAILED", "Failed to save entity")
         })?;
     }
-    let json = serde_json::to_vec_pretty(items).map_err(|err| ApiError {
-        code: "LIBRARY_WRITE_FAILED".into(),
-        message: format!("Failed to serialize {} ({})", file_name, err),
-        export_pdf_path: None,
-        version_pdf_path: None,
-    })?;
-    atomic_write_bytes(&path, &json).map_err(|err| {
-        map_storage_error(
-            err,
-            "LIBRARY_WRITE_FAILED",
-            &format!("Failed to save {}", file_name),
-        )
-    })
+    Ok(())
 }
 
 #[tauri::command]
@@ -474,8 +513,8 @@ fn list_projects(app: tauri::AppHandle) -> Result<Vec<ProjectSummary>, ApiError>
 }
 
 #[tauri::command]
-fn list_bands() -> Result<Vec<BandOption>, ApiError> {
-    let bands_dir = resolve_repo_root().join("data").join("bands");
+fn list_bands(app: tauri::AppHandle) -> Result<Vec<BandOption>, ApiError> {
+    let bands_dir = catalog_entity_dir(&app, "bands")?;
     let entries = fs::read_dir(&bands_dir).map_err(|err| ApiError {
         code: "BAND_LIST_FAILED".into(),
         message: format!("Failed to read bands at {} ({})", bands_dir.display(), err),
@@ -531,8 +570,7 @@ fn list_bands() -> Result<Vec<BandOption>, ApiError> {
 
 #[tauri::command]
 fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSetupData, ApiError> {
-    let repo_root = resolve_repo_root();
-    let bands_dir = repo_root.join("data").join("bands");
+    let bands_dir = catalog_entity_dir(&app, "bands")?;
     let entries = fs::read_dir(&bands_dir).map_err(|err| ApiError {
         code: "BAND_SETUP_LOAD_FAILED".into(),
         message: format!("Failed to read bands at {} ({})", bands_dir.display(), err),
@@ -591,7 +629,7 @@ fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSet
         version_pdf_path: None,
     })?;
 
-    let members_root = repo_root.join("data").join("musicians");
+    let members_root = catalog_entity_dir(&app, "musicians")?;
     let mut members: HashMap<String, Vec<MemberOption>> = HashMap::new();
     let mut musicians_by_id: HashMap<String, (String, String)> = HashMap::new();
     let mut musician_defaults: HashMap<String, Value> = HashMap::new();
@@ -757,6 +795,30 @@ fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSet
         }
     }
 
+    let mut preset_catalog: HashMap<String, Value> = HashMap::new();
+    for preset_dir in [
+        catalog_entity_dir(&app, "presets/groups")?,
+        catalog_entity_dir(&app, "presets/monitors")?,
+    ] {
+        if !preset_dir.exists() {
+            continue;
+        }
+        for entry in list_json_files_recursive(&preset_dir)? {
+            let content = fs::read_to_string(&entry).map_err(|err|
+                map_io_error(err, "BAND_SETUP_LOAD_FAILED", "Failed to read preset file")
+            )?;
+            let preset: Value = serde_json::from_str(&content).map_err(|err| ApiError {
+                code: "BAND_SETUP_LOAD_FAILED".into(),
+                message: format!("Invalid preset JSON in {} ({})", entry.display(), err),
+                export_pdf_path: None,
+                version_pdf_path: None,
+            })?;
+            if let Some(id) = preset.get("id").and_then(|v| v.as_str()) {
+                preset_catalog.insert(id.to_string(), preset);
+            }
+        }
+    }
+
     let musician_default_overrides =
         load_library_map::<Value>(&app, "musician_defaults.json").unwrap_or_default();
     for (key, value) in musician_default_overrides {
@@ -788,6 +850,7 @@ fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSet
         members,
         musician_defaults,
         musician_presets_by_id,
+        preset_catalog,
         load_warnings,
     })
 }
@@ -943,8 +1006,8 @@ fn export_pdf(
         });
     }
 
-    let repo_root = resolve_repo_root();
-    let script_path = repo_root.join("scripts").join("desktop_export.ts");
+    let workspace_root = resolve_workspace_root();
+    let script_path = workspace_root.join("scripts").join("desktop_export.ts");
 
     let mut command = Command::new("node");
     command
@@ -960,7 +1023,7 @@ fn export_pdf(
     }
 
     let output = command
-        .current_dir(&repo_root)
+        .current_dir(&workspace_root)
         .output()
         .map_err(|err| map_io_error(err, "EXPORT_FAILED", "Failed to execute export"))?;
 
@@ -1023,12 +1086,12 @@ fn build_project_pdf_preview(
     ensure_user_storage(&app).map_err(|err| {
         map_storage_error(err, "PREVIEW_FAILED", "Failed to initialize user storage")
     })?;
-    let repo_root = resolve_repo_root();
-    let script_path = repo_root.join("scripts").join("desktop_preview.ts");
+    let workspace_root = resolve_workspace_root();
+    let script_path = workspace_root.join("scripts").join("desktop_preview.ts");
     eprintln!(
         "[preview] command start project_id={} cwd={} script={}",
         project_id,
-        repo_root.display(),
+        workspace_root.display(),
         script_path.display()
     );
 
@@ -1046,7 +1109,7 @@ fn build_project_pdf_preview(
     }
 
     let output = command
-        .current_dir(&repo_root)
+        .current_dir(&workspace_root)
         .output()
         .map_err(|err| map_io_error(err, "PREVIEW_FAILED", "Failed to execute preview"))?;
 
