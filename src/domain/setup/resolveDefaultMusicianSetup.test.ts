@@ -9,6 +9,7 @@ const presetsByRef: Record<string, PresetEntity> = {
     label: "Electric bass guitar",
     group: "bass",
     setupGroup: "electric_bass",
+    presetRole: "primary",
     inputs: [{ key: "el_bass_xlr_amp", label: "Electric bass guitar", group: "bass" }],
   } as PresetEntity,
   el_bass_xlr_pedalboard: {
@@ -17,6 +18,7 @@ const presetsByRef: Record<string, PresetEntity> = {
     label: "Electric bass guitar",
     group: "bass",
     setupGroup: "electric_bass",
+    presetRole: "primary",
     inputs: [{ key: "el_bass_xlr_pedalboard", label: "Electric bass guitar", group: "bass" }],
   } as PresetEntity,
   el_bass_mic: {
@@ -25,6 +27,7 @@ const presetsByRef: Record<string, PresetEntity> = {
     label: "Electric bass mic",
     group: "bass",
     setupGroup: "bass_mic",
+    presetRole: "addition",
     inputs: [{ key: "el_bass_mic", label: "Electric bass mic", group: "bass" }],
   } as PresetEntity,
 };

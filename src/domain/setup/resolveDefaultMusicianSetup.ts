@@ -19,10 +19,10 @@ function dedupeInputs(inputs: InputChannel[]): InputChannel[] {
   return Array.from(byKey.values());
 }
 
-type SetupPreset = Preset & { setupGroup?: string };
+type SetupPreset = Preset & { setupGroup?: string; presetRole?: "primary" | "addition" };
 
 function selectBassMainPreset(presets: SetupPreset[]): SetupPreset | undefined {
-  const mains = presets.filter((preset) => preset.setupGroup === "electric_bass");
+  const mains = presets.filter((preset) => preset.presetRole === "primary" || preset.setupGroup === "electric_bass");
   if (mains.length === 0) return undefined;
   const rank = (id: string): number => {
     const index = BASS_MAIN_PRIORITY.indexOf(id as (typeof BASS_MAIN_PRIORITY)[number]);
@@ -62,7 +62,7 @@ export function resolveDefaultMusicianSetup(args: {
     args.role === "bass"
       ? (() => {
           const chosenMain = selectBassMainPreset(presetEntities);
-          const optional = presetEntities.filter((preset) => preset.setupGroup !== "electric_bass");
+          const optional = presetEntities.filter((preset) => preset.presetRole === "addition" || preset.setupGroup !== "electric_bass");
           const ordered = [
             ...(chosenMain?.inputs ?? []),
             ...optional.flatMap((preset) => preset.inputs),

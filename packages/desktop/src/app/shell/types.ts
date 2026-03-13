@@ -97,6 +97,7 @@ export type NewProjectPayload = {
   lineup?: LineupMap;
   bandLeaderId?: string;
   talkbackOwnerId?: string;
+  talkbackOverride?: { mode: "none" } | { mode: "assigned"; musicianId: string };
   hasTalkbackOverride?: boolean;
   backVocalIds?: string[];
 };
@@ -129,6 +130,7 @@ export function toPersistableProject(
     lineup,
     bandLeaderId,
     talkbackOwnerId,
+    talkbackOverride,
     hasTalkbackOverride,
     note,
     backVocalIds,
@@ -152,7 +154,11 @@ export function toPersistableProject(
     ...(purgeAt ? { purgeAt } : {}),
     ...(lineup ? { lineup } : {}),
     ...(bandLeaderId ? { bandLeaderId } : {}),
-    ...(hasTalkbackOverride ? { talkbackOwnerId: talkbackOwnerId ?? "" } : ((talkbackOwnerId || bandLeaderId) ? { talkbackOwnerId: talkbackOwnerId ?? bandLeaderId } : {})),
+    ...(hasTalkbackOverride
+      ? (talkbackOverride ? { talkbackOverride } : { talkbackOverride: { mode: "none" as const } })
+      : ((talkbackOwnerId || bandLeaderId)
+          ? { talkbackOwnerId: talkbackOwnerId ?? bandLeaderId }
+          : {})),
     ...(note ? { note } : {}),
     ...(backVocalIds && backVocalIds.length > 0 ? { backVocalIds } : {}),
   };

@@ -10,5 +10,6 @@
       "note": "Mic on bass cabinet – boom mic stand"
     }
   ],
-  "setupGroup": "bass_mic"
+  "setupGroup": "bass_mic",
+  "presetRole": "addition"
 }

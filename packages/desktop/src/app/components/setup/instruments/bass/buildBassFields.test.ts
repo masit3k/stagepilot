@@ -9,6 +9,7 @@ const presets = toBassPresets([
     label: "Electric bass guitar",
     group: "bass",
     setupGroup: "electric_bass",
+    presetRole: "primary",
     inputs: [{ key: "el_bass_xlr_amp", label: "Electric bass guitar", note: "XLR out from amp", group: "bass" }],
   },
   {
@@ -17,6 +18,7 @@ const presets = toBassPresets([
     label: "Electric bass guitar",
     group: "bass",
     setupGroup: "electric_bass",
+    presetRole: "primary",
     inputs: [{ key: "el_bass_xlr_pedalboard", label: "Electric bass guitar", note: "XLR out from pedalboard", group: "bass" }],
   },
   {
@@ -25,6 +27,7 @@ const presets = toBassPresets([
     label: "Electric bass mic",
     group: "bass",
     setupGroup: "bass_mic",
+    presetRole: "addition",
     inputs: [{ key: "el_bass_mic", label: "Electric bass mic", note: "Mic on bass amp", group: "bass" }],
   },
   {
@@ -33,6 +36,7 @@ const presets = toBassPresets([
     label: "Bass synth",
     group: "bass",
     setupGroup: "bass_synth",
+    presetRole: "addition",
     inputs: [{ key: "bass_synth", label: "Bass synth", note: "TS jack 6.3mm – DI box", group: "bass" }],
   },
 ] as unknown as Preset[]);

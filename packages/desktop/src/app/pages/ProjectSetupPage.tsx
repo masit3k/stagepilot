@@ -188,13 +188,20 @@ export function ProjectSetupPage({
         await invoke<string>("read_project", { projectId: id }),
       ) as NewProjectPayload;
       const parsed = migrateProjectTalkbackOwner(migrateProjectLineupVocsToLeadBack(parsedRaw));
-      const parsedHasTalkbackOverride = Object.prototype.hasOwnProperty.call(parsedRaw, "talkbackOwnerId");
+      const parsedHasTalkbackOverride = Object.prototype.hasOwnProperty.call(parsedRaw, "talkbackOverride")
+        || Object.prototype.hasOwnProperty.call(parsedRaw, "talkbackOwnerId");
+      const parsedTalkbackOverride = parsed.talkbackOverride
+        ?? (typeof parsed.talkbackOwnerId === "string"
+          ? (parsed.talkbackOwnerId.trim().length > 0
+              ? { mode: "assigned" as const, musicianId: parsed.talkbackOwnerId.trim() }
+              : { mode: "none" as const })
+          : undefined);
       setProject(parsed);
       const persistedBackVocalIds = normalizeLineupValue((parsed.lineup ?? {}).back_vocs, 8);
       setBackVocalIds(persistedBackVocalIds);
       setHasBackVocalOverride(Array.isArray((parsed.lineup ?? {}).back_vocs));
       setHasTalkbackOverride(parsedHasTalkbackOverride);
-      setTalkbackOwnerId(typeof parsed.talkbackOwnerId === "string" ? parsed.talkbackOwnerId : "");
+      setTalkbackOwnerId(parsedTalkbackOverride?.mode === "assigned" ? parsedTalkbackOverride.musicianId : "");
       let data: BandSetupData;
       try {
         data = await invoke<BandSetupData>("get_band_setup_data", {
@@ -245,7 +252,7 @@ export function ProjectSetupPage({
         initialLineup,
         data,
         parsed.bandLeaderId,
-        parsedHasTalkbackOverride ? (typeof parsed.talkbackOwnerId === "string" ? parsed.talkbackOwnerId : "") : undefined,
+        parsedHasTalkbackOverride ? (parsedTalkbackOverride?.mode === "assigned" ? parsedTalkbackOverride.musicianId : "") : undefined,
       );
       setLineup(initialLineup);
       setBandLeaderId(initialState.bandLeaderId);
@@ -264,7 +271,9 @@ export function ProjectSetupPage({
             ),
           },
           bandLeaderId: initialState.bandLeaderId || undefined,
-          ...(parsedHasTalkbackOverride ? { talkbackOwnerId: (typeof parsed.talkbackOwnerId === "string" ? parsed.talkbackOwnerId : "") } : {}),
+          ...(parsedHasTalkbackOverride
+            ? { talkbackOverride: parsedTalkbackOverride ?? { mode: "none" as const } }
+            : {}),
           updatedAt: new Date().toISOString(),
         };
         await projectsApi.saveProject({
@@ -283,7 +292,9 @@ export function ProjectSetupPage({
         backVocalIds: normalizeLineupValue((parsed.lineup ?? {}).back_vocs, 8),
         hasBackVocalOverride: Array.isArray((parsed.lineup ?? {}).back_vocs),
         hasTalkbackOverride: parsedHasTalkbackOverride,
-        talkbackOwnerId: parsedHasTalkbackOverride ? (typeof parsed.talkbackOwnerId === "string" ? parsed.talkbackOwnerId : "") : (initialState.talkbackOwnerId ?? ""),
+        talkbackOwnerId: parsedHasTalkbackOverride
+          ? (parsedTalkbackOverride?.mode === "assigned" ? parsedTalkbackOverride.musicianId : "")
+          : (initialState.talkbackOwnerId ?? ""),
       });
     })().catch((error) => {
       console.error("Failed to initialize setup page", {
@@ -528,7 +539,9 @@ export function ProjectSetupPage({
         ...(hasBackVocalOverride ? { back_vocs: [...selectedBackVocalIds] } : {}),
       },
       bandLeaderId,
-      ...(hasTalkbackOverride ? { talkbackOwnerId: talkbackCurrentOwnerId } : {}),
+      talkbackOverride: hasTalkbackOverride
+        ? (talkbackCurrentOwnerId ? { mode: "assigned", musicianId: talkbackCurrentOwnerId } : { mode: "none" })
+        : undefined,
       ...next,
     };
     await projectsApi.saveProject({
@@ -543,7 +556,9 @@ export function ProjectSetupPage({
         ROLE_ORDER,
       ),
       bandLeaderId: payload.bandLeaderId ?? "",
-      talkbackOwnerId: hasTalkbackOverride ? (payload.talkbackOwnerId ?? "") : (payload.bandLeaderId ?? ""),
+      talkbackOwnerId: hasTalkbackOverride
+        ? (payload.talkbackOverride?.mode === "assigned" ? payload.talkbackOverride.musicianId : "")
+        : (payload.bandLeaderId ?? ""),
       hasTalkbackOverride,
       backVocalIds: [...selectedBackVocalIds].sort((a, b) =>
         a.localeCompare(b),
@@ -1072,9 +1087,7 @@ export function ProjectSetupPage({
           <div className="lineup-card__body section-divider">
             <div className="lineup-list__row">
               <span className="lineup-list__name">
-                {talkbackCurrentOwnerId
-                  ? (selectedOptions.find((m) => m.id === talkbackCurrentOwnerId)?.name || "Use band leader default")
-                  : "Nobody assigned"}
+                {selectedOptions.find((m) => m.id === talkbackCurrentOwnerId)?.name || ""}
               </span>
               <button
                 type="button"

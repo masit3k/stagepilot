@@ -10,5 +10,6 @@
       "note": "XLR out from amp"
     }
   ],
-  "setupGroup": "electric_bass"
+  "setupGroup": "electric_bass",
+  "presetRole": "primary"
 }

@@ -57,6 +57,9 @@ export interface Project {
   backVocalIds?: string[];
   bandLeaderId?: string;
   talkbackOwnerId?: string;
+  talkbackOverride?:
+    | { mode: "none" }
+    | { mode: "assigned"; musicianId: string };
 
   stageplan?: {
     powerOverridesByMusician?: Record<string, PowerRequirement>;
@@ -103,6 +106,9 @@ export interface ProjectJsonV2 {
   backVocalIds?: string[];
   bandLeaderId?: string;
   talkbackOwnerId?: string;
+  talkbackOverride?:
+    | { mode: "none" }
+    | { mode: "assigned"; musicianId: string };
   stageplan?: {
     powerOverridesByMusician?: Record<string, PowerRequirement>;
   };
@@ -201,6 +207,7 @@ export interface Preset {
   group: Group;
   /** Optional subgroup used by setup editors (e.g. bass connection variants). */
   setupGroup?: string;
+  presetRole?: "primary" | "addition";
   inputs: InputChannel[];
 }
 

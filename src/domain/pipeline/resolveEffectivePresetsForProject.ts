@@ -6,11 +6,11 @@ import type {
   PresetItem,
   Project,
 } from "../model/types.js";
+import { resolveEffectiveTalkbackAssignment } from "../talkback/resolveEffectiveTalkbackAssignment.js";
 
 type ProjectWithBackVocalIds = Project & {
   backVocalIds?: unknown;
   lineup?: Record<string, unknown>;
-  talkbackOwnerId?: unknown;
 };
 
 function normalizeIdList(value: unknown): string[] {
@@ -69,6 +69,37 @@ function resolveBackVocalRef(
   return existingRefs[0] ?? "";
 }
 
+function extractSelectedIdsFromLineup(lineup: Record<string, unknown> | undefined): string[] {
+  if (!lineup) return [];
+  const selected = new Set<string>();
+
+  for (const value of Object.values(lineup)) {
+    if (typeof value === "string" && value.trim().length > 0) {
+      selected.add(value.trim());
+      continue;
+    }
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        if (typeof entry === "string" && entry.trim().length > 0) {
+          selected.add(entry.trim());
+          continue;
+        }
+        if (entry && typeof entry === "object" && typeof (entry as { musicianId?: unknown }).musicianId === "string") {
+          const musicianId = ((entry as { musicianId: string }).musicianId ?? "").trim();
+          if (musicianId) selected.add(musicianId);
+        }
+      }
+      continue;
+    }
+    if (value && typeof value === "object" && typeof (value as { musicianId?: unknown }).musicianId === "string") {
+      const musicianId = ((value as { musicianId: string }).musicianId ?? "").trim();
+      if (musicianId) selected.add(musicianId);
+    }
+  }
+
+  return Array.from(selected);
+}
+
 export function resolveEffectivePresetsForProject(args: {
   project: Project;
   band: Band;
@@ -110,16 +141,13 @@ export function resolveEffectivePresetsForProject(args: {
     }
   }
 
-  const rawTalkbackOwnerId = (project as ProjectWithBackVocalIds).talkbackOwnerId;
-  const rawBandLeaderId = (project as ProjectWithBackVocalIds & { bandLeaderId?: unknown }).bandLeaderId;
-  const talkbackOwnerId =
-    typeof rawTalkbackOwnerId === "string" && rawTalkbackOwnerId.trim().length > 0
-      ? rawTalkbackOwnerId.trim()
-      : typeof rawBandLeaderId === "string" && rawBandLeaderId.trim().length > 0
-        ? rawBandLeaderId.trim()
-        : band.bandLeader;
+  const talkback = resolveEffectiveTalkbackAssignment({
+    project,
+    bandLeaderId: band.bandLeader,
+    selectedMusicianIds: extractSelectedIdsFromLineup((project as ProjectWithBackVocalIds).lineup),
+  });
 
-  if (musician.id !== talkbackOwnerId) {
+  if (talkback.mode !== "assigned" || musician.id !== talkback.musicianId) {
     return resolvedPresets;
   }
 

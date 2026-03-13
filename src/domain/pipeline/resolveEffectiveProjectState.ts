@@ -1,11 +1,11 @@
 import { GROUP_ORDER, type Group } from "../model/groups.js";
 import type { LineupValue, PresetOverridePatch, Project } from "../model/types.js";
+import { resolveEffectiveTalkbackAssignment } from "../talkback/resolveEffectiveTalkbackAssignment.js";
 
 type LegacyLineupEntry = { musicianId?: unknown; presetOverride?: unknown };
 
 type ProjectWithLineup = Project & {
   lineup?: Record<string, unknown>;
-  talkbackOwnerId?: unknown;
 };
 
 function normalizeLineupEntry(entry: unknown): { musicianId: string; presetOverride?: PresetOverridePatch } | null {
@@ -73,11 +73,13 @@ export function resolveEffectiveProjectState(args: {
     }
   }
 
-  const rawTalkbackOwnerId = (args.project as ProjectWithLineup).talkbackOwnerId;
-  const effectiveTalkbackOwnerId =
-    typeof rawTalkbackOwnerId === "string" && rawTalkbackOwnerId.trim().length > 0
-      ? rawTalkbackOwnerId.trim()
-      : args.bandLeaderId;
+  const selectedMusicianIds = GROUP_ORDER.flatMap((group) => effectiveLineup[group] ?? []);
+  const talkback = resolveEffectiveTalkbackAssignment({
+    project: args.project,
+    bandLeaderId: args.bandLeaderId,
+    selectedMusicianIds,
+  });
+  const effectiveTalkbackOwnerId = talkback.mode === "assigned" ? talkback.musicianId ?? "" : "";
 
   return {
     effectiveLineup,

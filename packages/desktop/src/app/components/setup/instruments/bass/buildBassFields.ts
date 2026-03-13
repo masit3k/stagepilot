@@ -2,7 +2,7 @@ import type { InputChannel, Preset, PresetOverridePatch } from "../../../../../.
 import { cleanupPatch, withInputsTarget, type EventSetupEditState } from "../../adapters/eventSetupAdapter";
 import type { DropdownFieldDef, SchemaNode, ToggleFieldDef } from "../../schema/types";
 
-type BassPreset = Preset & { setupGroup?: "electric_bass" | "bass_synth" | "bass_mic" };
+type BassPreset = Preset & { setupGroup?: "electric_bass" | "bass_synth" | "bass_mic"; presetRole?: "primary" | "addition" };
 
 function hasInputKey(inputs: InputChannel[], key: string): boolean {
   return inputs.some((item) => item.key === key);
@@ -52,8 +52,8 @@ function mergeConnectionReplacePatch(
 }
 
 export function buildBassFields(presets: BassPreset[]): SchemaNode[] {
-  const primaryPresets = presets.filter((preset) => preset.setupGroup === "electric_bass");
-  const micPreset = presets.find((preset) => preset.setupGroup === "bass_mic");
+  const primaryPresets = presets.filter((preset) => preset.presetRole === "primary" || preset.setupGroup === "electric_bass");
+  const micPreset = presets.find((preset) => preset.id === "el_bass_mic" || preset.setupGroup === "bass_mic");
   const bassSynthPreset = presets.find((preset) => preset.setupGroup === "bass_synth");
   const micInput = micPreset?.inputs[0];
   const bassSynthInput = bassSynthPreset?.inputs[0];

@@ -26,6 +26,15 @@ export function normalizeProject(input: ProjectJson): Project {
   const talkbackOwnerId = "talkbackOwnerId" in input && typeof input.talkbackOwnerId === "string" && input.talkbackOwnerId.trim().length > 0
     ? input.talkbackOwnerId.trim()
     : undefined;
+  const talkbackOverride = "talkbackOverride" in input && input.talkbackOverride && typeof input.talkbackOverride === "object"
+    ? ((value) => {
+        if (value.mode === "none") return { mode: "none" as const };
+        if (value.mode === "assigned" && typeof value.musicianId === "string" && value.musicianId.trim().length > 0) {
+          return { mode: "assigned" as const, musicianId: value.musicianId.trim() };
+        }
+        return undefined;
+      })(input.talkbackOverride as { mode?: unknown; musicianId?: unknown })
+    : undefined;
   const backVocalIds = "backVocalIds" in input && Array.isArray(input.backVocalIds)
     ? input.backVocalIds.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
     : undefined;
@@ -52,6 +61,7 @@ export function normalizeProject(input: ProjectJson): Project {
         backVocalIds,
         bandLeaderId,
         talkbackOwnerId,
+        talkbackOverride,
         stageplan,
       };
     }
@@ -69,6 +79,7 @@ export function normalizeProject(input: ProjectJson): Project {
       backVocalIds,
       bandLeaderId,
       talkbackOwnerId,
+      talkbackOverride,
       stageplan,
     };
   }
@@ -90,6 +101,7 @@ export function normalizeProject(input: ProjectJson): Project {
       backVocalIds,
       bandLeaderId,
       talkbackOwnerId,
+      talkbackOverride,
       stageplan,
     };
   }

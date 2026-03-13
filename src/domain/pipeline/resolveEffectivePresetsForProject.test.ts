@@ -71,6 +71,35 @@ describe("resolveEffectivePresetsForProject", () => {
     expect(otherItems.some((item) => item.kind === "talkback")).toBe(false);
   });
 
+
+  it("does not inject talkback when explicit none override is set", () => {
+    const musician: Musician = {
+      id: "leader-1",
+      firstName: "Lead",
+      lastName: "Singer",
+      group: "vocs",
+      presets: [{ kind: "preset", ref: "vocal_lead" }],
+    };
+    const project: Project = {
+      id: "p-2",
+      bandRef: "band-1",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+      lineup: { vocs: "leader-1" },
+      talkbackOverride: { mode: "none" },
+    };
+
+    const items = resolveEffectivePresetsForProject({
+      project,
+      band,
+      musician,
+      group: "vocs",
+      repo: repo as never,
+    });
+
+    expect(items.some((item) => item.kind === "talkback")).toBe(false);
+  });
+
   it("removes legacy talkback presets from musician defaults", () => {
     const musician: Musician = {
       id: "leader-1",

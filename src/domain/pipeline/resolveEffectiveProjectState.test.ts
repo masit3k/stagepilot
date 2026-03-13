@@ -52,6 +52,44 @@ describe("resolveEffectiveProjectState", () => {
     expect(resolved.presetOverrideByMusicianId.get("bass-1")?.inputs?.add?.[0]?.key).toBe("bass_pedal");
   });
 
+
+  it("respects explicit talkback none override", () => {
+    const project: Project = {
+      id: "p-none",
+      bandRef: "band-1",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+      talkbackOverride: { mode: "none" },
+    };
+
+    const resolved = resolveEffectiveProjectState({
+      project,
+      bandDefaultLineup: {},
+      bandLeaderId: "leader-1",
+    });
+
+    expect(resolved.effectiveTalkbackOwnerId).toBe("");
+  });
+
+  it("respects explicit assigned talkback override", () => {
+    const project: Project = {
+      id: "p-assigned",
+      bandRef: "band-1",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+      lineup: { bass: "bass-1" },
+      talkbackOverride: { mode: "assigned", musicianId: "bass-1" },
+    };
+
+    const resolved = resolveEffectiveProjectState({
+      project,
+      bandDefaultLineup: {},
+      bandLeaderId: "leader-1",
+    });
+
+    expect(resolved.effectiveTalkbackOwnerId).toBe("bass-1");
+  });
+
   it("falls back talkback owner to band leader for legacy projects", () => {
     const project: Project = {
       id: "p-legacy",
