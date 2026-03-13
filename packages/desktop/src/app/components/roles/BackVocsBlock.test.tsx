@@ -8,6 +8,7 @@ describe("BackVocsBlock", () => {
       <BackVocsBlock
         members={[{ id: "m1", name: "One" }, { id: "m2", name: "Two" }]}
         onChange={vi.fn()}
+        onSetup={vi.fn()}
       />,
     );
 

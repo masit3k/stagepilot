@@ -39,6 +39,38 @@ describe("MonitoringEditor", () => {
     expect(html).toContain("Additional wedge monitor");
   });
 
+
+  it("renders all runtime monitoring options", () => {
+    const html = renderToStaticMarkup(
+      <MonitoringEditor
+        monitorOptions={[
+          { value: "iem_stereo_wireless", label: "IEM stereo wireless" },
+          { value: "wedge", label: "Wedge" },
+        ]}
+        effectiveMonitoring={{ monitorRef: "iem_stereo_wireless" }}
+        diffMeta={baseDiffMeta}
+        onChangePatch={() => {}}
+      />,
+    );
+
+    expect(html).toContain('value="iem_stereo_wireless"');
+    expect(html).toContain("IEM stereo wireless");
+    expect(html).toContain('value="wedge"');
+  });
+
+  it("shows empty selection when effective monitor ref is missing from runtime options", () => {
+    const html = renderToStaticMarkup(
+      <MonitoringEditor
+        monitorOptions={[{ value: "wedge", label: "Wedge" }]}
+        effectiveMonitoring={{ monitorRef: "missing_monitor" }}
+        diffMeta={baseDiffMeta}
+        onChangePatch={() => {}}
+      />,
+    );
+
+    expect(html).toContain("No monitor selected");
+    expect(html).toContain('<select class="setup-field-control" aria-label="Monitoring"><option value="" selected="">No monitor selected</option>');
+  });
   it("renders checked row and stepper when additional wedge is enabled", () => {
     const html = renderToStaticMarkup(
       <MonitoringEditor

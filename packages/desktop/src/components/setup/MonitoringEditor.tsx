@@ -27,7 +27,9 @@ type MonitoringEditorProps = {
 
 export function MonitoringEditor({ monitorOptions, effectiveMonitoring, patch, diffMeta, onChangePatch }: MonitoringEditorProps) {
   const additionalWedgeControlId = "setup-additional-wedge";
-  const currentMonitorRef = patch?.monitoring?.monitorRef ?? effectiveMonitoring.monitorRef;
+  const currentMonitorRef = patch?.monitoring?.monitorRef ?? effectiveMonitoring.monitorRef ?? "";
+  const hasCurrentMonitorOption = monitorOptions.some((option) => option.value === currentMonitorRef);
+  const normalizedMonitorRef = hasCurrentMonitorOption ? currentMonitorRef : "";
   const explicitAdditionalWedgeCount = patch?.monitoring?.additionalWedgeCount;
   const effectiveAdditionalWedgeCount = effectiveMonitoring.additionalWedgeCount;
   const hasAdditionalWedge = isAdditionalWedgeEnabled(explicitAdditionalWedgeCount)
@@ -55,7 +57,7 @@ export function MonitoringEditor({ monitorOptions, effectiveMonitoring, patch, d
           <select
             className="setup-field-control"
             aria-label="Monitoring"
-            value={currentMonitorRef}
+            value={normalizedMonitorRef}
             onChange={(e) =>
               onChangePatch({
                 ...patch,
@@ -63,6 +65,7 @@ export function MonitoringEditor({ monitorOptions, effectiveMonitoring, patch, d
               })
             }
           >
+            <option value="">No monitor selected</option>
             {monitorOptions.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}

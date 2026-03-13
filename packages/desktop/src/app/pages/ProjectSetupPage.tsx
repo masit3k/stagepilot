@@ -15,7 +15,6 @@ import {
   validateLineup,
 } from "../../projectRules";
 import {
-  createDefaultMusicianPreset,
   summarizeEffectivePresetValidation,
   validateEffectivePresets,
   normalizeSetupOverridePatch,
@@ -25,7 +24,7 @@ import type {
   InputChannel,
   Musician,
   MusicianSetupPreset,
-  Preset,
+  PresetEntity,
   PresetItem,
 } from "../../../../../src/domain/model/types";
 import { resolveEffectiveMusicianSetup } from "../../../../../src/domain/setup/resolveEffectiveMusicianSetup";
@@ -77,7 +76,7 @@ import {
   buildInputsPatchFromTarget,
   createFallbackSetupData,
   getGroupDefaultPreset,
-  resolveMusicianDefaultInputsFromPresets,
+  resolveMusicianDefaultSetupForRole,
   resolveSetupCardLabel,
 } from "./shared/setupConstants";
 
@@ -109,6 +108,7 @@ export function ProjectSetupPage({
   const [bandLeaderId, setBandLeaderId] = useState("");
   const [talkbackOwnerId, setTalkbackOwnerId] = useState("");
   const [backVocalIds, setBackVocalIds] = useState<string[]>([]);
+  const [hasBackVocalOverride, setHasBackVocalOverride] = useState(false);
   const [isBackVocsModalOpen, setIsBackVocsModalOpen] = useState(false);
   const [isBackVocsSetupOpen, setIsBackVocsSetupOpen] = useState(false);
   const [backVocsSetupDraft, setBackVocsSetupDraft] = useState<Record<string, PresetOverridePatch | undefined>>({});
@@ -187,9 +187,9 @@ export function ProjectSetupPage({
       ) as NewProjectPayload;
       const parsed = migrateProjectTalkbackOwner(migrateProjectLineupVocsToLeadBack(parsedRaw));
       setProject(parsed);
-      setBackVocalIds(
-        normalizeLineupValue((parsed.lineup ?? {}).back_vocs, 8),
-      );
+      const persistedBackVocalIds = normalizeLineupValue((parsed.lineup ?? {}).back_vocs, 8);
+      setBackVocalIds(persistedBackVocalIds);
+      setHasBackVocalOverride(Array.isArray((parsed.lineup ?? {}).back_vocs));
       let data: BandSetupData;
       try {
         data = await invoke<BandSetupData>("get_band_setup_data", {
@@ -280,6 +280,7 @@ export function ProjectSetupPage({
           ROLE_ORDER,
         ),
         backVocalIds: normalizeLineupValue((parsed.lineup ?? {}).back_vocs, 8),
+        hasBackVocalOverride: Array.isArray((parsed.lineup ?? {}).back_vocs),
       });
     })().catch((error) => {
       console.error("Failed to initialize setup page", {
@@ -323,13 +324,14 @@ export function ProjectSetupPage({
   const backVocalPresetRefs = useMemo(
     () => ["vocal_back_no_mic", "vocal_back_wired", "vocal_back_wireless"]
       .map((ref) => presetCatalog[ref])
-      .filter((preset): preset is Preset => Boolean(preset)),
+      .filter((preset): preset is PresetEntity => Boolean(preset))
+      .filter((preset): preset is Extract<PresetEntity, { type: "preset" }> => preset.type === "preset"),
     [presetCatalog],
   );
 
   const monitorOptions = useMemo(
     () => Object.values(presetCatalog)
-      .filter((preset): preset is Preset => preset.kind === "monitor")
+      .filter((preset): preset is Extract<PresetEntity, { type: "monitor" }> => preset.type === "monitor")
       .map((preset) => ({ value: preset.id, label: preset.label }))
       .sort((a, b) => a.label.localeCompare(b.label)),
     [presetCatalog],
@@ -387,12 +389,12 @@ export function ProjectSetupPage({
       sanitizeBackVocsSelection(new Set(backVocalIds), leadVocalIds),
     ).filter((idValue) => templateMusicianIds.has(idValue));
 
-    if (backVocalIds.length > 0) return explicitSelectedIds;
+    if (hasBackVocalOverride) return explicitSelectedIds;
 
     return Array.from(defaultBackVocalIds).filter((idValue) =>
       templateMusicianIds.has(idValue),
     );
-  }, [backVocalIds, defaultBackVocalIds, leadVocalIds, templateMusicianIds]);
+  }, [backVocalIds, defaultBackVocalIds, hasBackVocalOverride, leadVocalIds, templateMusicianIds]);
   const backVocalMembers = useMemo(
     () =>
       templateMusicians.filter((item) =>
@@ -459,6 +461,7 @@ export function ProjectSetupPage({
     bandLeaderId,
     talkbackOwnerId: talkbackCurrentOwnerId,
     backVocalIds: [...selectedBackVocalIds].sort((a, b) => a.localeCompare(b)),
+    hasBackVocalOverride,
   });
   const defaultSnapshot = useMemo(() => {
     if (!setupData) return "";
@@ -474,6 +477,7 @@ export function ProjectSetupPage({
         ROLE_ORDER,
       ),
       backVocalIds: defaultSelectedBackVocalIds,
+      hasBackVocalOverride: false,
     });
   }, [defaultSelectedBackVocalIds, setupData, buildSetupSnapshot]);
   const isDirty = Boolean(
@@ -484,12 +488,14 @@ export function ProjectSetupPage({
           bandLeaderId: "",
           talkbackOwnerId: "",
           backVocalIds: [],
+          hasBackVocalOverride: false,
         },
         currentDraftProject: {
           lineup: serializedLineup,
           bandLeaderId,
           talkbackOwnerId: talkbackCurrentOwnerId,
           backVocalIds: selectedBackVocalIds,
+          hasBackVocalOverride,
         },
       }),
   );
@@ -506,7 +512,7 @@ export function ProjectSetupPage({
       ...project,
       lineup: {
         ...serializedLineup,
-        back_vocs: [...selectedBackVocalIds],
+        ...(hasBackVocalOverride ? { back_vocs: [...selectedBackVocalIds] } : {}),
       },
       bandLeaderId,
       talkbackOwnerId: talkbackCurrentOwnerId || undefined,
@@ -528,6 +534,7 @@ export function ProjectSetupPage({
       backVocalIds: [...selectedBackVocalIds].sort((a, b) =>
         a.localeCompare(b),
       ),
+      hasBackVocalOverride,
     });
     snapshotHydratedRef.current = true;
   }
@@ -640,21 +647,16 @@ export function ProjectSetupPage({
     (role: Group, musicianId: string): MusicianSetupPreset => {
       const roleScopedDefaults = setupData?.musicianDefaults?.[`${musicianId}:${role}`];
       const genericDefaults = setupData?.musicianDefaults?.[musicianId];
-      const presetInputs = resolveMusicianDefaultInputsFromPresets(
+      return resolveMusicianDefaultSetupForRole({
         role,
-        setupData?.musicianPresetsById?.[musicianId],
-      );
-      const base = createDefaultMusicianPreset();
-      return {
-        ...base,
-        ...genericDefaults,
-        ...roleScopedDefaults,
-        ...(presetInputs ? { inputs: presetInputs } : {}),
-        ...(genericDefaults?.monitoring ? { monitoring: { ...base.monitoring, ...genericDefaults.monitoring } } : {}),
-        ...(roleScopedDefaults?.monitoring ? { monitoring: { ...base.monitoring, ...genericDefaults?.monitoring, ...roleScopedDefaults.monitoring } } : {}),
-      };
+        musicianDefaults: genericDefaults,
+        roleScopedDefaults,
+        presetItems: setupData?.musicianPresetsById?.[musicianId],
+        presetCatalog,
+        bandDefaults: getGroupDefaultPreset(role),
+      });
     },
-    [setupData],
+    [presetCatalog, setupData],
   );
 
   const resolveSlotSetup = useCallback(
@@ -781,6 +783,17 @@ export function ProjectSetupPage({
         hasOverride: Boolean(slot.presetOverride),
       }));
   }, [editingSetup, lineup, selectedMusicianMap, setupData]);
+
+  useEffect(() => {
+    if (!editingSetup || setupMusicians.length === 0) return;
+    const requested = `${editingSetup.role}:${editingSetup.slotIndex}`;
+    const nextSelected = setupMusicians.some((item) => item.slotKey === requested)
+      ? requested
+      : setupMusicians[0]?.slotKey ?? "";
+    if (nextSelected && nextSelected !== selectedSetupSlotKey) {
+      setSelectedSetupSlotKey(nextSelected);
+    }
+  }, [editingSetup, selectedSetupSlotKey, setupMusicians]);
 
   const selectedSetupMusician =
     setupMusicians.find((item) => item.slotKey === selectedSetupSlotKey) ??
@@ -1158,6 +1171,7 @@ export function ProjectSetupPage({
                 if (!setupData) return;
                 applyState({ ...(setupData.defaultLineup ?? {}) }, setupData);
                 setBackVocalIds([]);
+                setHasBackVocalOverride(false);
                 setShowResetConfirmation(false);
               }}
             >
@@ -1576,6 +1590,7 @@ export function ProjectSetupPage({
                 leadVocalIds,
               );
               setBackVocalIds(Array.from(sanitizedSelectedIds));
+              setHasBackVocalOverride(true);
               setIsBackVocsModalOpen(false);
             }}
           />

@@ -3,6 +3,7 @@ import type {
   InputChannel,
   MusicianSetupPreset,
   Preset,
+  PresetEntity,
   PresetItem,
   PresetOverridePatch as DomainPresetOverridePatch,
 } from "../../../../../../src/domain/model/types";
@@ -60,6 +61,44 @@ export function resolveMusicianDefaultInputsFromPresets(
   if (!presets?.length) return undefined;
   const defaultPreset = resolveDefaultMusicianSetup({ role: group, presetItems: presets, getPresetByRef: (ref) => presetCatalog[ref] });
   return defaultPreset.inputs.length > 0 ? defaultPreset.inputs : undefined;
+}
+
+function getPresetEntityByRef(
+  presetCatalog: Record<string, Preset> | Record<string, PresetEntity> = {},
+  ref: string,
+): PresetEntity | undefined {
+  const entity = (presetCatalog as Record<string, PresetEntity>)[ref];
+  return entity;
+}
+
+export function resolveMusicianDefaultSetupForRole(args: {
+  role: Group;
+  musicianDefaults?: Partial<MusicianSetupPreset>;
+  roleScopedDefaults?: Partial<MusicianSetupPreset>;
+  presetItems?: PresetItem[];
+  presetCatalog?: Record<string, Preset> | Record<string, PresetEntity>;
+  bandDefaults?: Partial<MusicianSetupPreset>;
+}): MusicianSetupPreset {
+  const mergedDefaults: Partial<MusicianSetupPreset> = {
+    ...(args.musicianDefaults ?? {}),
+    ...(args.roleScopedDefaults ?? {}),
+    ...(args.musicianDefaults?.monitoring || args.roleScopedDefaults?.monitoring
+      ? {
+          monitoring: {
+            ...(args.musicianDefaults?.monitoring ?? {}),
+            ...(args.roleScopedDefaults?.monitoring ?? {}),
+          },
+        }
+      : {}),
+  };
+
+  return resolveDefaultMusicianSetup({
+    role: args.role,
+    presetItems: args.presetItems,
+    musicianDefaults: mergedDefaults,
+    bandDefaults: args.bandDefaults,
+    getPresetByRef: (ref) => getPresetEntityByRef(args.presetCatalog, ref),
+  });
 }
 
 export function resolveSetupCardLabel(args: { role: Group; musicianId?: string; resolveInputs: (musicianId: string) => InputChannel[]; fallback: string }): string {

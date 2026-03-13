@@ -510,6 +510,18 @@
   gap: 8px;
 }
 
+.lineup-list--backvocs {
+  gap: 12px;
+}
+
+.lineup-list__row--backvocs {
+  align-items: center;
+}
+
+.lineup-list__actions--inline {
+  align-items: center;
+}
+
 
 .lineup-card__body--split {
   display: flex;
@@ -526,6 +538,55 @@
   flex-direction: column;
   justify-content: center;
 }
+
+.setup-musician-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.setup-musician-selector__item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  min-height: 36px;
+  padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.setup-musician-selector__item:hover {
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+}
+
+.setup-musician-selector__item:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.setup-musician-selector__item--active {
+  background: color-mix(in srgb, var(--primary) 15%, var(--surface));
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+  font-weight: 600;
+}
+
+.setup-badge {
+  font-size: 0.78rem;
+  line-height: 1;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+}
+
+.setup-badge--override {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+  color: color-mix(in srgb, var(--primary) 75%, var(--text));
+}
+
 /* --------------------------------------------------------------------------
    Setup action bar (page-level sticky bar)
    -------------------------------------------------------------------------- */

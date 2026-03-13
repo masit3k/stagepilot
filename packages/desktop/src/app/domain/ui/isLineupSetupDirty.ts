@@ -5,6 +5,7 @@ type Snapshot = {
   bandLeaderId: string;
   talkbackOwnerId: string;
   backVocalIds: string[];
+  hasBackVocalOverride?: boolean;
 };
 
 function stableStringify(value: Snapshot): string {
@@ -13,6 +14,7 @@ function stableStringify(value: Snapshot): string {
     bandLeaderId: value.bandLeaderId,
     talkbackOwnerId: value.talkbackOwnerId,
     backVocalIds: [...value.backVocalIds].sort((a, b) => a.localeCompare(b)),
+    hasBackVocalOverride: Boolean(value.hasBackVocalOverride),
   });
 }
 

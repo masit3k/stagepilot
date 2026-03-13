@@ -32,4 +32,17 @@ describe("isLineupSetupDirty", () => {
       }),
     ).toBe(true);
   });
+  it("treats explicit empty back vocal override as dirty against default-derived state", () => {
+    expect(
+      isLineupSetupDirty({
+        baselineProject: baseline,
+        currentDraftProject: {
+          ...baseline,
+          backVocalIds: [],
+          hasBackVocalOverride: true,
+        },
+      }),
+    ).toBe(true);
+  });
+
 });
