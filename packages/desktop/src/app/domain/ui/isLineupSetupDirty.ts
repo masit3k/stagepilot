@@ -6,6 +6,7 @@ type Snapshot = {
   talkbackOwnerId: string;
   backVocalIds: string[];
   hasBackVocalOverride?: boolean;
+  hasTalkbackOverride?: boolean;
 };
 
 function stableStringify(value: Snapshot): string {
@@ -15,6 +16,7 @@ function stableStringify(value: Snapshot): string {
     talkbackOwnerId: value.talkbackOwnerId,
     backVocalIds: [...value.backVocalIds].sort((a, b) => a.localeCompare(b)),
     hasBackVocalOverride: Boolean(value.hasBackVocalOverride),
+    hasTalkbackOverride: Boolean(value.hasTalkbackOverride),
   });
 }
 

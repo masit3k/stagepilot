@@ -14,7 +14,6 @@ const MAX_ID_LEN: usize = 120;
 pub enum StorageError {
     Io(std::io::Error),
     Resolve(String),
-    InvalidSchema(u32),
     MalformedMetadata(String),
     UnsupportedMetadataSchema(u32),
     InvalidMetadata(String),

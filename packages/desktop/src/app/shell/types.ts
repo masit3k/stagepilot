@@ -97,6 +97,7 @@ export type NewProjectPayload = {
   lineup?: LineupMap;
   bandLeaderId?: string;
   talkbackOwnerId?: string;
+  hasTalkbackOverride?: boolean;
   backVocalIds?: string[];
 };
 
@@ -128,6 +129,7 @@ export function toPersistableProject(
     lineup,
     bandLeaderId,
     talkbackOwnerId,
+    hasTalkbackOverride,
     note,
     backVocalIds,
   } = project;
@@ -150,7 +152,7 @@ export function toPersistableProject(
     ...(purgeAt ? { purgeAt } : {}),
     ...(lineup ? { lineup } : {}),
     ...(bandLeaderId ? { bandLeaderId } : {}),
-    ...((talkbackOwnerId || bandLeaderId) ? { talkbackOwnerId: talkbackOwnerId ?? bandLeaderId } : {}),
+    ...(hasTalkbackOverride ? { talkbackOwnerId: talkbackOwnerId ?? "" } : ((talkbackOwnerId || bandLeaderId) ? { talkbackOwnerId: talkbackOwnerId ?? bandLeaderId } : {})),
     ...(note ? { note } : {}),
     ...(backVocalIds && backVocalIds.length > 0 ? { backVocalIds } : {}),
   };

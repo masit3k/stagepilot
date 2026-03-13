@@ -45,4 +45,17 @@ describe("isLineupSetupDirty", () => {
     ).toBe(true);
   });
 
+  it("treats explicit talkback removal as dirty against default-derived state", () => {
+    expect(
+      isLineupSetupDirty({
+        baselineProject: baseline,
+        currentDraftProject: {
+          ...baseline,
+          talkbackOwnerId: "",
+          hasTalkbackOverride: true,
+        },
+      }),
+    ).toBe(true);
+  });
+
 });

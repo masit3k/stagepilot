@@ -225,10 +225,6 @@ fn map_storage_error(err: StorageError, code: &str, context: &str) -> ApiError {
     let message = match err {
         StorageError::Io(e) => format!("{} ({})", context, e),
         StorageError::Resolve(msg) => format!("{} ({})", context, msg),
-        StorageError::InvalidSchema(schema) => format!(
-            "{} (Unsupported user storage schemaVersion {}. Please update StagePilot.)",
-            context, schema
-        ),
         StorageError::MalformedMetadata(msg) => {
             format!("{} (Malformed storage metadata JSON: {})", context, msg)
         }

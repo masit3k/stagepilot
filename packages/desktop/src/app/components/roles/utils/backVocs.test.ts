@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Musician, PresetEntity } from "../../../../../../../src/domain/model/types";
-import { applyBackVocsSelection, detectBackVocalPresetKind, getBackVocalCandidatesFromTemplate, getBackVocsFromTemplate, getLeadVocsFromTemplate, isBackVocalPreset, resolveDefaultBackVocalRef, sanitizeBackVocsSelection } from "./backVocs";
+import { applyBackVocsSelection, detectBackVocalPresetKind, getBackVocalCandidatesFromTemplate, getBackVocsFromTemplate, getLeadVocsFromTemplate, getTalkbackOwnersFromTemplate, isBackVocalPreset, resolveDefaultBackVocalRef, sanitizeBackVocsSelection } from "./backVocs";
 
 const musicians: Musician[] = [
   {
@@ -71,7 +71,22 @@ describe("backVocs utils", () => {
     expect(Array.from(getLeadVocsFromTemplate(withLeadPreset))).toContain("m5");
   });
 
-  it("excludes lead vocalists from back vocal candidates", () => {
+  
+  it("detects talkback assignments from musician presets", () => {
+    const withTalkback: Musician[] = [
+      ...musicians,
+      {
+        id: "m5",
+        firstName: "E",
+        lastName: "Five",
+        group: "keys",
+        presets: [{ kind: "talkback", ref: "talkback", ownerKey: "keys", ownerLabel: "Keys" }],
+      },
+    ];
+
+    expect(Array.from(getTalkbackOwnersFromTemplate(withTalkback))).toContain("m5");
+  });
+it("excludes lead vocalists from back vocal candidates", () => {
     const withLead: Musician[] = [
       {
         id: "m1",

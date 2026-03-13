@@ -10,6 +10,10 @@ function isLeadVocalRef(ref: string): boolean {
   return ref.startsWith("vocal_lead_");
 }
 
+function isTalkbackRef(ref: string): boolean {
+  return ref === "talkback" || ref.startsWith("talkback_");
+}
+
 type PresetWithRef = { kind: string; ref: string };
 type BackVocalPresetKind = "vocal" | "vocal_type";
 
@@ -48,6 +52,20 @@ export function getLeadVocsFromTemplate(musicians: Musician[]): Set<MusicianId> 
   );
 }
 
+
+export function getTalkbackOwnersFromTemplate(musicians: Musician[]): Set<MusicianId> {
+  return new Set(
+    musicians
+      .filter((musician) =>
+        musician.presets.some((preset) => {
+          const withRef = asPresetWithRef(preset);
+          if (!withRef) return false;
+          return withRef.kind === "talkback" || ((withRef.kind === "preset" || withRef.kind === "vocal" || withRef.kind === "vocal_type") && isTalkbackRef(withRef.ref));
+        }),
+      )
+      .map((musician) => musician.id),
+  );
+}
 
 export function getBackVocalCandidatesFromTemplate(musicians: Musician[]): Musician[] {
   const leadVocIds = getLeadVocsFromTemplate(musicians);
