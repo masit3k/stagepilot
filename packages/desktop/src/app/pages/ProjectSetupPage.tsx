@@ -381,14 +381,6 @@ export function ProjectSetupPage({
         .sort((a, b) => a.label.localeCompare(b.label)),
     [presetCatalog],
   );
-  const defaultBackVocalRef = useMemo(
-    () =>
-      backVocalPresetRefs.find((item) => item.id === "vocal_back_no_mic")?.id ??
-      [...backVocalPresetRefs].sort((a, b) => a.id.localeCompare(b.id))[0]
-        ?.id ??
-      "",
-    [backVocalPresetRefs],
-  );
   const templateMusicians = selectedOptions;
   const templateMusicianIds = useMemo(
     () => new Set(templateMusicians.map((item) => item.id)),
@@ -463,6 +455,8 @@ export function ProjectSetupPage({
       ),
     [selectedBackVocalIds, templateMusicians],
   );
+  const hasSelectedBackVocs = selectedBackVocalIds.length > 0;
+  const isBackVocsSetupDisabled = !hasSelectedBackVocs;
 
   const backVocalCandidateIds = useMemo(
     () =>
@@ -1148,7 +1142,7 @@ export function ProjectSetupPage({
         <BackVocsBlock
           members={backVocalMembers}
           changeDisabled={selectedOptions.length === 0}
-          setupDisabled={backVocalMembers.length === 0}
+          setupDisabled={isBackVocsSetupDisabled}
           onChange={() => setIsBackVocsModalOpen(true)}
           onSetup={() => setIsBackVocsSetupOpen(true)}
         />
@@ -1801,12 +1795,6 @@ export function ProjectSetupPage({
               new Set(selectedBackVocalIds),
               leadVocalIds,
             )}
-            saveDisabled={!defaultBackVocalRef}
-            saveError={
-              !defaultBackVocalRef
-                ? "No back vocal preset is available."
-                : undefined
-            }
             onCancel={() => setIsBackVocsModalOpen(false)}
             onSave={(nextSelectedIds) => {
               const sanitizedSelectedIds = sanitizeBackVocsSelection(

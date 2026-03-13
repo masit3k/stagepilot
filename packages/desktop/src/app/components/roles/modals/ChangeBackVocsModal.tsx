@@ -6,7 +6,6 @@ type ChangeBackVocsModalProps = {
   members: MemberOption[];
   initialSelectedIds: Set<string>;
   saveDisabled?: boolean;
-  saveError?: string;
   onCancel: () => void;
   onSave: (selectedIds: Set<string>) => void;
 };
@@ -16,7 +15,6 @@ export function ChangeBackVocsModal({
   members,
   initialSelectedIds,
   saveDisabled = false,
-  saveError,
   onCancel,
   onSave,
 }: ChangeBackVocsModalProps) {
@@ -61,10 +59,9 @@ export function ChangeBackVocsModal({
           );
         })}
       </div>
-      {saveError ? <p className="status status--error">{saveError}</p> : null}
       <div className="modal-actions">
         <button type="button" className="button-secondary" onClick={onCancel}>Cancel</button>
-        <button type="button" disabled={saveDisabled || !hasCandidates} onClick={() => onSave(selectedIds)}>Save</button>
+        <button type="button" disabled={saveDisabled} onClick={() => onSave(selectedIds)}>Save</button>
       </div>
     </div>
   );

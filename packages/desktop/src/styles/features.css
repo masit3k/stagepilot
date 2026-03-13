@@ -511,15 +511,23 @@
 }
 
 .lineup-list--backvocs {
-  gap: 12px;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
 }
 
 .lineup-list__row--backvocs {
   align-items: center;
+  flex-wrap: nowrap;
 }
 
 .lineup-list__actions--inline {
   align-items: center;
+}
+
+.lineup-list__actions--backvocs {
+  align-self: center;
+  flex-shrink: 0;
 }
 
 

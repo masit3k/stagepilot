@@ -20,24 +20,21 @@ describe("ChangeBackVocsModal", () => {
     expect(html).toContain("Select BACK VOCS");
   });
 
-  it("disables save and shows error when no preset is available", () => {
+  it("does not render the obsolete no-preset error message", () => {
     const html = renderToStaticMarkup(
       <ChangeBackVocsModal
         open
         members={[{ id: "m1", name: "One" }]}
         initialSelectedIds={new Set()}
-        saveDisabled
-        saveError="No back vocal preset is available."
         onCancel={vi.fn()}
         onSave={vi.fn()}
       />,
     );
 
-    expect(html).toContain("disabled");
-    expect(html).toContain("No back vocal preset is available.");
+    expect(html).not.toContain("No back vocal preset is available.");
   });
 
-  it("shows empty state and disables save when no candidates are available", () => {
+  it("shows empty state and keeps save enabled when no candidates are available", () => {
     const html = renderToStaticMarkup(
       <ChangeBackVocsModal
         open
@@ -49,7 +46,7 @@ describe("ChangeBackVocsModal", () => {
     );
 
     expect(html).toContain("No eligible vocalists available.");
-    expect(html).toContain("disabled");
+    expect(html).toContain(">Save</button>");
+    expect(html).not.toContain("disabled");
   });
-
 });
