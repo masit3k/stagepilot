@@ -11,7 +11,7 @@ use std::{
 };
 use storage_paths::{
     atomic_write_bytes, catalog_dir as storage_catalog_dir, ensure_user_storage, exports_dir,
-    maybe_wipe_storage_for_dev, project_json_path, projects_dir as storage_projects_dir,
+    maybe_wipe_storage_for_dev, projects_dir as storage_projects_dir,
     sanitize_id_to_filename, temp_dir as storage_temp_dir, user_storage_root,
     versions_dir as storage_versions_dir, StorageError,
 };
@@ -253,6 +253,92 @@ fn map_io_error(err: std::io::Error, code: &str, message: &str) -> ApiError {
     }
 }
 
+fn parse_project_json(path: &Path) -> Result<Value, ApiError> {
+    let contents = fs::read_to_string(path)
+        .map_err(|err| map_io_error(err, "PROJECT_READ_FAILED", "Failed to read project file"))?;
+    serde_json::from_str(&contents).map_err(|err| ApiError {
+        code: "PROJECT_READ_FAILED".into(),
+        message: format!("Invalid project JSON in {} ({})", path.display(), err),
+        export_pdf_path: None,
+        version_pdf_path: None,
+    })
+}
+
+fn list_project_json_paths(projects_dir: &Path) -> Result<Vec<PathBuf>, ApiError> {
+    let entries = fs::read_dir(projects_dir)
+        .map_err(|err| map_io_error(err, "PROJECT_READ_FAILED", "Failed to read projects"))?;
+    let mut files = Vec::new();
+    for entry in entries {
+        let entry = entry
+            .map_err(|err| map_io_error(err, "PROJECT_READ_FAILED", "Failed to read projects"))?;
+        let path = entry.path();
+        if path.extension().and_then(|s| s.to_str()) == Some("json") {
+            files.push(path);
+        }
+    }
+    Ok(files)
+}
+
+fn project_slug_filename_candidates(slug: &str, band_leader_id: Option<&str>, project_id: &str) -> Vec<String> {
+    let slug_name = sanitize_id_to_filename(slug);
+    let mut out = vec![format!("{}.json", slug_name)];
+
+    if let Some(band_leader_id) = band_leader_id {
+        let trimmed = band_leader_id.trim();
+        if !trimmed.is_empty() {
+            out.push(format!("{}_{}.json", slug_name, sanitize_id_to_filename(trimmed)));
+        }
+    }
+
+    out.push(format!("{}_{}.json", slug_name, sanitize_id_to_filename(project_id)));
+    out
+}
+
+fn resolve_project_filename(projects_dir: &Path, project: &Value, current_file: Option<&Path>) -> Result<String, ApiError> {
+    let project_id = project
+        .get("id")
+        .and_then(|v| v.as_str())
+        .ok_or(ApiError {
+            code: "PROJECT_SAVE_FAILED".into(),
+            message: "Project id is required.".into(),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        })?;
+    let slug = project
+        .get("slug")
+        .and_then(|v| v.as_str())
+        .ok_or(ApiError {
+            code: "PROJECT_SAVE_FAILED".into(),
+            message: "Project slug is required.".into(),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        })?;
+
+    let candidates = project_slug_filename_candidates(
+        slug,
+        project.get("bandLeaderId").and_then(|v| v.as_str()),
+        project_id,
+    );
+
+    for candidate in candidates {
+        let candidate_path = projects_dir.join(&candidate);
+        if let Some(current) = current_file {
+            if current.file_name().and_then(|name| name.to_str()) == Some(candidate.as_str()) {
+                return Ok(candidate);
+            }
+        }
+        if !candidate_path.exists() {
+            return Ok(candidate);
+        }
+        let parsed = parse_project_json(&candidate_path)?;
+        if parsed.get("id").and_then(|v| v.as_str()) == Some(project_id) {
+            return Ok(candidate);
+        }
+    }
+
+    Ok(candidates.last().cloned().unwrap_or_else(|| format!("{}.json", sanitize_id_to_filename(project_id))))
+}
+
 fn resolve_project_path_by_id(
     app: &tauri::AppHandle,
     project_id: &str,
@@ -260,12 +346,18 @@ fn resolve_project_path_by_id(
     let projects_dir = storage_projects_dir(app).map_err(|err| {
         map_storage_error(err, "PROJECT_READ_FAILED", "Failed to resolve projects dir")
     })?;
-    let project_path = project_json_path(&projects_dir, project_id)
-        .map_err(|err| map_storage_error(err, "PROJECT_READ_FAILED", "Invalid project path"))?;
-    if !project_path.exists() {
-        return Ok(None);
+
+    for path in list_project_json_paths(&projects_dir)? {
+        let parsed = match parse_project_json(&path) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        if parsed.get("id").and_then(|v| v.as_str()) == Some(project_id) {
+            return Ok(Some(path));
+        }
     }
-    Ok(Some(project_path))
+
+    Ok(None)
 }
 
 fn catalog_dir(app: &tauri::AppHandle) -> Result<PathBuf, ApiError> {
@@ -464,29 +556,9 @@ fn list_projects(app: tauri::AppHandle) -> Result<Vec<ProjectSummary>, ApiError>
         map_storage_error(err, "PROJECT_LIST_FAILED", "Failed to resolve projects dir")
     })?;
 
-    let mut results = Vec::new();
-    let entries = fs::read_dir(&projects_dir)
-        .map_err(|err| map_io_error(err, "PROJECT_LIST_FAILED", "Failed to read projects"))?;
-
-    for entry in entries {
-        let entry = entry
-            .map_err(|err| map_io_error(err, "PROJECT_LIST_FAILED", "Failed to read projects"))?;
-        let path = entry.path();
-        if path.extension().and_then(|s| s.to_str()) != Some("json") {
-            continue;
-        }
-
-        let contents = fs::read_to_string(&path).map_err(|err| {
-            map_io_error(err, "PROJECT_LIST_FAILED", "Failed to read project file")
-        })?;
-
-        let json: serde_json::Value = serde_json::from_str(&contents).map_err(|err| ApiError {
-            code: "PROJECT_LIST_FAILED".into(),
-            message: format!("Invalid project JSON: {}", err),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        })?;
-
+    let mut by_id: HashMap<String, (ProjectSummary, String)> = HashMap::new();
+    for path in list_project_json_paths(&projects_dir)? {
+        let json = parse_project_json(&path)?;
         let id = json
             .get("id")
             .and_then(|v| v.as_str())
@@ -513,19 +585,13 @@ fn list_projects(app: tauri::AppHandle) -> Result<Vec<ProjectSummary>, ApiError>
             });
 
         let summary = ProjectSummary {
-            id,
-            slug: json
-                .get("slug")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string()),
+            id: id.clone(),
+            slug: json.get("slug").and_then(|v| v.as_str()).map(|s| s.to_string()),
             display_name: json
                 .get("displayName")
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string()),
-            band_ref: json
-                .get("bandRef")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string()),
+            band_ref: json.get("bandRef").and_then(|v| v.as_str()).map(|s| s.to_string()),
             event_date: json
                 .get("eventDate")
                 .and_then(|v| v.as_str())
@@ -534,17 +600,31 @@ fn list_projects(app: tauri::AppHandle) -> Result<Vec<ProjectSummary>, ApiError>
                 .get("eventVenue")
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string()),
-            purpose: json
-                .get("purpose")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string()),
+            purpose: json.get("purpose").and_then(|v| v.as_str()).map(|s| s.to_string()),
             created_at,
             updated_at,
         };
 
-        results.push(summary);
+        let filename = path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default()
+            .to_string();
+
+        if let Some((existing, existing_filename)) = by_id.get(&id) {
+            let prefer_new = summary.updated_at > existing.updated_at
+                || (summary.updated_at == existing.updated_at
+                    && summary.slug.is_some()
+                    && existing_filename.starts_with(&format!("{}.json", sanitize_id_to_filename(&id))));
+            if prefer_new {
+                by_id.insert(id, (summary, filename));
+            }
+        } else {
+            by_id.insert(id, (summary, filename));
+        }
     }
 
+    let mut results: Vec<ProjectSummary> = by_id.into_values().map(|(summary, _)| summary).collect();
     results.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
     Ok(results)
 }
@@ -925,25 +1005,24 @@ fn save_project(
         export_pdf_path: None,
         version_pdf_path: None,
     })?;
-    if parsed.get("slug").and_then(|v| v.as_str()).is_none() {
-        return Err(ApiError {
-            code: "PROJECT_SAVE_FAILED".into(),
-            message: "Project slug is required.".into(),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        });
-    }
 
-    let project_path = project_json_path(&projects_dir, &project_id)
-        .map_err(|err| map_storage_error(err, "PROJECT_SAVE_FAILED", "Invalid project path"))?;
-    eprintln!("[project] save path={}", project_path.display());
-    atomic_write_bytes(&project_path, json.as_bytes())
+    let current_path = resolve_project_path_by_id(&app, &project_id)?;
+    let target_filename = resolve_project_filename(&projects_dir, &parsed, current_path.as_deref())?;
+    let target_path = projects_dir.join(target_filename);
+
+    atomic_write_bytes(&target_path, json.as_bytes())
         .map_err(|err| map_storage_error(err, "PROJECT_SAVE_FAILED", "Failed to save project"))?;
+
+    if let Some(existing_path) = current_path {
+        if existing_path != target_path && existing_path.exists() {
+            let _ = fs::remove_file(existing_path);
+        }
+    }
 
     if let Some(legacy_id) = legacy_project_id {
         if legacy_id != project_id {
-            if let Ok(legacy_path) = project_json_path(&projects_dir, &legacy_id) {
-                if legacy_path.exists() {
+            if let Some(legacy_path) = resolve_project_path_by_id(&app, &legacy_id)? {
+                if legacy_path != target_path && legacy_path.exists() {
                     let _ = fs::remove_file(legacy_path);
                 }
             }

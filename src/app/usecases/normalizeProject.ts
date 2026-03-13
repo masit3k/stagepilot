@@ -1,4 +1,8 @@
-import type { Project, ProjectJson, StagePlanPurpose } from "../../domain/model/types.js";
+import type {
+  Project,
+  ProjectJson,
+  StagePlanPurpose,
+} from "../../domain/model/types.js";
 
 function assertString(value: unknown, label: string): string {
   if (typeof value !== "string" || value.trim() === "") {
@@ -16,28 +20,50 @@ export function normalizeProject(input: ProjectJson): Project {
   const id = assertString((input as ProjectJson).id, "project id");
   const bandRef = assertString((input as ProjectJson).bandRef, "bandRef");
   const raw = input as ProjectJson & { slug?: unknown; displayName?: unknown };
-  const slug = typeof raw.slug === "string" ? raw.slug.trim() || undefined : undefined;
-  const displayName = typeof raw.displayName === "string" ? raw.displayName.trim() || undefined : undefined;
+  const slug =
+    typeof raw.slug === "string" ? raw.slug.trim() || undefined : undefined;
+  const displayName =
+    typeof raw.displayName === "string"
+      ? raw.displayName.trim() || undefined
+      : undefined;
   const stageplan = (input as ProjectJson).stageplan;
   const lineup = "lineup" in input ? input.lineup : undefined;
-  const bandLeaderId = "bandLeaderId" in input && typeof input.bandLeaderId === "string" && input.bandLeaderId.trim().length > 0
-    ? input.bandLeaderId.trim()
-    : undefined;
-  const talkbackOwnerId = "talkbackOwnerId" in input && typeof input.talkbackOwnerId === "string" && input.talkbackOwnerId.trim().length > 0
-    ? input.talkbackOwnerId.trim()
-    : undefined;
-  const talkbackOverride = "talkbackOverride" in input && input.talkbackOverride && typeof input.talkbackOverride === "object"
-    ? ((value) => {
-        if (value.mode === "none") return { mode: "none" as const };
-        if (value.mode === "assigned" && typeof value.musicianId === "string" && value.musicianId.trim().length > 0) {
-          return { mode: "assigned" as const, musicianId: value.musicianId.trim() };
-        }
-        return undefined;
-      })(input.talkbackOverride as { mode?: unknown; musicianId?: unknown })
-    : undefined;
-  const backVocalIds = "backVocalIds" in input && Array.isArray(input.backVocalIds)
-    ? input.backVocalIds.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
-    : undefined;
+  const bandLeaderId =
+    "bandLeaderId" in input &&
+    typeof input.bandLeaderId === "string" &&
+    input.bandLeaderId.trim().length > 0
+      ? input.bandLeaderId.trim()
+      : undefined;
+  const talkbackOwnerId =
+    "talkbackOwnerId" in input && typeof input.talkbackOwnerId === "string"
+      ? input.talkbackOwnerId.trim()
+      : undefined;
+  const talkbackOverride =
+    "talkbackOverride" in input &&
+    input.talkbackOverride &&
+    typeof input.talkbackOverride === "object"
+      ? ((value) => {
+          if (value.mode === "none") return { mode: "none" as const };
+          if (
+            value.mode === "assigned" &&
+            typeof value.musicianId === "string" &&
+            value.musicianId.trim().length > 0
+          ) {
+            return {
+              mode: "assigned" as const,
+              musicianId: value.musicianId.trim(),
+            };
+          }
+          return undefined;
+        })(input.talkbackOverride as { mode?: unknown; musicianId?: unknown })
+      : undefined;
+  const backVocalIds =
+    "backVocalIds" in input && Array.isArray(input.backVocalIds)
+      ? input.backVocalIds.filter(
+          (item): item is string =>
+            typeof item === "string" && item.trim().length > 0,
+        )
+      : undefined;
 
   if ("purpose" in input) {
     const purpose = assertPurpose(input.purpose);
@@ -87,7 +113,9 @@ export function normalizeProject(input: ProjectJson): Project {
   if ("date" in input) {
     const eventDate = assertString(input.date, "date");
     const eventVenue =
-      typeof input.venue === "string" && input.venue.trim() ? input.venue.trim() : undefined;
+      typeof input.venue === "string" && input.venue.trim()
+        ? input.venue.trim()
+        : undefined;
     return {
       id,
       bandRef,

@@ -17,16 +17,38 @@ describe("resolveEffectiveTalkbackAssignment", () => {
       selectedMusicianIds: ["leader-1", "bass-1"],
     });
 
-    expect(result).toEqual({ mode: "assigned", musicianId: "leader-1", hasExplicitOverride: false });
+    expect(result).toEqual({
+      mode: "assigned",
+      musicianId: "leader-1",
+      hasExplicitOverride: false,
+    });
   });
 
-  it("treats explicit none as no assignment", () => {
+  it("treats explicit empty talkbackOwnerId as no assignment", () => {
     const project: Project = {
       id: "p-2",
       bandRef: "band-1",
       purpose: "generic",
       documentDate: "2026-01-01",
-      talkbackOverride: { mode: "none" },
+      talkbackOwnerId: "",
+    };
+
+    const result = resolveEffectiveTalkbackAssignment({
+      project,
+      bandLeaderId: "leader-1",
+      selectedMusicianIds: ["leader-1", "bass-1"],
+    });
+
+    expect(result).toEqual({ mode: "none", hasExplicitOverride: true });
+  });
+
+  it("does not fallback when explicit owner is invalid for selected lineup", () => {
+    const project: Project = {
+      id: "p-3",
+      bandRef: "band-1",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+      talkbackOwnerId: "ghost",
     };
 
     const result = resolveEffectiveTalkbackAssignment({

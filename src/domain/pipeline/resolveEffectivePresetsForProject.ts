@@ -6,20 +6,11 @@ import type {
   PresetItem,
   Project,
 } from "../model/types.js";
+import {
+  collectActiveLineupMusicianIds,
+  resolveProjectBackVocsState,
+} from "../project/resolveProjectAudioAssignments.js";
 import { resolveEffectiveTalkbackAssignment } from "../talkback/resolveEffectiveTalkbackAssignment.js";
-
-type ProjectWithBackVocalIds = Project & {
-  backVocalIds?: unknown;
-  lineup?: Record<string, unknown>;
-};
-
-function normalizeIdList(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.filter(
-        (id): id is string => typeof id === "string" && id.trim().length > 0,
-      )
-    : [];
-}
 
 function presetRef(item: PresetItem): string | undefined {
   return "ref" in item && typeof item.ref === "string" ? item.ref : undefined;
@@ -33,7 +24,6 @@ function isBackVocalItem(item: PresetItem): boolean {
   const ref = presetRef(item);
   return typeof ref === "string" && isBackVocalRef(ref);
 }
-
 
 function isTalkbackItem(item: PresetItem): boolean {
   return item.kind === "talkback";
@@ -69,37 +59,6 @@ function resolveBackVocalRef(
   return existingRefs[0] ?? "";
 }
 
-function extractSelectedIdsFromLineup(lineup: Record<string, unknown> | undefined): string[] {
-  if (!lineup) return [];
-  const selected = new Set<string>();
-
-  for (const value of Object.values(lineup)) {
-    if (typeof value === "string" && value.trim().length > 0) {
-      selected.add(value.trim());
-      continue;
-    }
-    if (Array.isArray(value)) {
-      for (const entry of value) {
-        if (typeof entry === "string" && entry.trim().length > 0) {
-          selected.add(entry.trim());
-          continue;
-        }
-        if (entry && typeof entry === "object" && typeof (entry as { musicianId?: unknown }).musicianId === "string") {
-          const musicianId = ((entry as { musicianId: string }).musicianId ?? "").trim();
-          if (musicianId) selected.add(musicianId);
-        }
-      }
-      continue;
-    }
-    if (value && typeof value === "object" && typeof (value as { musicianId?: unknown }).musicianId === "string") {
-      const musicianId = ((value as { musicianId: string }).musicianId ?? "").trim();
-      if (musicianId) selected.add(musicianId);
-    }
-  }
-
-  return Array.from(selected);
-}
-
 export function resolveEffectivePresetsForProject(args: {
   project: Project;
   band: Band;
@@ -108,21 +67,29 @@ export function resolveEffectivePresetsForProject(args: {
   repo: DataRepository;
 }): PresetItem[] {
   const { project, band, musician, group, repo } = args;
-  const basePresets = [...(musician.presets ?? [])].filter((item) => !isTalkbackItem(item));
-
-  const rawBackVocalIds = (project as ProjectWithBackVocalIds).backVocalIds;
-  const explicitBackVocalIds = normalizeIdList(rawBackVocalIds);
-  const lineupBackVocalIds = normalizeIdList(
-    (project as ProjectWithBackVocalIds).lineup?.back_vocs,
+  const basePresets = [...(musician.presets ?? [])].filter(
+    (item) => !isTalkbackItem(item),
   );
-  const selectedBackVocalIds =
-    lineupBackVocalIds.length > 0 ? lineupBackVocalIds : explicitBackVocalIds;
 
-  const selectedIds = new Set(selectedBackVocalIds);
+  const selectedIds = collectActiveLineupMusicianIds(project);
+  const selectedMusicianSet = new Set(selectedIds);
+  const backVocsState = resolveProjectBackVocsState({
+    project,
+    activeMusicianIds: selectedIds,
+    musiciansById: new Map([[musician.id, musician]]),
+  });
+
+  const selectedBackVocalIds = backVocsState.effectiveBackVocs.filter((id) =>
+    selectedMusicianSet.has(id),
+  );
+  const selectedBackVocalSet = new Set(selectedBackVocalIds);
   const withoutBackVocal = basePresets.filter((item) => !isBackVocalItem(item));
 
   let resolvedPresets = withoutBackVocal;
-  if (selectedBackVocalIds.length > 0 && selectedIds.has(musician.id)) {
+  if (
+    selectedBackVocalIds.length > 0 &&
+    selectedBackVocalSet.has(musician.id)
+  ) {
     if (basePresets.some((item) => isBackVocalItem(item))) {
       resolvedPresets = basePresets;
     } else {
@@ -144,7 +111,7 @@ export function resolveEffectivePresetsForProject(args: {
   const talkback = resolveEffectiveTalkbackAssignment({
     project,
     bandLeaderId: band.bandLeader,
-    selectedMusicianIds: extractSelectedIdsFromLineup((project as ProjectWithBackVocalIds).lineup),
+    selectedMusicianIds: selectedIds,
   });
 
   if (talkback.mode !== "assigned" || musician.id !== talkback.musicianId) {

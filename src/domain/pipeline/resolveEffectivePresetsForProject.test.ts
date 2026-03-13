@@ -71,7 +71,6 @@ describe("resolveEffectivePresetsForProject", () => {
     expect(otherItems.some((item) => item.kind === "talkback")).toBe(false);
   });
 
-
   it("does not inject talkback when explicit none override is set", () => {
     const musician: Musician = {
       id: "leader-1",
@@ -86,7 +85,7 @@ describe("resolveEffectivePresetsForProject", () => {
       purpose: "generic",
       documentDate: "2026-01-01",
       lineup: { vocs: "leader-1" },
-      talkbackOverride: { mode: "none" },
+      talkbackOwnerId: "",
     };
 
     const items = resolveEffectivePresetsForProject({
@@ -127,5 +126,39 @@ describe("resolveEffectivePresetsForProject", () => {
     });
 
     expect(items.filter((item) => item.kind === "talkback")).toHaveLength(1);
+  });
+
+  it("does not rehydrate default back vocals when explicit empty override is present", () => {
+    const musician: Musician = {
+      id: "voc-1",
+      firstName: "Back",
+      lastName: "Singer",
+      group: "vocs",
+      presets: [{ kind: "vocal", ref: "vocal_back_no_mic", ownerKey: "vocs" }],
+    };
+    const project: Project = {
+      id: "p-3",
+      bandRef: "band-1",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+      lineup: { vocs: "voc-1", back_vocs: [] },
+    };
+
+    const items = resolveEffectivePresetsForProject({
+      project,
+      band,
+      musician,
+      group: "vocs",
+      repo: repo as never,
+    });
+
+    expect(
+      items.some(
+        (item) =>
+          item.kind === "vocal" &&
+          "ref" in item &&
+          item.ref.startsWith("vocal_back_"),
+      ),
+    ).toBe(false);
   });
 });
