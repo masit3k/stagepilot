@@ -320,19 +320,19 @@ fn resolve_project_filename(projects_dir: &Path, project: &Value, current_file: 
         project_id,
     );
 
-    for candidate in candidates {
+    for candidate in &candidates {
         let candidate_path = projects_dir.join(&candidate);
         if let Some(current) = current_file {
             if current.file_name().and_then(|name| name.to_str()) == Some(candidate.as_str()) {
-                return Ok(candidate);
+                return Ok(candidate.clone());
             }
         }
         if !candidate_path.exists() {
-            return Ok(candidate);
+            return Ok(candidate.clone());
         }
         let parsed = parse_project_json(&candidate_path)?;
         if parsed.get("id").and_then(|v| v.as_str()) == Some(project_id) {
-            return Ok(candidate);
+            return Ok(candidate.clone());
         }
     }
 
