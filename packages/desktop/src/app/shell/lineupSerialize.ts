@@ -3,20 +3,19 @@ import {
   type LineupSlotValue,
   normalizeLineupValue,
   normalizeLineupSlots,
-  normalizeRoleConstraint,
+  getRoleSlotLimit,
 } from "../../projectRules";
 
 export function serializeLineupForProject(
   lineup: LineupMap,
-  constraints: Record<string, { min: number; max: number }>,
   roleOrder: string[],
 ): LineupMap {
   const serialized: LineupMap = {};
 
   for (const role of roleOrder) {
     const persistRole = role === "vocs" ? "lead_vocs" : role;
-    const roleConstraint = normalizeRoleConstraint(role, constraints[role]);
-    const slots = normalizeLineupSlots(lineup[role], roleConstraint.max);
+    const roleSlotLimit = getRoleSlotLimit(role);
+    const slots = normalizeLineupSlots(lineup[role], roleSlotLimit);
     const hasOverrides = slots.some((slot) => Boolean(slot.presetOverride));
 
     if (hasOverrides) {
@@ -25,13 +24,13 @@ export function serializeLineupForProject(
         ...(slot.presetOverride ? { presetOverride: slot.presetOverride } : {}),
       }));
       if (entry.length === 0) continue;
-      serialized[persistRole] = roleConstraint.max <= 1 ? entry[0] : entry;
+      serialized[persistRole] = roleSlotLimit <= 1 ? entry[0] : entry;
       continue;
     }
 
-    const ids = normalizeLineupValue(lineup[role], roleConstraint.max);
+    const ids = normalizeLineupValue(lineup[role], roleSlotLimit);
     if (ids.length === 0) continue;
-    serialized[persistRole] = roleConstraint.max <= 1 ? ids[0] : ids;
+    serialized[persistRole] = roleSlotLimit <= 1 ? ids[0] : ids;
   }
 
   if (lineup.back_vocs !== undefined) {

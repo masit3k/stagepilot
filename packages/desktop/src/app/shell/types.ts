@@ -1,8 +1,4 @@
-import type {
-  LineupMap,
-  RoleConstraint,
-  RoleLabelConstraints,
-} from "../../projectRules";
+import type { LineupMap } from "../../projectRules";
 import type {
   MusicianSetupPreset,
   Preset,
@@ -48,8 +44,6 @@ export type LibraryBand = {
   name: string;
   code: string;
   description?: string;
-  constraints: Record<string, RoleConstraint>;
-  roleConstraints?: RoleLabelConstraints;
   defaultLineup?: LineupMap | null;
   members: LibraryBandMember[];
   contacts: LibraryContact[];
@@ -67,8 +61,6 @@ export type BandSetupData = {
   name: string;
   bandLeader?: string | null;
   defaultContactId?: string | null;
-  constraints: Record<string, RoleConstraint>;
-  roleConstraints?: RoleLabelConstraints;
   defaultLineup?: LineupMap | null;
   members: Record<string, MemberOption[]>;
   musicianDefaults?: Record<string, Partial<MusicianSetupPreset>>;

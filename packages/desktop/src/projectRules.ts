@@ -6,15 +6,13 @@ import {
   sanitizeSlugSegment,
 } from "../../../src/domain/projectNaming";
 
-export type RoleConstraint = {
-  min: number;
-  max: number;
-};
-
-export type RoleLabelConstraints = {
-  vocs?: {
-    lead?: RoleConstraint;
-  };
+const ROLE_SLOT_LIMITS: Record<string, number> = {
+  drums: 1,
+  bass: 1,
+  guitar: 1,
+  keys: 1,
+  vocs: 4,
+  talkback: 1,
 };
 
 export type LineupValue = RichLineupValue;
@@ -267,6 +265,11 @@ export function isPastIsoDate(isoDate: string, todayIso: string): boolean {
   return isoDate < todayIso;
 }
 
+function countLineupEntries(value: RichLineupValue | undefined): number {
+  if (!value) return 0;
+  return Array.isArray(value) ? value.length : 1;
+}
+
 export function normalizeLineupValue(
   value: RichLineupValue | undefined,
   maxSlots: number,
@@ -297,39 +300,14 @@ export function normalizeLineupSlots(
     .slice(0, Math.max(maxSlots, 0));
 }
 
-export function normalizeRoleConstraint(
-  role: string,
-  constraint?: RoleConstraint,
-): RoleConstraint {
-  if (!constraint) {
-    return role === "vocs" ? { min: 0, max: 4 } : { min: 0, max: 1 };
-  }
-  const min = Math.max(0, Math.floor(constraint.min));
-  let max = Math.max(min, Math.floor(constraint.max));
-  if (role === "vocs") {
-    if (!Number.isFinite(max) || max <= 0 || max > 8) {
-      max = 4;
-    }
-  } else if (!Number.isFinite(max) || max > 2) {
-    max = 1;
-  }
-  return { min: Math.min(min, max), max };
+export function getRoleSlotLimit(role: string): number {
+  return ROLE_SLOT_LIMITS[role] ?? 1;
 }
 
 export function getRoleDisplayName(
   role: string,
-  constraints?: Record<string, RoleConstraint>,
-  roleConstraints?: RoleLabelConstraints,
 ): string {
-  if (role === "vocs") {
-    const leadVocConstraint = roleConstraints?.vocs?.lead;
-    const vocConstraint = normalizeRoleConstraint(
-      role,
-      leadVocConstraint ?? constraints?.[role],
-    );
-    if (vocConstraint.max === 1) return "LEAD VOC";
-    return "LEAD VOCS";
-  }
+  if (role === "vocs") return "LEAD VOCS";
   const names: Record<string, string> = {
     drums: "DRUMS",
     bass: "BASS",
@@ -343,20 +321,14 @@ export function getRoleDisplayName(
 
 export function validateLineup(
   lineup: LineupMap,
-  constraints: Record<string, RoleConstraint>,
   roleOrder: string[],
-  roleConstraints?: RoleLabelConstraints,
 ): string[] {
   const errors: string[] = [];
   for (const role of roleOrder) {
-    const roleConstraint = normalizeRoleConstraint(role, constraints[role]);
-    const selected = normalizeLineupValue(lineup[role], roleConstraint.max);
-    if (
-      selected.length < roleConstraint.min ||
-      selected.length > roleConstraint.max
-    ) {
+    const selectedCount = countLineupEntries(lineup[role]);
+    if (selectedCount > getRoleSlotLimit(role)) {
       errors.push(
-        `${getRoleDisplayName(role, constraints, roleConstraints)}: expected ${roleConstraint.min === roleConstraint.max ? roleConstraint.min : `${roleConstraint.min}-${roleConstraint.max}`} slot(s), selected ${selected.length}.`,
+        `${getRoleDisplayName(role)}: expected up to ${getRoleSlotLimit(role)} slot(s), selected ${selectedCount}.`,
       );
     }
   }
@@ -365,13 +337,11 @@ export function validateLineup(
 
 export function getUniqueSelectedMusicians(
   lineup: LineupMap,
-  constraints: Record<string, RoleConstraint>,
   roleOrder: string[],
 ): string[] {
   const ids = new Set<string>();
   for (const role of roleOrder) {
-    const roleConstraint = normalizeRoleConstraint(role, constraints[role]);
-    for (const id of normalizeLineupValue(lineup[role], roleConstraint.max)) {
+    for (const id of normalizeLineupValue(lineup[role], getRoleSlotLimit(role))) {
       ids.add(id);
     }
   }

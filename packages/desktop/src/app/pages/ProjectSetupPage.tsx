@@ -9,7 +9,7 @@ import {
   getRoleDisplayName,
   normalizeLineupSlots,
   normalizeLineupValue,
-  normalizeRoleConstraint,
+  getRoleSlotLimit,
   resolveBandLeaderId,
   resolveTalkbackOwnerId,
   validateLineup,
@@ -157,7 +157,6 @@ export function ProjectSetupPage({
     ) => {
       const selected = getUniqueSelectedMusicians(
         nextLineup,
-        data.constraints,
         ROLE_ORDER,
       );
       const resolvedLeader = resolveBandLeaderId({
@@ -291,7 +290,6 @@ export function ProjectSetupPage({
           lineup: {
             ...serializeLineupForProject(
               initialState.lineup,
-              data.constraints,
               ROLE_ORDER,
             ),
             ...(Array.isArray((parsed.lineup ?? {}).back_vocs)
@@ -317,18 +315,16 @@ export function ProjectSetupPage({
       }
       const initialSerializedLineup = serializeLineupForProject(
         initialState.lineup,
-        data.constraints,
         ROLE_ORDER,
       );
       const initialTemplateMusicians = getUniqueSelectedMusicians(
         initialState.lineup,
-        data.constraints,
         ROLE_ORDER,
       );
       const initialRoleByMusicianId = new Map<string, Group>();
       ROLE_ORDER.forEach((role) => {
-        const roleConstraint = normalizeRoleConstraint(role, data.constraints[role]);
-        normalizeLineupSlots(initialState.lineup[role], roleConstraint.max).forEach(
+        const roleSlotLimit = getRoleSlotLimit(role);
+        normalizeLineupSlots(initialState.lineup[role], roleSlotLimit).forEach(
           (slot) => {
             initialRoleByMusicianId.set(slot.musicianId, role as Group);
           },
@@ -375,9 +371,7 @@ export function ProjectSetupPage({
         ? []
         : validateLineup(
             lineup,
-            setupData.constraints,
             ROLE_ORDER,
-            setupData.roleConstraints,
           ),
     [lineup, setupData],
   );
@@ -385,7 +379,7 @@ export function ProjectSetupPage({
     () =>
       !setupData
         ? []
-        : getUniqueSelectedMusicians(lineup, setupData.constraints, ROLE_ORDER),
+        : getUniqueSelectedMusicians(lineup, ROLE_ORDER),
     [lineup, setupData],
   );
   const selectedOptions = useMemo(() => {
@@ -431,11 +425,8 @@ export function ProjectSetupPage({
 
     const roleByMusicianId = new Map<string, Group>();
     ROLE_ORDER.forEach((role) => {
-      const roleConstraint = normalizeRoleConstraint(
-        role,
-        setupData.constraints[role],
-      );
-      normalizeLineupSlots(lineup[role], roleConstraint.max).forEach((slot) => {
+      const roleSlotLimit = getRoleSlotLimit(role);
+      normalizeLineupSlots(lineup[role], roleSlotLimit).forEach((slot) => {
         roleByMusicianId.set(slot.musicianId, role as Group);
       });
     });
@@ -515,23 +506,19 @@ export function ProjectSetupPage({
 
   const serializedLineup = useMemo(() => {
     if (!setupData) return {} as LineupMap;
-    return serializeLineupForProject(lineup, setupData.constraints, ROLE_ORDER);
+    return serializeLineupForProject(lineup, ROLE_ORDER);
   }, [lineup, setupData]);
   const defaultSelectedBackVocalIds = useMemo(() => {
     if (!setupData) return [] as string[];
     const defaultLineup = { ...(setupData.defaultLineup ?? {}) };
     const selectedIds = getUniqueSelectedMusicians(
       defaultLineup,
-      setupData.constraints,
       ROLE_ORDER,
     );
     const roleByMusicianId = new Map<string, Group>();
     ROLE_ORDER.forEach((role) => {
-      const roleConstraint = normalizeRoleConstraint(
-        role,
-        setupData.constraints[role],
-      );
-      normalizeLineupSlots(defaultLineup[role], roleConstraint.max).forEach(
+      const roleSlotLimit = getRoleSlotLimit(role);
+      normalizeLineupSlots(defaultLineup[role], roleSlotLimit).forEach(
         (slot) => {
           roleByMusicianId.set(slot.musicianId, role as Group);
         },
@@ -569,7 +556,6 @@ export function ProjectSetupPage({
       ...defaults,
       lineup: serializeLineupForProject(
         defaults.lineup,
-        setupData.constraints,
         ROLE_ORDER,
       ),
       backVocalIds: defaultSelectedBackVocalIds,
@@ -642,7 +628,6 @@ export function ProjectSetupPage({
     initialSnapshotRef.current = createLineupDirtyBaseline({
       lineup: serializeLineupForProject(
         payload.lineup ?? {},
-        setupData?.constraints ?? {},
         ROLE_ORDER,
       ),
       bandLeaderId: payload.bandLeaderId ?? "",
@@ -670,24 +655,18 @@ export function ProjectSetupPage({
 
   function setRoleSlots(role: string, slots: LineupSlotValue[]) {
     if (!setupData) return;
-    const constraint = normalizeRoleConstraint(
-      role,
-      setupData.constraints[role],
-    );
+    const roleSlotLimit = getRoleSlotLimit(role);
     const compact = slots.filter((slot) => Boolean(slot.musicianId));
-    const value = constraint.max <= 1 ? compact[0] : compact;
+    const value = roleSlotLimit <= 1 ? compact[0] : compact;
     const nextLineup = { ...lineup, [role]: value as LineupMap[string] };
     applyState(nextLineup, setupData, bandLeaderId, talkbackOwnerId);
   }
 
   function updateSlot(role: string, slotIndex: number, musicianId: string) {
     if (!setupData) return;
-    const constraint = normalizeRoleConstraint(
-      role,
-      setupData.constraints[role],
-    );
-    const current = normalizeLineupSlots(lineup[role], constraint.max);
-    while (current.length < Math.max(constraint.max, slotIndex + 1))
+    const roleSlotLimit = getRoleSlotLimit(role);
+    const current = normalizeLineupSlots(lineup[role], roleSlotLimit);
+    while (current.length < Math.max(roleSlotLimit, slotIndex + 1))
       current.push({ musicianId: "" });
     const previous = current[slotIndex];
     current[slotIndex] = musicianId
@@ -738,11 +717,8 @@ export function ProjectSetupPage({
     slotIndex: number,
   ): PresetOverridePatch | undefined {
     if (!setupData) return undefined;
-    const constraint = normalizeRoleConstraint(
-      role,
-      setupData.constraints[role],
-    );
-    const slots = normalizeLineupSlots(lineup[role], constraint.max);
+    const roleSlotLimit = getRoleSlotLimit(role);
+    const slots = normalizeLineupSlots(lineup[role], roleSlotLimit);
     return slots[slotIndex]?.presetOverride;
   }
 
@@ -752,11 +728,8 @@ export function ProjectSetupPage({
     if (!setupData) return;
     const nextLineup: LineupMap = { ...lineup };
     ROLE_ORDER.forEach((role) => {
-      const constraint = normalizeRoleConstraint(
-        role,
-        setupData.constraints[role],
-      );
-      const slots = normalizeLineupSlots(lineup[role], constraint.max).map(
+      const roleSlotLimit = getRoleSlotLimit(role);
+      const slots = normalizeLineupSlots(lineup[role], roleSlotLimit).map(
         (slot, slotIndex) => {
           if (!slot.musicianId) return slot;
           const slotKey = `${role}:${slotIndex}`;
@@ -780,7 +753,7 @@ export function ProjectSetupPage({
         },
       );
       nextLineup[role] = (
-        constraint.max <= 1 ? slots[0] : slots
+        roleSlotLimit <= 1 ? slots[0] : slots
       ) as LineupMap[string];
     });
     applyState(nextLineup, setupData, bandLeaderId, talkbackOwnerId);
@@ -881,11 +854,8 @@ export function ProjectSetupPage({
         effective: MusicianSetupPreset;
       }>;
     return ROLE_ORDER.flatMap((role) => {
-      const constraint = normalizeRoleConstraint(
-        role,
-        setupData.constraints[role],
-      );
-      return normalizeLineupSlots(lineup[role], constraint.max)
+      const roleSlotLimit = getRoleSlotLimit(role);
+      return normalizeLineupSlots(lineup[role], roleSlotLimit)
         .map((slot, slotIndex) => ({
           role,
           slotIndex,
@@ -933,11 +903,8 @@ export function ProjectSetupPage({
   const setupMusicians = useMemo(() => {
     if (!setupData || !editingSetup) return [] as SetupMusicianItem[];
     const role = editingSetup.role;
-    const constraint = normalizeRoleConstraint(
-      role,
-      setupData.constraints[role],
-    );
-    return normalizeLineupSlots(lineup[role], constraint.max)
+    const roleSlotLimit = getRoleSlotLimit(role);
+    return normalizeLineupSlots(lineup[role], roleSlotLimit)
       .map((slot, slotIndex) => ({ role, slotIndex, slot }))
       .filter(({ slot }) => Boolean(slot.musicianId))
       .map(({ role, slotIndex, slot }) => ({
@@ -994,8 +961,8 @@ export function ProjectSetupPage({
     return buildVisibleLineupSections({
       roleOrder: ROLE_ORDER,
       resolveRoleSlots: (role) => {
-        const constraint = normalizeRoleConstraint(role, setupData.constraints[role]);
-        return normalizeLineupSlots(lineup[role], constraint.max);
+        const roleSlotLimit = getRoleSlotLimit(role);
+        return normalizeLineupSlots(lineup[role], roleSlotLimit);
       },
       resolveMusicianDefaultInputs: (musicianId) =>
         resolveMusicianCapabilityDefaultInputs(musicianId),
@@ -1063,13 +1030,10 @@ export function ProjectSetupPage({
                 <div className="lineup-card__body section-divider">
                   <div className="lineup-list lineup-list--single">
                     {section.members.map((member) => {
-                      const sourceConstraint = normalizeRoleConstraint(
-                        member.sourceRole,
-                        setupData?.constraints[member.sourceRole],
-                      );
+                      const sourceRoleSlotLimit = getRoleSlotLimit(member.sourceRole);
                       const sourceSlots = normalizeLineupSlots(
                         lineup[member.sourceRole],
-                        sourceConstraint.max,
+                        sourceRoleSlotLimit,
                       );
                       const sourceSlot = sourceSlots[member.sourceSlotIndex];
                       const musicianId = sourceSlot?.musicianId ?? member.musicianId;
@@ -1110,13 +1074,10 @@ export function ProjectSetupPage({
                                   PresetOverridePatch | undefined
                                 > = {};
                                 ROLE_ORDER.forEach((setupRole) => {
-                                  const setupConstraint = normalizeRoleConstraint(
-                                    setupRole,
-                                    setupData.constraints[setupRole],
-                                  );
+                                  const setupRoleSlotLimit = getRoleSlotLimit(setupRole);
                                   normalizeLineupSlots(
                                     lineup[setupRole],
-                                    setupConstraint.max,
+                                    setupRoleSlotLimit,
                                   ).forEach((setupSlot, setupIndex) => {
                                     if (!setupSlot.musicianId) return;
                                     draftEntries[`${setupRole}:${setupIndex}`] =
@@ -1153,8 +1114,8 @@ export function ProjectSetupPage({
           }
 
           const role = section.role;
-          const constraint = normalizeRoleConstraint(role, setupData?.constraints[role]);
-          const selected = normalizeLineupValue(lineup[role], constraint.max);
+          const roleSlotLimit = getRoleSlotLimit(role);
+          const selected = normalizeLineupValue(lineup[role], roleSlotLimit);
           const members = setupData?.members[role] || [];
 
           return (
@@ -1169,14 +1130,10 @@ export function ProjectSetupPage({
                           .inputs,
                       fallback: getRoleDisplayName(
                         role,
-                        setupData?.constraints,
-                        setupData?.roleConstraints,
                       ),
                     })
                   : getRoleDisplayName(
                       role,
-                      setupData?.constraints,
-                      setupData?.roleConstraints,
                     )}
               </h3>
               <div className="lineup-card__body section-divider">
@@ -1216,13 +1173,10 @@ export function ProjectSetupPage({
                                 PresetOverridePatch | undefined
                               > = {};
                               ROLE_ORDER.forEach((setupRole) => {
-                                const setupConstraint = normalizeRoleConstraint(
-                                  setupRole,
-                                  setupData.constraints[setupRole],
-                                );
+                                const setupRoleSlotLimit = getRoleSlotLimit(setupRole);
                                 normalizeLineupSlots(
                                   lineup[setupRole],
-                                  setupConstraint.max,
+                                  setupRoleSlotLimit,
                                 ).forEach((setupSlot, setupIndex) => {
                                   if (!setupSlot.musicianId) return;
                                   draftEntries[`${setupRole}:${setupIndex}`] =
@@ -1246,7 +1200,7 @@ export function ProjectSetupPage({
                             }}
                           >
                             Setup
-                            {normalizeLineupSlots(lineup[role], constraint.max)[index]
+                            {normalizeLineupSlots(lineup[role], roleSlotLimit)[index]
                               ?.presetOverride
                               ? " •"
                               : ""}
@@ -1627,13 +1581,10 @@ export function ProjectSetupPage({
                       setSetupDraftBySlot((prev) => {
                         const next = { ...prev };
                         ROLE_ORDER.forEach((role) => {
-                          const constraint = normalizeRoleConstraint(
-                            role,
-                            setupData.constraints[role],
-                          );
+                          const roleSlotLimit = getRoleSlotLimit(role);
                           normalizeLineupSlots(
                             lineup[role],
-                            constraint.max,
+                            roleSlotLimit,
                           ).forEach((slot, slotIndex) => {
                             if (
                               slot.musicianId !==
@@ -2027,8 +1978,6 @@ export function ProjectSetupPage({
                 Select{" "}
                 {getRoleDisplayName(
                   editing.role,
-                  setupData.constraints,
-                  setupData.roleConstraints,
                 )}
               </h3>
             </div>

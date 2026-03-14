@@ -6,7 +6,7 @@ import type {
   LibraryBand,
   LibraryMusician,
 } from "../../../shell/types";
-import { getRoleDisplayName, normalizeLineupValue, normalizeRoleConstraint, validateLineup } from "../../../../projectRules";
+import { getRoleDisplayName, getRoleSlotLimit, normalizeLineupValue, validateLineup } from "../../../../projectRules";
 import { LibraryEntityCrud } from "./LibraryEntityCrud";
 import { LibrarySimpleEntityPage } from "./LibrarySimpleEntityPage";
 import type { LibraryPageProps } from "../../shared/pageTypes";
@@ -108,14 +108,6 @@ export function LibraryBandDetailPage({
     name: "",
     code: "",
     description: "",
-    constraints: {
-      drums: { min: 0, max: 1 },
-      bass: { min: 0, max: 1 },
-      guitar: { min: 0, max: 1 },
-      keys: { min: 0, max: 1 },
-      vocs: { min: 0, max: 4 },
-    },
-    roleConstraints: undefined,
     defaultLineup: {},
     members: [],
     contacts: [],
@@ -152,9 +144,7 @@ export function LibraryBandDetailPage({
     const next = { ...band, id };
     const errors = validateLineup(
       next.defaultLineup ?? {},
-      next.constraints,
       ROLE_ORDER,
-      next.roleConstraints,
     );
     if (errors.length > 0) {
       setStatus(errors.join(" "));
@@ -247,24 +237,17 @@ export function LibraryBandDetailPage({
         </div>
         <div className="lineup-grid">
           {ROLE_ORDER.map((role) => {
-            const constraint = normalizeRoleConstraint(
-              role,
-              band.constraints[role],
-            );
+            const roleSlotLimit = getRoleSlotLimit(role);
             const slots = normalizeLineupValue(
               (band.defaultLineup ?? {})[role],
-              constraint.max,
+              roleSlotLimit,
             );
             return (
               <div key={role} className="lineup-card">
                 <strong>
-                  {getRoleDisplayName(
-                    role,
-                    band.constraints,
-                    band.roleConstraints,
-                  )}
+                  {getRoleDisplayName(role)}
                 </strong>
-                {Array.from({ length: Math.max(constraint.max, 1) }).map(
+                {Array.from({ length: Math.max(roleSlotLimit, 1) }).map(
                   (_, idx) => (
                     <div key={idx} className="lineup-list__row">
                       <span>
@@ -280,10 +263,10 @@ export function LibraryBandDetailPage({
                           if (!selected) return;
                           const current = normalizeLineupValue(
                             (band.defaultLineup ?? {})[role],
-                            constraint.max,
+                            roleSlotLimit,
                           );
                           while (
-                            current.length < Math.max(constraint.max, idx + 1)
+                            current.length < Math.max(roleSlotLimit, idx + 1)
                           )
                             current.push("");
                           current[idx] = selected.id;
@@ -292,7 +275,7 @@ export function LibraryBandDetailPage({
                             defaultLineup: {
                               ...(band.defaultLineup ?? {}),
                               [role]:
-                                constraint.max === 1
+                                roleSlotLimit === 1
                                   ? current[0]
                                   : current.filter(Boolean),
                             },

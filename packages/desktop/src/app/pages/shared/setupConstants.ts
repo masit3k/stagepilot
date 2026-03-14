@@ -26,7 +26,6 @@ import type {
   MemberOption,
   NewProjectPayload,
 } from "../../shell/types";
-import type { RoleConstraint } from "../../../projectRules";
 
 export const ROLE_ORDER = ["drums", "bass", "guitar", "keys", "vocs"];
 
@@ -247,13 +246,9 @@ export function buildInputsPatchFromTarget(
 export function createFallbackSetupData(
   project: NewProjectPayload,
 ): BandSetupData {
-  const constraints = Object.fromEntries(
-    ROLE_ORDER.map((role) => [role, { min: 0, max: 1 }]),
-  ) as Record<string, RoleConstraint>;
   return {
     id: project.bandRef,
     name: project.displayName || project.bandRef,
-    constraints,
     defaultLineup: {},
     members: Object.fromEntries(
       [...ROLE_ORDER, "talkback"].map((role) => [role, []]),

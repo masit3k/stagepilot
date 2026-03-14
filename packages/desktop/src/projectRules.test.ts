@@ -10,7 +10,7 @@ import {
   matchProjectGenericPath,
   normalizeCity,
   getRoleDisplayName,
-  normalizeRoleConstraint,
+  getRoleSlotLimit,
   formatDateDigitsToDDMMYYYY,
   parseDDMMYYYYToISO,
   acceptISOToDDMMYYYY,
@@ -120,37 +120,18 @@ describe("event date rules", () => {
   });
 });
 
-describe("role constraints", () => {
-  it("falls back to safe vocal max when constraints are invalid", () => {
-    expect(normalizeRoleConstraint("vocs", { min: 0, max: 99 })).toEqual({
-      min: 0,
-      max: 4,
-    });
+describe("role slot limits", () => {
+  it("uses static vocal slot limit", () => {
+    expect(getRoleSlotLimit("vocs")).toBe(4);
   });
 
-  it("uses roleConstraints.vocs.lead max to derive vocal label", () => {
-    expect(
-      getRoleDisplayName(
-        "vocs",
-        { vocs: { min: 0, max: 4 } },
-        { vocs: { lead: { min: 0, max: 1 } } },
-      ),
-    ).toBe("LEAD VOC");
-    expect(
-      getRoleDisplayName(
-        "vocs",
-        { vocs: { min: 0, max: 1 } },
-        { vocs: { lead: { min: 0, max: 2 } } },
-      ),
-    ).toBe("LEAD VOCS");
+  it("uses static role labels", () => {
+    expect(getRoleDisplayName("vocs")).toBe("LEAD VOCS");
   });
 
-  it("uses resolved vocal label in lineup validation", () => {
-    expect(
-      validateLineup({ vocs: [] }, { vocs: { min: 1, max: 2 } }, ["vocs"], {
-        vocs: { lead: { min: 1, max: 1 } },
-      }),
-    ).toContain("LEAD VOC: expected 1-2 slot(s), selected 0.");
+  it("validates lineup against static slot limits", () => {
+    expect(validateLineup({ vocs: ["a", "b", "c", "d", "e"] }, ["vocs"]))
+      .toContain("LEAD VOCS: expected up to 4 slot(s), selected 5.");
   });
 
   it("prefers band JSON bandLeader for defaults", () => {
@@ -197,7 +178,6 @@ describe("lineup slot overrides", () => {
   it("collects selected musician ids from mixed lineup shapes", () => {
     const selected = getUniqueSelectedMusicians(
       { guitar: { musicianId: "fuchs_tomas" }, bass: "krecmer_matej" },
-      { guitar: { min: 0, max: 1 }, bass: { min: 0, max: 1 } },
       ["guitar", "bass"],
     );
     expect(selected.sort()).toEqual(["fuchs_tomas", "krecmer_matej"].sort());

@@ -52,8 +52,6 @@ struct LibraryBand {
     name: String,
     code: String,
     description: Option<String>,
-    constraints: HashMap<String, RoleCountConstraint>,
-    role_constraints: Option<Value>,
     default_lineup: Option<Value>,
     members: Vec<LibraryBandMember>,
     contacts: Vec<LibraryContact>,
@@ -104,11 +102,6 @@ struct LibraryMessage {
     body: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct RoleCountConstraint {
-    min: usize,
-    max: usize,
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -117,8 +110,6 @@ struct BandSetupData {
     name: String,
     band_leader: Option<String>,
     default_contact_id: Option<String>,
-    constraints: HashMap<String, RoleCountConstraint>,
-    role_constraints: Option<Value>,
     default_lineup: Option<Value>,
     members: HashMap<String, Vec<MemberOption>>,
     musician_defaults: HashMap<String, Value>,
@@ -875,18 +866,6 @@ fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSet
         }
     }
 
-    let constraints: HashMap<String, RoleCountConstraint> = serde_json::from_value(
-        json.get("constraints")
-            .cloned()
-            .unwrap_or(Value::Object(serde_json::Map::new())),
-    )
-    .map_err(|err| ApiError {
-        code: "BAND_SETUP_LOAD_FAILED".into(),
-        message: format!("Invalid constraints for band {} ({})", band_id, err),
-        export_pdf_path: None,
-        version_pdf_path: None,
-    })?;
-
     let mut load_warnings: Vec<String> = Vec::new();
     if let Some(default_lineup) = normalize_default_lineup_keys(json.get("defaultLineup").cloned())
     {
@@ -961,8 +940,6 @@ fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSet
             .get("defaultContactId")
             .and_then(|v| v.as_str())
             .map(|v| v.to_string()),
-        constraints,
-        role_constraints: json.get("roleConstraints").cloned(),
         default_lineup: normalize_default_lineup_keys(json.get("defaultLineup").cloned()),
         members,
         musician_defaults,
