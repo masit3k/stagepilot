@@ -20,8 +20,10 @@ export function detectPresetInstrumentCapabilities(
   return inputs.reduce<MusicianInstrumentCapabilities>(
     (capabilities, input) => {
       const key = normalizeKey(input.key);
-      if (key.startsWith("el_guitar")) capabilities.hasElectricGuitarCapability = true;
-      if (key.startsWith("ac_guitar")) capabilities.hasAcousticGuitarCapability = true;
+      if (key.startsWith("el_guitar"))
+        capabilities.hasElectricGuitarCapability = true;
+      if (key.startsWith("ac_guitar"))
+        capabilities.hasAcousticGuitarCapability = true;
       return capabilities;
     },
     {
@@ -39,6 +41,10 @@ export function hasAcousticGuitarCapability(inputs: InputChannel[]): boolean {
   return detectPresetInstrumentCapabilities(inputs).hasAcousticGuitarCapability;
 }
 
+export function hasAcousticGuitarPreset(inputs: InputChannel[]): boolean {
+  return hasAcousticGuitarCapability(inputs);
+}
+
 export function resolveMusicianInstrumentCapabilities(
   inputs: InputChannel[],
 ): MusicianInstrumentCapabilities {
@@ -48,7 +54,10 @@ export function resolveMusicianInstrumentCapabilities(
 export function isAcousticOnlyMember(
   capabilities: MusicianInstrumentCapabilities,
 ): boolean {
-  return capabilities.hasAcousticGuitarCapability && !capabilities.hasElectricGuitarCapability;
+  return (
+    capabilities.hasAcousticGuitarCapability &&
+    !capabilities.hasElectricGuitarCapability
+  );
 }
 
 export function resolveLineupInstrumentMembership(
@@ -63,4 +72,22 @@ export function resolveLineupInstrumentMembership(
     isElectricGuitarMember,
     isAcousticOnlyGuitarMember,
   };
+}
+
+export function getAcousticGuitarMembers<
+  T extends { musicianId?: string },
+>(args: {
+  slots: Array<T & { role: string; slotIndex: number }>;
+  resolveInputs: (role: string, musicianId: string) => InputChannel[];
+}): Array<T & { role: string; slotIndex: number; musicianId: string }> {
+  return args.slots
+    .filter(
+      (
+        slot,
+      ): slot is T & { role: string; slotIndex: number; musicianId: string } =>
+        Boolean(slot.musicianId),
+    )
+    .filter((slot) =>
+      hasAcousticGuitarPreset(args.resolveInputs(slot.role, slot.musicianId)),
+    );
 }

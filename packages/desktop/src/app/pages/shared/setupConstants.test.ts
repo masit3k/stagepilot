@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildVisibleLineupSections, resolveMusicianDefaultInputsFromPresets, resolveMusicianDefaultSetupForRole } from "./setupConstants";
+import {
+  buildVisibleLineupSections,
+  resolveMusicianDefaultInputsFromPresets,
+  resolveMusicianDefaultSetupForRole,
+} from "./setupConstants";
 
 describe("resolveMusicianDefaultInputsFromPresets", () => {
   it("resolves bass default input from musician preset ref", () => {
@@ -59,7 +63,10 @@ describe("resolveMusicianDefaultSetupForRole", () => {
       role: "guitar",
       presetItems: [{ kind: "preset", ref: "el_guitar_xlr_stereo" }],
       presetCatalog: catalog,
-      bandDefaults: { inputs: [{ key: "gtr_mic", label: "Guitar mic" }], monitoring: { monitorRef: "wedge" } },
+      bandDefaults: {
+        inputs: [{ key: "gtr_mic", label: "Guitar mic" }],
+        monitoring: { monitorRef: "wedge" },
+      },
     });
 
     expect(resolved.inputs.map((item) => item.key)).toEqual([
@@ -73,10 +80,15 @@ describe("resolveMusicianDefaultSetupForRole", () => {
       role: "bass",
       presetItems: [{ kind: "preset", ref: "el_bass_xlr_pedalboard" }],
       presetCatalog: catalog,
-      bandDefaults: { inputs: [{ key: "el_bass_xlr_amp", label: "Amp" }], monitoring: { monitorRef: "wedge" } },
+      bandDefaults: {
+        inputs: [{ key: "el_bass_xlr_amp", label: "Amp" }],
+        monitoring: { monitorRef: "wedge" },
+      },
     });
 
-    expect(resolved.inputs.map((item) => item.key)).toEqual(["el_bass_xlr_pedalboard"]);
+    expect(resolved.inputs.map((item) => item.key)).toEqual([
+      "el_bass_xlr_pedalboard",
+    ]);
   });
 
   it("resolves vocal defaults from musician presets", () => {
@@ -84,7 +96,10 @@ describe("resolveMusicianDefaultSetupForRole", () => {
       role: "vocs",
       presetItems: [{ kind: "preset", ref: "vocal_lead_wireless" }],
       presetCatalog: catalog,
-      bandDefaults: { inputs: [{ key: "voc_lead", label: "Lead vocal" }], monitoring: { monitorRef: "wedge" } },
+      bandDefaults: {
+        inputs: [{ key: "voc_lead", label: "Lead vocal" }],
+        monitoring: { monitorRef: "wedge" },
+      },
     });
 
     expect(resolved.inputs.map((item) => item.key)).toContain("voc_lead");
@@ -95,7 +110,10 @@ describe("resolveMusicianDefaultSetupForRole", () => {
       role: "guitar",
       musicianDefaults: { monitoring: { monitorRef: "iem_stereo_wireless" } },
       presetCatalog: catalog,
-      bandDefaults: { inputs: [{ key: "gtr_mic", label: "Guitar mic" }], monitoring: { monitorRef: "wedge" } },
+      bandDefaults: {
+        inputs: [{ key: "gtr_mic", label: "Guitar mic" }],
+        monitoring: { monitorRef: "wedge" },
+      },
     });
 
     expect(resolved.monitoring.monitorRef).toBe("iem_stereo_wireless");
@@ -103,9 +121,8 @@ describe("resolveMusicianDefaultSetupForRole", () => {
   });
 });
 
-
 describe("buildVisibleLineupSections", () => {
-  it("does not show AC. GUITAR without acoustic-only member", () => {
+  it("does not show AC. GUITAR without acoustic member", () => {
     const sections = buildVisibleLineupSections({
       roleOrder: ["drums", "bass", "guitar", "keys", "vocs"],
       resolveRoleSlots: (role) =>
@@ -120,10 +137,12 @@ describe("buildVisibleLineupSections", () => {
           : [{ key: "voc_lead", label: "Lead vocal" }],
     });
 
-    expect(sections.some((section) => section.kind === "acoustic_guitar")).toBe(false);
+    expect(sections.some((section) => section.kind === "acoustic_guitar")).toBe(
+      false,
+    );
   });
 
-  it("shows AC. GUITAR when acoustic-only member exists and places it after EL. GUITAR", () => {
+  it("shows AC. GUITAR when acoustic member exists and places it after EL. GUITAR", () => {
     const sections = buildVisibleLineupSections({
       roleOrder: ["drums", "bass", "guitar", "keys", "vocs"],
       resolveRoleSlots: (role) =>
@@ -132,26 +151,34 @@ describe("buildVisibleLineupSections", () => {
           : [{ musicianId: undefined }],
       resolveMusicianDefaultInputs: (_role, musicianId) =>
         musicianId === "lukas-holoubek"
-          ? [{ key: "ac_guitar", label: "Acoustic guitar" }]
+          ? [
+              { key: "ac_guitar", label: "Acoustic guitar" },
+              { key: "vocal_lead_no_mic", label: "Lead vocal no mic" },
+              { key: "wedge", label: "Wedge" },
+            ]
           : [],
     });
 
     const guitarIndex = sections.findIndex(
       (section) => section.kind === "role" && section.role === "guitar",
     );
-    const acousticIndex = sections.findIndex((section) => section.kind === "acoustic_guitar");
+    const acousticIndex = sections.findIndex(
+      (section) => section.kind === "acoustic_guitar",
+    );
 
     expect(acousticIndex).toBe(guitarIndex + 1);
-    const acousticSection = sections.find((section) => section.kind === "acoustic_guitar");
+    const acousticSection = sections.find(
+      (section) => section.kind === "acoustic_guitar",
+    );
     expect(acousticSection?.kind).toBe("acoustic_guitar");
     if (acousticSection?.kind === "acoustic_guitar") {
-      expect(acousticSection.members.map((member) => member.musicianId)).toEqual([
-        "lukas-holoubek",
-      ]);
+      expect(
+        acousticSection.members.map((member) => member.musicianId),
+      ).toEqual(["lukas-holoubek"]);
     }
   });
 
-  it("shows AC. GUITAR for any acoustic-only member outside guitar role", () => {
+  it("shows AC. GUITAR for any acoustic member outside guitar role", () => {
     const sections = buildVisibleLineupSections({
       roleOrder: ["drums", "bass", "guitar", "keys", "vocs"],
       resolveRoleSlots: (role) =>
@@ -166,17 +193,18 @@ describe("buildVisibleLineupSections", () => {
           : [],
     });
 
-    const acousticSection = sections.find((section) => section.kind === "acoustic_guitar");
+    const acousticSection = sections.find(
+      (section) => section.kind === "acoustic_guitar",
+    );
     expect(acousticSection?.kind).toBe("acoustic_guitar");
     if (acousticSection?.kind === "acoustic_guitar") {
-      expect(acousticSection.members.map((member) => member.musicianId)).toEqual([
-        "keys-acoustic",
-        "vocal-acoustic",
-      ]);
+      expect(
+        acousticSection.members.map((member) => member.musicianId),
+      ).toEqual(["keys-acoustic", "vocal-acoustic"]);
     }
   });
 
-  it("does not include electric+acoustic member in AC. GUITAR section", () => {
+  it("includes electric+acoustic member in AC. GUITAR section", () => {
     const sections = buildVisibleLineupSections({
       roleOrder: ["drums", "bass", "guitar", "keys", "vocs"],
       resolveRoleSlots: (role) =>
@@ -192,10 +220,18 @@ describe("buildVisibleLineupSections", () => {
           : [],
     });
 
-    expect(sections.some((section) => section.kind === "acoustic_guitar")).toBe(false);
+    const acousticSection = sections.find(
+      (section) => section.kind === "acoustic_guitar",
+    );
+    expect(acousticSection?.kind).toBe("acoustic_guitar");
+    if (acousticSection?.kind === "acoustic_guitar") {
+      expect(
+        acousticSection.members.map((member) => member.musicianId),
+      ).toEqual(["electric-and-acoustic"]);
+    }
   });
 
-  it("hides AC. GUITAR after member change away from acoustic-only", () => {
+  it("hides AC. GUITAR after member change away from acoustic", () => {
     const roleSlotsByRole: Record<string, Array<{ musicianId?: string }>> = {
       drums: [{ musicianId: undefined }],
       bass: [{ musicianId: undefined }],
@@ -207,20 +243,44 @@ describe("buildVisibleLineupSections", () => {
     const resolveSections = () =>
       buildVisibleLineupSections({
         roleOrder: ["drums", "bass", "guitar", "keys", "vocs"],
-        resolveRoleSlots: (role) => roleSlotsByRole[role] ?? [{ musicianId: undefined }],
+        resolveRoleSlots: (role) =>
+          roleSlotsByRole[role] ?? [{ musicianId: undefined }],
         resolveMusicianDefaultInputs: (_role, musicianId) =>
           musicianId === "lukas-holoubek"
             ? [{ key: "ac_guitar", label: "Acoustic guitar" }]
             : [{ key: "voc_lead", label: "Lead vocal" }],
       });
 
-    expect(resolveSections().some((section) => section.kind === "acoustic_guitar")).toBe(true);
+    expect(
+      resolveSections().some((section) => section.kind === "acoustic_guitar"),
+    ).toBe(true);
 
     roleSlotsByRole.vocs = [{ musicianId: "different-vocal" }];
 
-    expect(resolveSections().some((section) => section.kind === "acoustic_guitar")).toBe(false);
+    expect(
+      resolveSections().some((section) => section.kind === "acoustic_guitar"),
+    ).toBe(false);
   });
 
+  it("places AC. GUITAR in consistent order when EL. GUITAR role section is missing", () => {
+    const sections = buildVisibleLineupSections({
+      roleOrder: ["drums", "bass", "keys", "vocs"],
+      resolveRoleSlots: (role) =>
+        role === "vocs"
+          ? [{ musicianId: "lukas-holoubek" }]
+          : [{ musicianId: undefined }],
+      resolveMusicianDefaultInputs: (_role, musicianId) =>
+        musicianId === "lukas-holoubek"
+          ? [{ key: "ac_guitar", label: "Acoustic guitar" }]
+          : [],
+    });
+
+    expect(
+      sections.map((section) =>
+        section.kind === "role" ? section.role : section.kind,
+      ),
+    ).toEqual(["drums", "bass", "keys", "vocs", "acoustic_guitar"]);
+  });
   it("returns AC. GUITAR visibility based on default lineup source during reset", () => {
     const defaultSections = buildVisibleLineupSections({
       roleOrder: ["drums", "bass", "guitar", "keys", "vocs"],
@@ -234,6 +294,8 @@ describe("buildVisibleLineupSections", () => {
           : [],
     });
 
-    expect(defaultSections.some((section) => section.kind === "acoustic_guitar")).toBe(true);
+    expect(
+      defaultSections.some((section) => section.kind === "acoustic_guitar"),
+    ).toBe(true);
   });
 });
