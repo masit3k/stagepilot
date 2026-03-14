@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  STANDARD_10_SETUP,
+} from "../drums/drumSetup";
+import {
   getAcousticGuitarMembers,
   hasAcousticGuitarPreset,
   resolveInputsForCapabilitySection,
@@ -161,6 +164,21 @@ describe("resolveMusicianCapabilityInputs", () => {
     });
 
     expect(inputs.map((input) => input.key)).toEqual(["ac_guitar", "voc_lead"]);
+  });
+
+  it("resolves drums capability from drum_setup items", () => {
+    const inputs = resolveMusicianCapabilityInputs({
+      presetItems: [
+        {
+          kind: "drum_setup",
+          setup: STANDARD_10_SETUP,
+        },
+      ],
+      getPresetByRef: () => undefined,
+    });
+
+    expect(supportsCapabilitySection({ section: "drums", inputs })).toBe(true);
+    expect(inputs.some((item) => item.key.startsWith("dr_"))).toBe(true);
   });
 });
 

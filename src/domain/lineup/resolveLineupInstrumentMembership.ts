@@ -1,4 +1,6 @@
 import type { InputChannel, PresetEntity, PresetItem } from "../model/types";
+import { resolveDrumInputs } from "../drums/resolveDrumInputs";
+import { STANDARD_10_SETUP } from "../drums/drumSetup";
 
 export type SetupCapabilitySection =
   | "drums"
@@ -132,19 +134,24 @@ export function resolveMusicianCapabilityInputs(args: {
   getPresetByRef: (ref: string) => PresetEntity | undefined;
 }): InputChannel[] {
   const byKey = new Map<string, InputChannel>();
-  (args.presetItems ?? [])
-    .filter((item): item is Extract<PresetItem, { kind: "preset" }> =>
-      item.kind === "preset",
-    )
-    .map((item) => args.getPresetByRef(item.ref))
-    .filter((entity): entity is Extract<PresetEntity, { type: "preset" }> =>
-      entity?.type === "preset",
-    )
-    .forEach((preset) => {
-      preset.inputs.forEach((input) => {
+  (args.presetItems ?? []).forEach((item) => {
+    if (item.kind === "preset") {
+      const entity = args.getPresetByRef(item.ref);
+      if (entity?.type !== "preset") return;
+      entity.inputs.forEach((input) => {
         if (!byKey.has(input.key)) byKey.set(input.key, { ...input });
       });
-    });
+      return;
+    }
+
+    if (item.kind === "drum_setup") {
+      const inputs = resolveDrumInputs(item.setup ?? STANDARD_10_SETUP);
+      inputs.forEach((input) => {
+        if (!byKey.has(input.key)) byKey.set(input.key, { ...input });
+      });
+    }
+  });
+
   return Array.from(byKey.values());
 }
 

@@ -91,6 +91,12 @@ import {
   supportsCapabilitySection,
   type SetupCapabilitySection,
 } from "../../../../../src/domain/lineup/resolveLineupInstrumentMembership";
+import {
+  resolveDistinctInstrumentLabels,
+  resolveEffectiveInstrumentGroups,
+} from "../../../../../src/domain/lineup/effectiveInstrumentGroups";
+import { resolveMusicianDisplayName } from "../domain/ui/musicianDisplayName";
+import { composeSetupModalTitle } from "../domain/ui/setupModalTitle";
 
 export function ProjectSetupPage({
   id,
@@ -913,8 +919,10 @@ export function ProjectSetupPage({
       .map(({ role, slotIndex, slot }) => ({
         slotKey: `${role}:${slotIndex}`,
         musicianId: slot.musicianId,
-        musicianName:
-          selectedMusicianMap.get(slot.musicianId) ?? slot.musicianId,
+        musicianName: resolveMusicianDisplayName({
+          musicianId: slot.musicianId,
+          preferredName: selectedMusicianMap.get(slot.musicianId),
+        }),
         role: role as Group,
         hasOverride: Boolean(slot.presetOverride),
       }));
@@ -942,11 +950,6 @@ export function ProjectSetupPage({
   const selectedSetupMusician =
     setupMusicians.find((item) => item.slotKey === selectedSetupSlotKey) ??
     setupMusicians[0];
-  const selectedSetupRoleLabel =
-    selectedSetupMusician?.role === "vocs"
-      ? "lead voc"
-      : selectedSetupMusician?.role;
-
   const resolveMusicianCapabilityDefaultInputs = useCallback(
     (musicianId: string): InputChannel[] =>
       resolveMusicianCapabilityInputs({
@@ -1056,7 +1059,10 @@ export function ProjectSetupPage({
                       const musicianId = sourceSlot?.musicianId ?? member.musicianId;
                       const sourceMembers = resolveEligibleMembersForSection("acoustic_guitar", member.sourceRole);
                       const selectedName = musicianId
-                        ? (sourceMembers.find((m) => m.id === musicianId)?.name ?? musicianId)
+                        ? resolveMusicianDisplayName({
+                            musicianId,
+                            preferredName: sourceMembers.find((m) => m.id === musicianId)?.name,
+                          })
                         : "Not selected";
 
                       return (
@@ -1164,7 +1170,10 @@ export function ProjectSetupPage({
                       <div key={`${role}-${index}`} className="lineup-list__row">
                         <span className="lineup-list__name">
                           {musicianId
-                            ? (members.find((m) => m.id === musicianId)?.name ?? musicianId)
+                            ? resolveMusicianDisplayName({
+                                musicianId,
+                                preferredName: members.find((m) => m.id === musicianId)?.name,
+                              })
                             : "Not selected"}
                         </span>
                         <div className="lineup-list__actions">
@@ -1525,6 +1534,20 @@ export function ProjectSetupPage({
                 section: setupSection,
                 inputs: effective.inputs,
               });
+              const effectiveInputGroups = resolveEffectiveInstrumentGroups(
+                effectiveSectionInputs,
+              );
+              const inputSectionGroups =
+                effectiveInputGroups.length > 0
+                  ? effectiveInputGroups
+                  : [{ key: "vocs", label: "", inputs: effectiveSectionInputs }];
+              const setupTitle = composeSetupModalTitle({
+                templateType: project?.purpose === "generic" ? "generic" : "event",
+                musicianName: selectedSetupMusician.musicianName,
+                instrumentLabels: resolveDistinctInstrumentLabels(
+                  effectiveSectionInputs,
+                ),
+              });
               const availableInputs = (
                 GROUP_INPUT_LIBRARY[
                   selectedSetupMusician.role as keyof typeof GROUP_INPUT_LIBRARY
@@ -1592,7 +1615,7 @@ export function ProjectSetupPage({
                   </button>
                   <SetupModalShell
                     open={Boolean(editingSetup && selectedSetupMusician)}
-                    title={`Setup for this event – ${selectedSetupMusician.musicianName} (${selectedSetupRoleLabel})`}
+                    title={setupTitle}
                     subtitle="Changes here apply only to this event. Musicians defaults are not modified."
                     isDirty={shouldEnableSetupReset({
                       eventOverride: existingPatch,
@@ -1801,37 +1824,45 @@ export function ProjectSetupPage({
                                 onAddInput={() => {}}
                               />
                             ) : (
-                              <SetupSection
-                                title="Inputs"
-                                modified={resolved.diffMeta.inputs.some(
-                                  (item) => isDiffOriginOverridden(item.origin),
-                                )}
-                              >
-                                <SchemaRenderer
-                                  fields={
-                                    selectedSetupMusician.role === "guitar"
-                                      ? GUITAR_FIELDS
-                                      : selectedSetupMusician.role === "keys"
+                              inputSectionGroups.map((group) => (
+                                <SetupSection
+                                  key={group.key}
+                                  title={
+                                    inputSectionGroups.length === 1
+                                      ? "Input"
+                                      : `Input – ${group.label}`
+                                  }
+                                  modified={resolved.diffMeta.inputs.some(
+                                    (item) => isDiffOriginOverridden(item.origin),
+                                  )}
+                                >
+                                  <SchemaRenderer
+                                    fields={
+                                      group.key === "keys"
                                         ? KEYS_FIELDS
-                                        : LEAD_VOCS_FIELDS
-                                  }
-                                  state={{
-                                    defaultPreset: resolved.defaultPreset,
-                                    effectivePreset: effective,
-                                    patch: currentPatch,
-                                  }}
-                                  onPatch={(nextPatch) =>
-                                    setSetupDraftBySlot((prev) => ({
-                                      ...prev,
-                                      [selectedSetupMusician.slotKey]:
-                                        normalizeSetupOverridePatch(
-                                          resolved.defaultPreset,
-                                          nextPatch,
-                                        ),
-                                    }))
-                                  }
-                                />
-                              </SetupSection>
+                                        : group.key === "acoustic_guitar" ||
+                                            group.key === "electric_guitar"
+                                          ? GUITAR_FIELDS
+                                          : LEAD_VOCS_FIELDS
+                                    }
+                                    state={{
+                                      defaultPreset: resolved.defaultPreset,
+                                      effectivePreset: effective,
+                                      patch: currentPatch,
+                                    }}
+                                    onPatch={(nextPatch) =>
+                                      setSetupDraftBySlot((prev) => ({
+                                        ...prev,
+                                        [selectedSetupMusician.slotKey]:
+                                          normalizeSetupOverridePatch(
+                                            resolved.defaultPreset,
+                                            nextPatch,
+                                          ),
+                                      }))
+                                    }
+                                  />
+                                </SetupSection>
+                              ))
                             )}
                           </div>
                           <div className="setup-editor-column">

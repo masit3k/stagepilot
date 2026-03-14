@@ -395,6 +395,46 @@ fn entity_name(file_name: &str) -> &str {
     file_name.strip_suffix(".json").unwrap_or(file_name)
 }
 
+fn resolve_musician_display_name(musician: &Value, fallback_id: &str) -> String {
+    let first_name = musician
+        .get("firstName")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim();
+    let last_name = musician
+        .get("lastName")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim();
+    let full_name = format!("{} {}", last_name, first_name).trim().to_string();
+    if !full_name.is_empty() {
+        return full_name;
+    }
+
+    let display_name = musician
+        .get("displayName")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if !display_name.is_empty() {
+        return display_name;
+    }
+
+    fallback_id
+        .split(['_', '-'])
+        .filter(|part| !part.trim().is_empty())
+        .map(|part| {
+            let mut chars = part.chars();
+            match chars.next() {
+                Some(first) => format!("{}{}", first.to_uppercase(), chars.as_str()),
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<String>>()
+        .join(" ")
+}
+
 fn load_library_list<T: for<'de> Deserialize<'de>>(
     app: &tauri::AppHandle,
     file_name: &str,
@@ -848,15 +888,7 @@ fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSet
                         .cloned()
                         .unwrap_or_default(),
                 );
-                let first_name = musician
-                    .get("firstName")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
-                let last_name = musician
-                    .get("lastName")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
-                let name = format!("{} {}", last_name, first_name).trim().to_string();
+                let name = resolve_musician_display_name(&musician, id);
                 musicians_by_id.insert(id.to_string(), (name.clone(), role.to_string()));
                 role_members.push(MemberOption {
                     id: id.to_string(),
