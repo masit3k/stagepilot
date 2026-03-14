@@ -76,6 +76,7 @@ import { serializeLineupForProject } from "../shell/lineupSerialize";
 import type { ProjectRouteProps } from "./shared/pageTypes";
 import {
   buildSetupFieldCatalog,
+  buildVisibleLineupSections,
   GROUP_INPUT_LIBRARY,
   ROLE_ORDER,
   buildInputsPatchFromTarget,
@@ -973,6 +974,22 @@ export function ProjectSetupPage({
       ? "lead voc"
       : selectedSetupMusician?.role;
 
+  const visibleLineupSections = useMemo(() => {
+    if (!setupData) {
+      return ROLE_ORDER.map((role) => ({ kind: "role" as const, role }));
+    }
+
+    return buildVisibleLineupSections({
+      roleOrder: ROLE_ORDER,
+      resolveRoleSlots: (role) => {
+        const constraint = normalizeRoleConstraint(role, setupData.constraints[role]);
+        return normalizeLineupSlots(lineup[role], constraint.max);
+      },
+      resolveMusicianDefaultInputs: (role, musicianId) =>
+        resolveMusicianDefaultPreset(role, musicianId).inputs,
+    });
+  }, [lineup, resolveMusicianDefaultPreset, setupData]);
+
   const resetModalRef = useModalBehavior(showResetConfirmation, () =>
     setShowResetConfirmation(false),
   );
@@ -1023,173 +1040,208 @@ export function ProjectSetupPage({
         </button>
       </div>
       <div className="lineup-grid">
-        {setupData
-          ? ROLE_ORDER.map((role) => {
-              const constraint = normalizeRoleConstraint(
-                role,
-                setupData.constraints[role],
-              );
-              const selected = normalizeLineupValue(
-                lineup[role],
-                constraint.max,
-              );
-              const members = setupData.members[role] || [];
-              return (
-                <article key={role} className="lineup-card">
-                  <h3>
-                    {role === "guitar"
-                      ? resolveSetupCardLabel({
-                          role: "guitar",
-                          musicianId: selected[0],
-                          resolveInputs: (musicianId) =>
-                            resolveSlotSetup("guitar", musicianId).resolved
-                              .defaultPreset.inputs,
-                          fallback: getRoleDisplayName(
-                            role,
-                            setupData.constraints,
-                            setupData.roleConstraints,
-                          ),
-                        })
-                      : getRoleDisplayName(
-                          role,
-                          setupData.constraints,
-                          setupData.roleConstraints,
-                        )}
-                  </h3>
-                  <div className="lineup-card__body section-divider">
-                    <div className="lineup-list lineup-list--single">
-                      {(selected.length ? selected : [""]).map(
-                        (musicianId, index) => {
-                          const alternatives = members.filter(
-                            (m) => m.id !== musicianId,
-                          );
-                          return (
-                            <div
-                              key={`${role}-${index}`}
-                              className="lineup-list__row"
-                            >
-                              <span className="lineup-list__name">
-                                {musicianId
-                                  ? (members.find((m) => m.id === musicianId)
-                                      ?.name ?? musicianId)
-                                  : "Not selected"}
-                              </span>
-                              <div className="lineup-list__actions">
-                                <button
-                                  type="button"
-                                  className="button-secondary"
-                                  disabled={alternatives.length === 0}
-                                  onClick={() =>
-                                    setEditing({
-                                      role,
-                                      slotIndex: index,
-                                      currentSelectedId:
-                                        musicianId || undefined,
-                                    })
-                                  }
-                                >
-                                  Change
-                                </button>
-                                <button
-                                  type="button"
-                                  className="button-secondary"
-                                  disabled={!musicianId}
-                                  onClick={() => {
-                                    if (!setupData) return;
-                                    const draftEntries: Record<
-                                      string,
-                                      PresetOverridePatch | undefined
-                                    > = {};
-                                    ROLE_ORDER.forEach((setupRole) => {
-                                      const setupConstraint =
-                                        normalizeRoleConstraint(
-                                          setupRole,
-                                          setupData.constraints[setupRole],
-                                        );
-                                      normalizeLineupSlots(
-                                        lineup[setupRole],
-                                        setupConstraint.max,
-                                      ).forEach((setupSlot, setupIndex) => {
-                                        if (!setupSlot.musicianId) return;
-                                        draftEntries[
-                                          `${setupRole}:${setupIndex}`
-                                        ] = normalizeSetupOverridePatch(
-                                          resolveSlotSetup(
-                                            setupRole as Group,
-                                            setupSlot.musicianId,
-                                          ).resolved.defaultPreset,
-                                          setupSlot.presetOverride,
-                                        );
-                                      });
-                                    });
-                                    setSetupDraftBySlot(draftEntries);
-                                    const slotKey = `${role}:${index}`;
-                                    setSelectedSetupSlotKey(slotKey);
-                                    setEditingSetup({
-                                      role,
-                                      slotIndex: index,
-                                      musicianId,
-                                    });
-                                  }}
-                                >
-                                  Setup
-                                  {normalizeLineupSlots(
-                                    lineup[role],
-                                    constraint.max,
-                                  )[index]?.presetOverride
-                                    ? " •"
-                                    : ""}
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        },
-                      )}
+        {visibleLineupSections.map((section) => {
+          if (section.kind === "acoustic_guitar") {
+            const sourceRole = section.sourceRole;
+            const sourceConstraint = normalizeRoleConstraint(
+              sourceRole,
+              setupData?.constraints[sourceRole],
+            );
+            const sourceSlots = normalizeLineupSlots(
+              lineup[sourceRole],
+              sourceConstraint.max,
+            );
+            const sourceSlot = sourceSlots[section.sourceSlotIndex];
+            const musicianId = sourceSlot?.musicianId ?? section.musicianId;
+            const sourceMembers = setupData?.members[sourceRole] || [];
+            const selectedName = musicianId
+              ? (sourceMembers.find((m) => m.id === musicianId)?.name ?? musicianId)
+              : "Not selected";
+
+            return (
+              <article
+                key={`acoustic-guitar-${section.sourceRole}-${section.sourceSlotIndex}`}
+                className="lineup-card"
+              >
+                <h3>AC. GUITAR</h3>
+                <div className="lineup-card__body section-divider">
+                  <div className="lineup-list lineup-list--single">
+                    <div className="lineup-list__row">
+                      <span className="lineup-list__name">{selectedName}</span>
+                      <div className="lineup-list__actions">
+                        <button
+                          type="button"
+                          className="button-secondary"
+                          disabled={!musicianId}
+                          onClick={() =>
+                            setEditing({
+                              role: sourceRole,
+                              slotIndex: section.sourceSlotIndex,
+                              currentSelectedId: musicianId || undefined,
+                            })
+                          }
+                        >
+                          Change
+                        </button>
+                        <button
+                          type="button"
+                          className="button-secondary"
+                          disabled={!musicianId}
+                          onClick={() => {
+                            if (!setupData || !musicianId) return;
+                            const draftEntries: Record<
+                              string,
+                              PresetOverridePatch | undefined
+                            > = {};
+                            ROLE_ORDER.forEach((setupRole) => {
+                              const setupConstraint = normalizeRoleConstraint(
+                                setupRole,
+                                setupData.constraints[setupRole],
+                              );
+                              normalizeLineupSlots(
+                                lineup[setupRole],
+                                setupConstraint.max,
+                              ).forEach((setupSlot, setupIndex) => {
+                                if (!setupSlot.musicianId) return;
+                                draftEntries[`${setupRole}:${setupIndex}`] =
+                                  normalizeSetupOverridePatch(
+                                    resolveSlotSetup(
+                                      setupRole as Group,
+                                      setupSlot.musicianId,
+                                    ).resolved.defaultPreset,
+                                    setupSlot.presetOverride,
+                                  );
+                              });
+                            });
+                            setSetupDraftBySlot(draftEntries);
+                            const slotKey = `${sourceRole}:${section.sourceSlotIndex}`;
+                            setSelectedSetupSlotKey(slotKey);
+                            setEditingSetup({
+                              role: sourceRole,
+                              slotIndex: section.sourceSlotIndex,
+                              musicianId,
+                            });
+                          }}
+                        >
+                          Setup
+                          {sourceSlot?.presetOverride ? " •" : ""}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </article>
-              );
-            })
-          : ROLE_ORDER.map((role) => {
-              const constraint = normalizeRoleConstraint(role);
-              return (
-                <article key={role} className="lineup-card">
-                  <h3>{getRoleDisplayName(role)}</h3>
-                  <div className="lineup-card__body section-divider">
-                    <div className="lineup-list lineup-list--single">
-                      {Array.from({ length: Math.max(1, constraint.max) }).map(
-                        (_, index) => (
-                          <div
-                            key={`${role}-${index}`}
-                            className="lineup-list__row"
+                </div>
+              </article>
+            );
+          }
+
+          const role = section.role;
+          const constraint = normalizeRoleConstraint(role, setupData?.constraints[role]);
+          const selected = normalizeLineupValue(lineup[role], constraint.max);
+          const members = setupData?.members[role] || [];
+
+          return (
+            <article key={role} className="lineup-card">
+              <h3>
+                {role === "guitar"
+                  ? resolveSetupCardLabel({
+                      role: "guitar",
+                      musicianId: selected[0],
+                      resolveInputs: (musicianId) =>
+                        resolveSlotSetup("guitar", musicianId).resolved.defaultPreset
+                          .inputs,
+                      fallback: getRoleDisplayName(
+                        role,
+                        setupData?.constraints,
+                        setupData?.roleConstraints,
+                      ),
+                    })
+                  : getRoleDisplayName(
+                      role,
+                      setupData?.constraints,
+                      setupData?.roleConstraints,
+                    )}
+              </h3>
+              <div className="lineup-card__body section-divider">
+                <div className="lineup-list lineup-list--single">
+                  {(selected.length ? selected : [""]).map((musicianId, index) => {
+                    const alternatives = members.filter((m) => m.id !== musicianId);
+                    return (
+                      <div key={`${role}-${index}`} className="lineup-list__row">
+                        <span className="lineup-list__name">
+                          {musicianId
+                            ? (members.find((m) => m.id === musicianId)?.name ?? musicianId)
+                            : "Not selected"}
+                        </span>
+                        <div className="lineup-list__actions">
+                          <button
+                            type="button"
+                            className="button-secondary"
+                            disabled={alternatives.length === 0}
+                            onClick={() =>
+                              setEditing({
+                                role,
+                                slotIndex: index,
+                                currentSelectedId: musicianId || undefined,
+                              })
+                            }
                           >
-                            <span className="lineup-list__name">
-                              Not selected
-                            </span>
-                            <div className="lineup-list__actions">
-                              <button
-                                type="button"
-                                className="button-secondary"
-                                disabled
-                              >
-                                Change
-                              </button>
-                              <button
-                                type="button"
-                                className="button-secondary"
-                                disabled
-                              >
-                                Setup
-                              </button>
-                            </div>
-                          </div>
-                        ),
-                      )}
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
+                            Change
+                          </button>
+                          <button
+                            type="button"
+                            className="button-secondary"
+                            disabled={!musicianId}
+                            onClick={() => {
+                              if (!setupData) return;
+                              const draftEntries: Record<
+                                string,
+                                PresetOverridePatch | undefined
+                              > = {};
+                              ROLE_ORDER.forEach((setupRole) => {
+                                const setupConstraint = normalizeRoleConstraint(
+                                  setupRole,
+                                  setupData.constraints[setupRole],
+                                );
+                                normalizeLineupSlots(
+                                  lineup[setupRole],
+                                  setupConstraint.max,
+                                ).forEach((setupSlot, setupIndex) => {
+                                  if (!setupSlot.musicianId) return;
+                                  draftEntries[`${setupRole}:${setupIndex}`] =
+                                    normalizeSetupOverridePatch(
+                                      resolveSlotSetup(
+                                        setupRole as Group,
+                                        setupSlot.musicianId,
+                                      ).resolved.defaultPreset,
+                                      setupSlot.presetOverride,
+                                    );
+                                });
+                              });
+                              setSetupDraftBySlot(draftEntries);
+                              const slotKey = `${role}:${index}`;
+                              setSelectedSetupSlotKey(slotKey);
+                              setEditingSetup({
+                                role,
+                                slotIndex: index,
+                                musicianId,
+                              });
+                            }}
+                          >
+                            Setup
+                            {normalizeLineupSlots(lineup[role], constraint.max)[index]
+                              ?.presetOverride
+                              ? " •"
+                              : ""}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </article>
+          );
+        })}
         <BackVocsBlock
           members={backVocalMembers}
           changeDisabled={selectedOptions.length === 0}

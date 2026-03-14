@@ -10,6 +10,7 @@ import type {
 import { STANDARD_10_SETUP } from "../../../../../../src/domain/drums/drumSetup";
 import { resolveDrumInputs } from "../../../../../../src/domain/drums/resolveDrumInputs";
 import { resolveDefaultMusicianSetup } from "../../../../../../src/domain/setup/resolveDefaultMusicianSetup";
+import { resolveLineupInstrumentMembership } from "../../../../../../src/domain/lineup/resolveLineupInstrumentMembership";
 import { buildBassFields, toBassPresets } from "../../components/setup/instruments/bass/buildBassFields";
 import { buildGuitarFields } from "../../components/setup/instruments/guitar/buildGuitarFields";
 import { buildKeysFields } from "../../components/setup/instruments/keys/buildKeysFields";
@@ -18,6 +19,18 @@ import type { BandSetupData, MemberOption, NewProjectPayload } from "../../shell
 import type { RoleConstraint } from "../../../projectRules";
 
 export const ROLE_ORDER = ["drums", "bass", "guitar", "keys", "vocs"];
+
+export type VisibleLineupSection =
+  | {
+      kind: "role";
+      role: string;
+    }
+  | {
+      kind: "acoustic_guitar";
+      sourceRole: string;
+      sourceSlotIndex: number;
+      musicianId: string;
+    };
 
 export const GROUP_INPUT_LIBRARY: Record<Group, InputChannel[]> = {
   drums: resolveDrumInputs(STANDARD_10_SETUP),
@@ -103,12 +116,61 @@ export function resolveMusicianDefaultSetupForRole(args: {
 
 export function resolveSetupCardLabel(args: { role: Group; musicianId?: string; resolveInputs: (musicianId: string) => InputChannel[]; fallback: string }): string {
   if (args.role !== "guitar" || !args.musicianId) return args.fallback;
-  const inputs = args.resolveInputs(args.musicianId);
-  const hasAcoustic = inputs.some((input) => input.key.startsWith("ac_guitar"));
-  const hasElectric = inputs.some((input) => input.key.startsWith("el_guitar"));
-  if (hasAcoustic && !hasElectric) return "AC. GUITAR";
-  if (hasElectric) return "EL. GUITAR";
+  const membership = resolveLineupInstrumentMembership(
+    args.resolveInputs(args.musicianId),
+  );
+  if (membership.isElectricGuitarMember) return "EL. GUITAR";
   return args.fallback;
+}
+
+export function buildVisibleLineupSections(args: {
+  roleOrder: string[];
+  resolveRoleSlots: (role: string) => Array<{ musicianId?: string }>;
+  resolveMusicianDefaultInputs: (role: Group, musicianId: string) => InputChannel[];
+}): VisibleLineupSection[] {
+  const roleSections: VisibleLineupSection[] = args.roleOrder.map((role) => ({
+    kind: "role",
+    role,
+  }));
+
+  const acousticOnlyMember = args.roleOrder
+    .flatMap((role) =>
+      args.resolveRoleSlots(role).map((slot, slotIndex) => ({
+        role,
+        slotIndex,
+        musicianId: slot.musicianId,
+      })),
+    )
+    .find((slot) => {
+      if (!slot.musicianId) return false;
+      const membership = resolveLineupInstrumentMembership(
+        args.resolveMusicianDefaultInputs(slot.role as Group, slot.musicianId),
+      );
+      return membership.isAcousticOnlyGuitarMember;
+    });
+
+  if (!acousticOnlyMember?.musicianId) return roleSections;
+
+  const guitarRoleIndex = roleSections.findIndex(
+    (section) => section.kind === "role" && section.role === "guitar",
+  );
+
+  const acousticSection: VisibleLineupSection = {
+    kind: "acoustic_guitar",
+    sourceRole: acousticOnlyMember.role,
+    sourceSlotIndex: acousticOnlyMember.slotIndex,
+    musicianId: acousticOnlyMember.musicianId,
+  };
+
+  if (guitarRoleIndex < 0) {
+    return [...roleSections, acousticSection];
+  }
+
+  return [
+    ...roleSections.slice(0, guitarRoleIndex + 1),
+    acousticSection,
+    ...roleSections.slice(guitarRoleIndex + 1),
+  ];
 }
 
 export function getGroupDefaultPreset(group: Group): MusicianSetupPreset {

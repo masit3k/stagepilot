@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveMusicianDefaultInputsFromPresets, resolveMusicianDefaultSetupForRole } from "./setupConstants";
+import { buildVisibleLineupSections, resolveMusicianDefaultInputsFromPresets, resolveMusicianDefaultSetupForRole } from "./setupConstants";
 
 describe("resolveMusicianDefaultInputsFromPresets", () => {
   it("resolves bass default input from musician preset ref", () => {
@@ -100,5 +100,91 @@ describe("resolveMusicianDefaultSetupForRole", () => {
 
     expect(resolved.monitoring.monitorRef).toBe("iem_stereo_wireless");
     expect(resolved.inputs.map((item) => item.key)).toEqual(["gtr_mic"]);
+  });
+});
+
+
+describe("buildVisibleLineupSections", () => {
+  it("does not show AC. GUITAR without acoustic-only member", () => {
+    const sections = buildVisibleLineupSections({
+      roleOrder: ["drums", "bass", "guitar", "keys", "vocs"],
+      resolveRoleSlots: (role) =>
+        role === "guitar"
+          ? [{ musicianId: "electric-player" }]
+          : role === "vocs"
+            ? [{ musicianId: "lead-vocal" }]
+            : [{ musicianId: undefined }],
+      resolveMusicianDefaultInputs: (_role, musicianId) =>
+        musicianId === "electric-player"
+          ? [{ key: "el_guitar_mic", label: "Electric guitar" }]
+          : [{ key: "voc_lead", label: "Lead vocal" }],
+    });
+
+    expect(sections.some((section) => section.kind === "acoustic_guitar")).toBe(false);
+  });
+
+  it("shows AC. GUITAR when acoustic-only member exists and places it after EL. GUITAR", () => {
+    const sections = buildVisibleLineupSections({
+      roleOrder: ["drums", "bass", "guitar", "keys", "vocs"],
+      resolveRoleSlots: (role) =>
+        role === "vocs"
+          ? [{ musicianId: "lukas-holoubek" }]
+          : [{ musicianId: undefined }],
+      resolveMusicianDefaultInputs: (_role, musicianId) =>
+        musicianId === "lukas-holoubek"
+          ? [{ key: "ac_guitar", label: "Acoustic guitar" }]
+          : [],
+    });
+
+    const guitarIndex = sections.findIndex(
+      (section) => section.kind === "role" && section.role === "guitar",
+    );
+    const acousticIndex = sections.findIndex(
+      (section) => section.kind === "acoustic_guitar",
+    );
+
+    expect(acousticIndex).toBe(guitarIndex + 1);
+  });
+
+  it("hides AC. GUITAR after member change away from acoustic-only", () => {
+    const roleSlotsByRole: Record<string, Array<{ musicianId?: string }>> = {
+      drums: [{ musicianId: undefined }],
+      bass: [{ musicianId: undefined }],
+      guitar: [{ musicianId: undefined }],
+      keys: [{ musicianId: undefined }],
+      vocs: [{ musicianId: "lukas-holoubek" }],
+    };
+
+    const resolveSections = () =>
+      buildVisibleLineupSections({
+        roleOrder: ["drums", "bass", "guitar", "keys", "vocs"],
+        resolveRoleSlots: (role) => roleSlotsByRole[role] ?? [{ musicianId: undefined }],
+        resolveMusicianDefaultInputs: (_role, musicianId) =>
+          musicianId === "lukas-holoubek"
+            ? [{ key: "ac_guitar", label: "Acoustic guitar" }]
+            : [{ key: "voc_lead", label: "Lead vocal" }],
+      });
+
+    expect(resolveSections().some((section) => section.kind === "acoustic_guitar")).toBe(true);
+
+    roleSlotsByRole.vocs = [{ musicianId: "different-vocal" }];
+
+    expect(resolveSections().some((section) => section.kind === "acoustic_guitar")).toBe(false);
+  });
+
+  it("returns AC. GUITAR visibility based on default lineup source during reset", () => {
+    const defaultSections = buildVisibleLineupSections({
+      roleOrder: ["drums", "bass", "guitar", "keys", "vocs"],
+      resolveRoleSlots: (role) =>
+        role === "vocs"
+          ? [{ musicianId: "lukas-holoubek" }]
+          : [{ musicianId: undefined }],
+      resolveMusicianDefaultInputs: (_role, musicianId) =>
+        musicianId === "lukas-holoubek"
+          ? [{ key: "ac_guitar", label: "Acoustic guitar" }]
+          : [],
+    });
+
+    expect(defaultSections.some((section) => section.kind === "acoustic_guitar")).toBe(true);
   });
 });
