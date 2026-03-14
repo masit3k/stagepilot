@@ -14,21 +14,41 @@ function normalizeKey(key: string): string {
   return key.trim().toLowerCase();
 }
 
+export function detectPresetInstrumentCapabilities(
+  inputs: InputChannel[],
+): MusicianInstrumentCapabilities {
+  return inputs.reduce<MusicianInstrumentCapabilities>(
+    (capabilities, input) => {
+      const key = normalizeKey(input.key);
+      if (key.startsWith("el_guitar")) capabilities.hasElectricGuitarCapability = true;
+      if (key.startsWith("ac_guitar")) capabilities.hasAcousticGuitarCapability = true;
+      return capabilities;
+    },
+    {
+      hasElectricGuitarCapability: false,
+      hasAcousticGuitarCapability: false,
+    },
+  );
+}
+
 export function hasElectricGuitarCapability(inputs: InputChannel[]): boolean {
-  return inputs.some((input) => normalizeKey(input.key).startsWith("el_guitar"));
+  return detectPresetInstrumentCapabilities(inputs).hasElectricGuitarCapability;
 }
 
 export function hasAcousticGuitarCapability(inputs: InputChannel[]): boolean {
-  return inputs.some((input) => normalizeKey(input.key).startsWith("ac_guitar"));
+  return detectPresetInstrumentCapabilities(inputs).hasAcousticGuitarCapability;
 }
 
 export function resolveMusicianInstrumentCapabilities(
   inputs: InputChannel[],
 ): MusicianInstrumentCapabilities {
-  return {
-    hasElectricGuitarCapability: hasElectricGuitarCapability(inputs),
-    hasAcousticGuitarCapability: hasAcousticGuitarCapability(inputs),
-  };
+  return detectPresetInstrumentCapabilities(inputs);
+}
+
+export function isAcousticOnlyMember(
+  capabilities: MusicianInstrumentCapabilities,
+): boolean {
+  return capabilities.hasAcousticGuitarCapability && !capabilities.hasElectricGuitarCapability;
 }
 
 export function resolveLineupInstrumentMembership(
@@ -36,8 +56,7 @@ export function resolveLineupInstrumentMembership(
 ): LineupInstrumentMembership {
   const capabilities = resolveMusicianInstrumentCapabilities(inputs);
   const isElectricGuitarMember = capabilities.hasElectricGuitarCapability;
-  const isAcousticOnlyGuitarMember =
-    capabilities.hasAcousticGuitarCapability && !capabilities.hasElectricGuitarCapability;
+  const isAcousticOnlyGuitarMember = isAcousticOnlyMember(capabilities);
 
   return {
     ...capabilities,

@@ -27,9 +27,11 @@ export type VisibleLineupSection =
     }
   | {
       kind: "acoustic_guitar";
-      sourceRole: string;
-      sourceSlotIndex: number;
-      musicianId: string;
+      members: Array<{
+        sourceRole: string;
+        sourceSlotIndex: number;
+        musicianId: string;
+      }>;
     };
 
 export const GROUP_INPUT_LIBRARY: Record<Group, InputChannel[]> = {
@@ -133,7 +135,7 @@ export function buildVisibleLineupSections(args: {
     role,
   }));
 
-  const acousticOnlyMember = args.roleOrder
+  const acousticOnlyMembers = args.roleOrder
     .flatMap((role) =>
       args.resolveRoleSlots(role).map((slot, slotIndex) => ({
         role,
@@ -141,15 +143,20 @@ export function buildVisibleLineupSections(args: {
         musicianId: slot.musicianId,
       })),
     )
-    .find((slot) => {
+    .filter((slot) => {
       if (!slot.musicianId) return false;
       const membership = resolveLineupInstrumentMembership(
         args.resolveMusicianDefaultInputs(slot.role as Group, slot.musicianId),
       );
       return membership.isAcousticOnlyGuitarMember;
-    });
+    })
+    .map((slot) => ({
+      sourceRole: slot.role,
+      sourceSlotIndex: slot.slotIndex,
+      musicianId: slot.musicianId as string,
+    }));
 
-  if (!acousticOnlyMember?.musicianId) return roleSections;
+  if (acousticOnlyMembers.length === 0) return roleSections;
 
   const guitarRoleIndex = roleSections.findIndex(
     (section) => section.kind === "role" && section.role === "guitar",
@@ -157,9 +164,7 @@ export function buildVisibleLineupSections(args: {
 
   const acousticSection: VisibleLineupSection = {
     kind: "acoustic_guitar",
-    sourceRole: acousticOnlyMember.role,
-    sourceSlotIndex: acousticOnlyMember.slotIndex,
-    musicianId: acousticOnlyMember.musicianId,
+    members: acousticOnlyMembers,
   };
 
   if (guitarRoleIndex < 0) {

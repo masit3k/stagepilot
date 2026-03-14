@@ -139,11 +139,60 @@ describe("buildVisibleLineupSections", () => {
     const guitarIndex = sections.findIndex(
       (section) => section.kind === "role" && section.role === "guitar",
     );
-    const acousticIndex = sections.findIndex(
-      (section) => section.kind === "acoustic_guitar",
-    );
+    const acousticIndex = sections.findIndex((section) => section.kind === "acoustic_guitar");
 
     expect(acousticIndex).toBe(guitarIndex + 1);
+    const acousticSection = sections.find((section) => section.kind === "acoustic_guitar");
+    expect(acousticSection?.kind).toBe("acoustic_guitar");
+    if (acousticSection?.kind === "acoustic_guitar") {
+      expect(acousticSection.members.map((member) => member.musicianId)).toEqual([
+        "lukas-holoubek",
+      ]);
+    }
+  });
+
+  it("shows AC. GUITAR for any acoustic-only member outside guitar role", () => {
+    const sections = buildVisibleLineupSections({
+      roleOrder: ["drums", "bass", "guitar", "keys", "vocs"],
+      resolveRoleSlots: (role) =>
+        role === "keys"
+          ? [{ musicianId: "keys-acoustic" }]
+          : role === "vocs"
+            ? [{ musicianId: "vocal-acoustic" }]
+            : [{ musicianId: undefined }],
+      resolveMusicianDefaultInputs: (_role, musicianId) =>
+        musicianId === "keys-acoustic" || musicianId === "vocal-acoustic"
+          ? [{ key: "ac_guitar", label: "Acoustic guitar" }]
+          : [],
+    });
+
+    const acousticSection = sections.find((section) => section.kind === "acoustic_guitar");
+    expect(acousticSection?.kind).toBe("acoustic_guitar");
+    if (acousticSection?.kind === "acoustic_guitar") {
+      expect(acousticSection.members.map((member) => member.musicianId)).toEqual([
+        "keys-acoustic",
+        "vocal-acoustic",
+      ]);
+    }
+  });
+
+  it("does not include electric+acoustic member in AC. GUITAR section", () => {
+    const sections = buildVisibleLineupSections({
+      roleOrder: ["drums", "bass", "guitar", "keys", "vocs"],
+      resolveRoleSlots: (role) =>
+        role === "guitar"
+          ? [{ musicianId: "electric-and-acoustic" }]
+          : [{ musicianId: undefined }],
+      resolveMusicianDefaultInputs: (_role, musicianId) =>
+        musicianId === "electric-and-acoustic"
+          ? [
+              { key: "el_guitar_xlr_stereo_l", label: "Electric guitar L" },
+              { key: "ac_guitar", label: "Acoustic guitar" },
+            ]
+          : [],
+    });
+
+    expect(sections.some((section) => section.kind === "acoustic_guitar")).toBe(false);
   });
 
   it("hides AC. GUITAR after member change away from acoustic-only", () => {
