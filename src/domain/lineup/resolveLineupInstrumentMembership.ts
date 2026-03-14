@@ -1,4 +1,4 @@
-import type { InputChannel } from "../model/types";
+import type { InputChannel, PresetEntity, PresetItem } from "../model/types";
 
 export type MusicianInstrumentCapabilities = {
   hasElectricGuitarCapability: boolean;
@@ -78,7 +78,7 @@ export function getAcousticGuitarMembers<
   T extends { musicianId?: string },
 >(args: {
   slots: Array<T & { role: string; slotIndex: number }>;
-  resolveInputs: (role: string, musicianId: string) => InputChannel[];
+  resolveInputs: (musicianId: string) => InputChannel[];
 }): Array<T & { role: string; slotIndex: number; musicianId: string }> {
   return args.slots
     .filter(
@@ -88,6 +88,31 @@ export function getAcousticGuitarMembers<
         Boolean(slot.musicianId),
     )
     .filter((slot) =>
-      hasAcousticGuitarPreset(args.resolveInputs(slot.role, slot.musicianId)),
+      isAcousticOnlyMember(
+        resolveMusicianInstrumentCapabilities(
+          args.resolveInputs(slot.musicianId),
+        ),
+      ),
     );
+}
+
+export function resolveMusicianCapabilityInputs(args: {
+  presetItems?: PresetItem[];
+  getPresetByRef: (ref: string) => PresetEntity | undefined;
+}): InputChannel[] {
+  const byKey = new Map<string, InputChannel>();
+  (args.presetItems ?? [])
+    .filter((item): item is Extract<PresetItem, { kind: "preset" }> =>
+      item.kind === "preset",
+    )
+    .map((item) => args.getPresetByRef(item.ref))
+    .filter((entity): entity is Extract<PresetEntity, { type: "preset" }> =>
+      entity?.type === "preset",
+    )
+    .forEach((preset) => {
+      preset.inputs.forEach((input) => {
+        if (!byKey.has(input.key)) byKey.set(input.key, { ...input });
+      });
+    });
+  return Array.from(byKey.values());
 }

@@ -176,10 +176,7 @@ export function resolveSetupCardLabel(args: {
 export function buildVisibleLineupSections(args: {
   roleOrder: string[];
   resolveRoleSlots: (role: string) => Array<{ musicianId?: string }>;
-  resolveMusicianDefaultInputs: (
-    role: Group,
-    musicianId: string,
-  ) => InputChannel[];
+  resolveMusicianDefaultInputs: (musicianId: string) => InputChannel[];
 }): VisibleLineupSection[] {
   const roleSections: VisibleLineupSection[] = args.roleOrder.map((role) => ({
     kind: "role",
@@ -194,8 +191,8 @@ export function buildVisibleLineupSections(args: {
         musicianId: slot.musicianId,
       })),
     ),
-    resolveInputs: (role, musicianId) =>
-      args.resolveMusicianDefaultInputs(role as Group, musicianId),
+    resolveInputs: (musicianId) =>
+      args.resolveMusicianDefaultInputs(musicianId),
   }).map((slot) => ({
     sourceRole: slot.role,
     sourceSlotIndex: slot.slotIndex,

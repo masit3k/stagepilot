@@ -131,7 +131,7 @@ describe("buildVisibleLineupSections", () => {
           : role === "vocs"
             ? [{ musicianId: "lead-vocal" }]
             : [{ musicianId: undefined }],
-      resolveMusicianDefaultInputs: (_role, musicianId) =>
+      resolveMusicianDefaultInputs: (musicianId) =>
         musicianId === "electric-player"
           ? [{ key: "el_guitar_mic", label: "Electric guitar" }]
           : [{ key: "voc_lead", label: "Lead vocal" }],
@@ -149,7 +149,7 @@ describe("buildVisibleLineupSections", () => {
         role === "vocs"
           ? [{ musicianId: "lukas-holoubek" }]
           : [{ musicianId: undefined }],
-      resolveMusicianDefaultInputs: (_role, musicianId) =>
+      resolveMusicianDefaultInputs: (musicianId) =>
         musicianId === "lukas-holoubek"
           ? [
               { key: "ac_guitar", label: "Acoustic guitar" },
@@ -187,7 +187,7 @@ describe("buildVisibleLineupSections", () => {
           : role === "vocs"
             ? [{ musicianId: "vocal-acoustic" }]
             : [{ musicianId: undefined }],
-      resolveMusicianDefaultInputs: (_role, musicianId) =>
+      resolveMusicianDefaultInputs: (musicianId) =>
         musicianId === "keys-acoustic" || musicianId === "vocal-acoustic"
           ? [{ key: "ac_guitar", label: "Acoustic guitar" }]
           : [],
@@ -204,14 +204,14 @@ describe("buildVisibleLineupSections", () => {
     }
   });
 
-  it("includes electric+acoustic member in AC. GUITAR section", () => {
+  it("does not include electric+acoustic-only lineup in AC. GUITAR section", () => {
     const sections = buildVisibleLineupSections({
       roleOrder: ["drums", "bass", "guitar", "keys", "vocs"],
       resolveRoleSlots: (role) =>
         role === "guitar"
           ? [{ musicianId: "electric-and-acoustic" }]
           : [{ musicianId: undefined }],
-      resolveMusicianDefaultInputs: (_role, musicianId) =>
+      resolveMusicianDefaultInputs: (musicianId) =>
         musicianId === "electric-and-acoustic"
           ? [
               { key: "el_guitar_xlr_stereo_l", label: "Electric guitar L" },
@@ -220,14 +220,42 @@ describe("buildVisibleLineupSections", () => {
           : [],
     });
 
+    expect(sections.some((section) => section.kind === "acoustic_guitar")).toBe(false);
+  });
+
+
+  it("shows AC. GUITAR when lineup has acoustic-only member plus electric guitarist", () => {
+    const sections = buildVisibleLineupSections({
+      roleOrder: ["drums", "bass", "guitar", "keys", "vocs"],
+      resolveRoleSlots: (role) =>
+        role === "guitar"
+          ? [{ musicianId: "electric-player" }]
+          : role === "vocs"
+            ? [{ musicianId: "acoustic-vocal" }]
+            : [{ musicianId: undefined }],
+      resolveMusicianDefaultInputs: (musicianId) =>
+        musicianId === "electric-player"
+          ? [{ key: "el_guitar_mic", label: "Electric guitar" }]
+          : musicianId === "acoustic-vocal"
+            ? [
+                { key: "ac_guitar", label: "Acoustic guitar" },
+                { key: "voc_lead", label: "Lead vocal" },
+              ]
+            : [],
+    });
+
     const acousticSection = sections.find(
       (section) => section.kind === "acoustic_guitar",
     );
     expect(acousticSection?.kind).toBe("acoustic_guitar");
     if (acousticSection?.kind === "acoustic_guitar") {
-      expect(
-        acousticSection.members.map((member) => member.musicianId),
-      ).toEqual(["electric-and-acoustic"]);
+      expect(acousticSection.members.map((member) => member.musicianId)).toEqual([
+        "acoustic-vocal",
+      ]);
+      expect(acousticSection.members[0]).toMatchObject({
+        sourceRole: "vocs",
+        sourceSlotIndex: 0,
+      });
     }
   });
 
@@ -245,7 +273,7 @@ describe("buildVisibleLineupSections", () => {
         roleOrder: ["drums", "bass", "guitar", "keys", "vocs"],
         resolveRoleSlots: (role) =>
           roleSlotsByRole[role] ?? [{ musicianId: undefined }],
-        resolveMusicianDefaultInputs: (_role, musicianId) =>
+        resolveMusicianDefaultInputs: (musicianId) =>
           musicianId === "lukas-holoubek"
             ? [{ key: "ac_guitar", label: "Acoustic guitar" }]
             : [{ key: "voc_lead", label: "Lead vocal" }],
@@ -269,7 +297,7 @@ describe("buildVisibleLineupSections", () => {
         role === "vocs"
           ? [{ musicianId: "lukas-holoubek" }]
           : [{ musicianId: undefined }],
-      resolveMusicianDefaultInputs: (_role, musicianId) =>
+      resolveMusicianDefaultInputs: (musicianId) =>
         musicianId === "lukas-holoubek"
           ? [{ key: "ac_guitar", label: "Acoustic guitar" }]
           : [],
@@ -288,7 +316,7 @@ describe("buildVisibleLineupSections", () => {
         role === "vocs"
           ? [{ musicianId: "lukas-holoubek" }]
           : [{ musicianId: undefined }],
-      resolveMusicianDefaultInputs: (_role, musicianId) =>
+      resolveMusicianDefaultInputs: (musicianId) =>
         musicianId === "lukas-holoubek"
           ? [{ key: "ac_guitar", label: "Acoustic guitar" }]
           : [],

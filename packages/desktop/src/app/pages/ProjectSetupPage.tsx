@@ -85,6 +85,9 @@ import {
   resolveMusicianDefaultSetupForRole,
   resolveSetupCardLabel,
 } from "./shared/setupConstants";
+import {
+  resolveMusicianCapabilityInputs,
+} from "../../../../../src/domain/lineup/resolveLineupInstrumentMembership";
 
 export function ProjectSetupPage({
   id,
@@ -974,6 +977,15 @@ export function ProjectSetupPage({
       ? "lead voc"
       : selectedSetupMusician?.role;
 
+  const resolveMusicianCapabilityDefaultInputs = useCallback(
+    (musicianId: string): InputChannel[] =>
+      resolveMusicianCapabilityInputs({
+        presetItems: setupData?.musicianPresetsById?.[musicianId],
+        getPresetByRef: (ref) => presetCatalog[ref],
+      }),
+    [presetCatalog, setupData],
+  );
+
   const visibleLineupSections = useMemo(() => {
     if (!setupData) {
       return ROLE_ORDER.map((role) => ({ kind: "role" as const, role }));
@@ -985,10 +997,10 @@ export function ProjectSetupPage({
         const constraint = normalizeRoleConstraint(role, setupData.constraints[role]);
         return normalizeLineupSlots(lineup[role], constraint.max);
       },
-      resolveMusicianDefaultInputs: (role, musicianId) =>
-        resolveMusicianDefaultPreset(role, musicianId).inputs,
+      resolveMusicianDefaultInputs: (musicianId) =>
+        resolveMusicianCapabilityDefaultInputs(musicianId),
     });
-  }, [lineup, resolveMusicianDefaultPreset, setupData]);
+  }, [lineup, resolveMusicianCapabilityDefaultInputs, setupData]);
 
   const resetModalRef = useModalBehavior(showResetConfirmation, () =>
     setShowResetConfirmation(false),
