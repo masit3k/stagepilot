@@ -1,5 +1,13 @@
 import type { InputChannel, PresetEntity, PresetItem } from "../model/types";
 
+export type SetupCapabilitySection =
+  | "drums"
+  | "bass"
+  | "guitar"
+  | "keys"
+  | "vocs"
+  | "acoustic_guitar";
+
 export type MusicianInstrumentCapabilities = {
   hasElectricGuitarCapability: boolean;
   hasAcousticGuitarCapability: boolean;
@@ -12,6 +20,29 @@ export type LineupInstrumentMembership = MusicianInstrumentCapabilities & {
 
 function normalizeKey(key: string): string {
   return key.trim().toLowerCase();
+}
+
+function isGroupInputKey(
+  key: string,
+  group: Exclude<SetupCapabilitySection, "acoustic_guitar">,
+): boolean {
+  const normalized = normalizeKey(key);
+  if (group === "guitar") return normalized.startsWith("el_guitar");
+  if (group === "bass") return normalized.startsWith("el_bass") || normalized.startsWith("bass_");
+  if (group === "vocs") return normalized.startsWith("voc_") || normalized.startsWith("vocal_");
+  if (group === "drums") return normalized.startsWith("dr_");
+  return normalized.startsWith(`${group}_`);
+}
+
+export function supportsCapabilitySection(args: {
+  section: SetupCapabilitySection;
+  inputs: InputChannel[];
+}): boolean {
+  const { section, inputs } = args;
+  if (section === "acoustic_guitar") {
+    return hasAcousticGuitarCapability(inputs);
+  }
+  return inputs.some((input) => isGroupInputKey(input.key, section));
 }
 
 export function detectPresetInstrumentCapabilities(
@@ -115,4 +146,17 @@ export function resolveMusicianCapabilityInputs(args: {
       });
     });
   return Array.from(byKey.values());
+}
+
+export function resolveInputsForCapabilitySection(args: {
+  section: SetupCapabilitySection;
+  inputs: InputChannel[];
+}): InputChannel[] {
+  const { section, inputs } = args;
+  if (section === "acoustic_guitar") {
+    return inputs.filter((input) =>
+      normalizeKey(input.key).startsWith("ac_guitar"),
+    );
+  }
+  return inputs.filter((input) => isGroupInputKey(input.key, section));
 }

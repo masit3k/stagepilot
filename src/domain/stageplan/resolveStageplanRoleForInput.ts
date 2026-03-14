@@ -20,12 +20,20 @@ function mapInstrumentMatch(match: string | undefined): StageplanInstrument | nu
   }
 }
 
+
+function isAcousticGuitarLabelOrKey(input: { label: string; key?: string }): boolean {
+  const normalizedLabel = (input.label ?? "").trim().toLowerCase();
+  const normalizedKey = (input.key ?? "").trim().toLowerCase();
+  return normalizedKey.startsWith("ac_guitar") || normalizedLabel.includes("acoustic guitar");
+}
+
 function isLeadVocalLabel(label: string): boolean {
   const normalized = label.trim().toLowerCase();
   return normalized.startsWith("lead voc") || normalized.includes("lead vocal");
 }
 
 export function resolveStageplanRoleForInput(input: {
+  key?: string;
   label: string;
   group?: Group;
 }): StageplanInstrument | null {
@@ -42,6 +50,10 @@ export function resolveStageplanRoleForInput(input: {
 
   if (isLeadVocalLabel(label)) {
     return "Lead vocal";
+  }
+
+  if (isAcousticGuitarLabelOrKey(input)) {
+    return "Guitar";
   }
 
   switch (input.group) {

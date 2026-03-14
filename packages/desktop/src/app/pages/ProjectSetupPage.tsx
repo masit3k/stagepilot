@@ -86,7 +86,10 @@ import {
   resolveSetupCardLabel,
 } from "./shared/setupConstants";
 import {
+  resolveInputsForCapabilitySection,
   resolveMusicianCapabilityInputs,
+  supportsCapabilitySection,
+  type SetupCapabilitySection,
 } from "../../../../../src/domain/lineup/resolveLineupInstrumentMembership";
 
 export function ProjectSetupPage({
@@ -953,6 +956,20 @@ export function ProjectSetupPage({
     [presetCatalog, setupData],
   );
 
+  const resolveEligibleMembersForSection = useCallback(
+    (section: SetupCapabilitySection, fallbackRole: string): MemberOption[] => {
+      if (!setupData) return [];
+      const roleMembers = setupData.members[fallbackRole] || [];
+      return roleMembers.filter((member) =>
+        supportsCapabilitySection({
+          section,
+          inputs: resolveMusicianCapabilityDefaultInputs(member.id),
+        }),
+      );
+    },
+    [resolveMusicianCapabilityDefaultInputs, setupData],
+  );
+
   const visibleLineupSections = useMemo(() => {
     if (!setupData) {
       return ROLE_ORDER.map((role) => ({ kind: "role" as const, role }));
@@ -1037,7 +1054,7 @@ export function ProjectSetupPage({
                       );
                       const sourceSlot = sourceSlots[member.sourceSlotIndex];
                       const musicianId = sourceSlot?.musicianId ?? member.musicianId;
-                      const sourceMembers = setupData?.members[member.sourceRole] || [];
+                      const sourceMembers = resolveEligibleMembersForSection("acoustic_guitar", member.sourceRole);
                       const selectedName = musicianId
                         ? (sourceMembers.find((m) => m.id === musicianId)?.name ?? musicianId)
                         : "Not selected";
@@ -1052,7 +1069,7 @@ export function ProjectSetupPage({
                             <button
                               type="button"
                               className="button-secondary"
-                              disabled={!musicianId}
+                              disabled={!musicianId || sourceMembers.filter((m) => m.id !== musicianId).length === 0}
                               onClick={() =>
                                 setEditing({
                                   role: member.sourceRole,
@@ -1116,7 +1133,10 @@ export function ProjectSetupPage({
           const role = section.role;
           const roleSlotLimit = getRoleSlotLimit(role);
           const selected = normalizeLineupValue(lineup[role], roleSlotLimit);
-          const members = setupData?.members[role] || [];
+          const sectionCapability: SetupCapabilitySection = role === "guitar"
+            ? "guitar"
+            : (role as SetupCapabilitySection);
+          const members = resolveEligibleMembersForSection(sectionCapability, role);
 
           return (
             <article key={role} className="lineup-card">
@@ -1497,13 +1517,21 @@ export function ProjectSetupPage({
                 selectedSetupMusician.musicianId,
                 currentPatch,
               );
+              const setupSection: SetupCapabilitySection =
+                selectedSetupMusician.role === "guitar"
+                  ? "guitar"
+                  : (selectedSetupMusician.role as SetupCapabilitySection);
+              const effectiveSectionInputs = resolveInputsForCapabilitySection({
+                section: setupSection,
+                inputs: effective.inputs,
+              });
               const availableInputs = (
                 GROUP_INPUT_LIBRARY[
                   selectedSetupMusician.role as keyof typeof GROUP_INPUT_LIBRARY
                 ] ?? []
               ).filter(
                 (item: InputChannel) =>
-                  !effective.inputs.some(
+                  !effectiveSectionInputs.some(
                     (effectiveItem) => effectiveItem.key === item.key,
                   ),
               );
@@ -1730,7 +1758,7 @@ export function ProjectSetupPage({
                             ) : null}
                             {selectedSetupMusician.role === "drums" ? (
                               <SelectedInputsList
-                                effectiveInputs={effective.inputs}
+                                effectiveInputs={effectiveSectionInputs}
                                 inputDiffMeta={resolved.diffMeta.inputs}
                                 availableInputs={availableInputs}
                                 nonRemovableKeys={[
@@ -1987,7 +2015,10 @@ export function ProjectSetupPage({
                 ? selectedOptions
                 : editing.role === "talkback"
                   ? [{ id: "", name: "Nobody assigned" }, ...selectedOptions]
-                  : setupData.members[editing.role] || []
+                  : resolveEligibleMembersForSection(
+                      editing.role === "guitar" ? "guitar" : (editing.role as SetupCapabilitySection),
+                      editing.role,
+                    )
               ).map((member) => (
                 <button
                   type="button"

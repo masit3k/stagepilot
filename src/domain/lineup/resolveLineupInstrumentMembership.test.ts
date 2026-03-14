@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   getAcousticGuitarMembers,
   hasAcousticGuitarPreset,
+  resolveInputsForCapabilitySection,
   resolveLineupInstrumentMembership,
   resolveMusicianCapabilityInputs,
   resolveMusicianInstrumentCapabilities,
+  supportsCapabilitySection,
 } from "./resolveLineupInstrumentMembership";
 
 describe("resolveLineupInstrumentMembership", () => {
@@ -159,5 +161,50 @@ describe("resolveMusicianCapabilityInputs", () => {
     });
 
     expect(inputs.map((input) => input.key)).toEqual(["ac_guitar", "voc_lead"]);
+  });
+});
+
+
+describe("supportsCapabilitySection", () => {
+  const compositeInputs = [
+    { key: "ac_guitar", label: "Acoustic guitar" },
+    { key: "voc_lead", label: "Lead vocal" },
+    { key: "keys_l", label: "Keys L" },
+  ];
+
+  it("matches acoustic section using acoustic capability", () => {
+    expect(
+      supportsCapabilitySection({ section: "acoustic_guitar", inputs: compositeInputs }),
+    ).toBe(true);
+    expect(
+      supportsCapabilitySection({ section: "acoustic_guitar", inputs: [{ key: "voc_lead", label: "Lead vocal" }] }),
+    ).toBe(false);
+  });
+
+  it("matches concrete role sections by effective input keys", () => {
+    expect(supportsCapabilitySection({ section: "vocs", inputs: compositeInputs })).toBe(true);
+    expect(supportsCapabilitySection({ section: "keys", inputs: compositeInputs })).toBe(true);
+    expect(supportsCapabilitySection({ section: "bass", inputs: compositeInputs })).toBe(false);
+  });
+});
+
+describe("resolveInputsForCapabilitySection", () => {
+  const effectiveInputs = [
+    { key: "ac_guitar", label: "Acoustic guitar" },
+    { key: "voc_lead", label: "Lead vocal" },
+    { key: "ac_guitar_di", label: "Acoustic guitar DI" },
+    { key: "keys_l", label: "Keys L" },
+  ];
+
+  it("returns all relevant acoustic-guitar inputs", () => {
+    expect(
+      resolveInputsForCapabilitySection({ section: "acoustic_guitar", inputs: effectiveInputs }).map((input) => input.key),
+    ).toEqual(["ac_guitar", "ac_guitar_di"]);
+  });
+
+  it("returns only role-specific effective inputs", () => {
+    expect(
+      resolveInputsForCapabilitySection({ section: "vocs", inputs: effectiveInputs }).map((input) => input.key),
+    ).toEqual(["voc_lead"]);
   });
 });

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::Write;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::Manager;
 
@@ -362,24 +362,6 @@ pub fn sanitize_id_to_filename(project_id: &str) -> String {
         out.remove(0);
     }
     if out.is_empty() { "project".to_string() } else { out }
-}
-
-pub fn project_json_path(projects_dir: &Path, project_id: &str) -> Result<PathBuf, StorageError> {
-    let file_name = format!("{}.json", sanitize_id_to_filename(project_id));
-    safe_join(projects_dir, &file_name)
-}
-
-pub fn safe_join(base: &Path, child: &str) -> Result<PathBuf, StorageError> {
-    let child_path = Path::new(child);
-    if child_path.is_absolute() {
-        return Err(StorageError::Resolve("Absolute paths are not allowed".into()));
-    }
-    if child_path.components().any(|c| {
-        matches!(c, Component::ParentDir | Component::RootDir | Component::Prefix(_))
-    }) {
-        return Err(StorageError::Resolve("Path traversal is not allowed".into()));
-    }
-    Ok(base.join(child_path))
 }
 
 pub fn atomic_write_bytes(path: &Path, bytes: &[u8]) -> Result<(), StorageError> {
