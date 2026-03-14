@@ -1,7 +1,15 @@
-import type { LineupMap } from "../../../projectRules";
+import type { LineupMap, LineupSlotValue } from "../../../projectRules";
 
-type Snapshot = {
-  lineup: LineupMap;
+type LineupComparableValue =
+  | string
+  | LineupSlotValue
+  | Array<string | LineupSlotValue>
+  | undefined;
+
+type LineupComparableMap = Record<string, LineupComparableValue>;
+
+export type LineupDirtyComparisonState = {
+  lineup: LineupComparableMap;
   bandLeaderId: string;
   talkbackOwnerId: string;
   backVocalIds: string[];
@@ -9,24 +17,57 @@ type Snapshot = {
   hasTalkbackOverride?: boolean;
 };
 
-function stableStringify(value: Snapshot): string {
-  return JSON.stringify({
-    lineup: value.lineup,
+export function normalizeLineupForComparison(
+  value: LineupDirtyComparisonState,
+): LineupDirtyComparisonState {
+  const normalizedLineup = Object.keys(value.lineup)
+    .sort((a, b) => a.localeCompare(b))
+    .reduce<LineupComparableMap>((acc, role) => {
+      const roleValue = value.lineup[role];
+      if (roleValue === undefined) return acc;
+      acc[role] = roleValue;
+      return acc;
+    }, {});
+
+  return {
+    lineup: normalizedLineup,
     bandLeaderId: value.bandLeaderId,
     talkbackOwnerId: value.talkbackOwnerId,
     backVocalIds: [...value.backVocalIds].sort((a, b) => a.localeCompare(b)),
     hasBackVocalOverride: Boolean(value.hasBackVocalOverride),
     hasTalkbackOverride: Boolean(value.hasTalkbackOverride),
-  });
+  };
 }
 
-export function isLineupSetupDirty(args: {
-  baselineProject: Snapshot;
-  currentDraftProject: Snapshot;
-}): boolean {
+export function createLineupDirtyBaseline(
+  value: LineupDirtyComparisonState,
+): LineupDirtyComparisonState {
+  return normalizeLineupForComparison(value);
+}
+
+export function areLineupStatesEqual(
+  left: LineupDirtyComparisonState,
+  right: LineupDirtyComparisonState,
+): boolean {
   return (
-    stableStringify(args.baselineProject) !==
-    stableStringify(args.currentDraftProject)
+    JSON.stringify(normalizeLineupForComparison(left)) ===
+    JSON.stringify(normalizeLineupForComparison(right))
   );
 }
 
+export function hasUnsavedLineupChanges(args: {
+  baseline: LineupDirtyComparisonState;
+  current: LineupDirtyComparisonState;
+}): boolean {
+  return !areLineupStatesEqual(args.baseline, args.current);
+}
+
+export function isLineupSetupDirty(args: {
+  baselineProject: LineupDirtyComparisonState;
+  currentDraftProject: LineupDirtyComparisonState;
+}): boolean {
+  return hasUnsavedLineupChanges({
+    baseline: args.baselineProject,
+    current: args.currentDraftProject,
+  });
+}

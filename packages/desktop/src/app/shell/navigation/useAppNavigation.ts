@@ -5,9 +5,17 @@ function getCurrentPath() {
   return window.location.pathname || "/";
 }
 
-export function resolvePopstateNavigation(params: { targetPath: string; currentPath: string; isDirty: boolean }) {
+export function resolvePopstateNavigation(params: {
+  targetPath: string;
+  currentPath: string;
+  isDirty: boolean;
+}) {
   if (params.isDirty) {
-    return { restorePath: params.currentPath, pendingNavigation: params.targetPath, applyTarget: false };
+    return {
+      restorePath: params.currentPath,
+      pendingNavigation: params.targetPath,
+      applyTarget: false,
+    };
   }
   return { restorePath: null, pendingNavigation: null, applyTarget: true };
 }
@@ -17,15 +25,20 @@ export function useAppNavigation() {
   const [search, setSearch] = useState(window.location.search || "");
   const pathnameRef = useRef(pathname);
   const guardRef = useRef<NavigationGuard | null>(null);
-  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     pathnameRef.current = pathname;
   }, [pathname]);
 
-  const registerNavigationGuard = useCallback((guard: NavigationGuard | null) => {
-    guardRef.current = guard;
-  }, []);
+  const registerNavigationGuard = useCallback(
+    (guard: NavigationGuard | null) => {
+      guardRef.current = guard;
+    },
+    [],
+  );
 
   const navigateImmediate = useCallback((path: string, replace = false) => {
     if (replace) window.history.replaceState({}, "", path);
@@ -34,15 +47,18 @@ export function useAppNavigation() {
     setSearch(window.location.search || "");
   }, []);
 
-  const navigate = useCallback((path: string) => {
-    if (path === pathnameRef.current) return;
-    const guard = guardRef.current;
-    if (guard?.isDirty()) {
-      setPendingNavigation(path);
-      return;
-    }
-    navigateImmediate(path);
-  }, [navigateImmediate]);
+  const navigate = useCallback(
+    (path: string) => {
+      if (path === pathnameRef.current) return;
+      const guard = guardRef.current;
+      if (guard?.isDirty()) {
+        setPendingNavigation(path);
+        return;
+      }
+      navigateImmediate(path);
+    },
+    [navigateImmediate],
+  );
 
   useEffect(() => {
     const h = () => {
@@ -53,7 +69,11 @@ export function useAppNavigation() {
         isDirty: Boolean(guardRef.current?.isDirty()),
       });
       if (!resolved.applyTarget) {
-        window.history.pushState({}, "", resolved.restorePath ?? pathnameRef.current);
+        window.history.pushState(
+          {},
+          "",
+          resolved.restorePath ?? pathnameRef.current,
+        );
         setPendingNavigation(resolved.pendingNavigation);
         return;
       }
@@ -73,10 +93,15 @@ export function useAppNavigation() {
   }, [navigateImmediate, pendingNavigation]);
 
   const saveAndExit = useCallback(async () => {
-    await guardRef.current?.save();
     const path = pendingNavigation;
-    setPendingNavigation(null);
-    if (path) navigateImmediate(path);
+    if (!path) return;
+    try {
+      await guardRef.current?.save();
+      setPendingNavigation(null);
+      navigateImmediate(path);
+    } catch (error) {
+      console.error("Save before exit failed", error);
+    }
   }, [navigateImmediate, pendingNavigation]);
 
   return {

@@ -42,7 +42,11 @@ import { SetupSection } from "../components/setup/SetupSection";
 import { SchemaRenderer } from "../components/setup/SchemaRenderer";
 import { migrateProjectLineupVocsToLeadBack } from "../domain/project/migrateProjectLineup";
 import { migrateProjectTalkbackOwner } from "../domain/project/migrateProjectTalkbackOwner";
-import { isLineupSetupDirty } from "../domain/ui/isLineupSetupDirty";
+import {
+  createLineupDirtyBaseline,
+  hasUnsavedLineupChanges,
+  type LineupDirtyComparisonState,
+} from "../domain/ui/isLineupSetupDirty";
 import {
   areSetupsEqual,
   resetOverrides,
@@ -131,7 +135,7 @@ export function ProjectSetupPage({
   const [isUpdatingMusicianDefaults, setIsUpdatingMusicianDefaults] =
     useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
-  const initialSnapshotRef = useRef("");
+  const initialSnapshotRef = useRef<LineupDirtyComparisonState | null>(null);
   const snapshotHydratedRef = useRef(false);
 
   useEffect(() => {
@@ -211,13 +215,14 @@ export function ProjectSetupPage({
         typeof parsed.talkbackOwnerId === "string"
           ? parsed.talkbackOwnerId.trim()
           : "";
+      const parsedHasBackVocalOverride = Array.isArray((parsed.lineup ?? {}).back_vocs);
       setProject(parsed);
       const persistedBackVocalIds = normalizeLineupValue(
         (parsed.lineup ?? {}).back_vocs,
         8,
       );
       setBackVocalIds(persistedBackVocalIds);
-      setHasBackVocalOverride(Array.isArray((parsed.lineup ?? {}).back_vocs));
+      setHasBackVocalOverride(parsedHasBackVocalOverride);
       setHasTalkbackOverride(parsedHasTalkbackOverride);
       setTalkbackOwnerId(
         parsedHasTalkbackOverride ? parsedTalkbackOwnerId : "",
@@ -306,19 +311,50 @@ export function ProjectSetupPage({
         });
         setProject(updatedProject);
       }
-      initialSnapshotRef.current = JSON.stringify({
-        ...initialState,
-        lineup: serializeLineupForProject(
-          initialState.lineup,
-          data.constraints,
-          ROLE_ORDER,
-        ),
-        backVocalIds: normalizeLineupValue((parsed.lineup ?? {}).back_vocs, 8),
-        hasBackVocalOverride: Array.isArray((parsed.lineup ?? {}).back_vocs),
-        hasTalkbackOverride: parsedHasTalkbackOverride,
+      const initialSerializedLineup = serializeLineupForProject(
+        initialState.lineup,
+        data.constraints,
+        ROLE_ORDER,
+      );
+      const initialTemplateMusicians = getUniqueSelectedMusicians(
+        initialState.lineup,
+        data.constraints,
+        ROLE_ORDER,
+      );
+      const initialRoleByMusicianId = new Map<string, Group>();
+      ROLE_ORDER.forEach((role) => {
+        const roleConstraint = normalizeRoleConstraint(role, data.constraints[role]);
+        normalizeLineupSlots(initialState.lineup[role], roleConstraint.max).forEach(
+          (slot) => {
+            initialRoleByMusicianId.set(slot.musicianId, role as Group);
+          },
+        );
+      });
+      const initialMusicians = initialTemplateMusicians.map((musicianId) => ({
+        id: musicianId,
+        firstName: "",
+        lastName: "",
+        group: initialRoleByMusicianId.get(musicianId) ?? "vocs",
+        presets: (data.musicianPresetsById?.[musicianId] ?? []) as PresetItem[],
+      }));
+      const initialLeadVocalIds = getLeadVocsFromTemplate(initialMusicians);
+      const effectiveBackVocalIds = parsedHasBackVocalOverride
+        ? normalizeLineupValue((parsed.lineup ?? {}).back_vocs, 8)
+        : Array.from(
+            sanitizeBackVocsSelection(
+              getBackVocsFromTemplate(initialMusicians),
+              initialLeadVocalIds,
+            ),
+          ).sort((a, b) => a.localeCompare(b));
+      initialSnapshotRef.current = createLineupDirtyBaseline({
+        lineup: initialSerializedLineup,
+        bandLeaderId: initialState.bandLeaderId,
         talkbackOwnerId: parsedHasTalkbackOverride
           ? parsedTalkbackOwnerId
           : (initialState.talkbackOwnerId ?? ""),
+        backVocalIds: effectiveBackVocalIds,
+        hasBackVocalOverride: parsedHasBackVocalOverride,
+        hasTalkbackOverride: parsedHasTalkbackOverride,
       });
     })().catch((error) => {
       console.error("Failed to initialize setup page", {
@@ -537,33 +573,46 @@ export function ProjectSetupPage({
       hasTalkbackOverride: false,
     });
   }, [defaultSelectedBackVocalIds, setupData, buildSetupSnapshot]);
+  const currentDirtyState = useMemo<LineupDirtyComparisonState>(
+    () => ({
+      lineup: serializedLineup,
+      bandLeaderId,
+      talkbackOwnerId: talkbackCurrentOwnerId,
+      backVocalIds: selectedBackVocalIds,
+      hasBackVocalOverride,
+      hasTalkbackOverride,
+    }),
+    [
+      bandLeaderId,
+      hasBackVocalOverride,
+      hasTalkbackOverride,
+      selectedBackVocalIds,
+      serializedLineup,
+      talkbackCurrentOwnerId,
+    ],
+  );
   const isDirty = Boolean(
     project &&
-      isLineupSetupDirty({
-        baselineProject: JSON.parse(initialSnapshotRef.current || "null") ?? {
-          lineup: {},
-          bandLeaderId: "",
-          talkbackOwnerId: "",
-          backVocalIds: [],
-          hasBackVocalOverride: false,
-          hasTalkbackOverride: false,
-        },
-        currentDraftProject: {
-          lineup: serializedLineup,
-          bandLeaderId,
-          talkbackOwnerId: talkbackCurrentOwnerId,
-          backVocalIds: selectedBackVocalIds,
-          hasBackVocalOverride,
-          hasTalkbackOverride,
-        },
+      hasUnsavedLineupChanges({
+        baseline:
+          initialSnapshotRef.current ??
+          createLineupDirtyBaseline({
+            lineup: {},
+            bandLeaderId: "",
+            talkbackOwnerId: "",
+            backVocalIds: [],
+            hasBackVocalOverride: false,
+            hasTalkbackOverride: false,
+          }),
+        current: currentDirtyState,
       }),
   );
 
   useEffect(() => {
     if (!project || !setupData || snapshotHydratedRef.current) return;
-    initialSnapshotRef.current = currentSnapshot;
+    initialSnapshotRef.current = createLineupDirtyBaseline(currentDirtyState);
     snapshotHydratedRef.current = true;
-  }, [currentSnapshot, project, setupData]);
+  }, [currentDirtyState, project, setupData]);
 
   async function persistProject(next?: Partial<NewProjectPayload>) {
     if (!project) return;
@@ -586,7 +635,7 @@ export function ProjectSetupPage({
       json: JSON.stringify(toPersistableProject(payload), null, 2),
     });
     setProject(payload);
-    initialSnapshotRef.current = JSON.stringify({
+    initialSnapshotRef.current = createLineupDirtyBaseline({
       lineup: serializeLineupForProject(
         payload.lineup ?? {},
         setupData?.constraints ?? {},
@@ -597,21 +646,23 @@ export function ProjectSetupPage({
         ? (payload.talkbackOwnerId ?? "")
         : (payload.bandLeaderId ?? ""),
       hasTalkbackOverride,
-      backVocalIds: [...selectedBackVocalIds].sort((a, b) =>
-        a.localeCompare(b),
-      ),
+      backVocalIds: [...selectedBackVocalIds],
       hasBackVocalOverride,
     });
     snapshotHydratedRef.current = true;
   }
 
+  async function saveLineupAndExit() {
+    await persistProject();
+  }
+
   useEffect(() => {
     registerNavigationGuard({
       isDirty: () => !isCommitting && isDirty,
-      save: persistProject,
+      save: saveLineupAndExit,
     });
     return () => registerNavigationGuard(null);
-  }, [registerNavigationGuard, isDirty, isCommitting]);
+  }, [registerNavigationGuard, isDirty, isCommitting, saveLineupAndExit]);
 
   function setRoleSlots(role: string, slots: LineupSlotValue[]) {
     if (!setupData) return;

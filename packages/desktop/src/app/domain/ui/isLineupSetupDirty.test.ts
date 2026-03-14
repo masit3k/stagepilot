@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { isLineupSetupDirty } from "./isLineupSetupDirty";
+import {
+  areLineupStatesEqual,
+  createLineupDirtyBaseline,
+  hasUnsavedLineupChanges,
+  isLineupSetupDirty,
+} from "./isLineupSetupDirty";
 
 describe("isLineupSetupDirty", () => {
   const baseline = {
@@ -11,7 +16,10 @@ describe("isLineupSetupDirty", () => {
 
   it("returns false when unchanged", () => {
     expect(
-      isLineupSetupDirty({ baselineProject: baseline, currentDraftProject: { ...baseline } }),
+      isLineupSetupDirty({
+        baselineProject: baseline,
+        currentDraftProject: { ...baseline },
+      }),
     ).toBe(false);
   });
 
@@ -25,13 +33,18 @@ describe("isLineupSetupDirty", () => {
             ...baseline.lineup,
             bass: {
               musicianId: "bass-1",
-              presetOverride: { inputs: { add: [{ key: "bass_pedal", label: "Bass pedalboard" }] } },
+              presetOverride: {
+                inputs: {
+                  add: [{ key: "bass_pedal", label: "Bass pedalboard" }],
+                },
+              },
             },
           },
         },
       }),
     ).toBe(true);
   });
+
   it("treats explicit empty back vocal override as dirty against default-derived state", () => {
     expect(
       isLineupSetupDirty({
@@ -58,4 +71,42 @@ describe("isLineupSetupDirty", () => {
     ).toBe(true);
   });
 
+  it("ignores lineup object key ordering", () => {
+    const current = {
+      ...baseline,
+      lineup: {
+        lead_vocs: "lead-1",
+        back_vocs: ["back-1"],
+        drums: "drummer-1",
+      },
+    };
+    expect(areLineupStatesEqual(baseline, current)).toBe(true);
+  });
+
+  it("returns dirty false when edits are reverted to baseline", () => {
+    const dirtyState = {
+      ...baseline,
+      talkbackOwnerId: "other",
+    };
+    expect(hasUnsavedLineupChanges({ baseline, current: dirtyState })).toBe(
+      true,
+    );
+    expect(hasUnsavedLineupChanges({ baseline, current: baseline })).toBe(
+      false,
+    );
+  });
+
+  it("creates baseline from effective current state", () => {
+    const effectiveCurrent = {
+      ...baseline,
+      backVocalIds: ["back-2", "back-1"],
+    };
+    const dirtyBaseline = createLineupDirtyBaseline(effectiveCurrent);
+    expect(
+      hasUnsavedLineupChanges({
+        baseline: dirtyBaseline,
+        current: effectiveCurrent,
+      }),
+    ).toBe(false);
+  });
 });
