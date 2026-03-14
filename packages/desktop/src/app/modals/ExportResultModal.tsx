@@ -41,14 +41,8 @@ export function ExportResultModal({
           <p>PDF was saved successfully.</p>
         ) : (
           <>
-            <p>
-              Something went wrong during export. If this file is open in
-              another program (or preview), close it and retry.
-            </p>
-            <p className="subtle">
-              {state.message}
-              {state.technical ? ` — ${state.technical}` : ""}
-            </p>
+            <p>{state.message}</p>
+            <p className="subtle">{state.technical || state.message}</p>
           </>
         )}
         <div className="modal-actions">

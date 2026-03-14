@@ -11,9 +11,9 @@ use std::{
 };
 use storage_paths::{
     atomic_write_bytes, catalog_dir as storage_catalog_dir, ensure_user_storage, exports_dir,
-    maybe_wipe_storage_for_dev, projects_dir as storage_projects_dir,
-    sanitize_id_to_filename, temp_dir as storage_temp_dir, user_storage_root,
-    versions_dir as storage_versions_dir, StorageError,
+    maybe_wipe_storage_for_dev, projects_dir as storage_projects_dir, sanitize_id_to_filename,
+    temp_dir as storage_temp_dir, user_storage_root, versions_dir as storage_versions_dir,
+    StorageError,
 };
 use tauri_plugin_dialog::DialogExt;
 
@@ -102,7 +102,6 @@ struct LibraryMessage {
     body: String,
 }
 
-
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct BandSetupData {
@@ -187,7 +186,6 @@ fn infer_monitoring_default_from_ref(monitor_ref: &str) -> Value {
     })
 }
 
-
 fn resolve_workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
@@ -244,6 +242,18 @@ fn map_io_error(err: std::io::Error, code: &str, message: &str) -> ApiError {
     }
 }
 
+fn parse_node_export_response(stdout: &str, stderr: &str) -> Result<NodeExportResponse, ApiError> {
+    serde_json::from_str(stdout.trim()).map_err(|err| ApiError {
+        code: "EXPORT_RESPONSE_INVALID".into(),
+        message: format!(
+            "Invalid JSON response from export command: {} (stdout: {}, stderr: {})",
+            err, stdout, stderr
+        ),
+        export_pdf_path: None,
+        version_pdf_path: None,
+    })
+}
+
 fn parse_project_json(path: &Path) -> Result<Value, ApiError> {
     let contents = fs::read_to_string(path)
         .map_err(|err| map_io_error(err, "PROJECT_READ_FAILED", "Failed to read project file"))?;
@@ -270,31 +280,44 @@ fn list_project_json_paths(projects_dir: &Path) -> Result<Vec<PathBuf>, ApiError
     Ok(files)
 }
 
-fn project_slug_filename_candidates(slug: &str, band_leader_id: Option<&str>, project_id: &str) -> Vec<String> {
+fn project_slug_filename_candidates(
+    slug: &str,
+    band_leader_id: Option<&str>,
+    project_id: &str,
+) -> Vec<String> {
     let slug_name = sanitize_id_to_filename(slug);
     let mut out = vec![format!("{}.json", slug_name)];
 
     if let Some(band_leader_id) = band_leader_id {
         let trimmed = band_leader_id.trim();
         if !trimmed.is_empty() {
-            out.push(format!("{}_{}.json", slug_name, sanitize_id_to_filename(trimmed)));
+            out.push(format!(
+                "{}_{}.json",
+                slug_name,
+                sanitize_id_to_filename(trimmed)
+            ));
         }
     }
 
-    out.push(format!("{}_{}.json", slug_name, sanitize_id_to_filename(project_id)));
+    out.push(format!(
+        "{}_{}.json",
+        slug_name,
+        sanitize_id_to_filename(project_id)
+    ));
     out
 }
 
-fn resolve_project_filename(projects_dir: &Path, project: &Value, current_file: Option<&Path>) -> Result<String, ApiError> {
-    let project_id = project
-        .get("id")
-        .and_then(|v| v.as_str())
-        .ok_or(ApiError {
-            code: "PROJECT_SAVE_FAILED".into(),
-            message: "Project id is required.".into(),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        })?;
+fn resolve_project_filename(
+    projects_dir: &Path,
+    project: &Value,
+    current_file: Option<&Path>,
+) -> Result<String, ApiError> {
+    let project_id = project.get("id").and_then(|v| v.as_str()).ok_or(ApiError {
+        code: "PROJECT_SAVE_FAILED".into(),
+        message: "Project id is required.".into(),
+        export_pdf_path: None,
+        version_pdf_path: None,
+    })?;
     let slug = project
         .get("slug")
         .and_then(|v| v.as_str())
@@ -327,7 +350,10 @@ fn resolve_project_filename(projects_dir: &Path, project: &Value, current_file: 
         }
     }
 
-    Ok(candidates.last().cloned().unwrap_or_else(|| format!("{}.json", sanitize_id_to_filename(project_id))))
+    Ok(candidates
+        .last()
+        .cloned()
+        .unwrap_or_else(|| format!("{}.json", sanitize_id_to_filename(project_id))))
 }
 
 fn resolve_project_path_by_id(
@@ -415,8 +441,8 @@ fn load_library_map<T: for<'de> Deserialize<'de>>(
     for entry in fs::read_dir(&dir)
         .map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read catalog"))?
     {
-        let entry =
-            entry.map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read entry"))?;
+        let entry = entry
+            .map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read entry"))?;
         let path = entry.path();
         if path.extension().and_then(|s| s.to_str()) != Some("json") {
             continue;
@@ -493,7 +519,10 @@ fn save_library_list<T: Serialize>(
                     export_pdf_path: None,
                     version_pdf_path: None,
                 })?;
-            if !matches!(role.as_str(), "drums" | "bass" | "guitar" | "keys" | "vocs" | "talkback") {
+            if !matches!(
+                role.as_str(),
+                "drums" | "bass" | "guitar" | "keys" | "vocs" | "talkback"
+            ) {
                 return Err(ApiError {
                     code: "LIBRARY_VALIDATION_FAILED".into(),
                     message: format!("Musician '{}' has invalid role '{}'.", id, role),
@@ -503,7 +532,11 @@ fn save_library_list<T: Serialize>(
             }
             let role_dir = dir.join(role);
             fs::create_dir_all(&role_dir).map_err(|err| {
-                map_io_error(err, "LIBRARY_WRITE_FAILED", "Failed to create musician role directory")
+                map_io_error(
+                    err,
+                    "LIBRARY_WRITE_FAILED",
+                    "Failed to create musician role directory",
+                )
             })?;
             role_dir.join(format!("{}.json", sanitize_id_to_filename(id)))
         } else {
@@ -577,12 +610,18 @@ fn list_projects(app: tauri::AppHandle) -> Result<Vec<ProjectSummary>, ApiError>
 
         let summary = ProjectSummary {
             id: id.clone(),
-            slug: json.get("slug").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            slug: json
+                .get("slug")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
             display_name: json
                 .get("displayName")
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string()),
-            band_ref: json.get("bandRef").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            band_ref: json
+                .get("bandRef")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
             event_date: json
                 .get("eventDate")
                 .and_then(|v| v.as_str())
@@ -591,7 +630,10 @@ fn list_projects(app: tauri::AppHandle) -> Result<Vec<ProjectSummary>, ApiError>
                 .get("eventVenue")
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string()),
-            purpose: json.get("purpose").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            purpose: json
+                .get("purpose")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
             created_at,
             updated_at,
         };
@@ -606,7 +648,8 @@ fn list_projects(app: tauri::AppHandle) -> Result<Vec<ProjectSummary>, ApiError>
             let prefer_new = summary.updated_at > existing.updated_at
                 || (summary.updated_at == existing.updated_at
                     && summary.slug.is_some()
-                    && existing_filename.starts_with(&format!("{}.json", sanitize_id_to_filename(&id))));
+                    && existing_filename
+                        .starts_with(&format!("{}.json", sanitize_id_to_filename(&id))));
             if prefer_new {
                 by_id.insert(id, (summary, filename));
             }
@@ -615,7 +658,8 @@ fn list_projects(app: tauri::AppHandle) -> Result<Vec<ProjectSummary>, ApiError>
         }
     }
 
-    let mut results: Vec<ProjectSummary> = by_id.into_values().map(|(summary, _)| summary).collect();
+    let mut results: Vec<ProjectSummary> =
+        by_id.into_values().map(|(summary, _)| summary).collect();
     results.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
     Ok(results)
 }
@@ -900,9 +944,9 @@ fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSet
             continue;
         }
         for entry in list_json_files_recursive(&preset_dir)? {
-            let content = fs::read_to_string(&entry).map_err(|err|
+            let content = fs::read_to_string(&entry).map_err(|err| {
                 map_io_error(err, "BAND_SETUP_LOAD_FAILED", "Failed to read preset file")
-            )?;
+            })?;
             let preset: Value = serde_json::from_str(&content).map_err(|err| ApiError {
                 code: "BAND_SETUP_LOAD_FAILED".into(),
                 message: format!("Invalid preset JSON in {} ({})", entry.display(), err),
@@ -984,7 +1028,8 @@ fn save_project(
     })?;
 
     let current_path = resolve_project_path_by_id(&app, &project_id)?;
-    let target_filename = resolve_project_filename(&projects_dir, &parsed, current_path.as_deref())?;
+    let target_filename =
+        resolve_project_filename(&projects_dir, &parsed, current_path.as_deref())?;
     let target_path = projects_dir.join(target_filename);
 
     atomic_write_bytes(&target_path, json.as_bytes())
@@ -1121,18 +1166,21 @@ fn export_pdf(
         .map_err(|err| map_io_error(err, "EXPORT_FAILED", "Failed to execute export"))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let response: NodeExportResponse =
-        serde_json::from_str(stdout.trim()).map_err(|err| ApiError {
-            code: "EXPORT_FAILED".into(),
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    if !output.status.success() {
+        return Err(ApiError {
+            code: "EXPORT_COMMAND_FAILED".into(),
             message: format!(
-                "Failed to parse export response: {} (stdout: {}, stderr: {})",
-                err,
-                stdout,
-                String::from_utf8_lossy(&output.stderr)
+                "Export command failed with status {} (stderr: {})",
+                output.status, stderr
             ),
             export_pdf_path: None,
             version_pdf_path: None,
-        })?;
+        });
+    }
+
+    let response = parse_node_export_response(&stdout, &stderr)?;
 
     if response.ok {
         let result = response.result.ok_or(ApiError {
@@ -1213,16 +1261,12 @@ fn build_project_pdf_preview(
         output.status, stdout, stderr
     );
 
-    let response: NodeExportResponse =
-        serde_json::from_str(stdout.trim()).map_err(|err| ApiError {
-            code: "PREVIEW_FAILED".into(),
-            message: format!(
-                "Failed to parse preview response: {} (stdout: {}, stderr: {})",
-                err, stdout, stderr
-            ),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        })?;
+    let response = parse_node_export_response(&stdout, &stderr).map_err(|err| ApiError {
+        code: "PREVIEW_FAILED".into(),
+        message: err.message,
+        export_pdf_path: None,
+        version_pdf_path: None,
+    })?;
 
     if response.ok {
         if let Some(result) = response.result {
@@ -1761,4 +1805,25 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_node_export_response;
+
+    #[test]
+    fn parses_clean_success_response() {
+        let stdout = r#"{"ok":true,"result":{"versionPdfPath":"a","exportPdfPath":"b","exportUpdated":true,"versionId":"1","versionPath":"c"}}"#;
+        let parsed = parse_node_export_response(stdout, "").expect("should parse");
+        assert!(parsed.ok);
+        assert!(parsed.result.is_some());
+    }
+
+    #[test]
+    fn rejects_prefixed_stdout_as_contract_error() {
+        let stdout = r#"project=abc slug=my-doc
+{"ok":true,"result":{}}"#;
+        let err = parse_node_export_response(stdout, "").expect_err("should fail");
+        assert_eq!(err.code, "EXPORT_RESPONSE_INVALID");
+    }
 }

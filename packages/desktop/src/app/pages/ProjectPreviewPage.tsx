@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { buildExportFileName } from "../../projectRules";
 import { withFrom } from "../shell/routes";
+import { mapExportError } from "../exportErrors";
 import type { NewProjectPayload } from "../shell/types";
 import {
   ExportResultModal,
@@ -9,7 +10,6 @@ import {
 } from "../modals/ExportResultModal";
 import type { ProjectRouteProps } from "./shared/pageTypes";
 
-type ApiError = { message?: string };
 
 type PreviewState =
   | { kind: "idle" }
@@ -67,7 +67,9 @@ export function ProjectPreviewPage({
       setPreviewState({ kind: "ready", path: result.previewPdfPath });
     } catch (err) {
       const message =
-        (err as ApiError)?.message ?? "Failed to generate preview.";
+        typeof err === "object" && err !== null && "message" in err
+          ? String((err as { message?: string }).message ?? "Failed to generate preview.")
+          : "Failed to generate preview.";
       setStatus(`Preview failed: ${message}`);
       const missingPreview = message.includes("os error 2");
       setPreviewState({
@@ -133,8 +135,12 @@ export function ProjectPreviewPage({
       });
       setExportModal({ kind: "success", path: selectedPath });
     } catch (err) {
-      const message = (err as ApiError)?.message ?? "unknown error";
-      setExportModal({ kind: "error", message });
+      const mapped = mapExportError(err);
+      setExportModal({
+        kind: "error",
+        message: mapped.userMessage,
+        technical: mapped.technicalMessage,
+      });
     } finally {
       setIsGeneratingPdf(false);
     }

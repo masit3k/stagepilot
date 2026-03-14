@@ -1,5 +1,6 @@
 import { access, mkdir } from "node:fs/promises";
 import path from "node:path";
+import { stderr } from "node:process";
 import { isBandLeader } from "../../domain/model/bandLeader.js";
 import type { Band, Project, ProjectJson } from "../../domain/model/types.js";
 import {
@@ -171,7 +172,7 @@ async function exportPdfFromProject(
   );
 
   const slug = project.slug ?? formatProjectSlug(project, band);
-  console.info(`project=${projectId} slug=${slug}`);
+  stderr.write(`project=${projectId} slug=${slug}\n`);
   // Uses slug (human doc key), not id (UUID).
   const pdfFileName = `${slug}.pdf`;
 
