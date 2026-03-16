@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-import { generateUuidV7 } from "../../../../../src/domain/projectNaming";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { generateUuidV7 } from "../../../../../src/domain/projectNaming";
 import {
   acceptISOToDDMMYYYY,
   formatDateDigitsToDDMMYYYY,
@@ -12,18 +12,18 @@ import {
   parseDDMMYYYYToISO,
   parseUsDateInput,
 } from "../../projectRules";
+import * as projectsApi from "../services/projectsApi";
 import { getNavigationContextLabel } from "../shell/routes";
-import type { BandSetupData, NewProjectPayload } from "../shell/types";
-import { toPersistableProject } from "../shell/types";
 import {
   getSetupPrimaryCtaLabel,
   isSetupInfoDirty,
   resolveSetupBackTarget,
 } from "../shell/setupDirty";
-import * as projectsApi from "../services/projectsApi";
+import type { BandSetupData, NewProjectPayload } from "../shell/types";
+import { toPersistableProject } from "../shell/types";
 import { EventDateInput } from "./components/EventDateInput";
 import type { NewProjectPageProps } from "./shared/pageTypes";
-
+import { resolvePersistedTalkbackOwnerId } from "./shared/talkbackPersistence";
 
 export function NewEventProjectPage({
   navigate,
@@ -165,7 +165,10 @@ export function NewEventProjectPage({
         updatedAt: nowIso,
         lineup: defaultLineup,
         bandLeaderId: defaultBandLeaderId || undefined,
-        talkbackOwnerId: (existingProject?.talkbackOwnerId ?? defaultBandLeaderId) || undefined,
+        talkbackOwnerId: resolvePersistedTalkbackOwnerId({
+          existingTalkbackOwnerId: existingProject?.talkbackOwnerId,
+          defaultBandLeaderId,
+        }),
         note: existingProject?.note,
       };
       await projectsApi.saveProject({

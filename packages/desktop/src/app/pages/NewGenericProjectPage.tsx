@@ -1,19 +1,23 @@
 import { invoke } from "@tauri-apps/api/core";
-import { generateUuidV7 } from "../../../../../src/domain/projectNaming";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type LineupMap, formatProjectDisplayName, formatProjectSlug } from "../../projectRules";
+import { generateUuidV7 } from "../../../../../src/domain/projectNaming";
+import {
+  type LineupMap,
+  formatProjectDisplayName,
+  formatProjectSlug,
+} from "../../projectRules";
+import * as projectsApi from "../services/projectsApi";
 import { getNavigationContextLabel } from "../shell/routes";
-import type { BandSetupData, NewProjectPayload } from "../shell/types";
-import { toPersistableProject } from "../shell/types";
 import {
   getSetupPrimaryCtaLabel,
   isGenericSetupDirty,
   resolveSetupBackTarget,
   shouldSaveGenericSetupOnContinue,
 } from "../shell/setupDirty";
-import * as projectsApi from "../services/projectsApi";
+import type { BandSetupData, NewProjectPayload } from "../shell/types";
+import { toPersistableProject } from "../shell/types";
 import type { NewProjectPageProps } from "./shared/pageTypes";
-
+import { resolvePersistedTalkbackOwnerId } from "./shared/talkbackPersistence";
 
 export function NewGenericProjectPage({
   navigate,
@@ -32,6 +36,8 @@ export function NewGenericProjectPage({
   const [bandRef, setBandRef] = useState("");
   const [status, setStatus] = useState("");
   const [isCommitting, setIsCommitting] = useState(false);
+  const [existingProject, setExistingProject] =
+    useState<NewProjectPayload | null>(null);
   const initialSnapshotRef = useRef({
     bandRef: "",
     note: "",
@@ -70,6 +76,7 @@ export function NewGenericProjectPage({
     invoke<string>("read_project", { projectId: editingProjectId })
       .then((raw) => {
         const project = JSON.parse(raw) as NewProjectPayload;
+        setExistingProject(project);
         setBandRef(project.bandRef);
         setNote(project.note ?? "");
         setValidityYear(project.documentDate.slice(0, 4));
@@ -93,8 +100,8 @@ export function NewGenericProjectPage({
       if (!selectedBand) return;
       const id = targetId ?? editingProjectId ?? generateUuidV7();
       const nowIso = new Date().toISOString();
-      let defaultLineup: LineupMap | undefined;
-      let defaultBandLeaderId = "";
+      let defaultLineup: LineupMap | undefined = existingProject?.lineup;
+      let defaultBandLeaderId = existingProject?.bandLeaderId ?? "";
       if (!editingProjectId) {
         try {
           const setupDefaults = await invoke<BandSetupData>(
@@ -140,11 +147,14 @@ export function NewGenericProjectPage({
         bandRef: selectedBand.id,
         documentDate: `${validityYear}-01-01`,
         ...(note.trim() ? { note: note.trim() } : {}),
-        createdAt: nowIso,
+        createdAt: existingProject?.createdAt ?? nowIso,
         updatedAt: nowIso,
         lineup: defaultLineup,
         bandLeaderId: defaultBandLeaderId || undefined,
-        talkbackOwnerId: defaultBandLeaderId || undefined,
+        talkbackOwnerId: resolvePersistedTalkbackOwnerId({
+          existingTalkbackOwnerId: existingProject?.talkbackOwnerId,
+          defaultBandLeaderId,
+        }),
       };
       await projectsApi.saveProject({
         projectId: id,
@@ -153,7 +163,14 @@ export function NewGenericProjectPage({
       await onCreated();
       return id;
     },
-    [editingProjectId, note, onCreated, selectedBand, validityYear],
+    [
+      editingProjectId,
+      existingProject,
+      note,
+      onCreated,
+      selectedBand,
+      validityYear,
+    ],
   );
 
   useEffect(() => {
