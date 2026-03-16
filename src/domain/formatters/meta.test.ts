@@ -29,19 +29,44 @@ describe("formatProjectMetaLine", () => {
     });
   });
 
-  it("uses generic subtitle as note plus document year and update date from updatedAt", () => {
+  it("formats generic note + year + updatedAt as one line", () => {
     const line = formatProjectMetaLine({
       purpose: "general",
-      note: "Tour",
+      note: "Léto s Blaníkem",
       documentDate: "2026-01-01",
-      updatedAt: "2026-03-12T09:45:00.000Z",
+      updatedAt: "2026-03-16T09:45:00.000Z",
     });
 
     expect(line).toEqual({
-      kind: "split",
-      subtitle: "Tour 2026",
-      updateDateLabel: "datum aktualizace:",
-      updateDateValue: "12. 3. 2026",
+      kind: "plain",
+      value: "Léto s Blaníkem 2026 (datum aktualizace: 16. 3. 2026)",
+    });
+  });
+
+  it("formats generic note only with updatedAt", () => {
+    const line = formatProjectMetaLine({
+      purpose: "general",
+      note: "Léto s Blaníkem",
+      documentDate: "",
+      updatedAt: "2026-03-16T09:45:00.000Z",
+    });
+
+    expect(line).toEqual({
+      kind: "plain",
+      value: "Léto s Blaníkem (datum aktualizace: 16. 3. 2026)",
+    });
+  });
+
+  it("formats generic year only with updatedAt", () => {
+    const line = formatProjectMetaLine({
+      purpose: "general",
+      documentDate: "2026-01-01",
+      updatedAt: "2026-03-16T09:45:00.000Z",
+    });
+
+    expect(line).toEqual({
+      kind: "plain",
+      value: "2026 (datum aktualizace: 16. 3. 2026)",
     });
   });
 
@@ -66,10 +91,8 @@ describe("formatProjectMetaLine", () => {
       value: "10. 3. 2026, Klub (datum aktualizace: 1. 1. 2026)",
     });
     expect(genericLine).toEqual({
-      kind: "split",
-      subtitle: "Tour 2026",
-      updateDateLabel: "datum aktualizace:",
-      updateDateValue: "1. 1. 2026",
+      kind: "plain",
+      value: "Tour 2026 (datum aktualizace: 1. 1. 2026)",
     });
   });
 });

@@ -57,11 +57,11 @@ export function formatProjectMetaLine(args: {
   const note = args.note?.trim() ?? "";
   const validityYear = extractYearFromIso(args.documentDate);
   const subtitle = [note, validityYear].filter(Boolean).join(" ");
+  const updatePart = `datum aktualizace: ${updatedDate}`;
+  const value = subtitle ? `${subtitle} (${updatePart})` : `(${updatePart})`;
 
   return {
-    kind: "split",
-    subtitle,
-    updateDateLabel: "datum aktualizace:",
-    updateDateValue: updatedDate,
+    kind: "plain",
+    value,
   };
 }

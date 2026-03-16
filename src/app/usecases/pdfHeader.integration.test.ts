@@ -53,7 +53,7 @@ function createRepo(): DataRepository {
 }
 
 describe("pdf header integration (project json -> normalize -> buildDocument -> template)", () => {
-  it("renders generic subtitle as note + document year and update date from updatedAt", () => {
+  it("renders generic metadata as one line with updatedAt date", () => {
     const repo = createRepo();
     const json: ProjectJsonV2 = {
       id: "g-meta",
@@ -61,15 +61,16 @@ describe("pdf header integration (project json -> normalize -> buildDocument -> 
       purpose: "generic",
       note: "Léto s Blaníkem",
       documentDate: "2026-01-01",
-      updatedAt: "2026-03-12T09:45:00.000Z",
+      updatedAt: "2026-03-16T09:45:00.000Z",
     };
 
     const vm = buildDocument(normalizeProject(json), repo);
     const html = renderInputlistHtml(vm, { tabTitle: "Stageplan", baseHref: "file:///tmp/" });
 
-    expect(html).toContain("Léto s Blaníkem 2026");
-    expect(html).toContain("datum aktualizace:</span> 12. 3. 2026");
-    expect(html).not.toContain("datum aktualizace:</span> 1. 1. 2026");
+    expect(html).toContain("Léto s Blaníkem 2026 (datum aktualizace: 16. 3. 2026)");
+    expect(html).not.toContain("<span class=\"metaLabel\">datum aktualizace:</span>");
+    expect(html).not.toContain("datum aktualizace: 1. 1. 2026");
+    expect((html.match(/datum aktualizace:/g) ?? []).length).toBe(1);
   });
 
   it("keeps event subtitle behavior and uses updatedAt for update date", () => {
