@@ -17,6 +17,12 @@ describe("input list formatters", () => {
     expect(formatInputListNote("2x stereo DI", 2)).toBe("2x stereo DI");
   });
 
+  it("preserves parenthetical note suffixes", () => {
+    expect(
+      formatInputListNote("BETA 58A, SE V7, SM58 – boom mic stand (provided by FOH)", 1)
+    ).toBe("BETA 58A, SE V7, SM58 – boom mic stand (provided by FOH)");
+  });
+
   it("resolves stereo pair from key suffix and keeps OH uncollapsed", () => {
     expect(
       resolveStereoPair(

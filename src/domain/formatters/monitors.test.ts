@@ -23,8 +23,8 @@ describe("formatMonitoringLabel", () => {
 
 
 
-  it("adds requested-from-sound-engineer wording for wedge monitor", () => {
-    expect(formatMonitoringLabel("Wedge monitor", undefined)).toBe("Wedge monitor (requested from sound engineer)");
+  it("adds FOH source wording for wedge monitor", () => {
+    expect(formatMonitoringLabel("Wedge monitor", undefined)).toBe("Wedge monitor (provided by FOH)");
   });
   it("does not append wedge text when count is not enabled", () => {
     expect(formatMonitoringLabel("IEM STEREO wireless", undefined)).toBe("IEM STEREO wireless");

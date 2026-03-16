@@ -358,6 +358,28 @@ describe("stageplan render plan", () => {
     ]);
   });
 
+
+  it("strips wedge source suffixes in stageplan monitor bullets", () => {
+    const plan = buildStageplanPlan({
+      lineupByRole: {},
+      inputs: [],
+      monitorOutputs: [
+        {
+          no: 2,
+          output: "Lead vocal",
+          note: "Wedge monitor (provided by FOH) + Additional wedge monitor 2x",
+        },
+      ],
+      powerByRole: {},
+    });
+
+    const leadBox = plan.boxes.find((box) => box.slot === "lead_voc_1");
+    expect(leadBox?.monitorBullets).toEqual([
+      "Wedge monitor (2)",
+      "+ Additional wedge monitor 2x",
+    ]);
+  });
+
   it("renders power badges based on stageplan power data", () => {
     const plan = buildStageplanPlan({
       lineupByRole: {},

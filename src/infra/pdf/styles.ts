@@ -213,6 +213,8 @@ body {
   width: auto;
   text-align: left;
   white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* no. in body bold */

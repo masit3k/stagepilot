@@ -82,4 +82,38 @@ describe("inputlist template layout", () => {
       await fs.rm(tmpRoot, { recursive: true, force: true });
     }
   });
+
+
+  it("renders full input note text including trailing parenthetical suffix", () => {
+    const html = renderInputlistHtml(
+      {
+        meta: {
+          bandName: "Band",
+          metaLine: { kind: "plain", value: "Meta" },
+        },
+        inputRows: [
+          {
+            no: "1",
+            label: "Lead vocal",
+            note: "BETA 58A, SE V7, SM58 – boom mic stand (provided by FOH)",
+          },
+        ],
+        notes: { inputs: [], monitors: [] },
+        stageplan: {
+          lineupByRole: {},
+          inputs: [],
+          monitorOutputs: [],
+          powerByRole: {},
+        },
+      } as any,
+      {
+        tabTitle: "Stageplan",
+        baseHref: "file:///tmp/",
+      }
+    );
+
+    expect(html).toContain("BETA 58A, SE V7, SM58 – boom mic stand (provided by FOH)");
+  });
+
+
 });
