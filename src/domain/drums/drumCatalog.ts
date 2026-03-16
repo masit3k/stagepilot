@@ -26,21 +26,26 @@ function padLabel(mode: PadMode, channels: PadChannels): string {
 }
 
 export function drumCatalogForSetup(setup: DrumSetup): DrumCatalogEntry[] {
+  const hasMultipleSnares = setup.extraSnareCount > 0;
+  const snareBaseLabel = hasMultipleSnares ? "Snare 1" : "Snare";
+  const hasMultipleToms = setup.tomCount > 1;
+  const hasMultipleFloorToms = setup.floorTomCount > 1;
+
   const entries: DrumCatalogEntry[] = [
     { key: "dr_kick_out", label: "Kick OUT", note: DRUM_NOTES.kickOut },
     { key: "dr_kick_in", label: "Kick IN", note: DRUM_NOTES.kickIn },
-    { key: "dr_snare1_top", label: "Snare 1 TOP", note: DRUM_NOTES.snareTop },
-    { key: "dr_snare1_bottom", label: "Snare 1 BOTTOM", note: DRUM_NOTES.snareBottom },
+    { key: "dr_snare1_top", label: `${snareBaseLabel} TOP`, note: DRUM_NOTES.snareTop },
+    { key: "dr_snare1_bottom", label: `${snareBaseLabel} BOTTOM`, note: DRUM_NOTES.snareBottom },
   ];
 
   if (setup.hasHiHat) entries.push({ key: "dr_hihat", label: "Hi-hat", note: DRUM_NOTES.hihat });
 
   for (let i = 1; i <= setup.tomCount; i++) {
-    entries.push({ key: `dr_tom_${i}`, label: `Tom ${i}`, note: DRUM_NOTES.tom });
+    entries.push({ key: `dr_tom_${i}`, label: hasMultipleToms ? `Tom ${i}` : "Tom", note: DRUM_NOTES.tom });
   }
 
   for (let i = 1; i <= setup.floorTomCount; i++) {
-    entries.push({ key: `dr_floor_${i}`, label: `Floor ${i}`, note: DRUM_NOTES.floorTom });
+    entries.push({ key: `dr_floor_${i}`, label: hasMultipleFloorToms ? `Floor Tom ${i}` : "Floor Tom", note: DRUM_NOTES.floorTom });
   }
 
   if (setup.hasOverheads) {

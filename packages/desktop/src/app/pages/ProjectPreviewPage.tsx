@@ -146,6 +146,8 @@ export function ProjectPreviewPage({
     }
   }, [hideMusicianNames, project]);
 
+  const isRegeneratingPreview = previewState.kind === "generating";
+
   const previewRoute = `${window.location.pathname}${search || ""}`;
   const backToEditPath =
     project?.purpose === "generic"
@@ -221,6 +223,14 @@ export function ProjectPreviewPage({
           }
         >
           Edit Lineup
+        </button>
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={regeneratePreview}
+          disabled={isRegeneratingPreview}
+        >
+          {isRegeneratingPreview ? "Regenerating…" : "Regenerate preview"}
         </button>
         <button type="button" disabled={isGeneratingPdf} onClick={runExport}>
           {isGeneratingPdf ? "Generating…" : "Generate PDF"}

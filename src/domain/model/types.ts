@@ -406,6 +406,7 @@ export interface DocumentViewModel {
       channelNo: number;
       label: string;
       group: Group;
+      ownerRole?: Group;
     }>;
     monitorOutputs: Array<{
       no: number;

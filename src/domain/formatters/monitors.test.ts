@@ -21,6 +21,11 @@ describe("formatMonitoringLabel", () => {
     expect(formatMonitoringLabel("IEM STEREO wireless", 3)).toBe("IEM STEREO wireless + Additional wedge monitor 3x");
   });
 
+
+
+  it("adds requested-from-sound-engineer wording for wedge monitor", () => {
+    expect(formatMonitoringLabel("Wedge monitor", undefined)).toBe("Wedge monitor (requested from sound engineer)");
+  });
   it("does not append wedge text when count is not enabled", () => {
     expect(formatMonitoringLabel("IEM STEREO wireless", undefined)).toBe("IEM STEREO wireless");
     expect(formatMonitoringLabel("IEM STEREO wireless", 0)).toBe("IEM STEREO wireless");

@@ -238,9 +238,9 @@ body {
 }
 
 .notes {
-  font-size: 9pt;            /* MENŠÍ písmo – jasně menší než tabulka */
-  line-height: 1.4;
+  font-size: ${pdfLayout.typography.table.size};
   font-style: italic;        /* použije Inter-Italic.ttf */
+  line-height: 1.4;
   color: #000000;
 }
 

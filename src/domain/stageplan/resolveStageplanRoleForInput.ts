@@ -32,10 +32,28 @@ function isLeadVocalLabel(label: string): boolean {
   return normalized.startsWith("lead voc") || normalized.includes("lead vocal");
 }
 
+function mapGroupToStageplanInstrument(group?: Group): StageplanInstrument | null {
+  switch (group) {
+    case "drums":
+      return "Drums";
+    case "bass":
+      return "Bass";
+    case "guitar":
+      return "Guitar";
+    case "keys":
+      return "Keys";
+    case "vocs":
+      return "Lead vocal";
+    default:
+      return null;
+  }
+}
+
 export function resolveStageplanRoleForInput(input: {
   key?: string;
   label: string;
   group?: Group;
+  ownerRole?: Group;
 }): StageplanInstrument | null {
   const label = input.label ?? "";
   const backMatch = backVocalPattern.exec(label);
@@ -52,22 +70,14 @@ export function resolveStageplanRoleForInput(input: {
     return "Lead vocal";
   }
 
+  const ownerRoleInstrument = mapGroupToStageplanInstrument(input.ownerRole);
+  if (ownerRoleInstrument) {
+    return ownerRoleInstrument;
+  }
+
   if (isAcousticGuitarLabelOrKey(input)) {
     return "Guitar";
   }
 
-  switch (input.group) {
-    case "drums":
-      return "Drums";
-    case "bass":
-      return "Bass";
-    case "guitar":
-      return "Guitar";
-    case "keys":
-      return "Keys";
-    case "vocs":
-      return isLeadVocalLabel(label) ? "Lead vocal" : null;
-    default:
-      return null;
-  }
+  return mapGroupToStageplanInstrument(input.group);
 }

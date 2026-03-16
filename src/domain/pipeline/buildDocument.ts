@@ -53,6 +53,7 @@ function buildMetaLine(project: Project): MetaLineModel {
     eventVenue: project.eventVenue,
     documentDate: project.documentDate,
     note: project.note,
+    updatedAt: project.updatedAt,
   });
 }
 
@@ -85,6 +86,7 @@ type BuiltInput = {
   group: Group;
   note?: string;
   ownerGender?: "m" | "f" | "x";
+  ownerRole: Group;
 };
 
 type BuiltInputWithCh = BuiltInput & { ch: number };
@@ -114,6 +116,7 @@ function applyInputOverridePatch(
     label: input.label,
     group: input.group ?? source[0]?.group ?? "vocs",
     note: input.note,
+    ownerRole: source[0]?.ownerRole ?? "vocs",
   }));
 }
 
@@ -143,6 +146,7 @@ function assignChannelsWithOddStereoRule(
           label: "---",
           group: a.group,
           note: "---",
+          ownerRole: a.ownerRole,
         });
         nextCh++;
       }
@@ -219,6 +223,7 @@ function expandPresetItem(
         label: ch.label,
         group: ch.group ?? lineupGroup,
         note: ch.note,
+        ownerRole: lineupGroup,
       }));
     }
 
@@ -255,6 +260,7 @@ function expandPresetItem(
         label: ch.label,
         group: ch.group ?? lineupGroup,
         note: ch.note,
+        ownerRole: lineupGroup,
       }));
     }
 
@@ -278,6 +284,7 @@ function expandPresetItem(
                 .replace("{ownerKey}", item.ownerKey)
                 .replace("{ownerLabel}", item.ownerLabel ?? item.ownerKey)
             : undefined,
+          ownerRole: lineupGroup,
         },
       ];
     }
@@ -302,6 +309,7 @@ function expandPresetItem(
                 .replace("{ownerKey}", item.ownerKey)
                 .replace("{ownerLabel}", item.ownerLabel ?? item.ownerKey)
             : undefined,
+          ownerRole: lineupGroup,
         },
       ];
     }
@@ -438,6 +446,7 @@ export function buildDocument(
           label: input.label,
           group,
           note: input.note,
+          ownerRole: group,
         })),
       );
     }
@@ -456,6 +465,7 @@ export function buildDocument(
           label: ch.label,
           group: ch.group ?? group,
           note: ch.note,
+          ownerRole: group,
         })),
       );
     }
@@ -661,6 +671,7 @@ export function buildDocument(
       channelNo: input.ch,
       label: input.label,
       group: input.group,
+      ownerRole: input.ownerRole,
     }));
 
   // Notes template resolution

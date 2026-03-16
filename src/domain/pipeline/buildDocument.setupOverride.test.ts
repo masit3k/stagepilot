@@ -135,4 +135,135 @@ describe("buildDocument setup overrides", () => {
     expect(vm.inputs.some((item) => item.group === "talkback")).toBe(false);
   });
 
+
+  it("adds sound-engineer wording for vocal no-mic and wedge monitor only", () => {
+    const band: Band = {
+      id: "band",
+      name: "Band",
+      bandLeader: "lead-1",
+      defaultLineup: { vocs: "lead-1", guitar: "gtr-1" },
+    };
+    const lead: Musician = {
+      id: "lead-1",
+      firstName: "Lead",
+      lastName: "Singer",
+      group: "vocs",
+      presets: [
+        { kind: "preset", ref: "vocal_lead_no_mic" },
+        { kind: "monitor", ref: "wedge" },
+      ],
+    };
+    const guitar: Musician = {
+      id: "gtr-1",
+      firstName: "Guitar",
+      lastName: "Player",
+      group: "guitar",
+      presets: [
+        { kind: "preset", ref: "el_guitar" },
+        { kind: "monitor", ref: "iem_stereo_wireless" },
+        { kind: "vocal", ref: "vocal_back_no_mic", ownerKey: "guitar", ownerLabel: "Guitar" },
+      ],
+    };
+    const notes: NotesTemplate = { id: "notes_default_cs", lang: "cs", inputs: [], monitors: [] };
+    const project: Project = {
+      id: "p2",
+      bandRef: "band",
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: { vocs: "lead-1", guitar: "gtr-1" },
+    };
+
+    const repo: DataRepository = {
+      getBand: () => band,
+      getMusician: (id: string) => (id === "lead-1" ? lead : guitar),
+      getProject: () => project,
+      getPreset: (id: string) => {
+        if (id === "vocal_lead_no_mic") return {
+          type: "preset",
+          id,
+          label: "Lead vocal (no mic)",
+          group: "vocs",
+          inputs: [{ key: "voc_lead", label: "Lead vocal", group: "vocs", note: "BETA 58A, SE V7, SM58 – boom mic stand (requested from sound engineer)" }],
+        };
+        if (id === "vocal_back_no_mic") return {
+          type: "vocal_type",
+          id,
+          label: "Back vocal (no mic)",
+          group: "vocs",
+          input: { key: "voc_back_{ownerKey}", label: "Back vocal – {ownerLabel}", note: "BETA 58A, SE V7, SM58 – boom mic stand (requested from sound engineer)" },
+        };
+        if (id === "el_guitar") return { type: "preset", id, label: "Guitar", group: "guitar", inputs: [{ key: "gtr", label: "Guitar", group: "guitar", note: "Own DI" }] };
+        if (id === "wedge") return { type: "monitor", id, label: "Wedge monitor" };
+        if (id === "iem_stereo_wireless") return { type: "monitor", id, label: "IEM STEREO wireless" };
+        if (id === "talkback") return {
+          type: "talkback_type",
+          id: "talkback",
+          label: "Talkback",
+          group: "talkback",
+          input: { key: "tb_{ownerKey}", label: "Talkback ({ownerLabel})" },
+        };
+        throw new Error(`unknown preset ${id}`);
+      },
+      getNotesTemplate: () => notes,
+    };
+
+    const vm = buildDocument(project, repo);
+    expect(vm.inputRows.some((row) => row.note?.includes("requested from sound engineer"))).toBe(true);
+    expect(vm.inputRows.some((row) => row.note === "Own DI")).toBe(true);
+    expect(vm.stageplan.monitorOutputs.some((row) => row.note === "Wedge monitor (requested from sound engineer)")).toBe(true);
+    expect(vm.stageplan.monitorOutputs.some((row) => row.note === "IEM STEREO wireless")).toBe(true);
+  });
+
+});
+
+it("emits stageplan input ownerRole from current lineup assignment", () => {
+  const band: Band = {
+    id: "band-owner",
+    name: "Band",
+    bandLeader: "guitar-1",
+    defaultLineup: { guitar: "guitar-1", vocs: "vocs-1" },
+  };
+  const guitar: Musician = {
+    id: "guitar-1",
+    firstName: "Karel",
+    lastName: "G",
+    group: "guitar",
+    presets: [{ kind: "preset", ref: "el_guitar" }],
+  };
+  const vocs: Musician = {
+    id: "vocs-1",
+    firstName: "Lukas",
+    lastName: "H",
+    group: "vocs",
+    presets: [{ kind: "preset", ref: "ac_guitar" }, { kind: "preset", ref: "vocal_lead" }],
+  };
+  const project: Project = {
+    id: "p-owner",
+    bandRef: "band-owner",
+    purpose: "generic",
+    documentDate: "2026-01-01",
+  };
+  const notes: NotesTemplate = { id: "notes_default_cs", lang: "cs", inputs: [], monitors: [] };
+
+  const repo: DataRepository = {
+    getBand: () => band,
+    getMusician: (id: string) => (id === "guitar-1" ? guitar : vocs),
+    getProject: () => project,
+    getPreset: (id: string) => {
+      if (id === "el_guitar") return { type: "preset", id, label: "Electric guitar", group: "guitar", inputs: [{ key: "el_guitar", label: "Electric guitar", group: "guitar" }] };
+      if (id === "ac_guitar") return { type: "preset", id, label: "Acoustic guitar", group: "guitar", inputs: [{ key: "ac_guitar", label: "Acoustic guitar", group: "guitar" }] };
+      if (id === "vocal_lead") return { type: "preset", id, label: "Lead vocal", group: "vocs", inputs: [{ key: "voc_lead", label: "Lead vocal", group: "vocs" }] };
+      if (id === "wedge") return { type: "monitor", id, label: "Wedge" };
+      if (id === "talkback") return { type: "talkback_type", id, label: "Talkback", group: "talkback", input: { key: "tb_{ownerKey}", label: "Talkback ({ownerLabel})" } };
+      throw new Error(`unknown preset ${id}`);
+    },
+    getNotesTemplate: () => notes,
+  };
+
+  const vm = buildDocument(project, repo);
+  const acoustic = vm.stageplan.inputs.find((input) => input.label === "Acoustic guitar");
+  const electric = vm.stageplan.inputs.find((input) => input.label === "Electric guitar");
+
+  expect(acoustic?.ownerRole).toBe("vocs");
+  expect(electric?.ownerRole).toBe("guitar");
 });

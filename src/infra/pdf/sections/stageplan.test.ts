@@ -184,6 +184,33 @@ describe("stageplan render plan", () => {
     expect(debug).toMatchObject({ layoutId: "layout_6_2_vocs", cols: 4, gutterMm: 4.5, insetMm: 2 });
   });
 
+
+  it("binds stageplan input ownership to lineup-selected section owner", () => {
+    const plan = buildStageplanPlan({
+      lineupByRole: {
+        drums: { firstName: "Drummer", isBandLeader: false },
+        bass: { firstName: "Bassist", isBandLeader: false },
+        guitar: { firstName: "Karel", isBandLeader: false },
+        keys: { firstName: "Keysman", isBandLeader: false },
+        vocs: { firstName: "Lukas", isBandLeader: false },
+      },
+      leadVocals: [{ firstName: "Lukas", isBandLeader: false }],
+      inputs: [
+        { channelNo: 1, label: "Acoustic guitar", group: "guitar", ownerRole: "vocs" },
+        { channelNo: 2, label: "Electric guitar", group: "guitar", ownerRole: "guitar" },
+      ],
+      monitorOutputs: [],
+      powerByRole: {},
+    });
+
+    const guitarBox = plan.boxes.find((box) => box.slot === "guitar");
+    const leadBox = plan.boxes.find((box) => box.slot === "lead_voc_1");
+
+    expect(guitarBox?.inputBullets.join(" ")).toContain("Electric guitar");
+    expect(guitarBox?.inputBullets.join(" ")).not.toContain("Acoustic guitar");
+    expect(leadBox?.inputBullets.join(" ")).toContain("Acoustic guitar");
+  });
+
   it("keeps layout but omits names when hideMusicianNames is enabled", () => {
     const baseVm = {
       lineupByRole: {

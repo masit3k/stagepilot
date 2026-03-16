@@ -50,6 +50,41 @@ describe("resolveDrumInputs", () => {
     ]);
   });
 
+
+
+  it("normalizes single-item drum labels and keeps multi-item numbering", () => {
+    const singleRows = resolveDrumInputs({
+      tomCount: 1,
+      floorTomCount: 1,
+      hasHiHat: false,
+      hasOverheads: false,
+      extraSnareCount: 0,
+      pad: { enabled: false },
+    });
+
+    expect(singleRows.find((row) => row.key === "dr_snare1_top")?.label).toBe("Snare TOP");
+    expect(singleRows.find((row) => row.key === "dr_snare1_bottom")?.label).toBe("Snare BOTTOM");
+    expect(singleRows.find((row) => row.key === "dr_tom_1")?.label).toBe("Tom");
+    expect(singleRows.find((row) => row.key === "dr_floor_1")?.label).toBe("Floor Tom");
+    expect(singleRows.some((row) => row.label === "Floor")).toBe(false);
+
+    const multiRows = resolveDrumInputs({
+      tomCount: 2,
+      floorTomCount: 2,
+      hasHiHat: false,
+      hasOverheads: false,
+      extraSnareCount: 1,
+      pad: { enabled: false },
+    });
+
+    expect(multiRows.find((row) => row.key === "dr_snare1_top")?.label).toBe("Snare 1 TOP");
+    expect(multiRows.find((row) => row.key === "dr_snare2_top")?.label).toBe("Snare 2 TOP");
+    expect(multiRows.find((row) => row.key === "dr_tom_1")?.label).toBe("Tom 1");
+    expect(multiRows.find((row) => row.key === "dr_tom_2")?.label).toBe("Tom 2");
+    expect(multiRows.find((row) => row.key === "dr_floor_1")?.label).toBe("Floor Tom 1");
+    expect(multiRows.find((row) => row.key === "dr_floor_2")?.label).toBe("Floor Tom 2");
+  });
+
   it("supports pad variants and keeps pad at end", () => {
     const rows = resolveDrumInputs({
       tomCount: 0,
@@ -117,6 +152,15 @@ describe("drum setup validation + migration", () => {
       extraSnareCount: 1,
       pad: { enabled: true, mode: "sfx", channels: "stereo" },
     });
+  });
+
+  it("applies normalized labels after legacy migration", () => {
+    const setup = migrateLegacyDrumPresetRefs(["standard_9"]);
+    const rows = resolveDrumInputs(setup);
+
+    expect(rows.find((row) => row.key === "dr_snare1_top")?.label).toBe("Snare TOP");
+    expect(rows.find((row) => row.key === "dr_tom_1")?.label).toBe("Tom");
+    expect(rows.find((row) => row.key === "dr_floor_1")?.label).toBe("Floor Tom");
   });
 });
 

@@ -28,6 +28,10 @@ export function formatMonitorLabel(channel: MonitorChannel, ctx: { leadCount: nu
 }
 
 export function formatMonitoringLabel(baseMonitoringLabel: string, additionalWedgeCount: number | undefined): string {
-  if (!additionalWedgeCount || additionalWedgeCount <= 0) return baseMonitoringLabel;
-  return `${baseMonitoringLabel} + Additional wedge monitor ${additionalWedgeCount}x`;
+  const withSource =
+    baseMonitoringLabel.trim().toLowerCase() === "wedge monitor"
+      ? `${baseMonitoringLabel} (provided by FOH)`
+      : baseMonitoringLabel;
+  if (!additionalWedgeCount || additionalWedgeCount <= 0) return withSource;
+  return `${withSource} + Additional wedge monitor ${additionalWedgeCount}x`;
 }
