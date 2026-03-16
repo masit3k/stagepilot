@@ -9,6 +9,35 @@ const STORAGE_DIR_NAME: &str = "stagepilot";
 const STORAGE_SCHEMA_VERSION: u32 = 2;
 const STORAGE_SEED_VERSION: u32 = 1;
 const MAX_ID_LEN: usize = 120;
+const PROVIDED_BY_FOH_NOTE: &str = "BETA 58A, SE V7, SM58 – boom mic stand (provided by FOH)";
+
+struct PresetNoteMigrationTarget {
+    id: &'static str,
+    rel_path: &'static str,
+    input_key: &'static str,
+    note: &'static str,
+}
+
+const SEEDED_PRESET_NOTE_MIGRATIONS: [PresetNoteMigrationTarget; 3] = [
+    PresetNoteMigrationTarget {
+        id: "vocal_lead_no_mic",
+        rel_path: "vocs/vocal_lead_no_mic.json",
+        input_key: "voc_lead",
+        note: PROVIDED_BY_FOH_NOTE,
+    },
+    PresetNoteMigrationTarget {
+        id: "vocal_back_no_mic",
+        rel_path: "vocs/vocal_back_no_mic.json",
+        input_key: "voc_back_{ownerKey}",
+        note: PROVIDED_BY_FOH_NOTE,
+    },
+    PresetNoteMigrationTarget {
+        id: "talkback",
+        rel_path: "talkback/talkback.json",
+        input_key: "tb_{ownerKey}",
+        note: PROVIDED_BY_FOH_NOTE,
+    },
+];
 
 #[derive(Debug)]
 pub enum StorageError {
@@ -133,7 +162,10 @@ fn copy_seed_dir_if_missing(seed: &Path, target: &Path) -> Result<(), StorageErr
 fn resolve_musician_role(item: &serde_json::Value) -> Result<String, StorageError> {
     if let Some(group) = item.get("group").and_then(|v| v.as_str()) {
         let normalized = group.trim().to_lowercase();
-        if matches!(normalized.as_str(), "drums" | "bass" | "guitar" | "keys" | "vocs" | "talkback") {
+        if matches!(
+            normalized.as_str(),
+            "drums" | "bass" | "guitar" | "keys" | "vocs" | "talkback"
+        ) {
             return Ok(normalized);
         }
         return Err(StorageError::Resolve(format!(
@@ -148,7 +180,10 @@ fn resolve_musician_role(item: &serde_json::Value) -> Result<String, StorageErro
     {
         if let Some(role) = default_roles.iter().find_map(|v| v.as_str()) {
             let normalized = role.trim().to_lowercase();
-            if matches!(normalized.as_str(), "drums" | "bass" | "guitar" | "keys" | "vocs" | "talkback") {
+            if matches!(
+                normalized.as_str(),
+                "drums" | "bass" | "guitar" | "keys" | "vocs" | "talkback"
+            ) {
                 return Ok(normalized);
             }
             return Err(StorageError::Resolve(format!(
@@ -174,8 +209,9 @@ fn migrate_legacy_library(root: &Path) -> Result<bool, StorageError> {
             continue;
         }
         let content = fs::read_to_string(&file)?;
-        let items: Vec<serde_json::Value> = serde_json::from_str(&content)
-            .map_err(|e| StorageError::Resolve(format!("Invalid legacy JSON {} ({e})", file_name)))?;
+        let items: Vec<serde_json::Value> = serde_json::from_str(&content).map_err(|e| {
+            StorageError::Resolve(format!("Invalid legacy JSON {} ({e})", file_name))
+        })?;
         for item in items {
             let Some(id) = item.get("id").and_then(|v| v.as_str()) else {
                 continue;
@@ -196,8 +232,9 @@ fn migrate_legacy_library(root: &Path) -> Result<bool, StorageError> {
             };
 
             if !target.exists() {
-                let bytes = serde_json::to_vec_pretty(&item)
-                    .map_err(|e| StorageError::Resolve(format!("Serialize migrated JSON failed ({e})")))?;
+                let bytes = serde_json::to_vec_pretty(&item).map_err(|e| {
+                    StorageError::Resolve(format!("Serialize migrated JSON failed ({e})"))
+                })?;
                 atomic_write_bytes(&target, &bytes)?;
             } else if file_name == "musicians.json" {
                 println!(
@@ -233,6 +270,65 @@ fn seed_catalog(root: &Path) -> Result<(), StorageError> {
         &seed.join("assets/templates/notes"),
         &root.join("catalog/templates/notes"),
     )?;
+    migrate_seeded_preset_notes(root)?;
+    Ok(())
+}
+
+fn migrate_seeded_preset_notes(root: &Path) -> Result<(), StorageError> {
+    let presets_root = root.join("catalog/presets/groups");
+    for target in SEEDED_PRESET_NOTE_MIGRATIONS {
+        let file = presets_root.join(target.rel_path);
+        if !file.exists() {
+            continue;
+        }
+        let content = fs::read_to_string(&file)?;
+        let mut value: serde_json::Value = serde_json::from_str(&content).map_err(|err| {
+            StorageError::Resolve(format!("Invalid preset JSON in {} ({err})", file.display()))
+        })?;
+
+        if value.get("id").and_then(|v| v.as_str()) != Some(target.id) {
+            continue;
+        }
+
+        let mut changed = false;
+        if let Some(input) = value.get_mut("input").and_then(|v| v.as_object_mut()) {
+            if input.get("key").and_then(|v| v.as_str()) == Some(target.input_key)
+                && input.get("note").and_then(|v| v.as_str()) != Some(target.note)
+            {
+                input.insert(
+                    "note".to_string(),
+                    serde_json::Value::String(target.note.to_string()),
+                );
+                changed = true;
+            }
+        }
+
+        if let Some(inputs) = value.get_mut("inputs").and_then(|v| v.as_array_mut()) {
+            for input in inputs.iter_mut() {
+                if let Some(input_obj) = input.as_object_mut() {
+                    if input_obj.get("key").and_then(|v| v.as_str()) == Some(target.input_key)
+                        && input_obj.get("note").and_then(|v| v.as_str()) != Some(target.note)
+                    {
+                        input_obj.insert(
+                            "note".to_string(),
+                            serde_json::Value::String(target.note.to_string()),
+                        );
+                        changed = true;
+                    }
+                }
+            }
+        }
+
+        if changed {
+            let bytes = serde_json::to_vec_pretty(&value).map_err(|e| {
+                StorageError::Resolve(format!(
+                    "Failed to serialize migrated preset {} ({e})",
+                    file.display()
+                ))
+            })?;
+            atomic_write_bytes(&file, &bytes)?;
+        }
+    }
     Ok(())
 }
 
@@ -361,7 +457,11 @@ pub fn sanitize_id_to_filename(project_id: &str) -> String {
     while out.starts_with('.') {
         out.remove(0);
     }
-    if out.is_empty() { "project".to_string() } else { out }
+    if out.is_empty() {
+        "project".to_string()
+    } else {
+        out
+    }
 }
 
 pub fn atomic_write_bytes(path: &Path, bytes: &[u8]) -> Result<(), StorageError> {
