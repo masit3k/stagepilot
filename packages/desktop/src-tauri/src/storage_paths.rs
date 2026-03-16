@@ -55,6 +55,28 @@ fn seed_source_root() -> PathBuf {
         .join("data")
 }
 
+#[derive(Clone, Copy)]
+enum SeedRequirement {
+    Required,
+    Optional,
+}
+
+struct SeedMapping {
+    source_rel: &'static str,
+    target_rel: &'static str,
+    requirement: SeedRequirement,
+}
+
+fn seed_mappings() -> &'static [SeedMapping] {
+    // The split-source storage model keeps presets in-repo only. For AppData bootstrap,
+    // we only seed note templates from repository assets.
+    &[SeedMapping {
+        source_rel: "assets/templates/notes",
+        target_rel: "catalog/templates/notes",
+        requirement: SeedRequirement::Required,
+    }]
+}
+
 pub fn user_storage_root(app: &tauri::AppHandle) -> Result<PathBuf, StorageError> {
     let app_data_dir = app
         .path()
@@ -223,14 +245,85 @@ fn migrate_legacy_library(root: &Path) -> Result<bool, StorageError> {
 
 fn seed_catalog(root: &Path) -> Result<(), StorageError> {
     let seed = seed_source_root();
-    copy_seed_dir_if_missing(&seed.join("bands"), &root.join("catalog/bands"))?;
-    copy_seed_dir_if_missing(&seed.join("musicians"), &root.join("catalog/musicians"))?;
-    copy_seed_dir_if_missing(&seed.join("contacts"), &root.join("catalog/contacts"))?;
-    copy_seed_dir_if_missing(
-        &seed.join("assets/templates/notes"),
-        &root.join("catalog/templates/notes"),
-    )?;
+    for mapping in seed_mappings() {
+        let source = seed.join(mapping.source_rel);
+        let target = root.join(mapping.target_rel);
+        match mapping.requirement {
+            SeedRequirement::Required => copy_seed_dir_if_missing(&source, &target)?,
+            SeedRequirement::Optional => {
+                if source.exists() {
+                    copy_seed_dir_if_missing(&source, &target)?;
+                }
+            }
+        }
+    }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_test_dir(name: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or_default();
+        std::env::temp_dir().join(format!("stagepilot-storage-tests-{name}-{nanos}"))
+    }
+
+    #[test]
+    fn seed_mappings_exclude_obsolete_catalog_paths_and_presets() {
+        let mappings = seed_mappings();
+        assert!(
+            !mappings.iter().any(|mapping| {
+                matches!(
+                    mapping.source_rel,
+                    "bands" | "musicians" | "contacts" | "assets/presets"
+                )
+            }),
+            "obsolete seed directories must not be required by bootstrap"
+        );
+    }
+
+    #[test]
+    fn seed_catalog_copies_note_templates_idempotently() {
+        let root = temp_test_dir("seed-idempotent-root");
+        let seed_root = temp_test_dir("seed-idempotent-seed");
+        let source_notes = seed_root.join("assets/templates/notes");
+        let target_notes = root.join("catalog/templates/notes");
+        fs::create_dir_all(&source_notes).unwrap();
+        fs::create_dir_all(&target_notes).unwrap();
+
+        let source_file = source_notes.join("default.json");
+        fs::write(&source_file, b"{\"id\":\"default\"}").unwrap();
+
+        copy_seed_dir_if_missing(&source_notes, &target_notes).unwrap();
+        let first = fs::read_to_string(target_notes.join("default.json")).unwrap();
+        assert_eq!(first, "{\"id\":\"default\"}");
+
+        fs::write(
+            target_notes.join("default.json"),
+            b"{\"id\":\"user-custom\"}",
+        )
+        .unwrap();
+        copy_seed_dir_if_missing(&source_notes, &target_notes).unwrap();
+        let second = fs::read_to_string(target_notes.join("default.json")).unwrap();
+        assert_eq!(second, "{\"id\":\"user-custom\"}");
+
+        let _ = fs::remove_dir_all(&root);
+        let _ = fs::remove_dir_all(&seed_root);
+    }
+
+    #[test]
+    fn required_seed_mapping_still_targets_note_templates() {
+        let mappings = seed_mappings();
+        assert!(mappings.iter().any(|mapping| {
+            mapping.source_rel == "assets/templates/notes"
+                && mapping.target_rel == "catalog/templates/notes"
+                && matches!(mapping.requirement, SeedRequirement::Required)
+        }));
+    }
 }
 
 pub fn ensure_user_storage(app: &tauri::AppHandle) -> Result<UserStorageMeta, StorageError> {
