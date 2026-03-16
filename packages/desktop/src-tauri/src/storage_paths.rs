@@ -7,7 +7,7 @@ use tauri::Manager;
 
 const STORAGE_DIR_NAME: &str = "stagepilot";
 const STORAGE_SCHEMA_VERSION: u32 = 2;
-const STORAGE_SEED_VERSION: u32 = 2;
+const STORAGE_SEED_VERSION: u32 = 3;
 const MAX_ID_LEN: usize = 120;
 #[derive(Debug)]
 pub enum StorageError {
@@ -47,35 +47,8 @@ fn storage_meta_path(root: &Path) -> PathBuf {
     root.join("storage.json")
 }
 
-fn seed_source_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("..")
-        .join("..")
-        .join("..")
-        .join("data")
-}
-
-#[derive(Clone, Copy)]
-enum SeedRequirement {
-    Required,
-    Optional,
-}
-
-struct SeedMapping {
-    source_rel: &'static str,
-    target_rel: &'static str,
-    requirement: SeedRequirement,
-}
-
-fn seed_mappings() -> &'static [SeedMapping] {
-    // The split-source storage model keeps presets in-repo only. For AppData bootstrap,
-    // we only seed note templates from repository assets.
-    &[SeedMapping {
-        source_rel: "assets/templates/notes",
-        target_rel: "catalog/templates/notes",
-        requirement: SeedRequirement::Required,
-    }]
-}
+const DEFAULT_NOTES_TEMPLATE_ID: &str = "notes_default_cs";
+const DEFAULT_NOTES_TEMPLATE_JSON: &str = include_str!("../../../../src/infra/storage/defaultNotesTemplate.notes_default_cs.json");
 
 pub fn user_storage_root(app: &tauri::AppHandle) -> Result<PathBuf, StorageError> {
     let app_data_dir = app
@@ -122,29 +95,6 @@ fn ensure_dirs(root: &Path) -> Result<(), StorageError> {
         "catalog/templates/notes",
     ] {
         fs::create_dir_all(root.join(folder))?;
-    }
-    Ok(())
-}
-
-fn copy_seed_dir_if_missing(seed: &Path, target: &Path) -> Result<(), StorageError> {
-    if !seed.exists() {
-        return Err(StorageError::Resolve(format!(
-            "Seed source missing: {}",
-            seed.display()
-        )));
-    }
-    fs::create_dir_all(target)?;
-    for entry in fs::read_dir(seed)? {
-        let entry = entry?;
-        let from = entry.path();
-        let to = target.join(entry.file_name());
-        if from.is_dir() {
-            copy_seed_dir_if_missing(&from, &to)?;
-        } else if from.extension().and_then(|s| s.to_str()) == Some("json") {
-            if !to.exists() {
-                fs::copy(from, to)?;
-            }
-        }
     }
     Ok(())
 }
@@ -243,20 +193,27 @@ fn migrate_legacy_library(root: &Path) -> Result<bool, StorageError> {
     Ok(migrated)
 }
 
-fn seed_catalog(root: &Path) -> Result<(), StorageError> {
-    let seed = seed_source_root();
-    for mapping in seed_mappings() {
-        let source = seed.join(mapping.source_rel);
-        let target = root.join(mapping.target_rel);
-        match mapping.requirement {
-            SeedRequirement::Required => copy_seed_dir_if_missing(&source, &target)?,
-            SeedRequirement::Optional => {
-                if source.exists() {
-                    copy_seed_dir_if_missing(&source, &target)?;
-                }
-            }
-        }
+fn ensure_default_notes_template(root: &Path) -> Result<(), StorageError> {
+    let templates_dir = root.join("catalog/templates/notes");
+    fs::create_dir_all(&templates_dir)?;
+
+    let target = templates_dir.join(format!("{}.json", DEFAULT_NOTES_TEMPLATE_ID));
+    if target.exists() {
+        return Ok(());
     }
+
+    let parsed: serde_json::Value = serde_json::from_str(DEFAULT_NOTES_TEMPLATE_JSON).map_err(|e| {
+        StorageError::Resolve(format!("Invalid embedded default notes template JSON: {e}"))
+    })?;
+    let bytes = serde_json::to_vec_pretty(&parsed).map_err(|e| {
+        StorageError::Resolve(format!("Failed to serialize embedded default notes template: {e}"))
+    })?;
+    atomic_write_bytes(&target, &bytes)?;
+    Ok(())
+}
+
+fn seed_catalog(root: &Path) -> Result<(), StorageError> {
+    ensure_default_notes_template(root)?;
     Ok(())
 }
 
@@ -273,56 +230,44 @@ mod tests {
     }
 
     #[test]
-    fn seed_mappings_exclude_obsolete_catalog_paths_and_presets() {
-        let mappings = seed_mappings();
-        assert!(
-            !mappings.iter().any(|mapping| {
-                matches!(
-                    mapping.source_rel,
-                    "bands" | "musicians" | "contacts" | "assets/presets"
-                )
-            }),
-            "obsolete seed directories must not be required by bootstrap"
-        );
-    }
-
-    #[test]
-    fn seed_catalog_copies_note_templates_idempotently() {
+    fn seed_catalog_ensures_default_notes_template_idempotently() {
         let root = temp_test_dir("seed-idempotent-root");
-        let seed_root = temp_test_dir("seed-idempotent-seed");
-        let source_notes = seed_root.join("assets/templates/notes");
-        let target_notes = root.join("catalog/templates/notes");
-        fs::create_dir_all(&source_notes).unwrap();
-        fs::create_dir_all(&target_notes).unwrap();
+        fs::create_dir_all(root.join("catalog/templates/notes")).unwrap();
 
-        let source_file = source_notes.join("default.json");
-        fs::write(&source_file, b"{\"id\":\"default\"}").unwrap();
-
-        copy_seed_dir_if_missing(&source_notes, &target_notes).unwrap();
-        let first = fs::read_to_string(target_notes.join("default.json")).unwrap();
-        assert_eq!(first, "{\"id\":\"default\"}");
-
-        fs::write(
-            target_notes.join("default.json"),
-            b"{\"id\":\"user-custom\"}",
+        ensure_default_notes_template(&root).unwrap();
+        let first = fs::read_to_string(
+            root.join("catalog/templates/notes/notes_default_cs.json"),
         )
         .unwrap();
-        copy_seed_dir_if_missing(&source_notes, &target_notes).unwrap();
-        let second = fs::read_to_string(target_notes.join("default.json")).unwrap();
-        assert_eq!(second, "{\"id\":\"user-custom\"}");
+        assert!(first.contains("\"id\": \"notes_default_cs\""));
+
+        fs::write(
+            root.join("catalog/templates/notes/notes_default_cs.json"),
+            b"{\"id\":\"notes_default_cs\",\"lang\":\"cs\",\"inputs\":[]}",
+        )
+        .unwrap();
+
+        ensure_default_notes_template(&root).unwrap();
+        let second = fs::read_to_string(
+            root.join("catalog/templates/notes/notes_default_cs.json"),
+        )
+        .unwrap();
+        assert_eq!(second, "{\"id\":\"notes_default_cs\",\"lang\":\"cs\",\"inputs\":[]}");
 
         let _ = fs::remove_dir_all(&root);
-        let _ = fs::remove_dir_all(&seed_root);
     }
 
     #[test]
-    fn required_seed_mapping_still_targets_note_templates() {
-        let mappings = seed_mappings();
-        assert!(mappings.iter().any(|mapping| {
-            mapping.source_rel == "assets/templates/notes"
-                && mapping.target_rel == "catalog/templates/notes"
-                && matches!(mapping.requirement, SeedRequirement::Required)
-        }));
+    fn seed_catalog_does_not_require_repo_seed_source() {
+        let root = temp_test_dir("seed-without-repo-assets");
+        fs::create_dir_all(&root).unwrap();
+
+        seed_catalog(&root).unwrap();
+
+        let notes_path = root.join("catalog/templates/notes/notes_default_cs.json");
+        assert!(notes_path.exists());
+
+        let _ = fs::remove_dir_all(&root);
     }
 }
 

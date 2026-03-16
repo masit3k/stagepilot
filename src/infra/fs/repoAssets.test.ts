@@ -5,12 +5,13 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { loadRepository } from "./repo.js";
+import defaultNotesTemplate from "../storage/defaultNotesTemplate.notes_default_cs.json";
 
 const tmpDirs: string[] = [];
 
 afterEach(async () => {
   await Promise.all(
-    tmpDirs.splice(0).map(async (dir) => {
+    tmpDirs.map(async (dir) => {
       await fs.rm(dir, { recursive: true, force: true });
     }),
   );
@@ -23,6 +24,7 @@ async function makeUserDataRoot(): Promise<string> {
   await fs.mkdir(path.join(root, "catalog", "bands"), { recursive: true });
   await fs.mkdir(path.join(root, "catalog", "musicians", "bass"), { recursive: true });
   await fs.mkdir(path.join(root, "catalog", "contacts"), { recursive: true });
+  await fs.mkdir(path.join(root, "catalog", "templates", "notes"), { recursive: true });
   await fs.writeFile(
     path.join(root, "catalog", "bands", "pl.json"),
     JSON.stringify({ id: "pl", code: "PL", name: "Praise Leaders", defaultLineup: {} }),
@@ -38,7 +40,11 @@ async function makeUserDataRoot(): Promise<string> {
     JSON.stringify({ id: "c1", firstName: "C", lastName: "One" }),
     "utf8",
   );
-  await fs.cp(path.resolve("data", "assets", "templates", "notes"), path.join(root, "catalog", "templates", "notes"), { recursive: true });
+  await fs.writeFile(
+    path.join(root, "catalog", "templates", "notes", "notes_default_cs.json"),
+    `${JSON.stringify(defaultNotesTemplate, null, 2)}\n`,
+    "utf8",
+  );
   return root;
 }
 
@@ -58,6 +64,17 @@ describe("loadRepository split sources", () => {
     expect(drumsPreset.id).toBe("standard-9");
     expect(monitorPreset.type).toBe("monitor");
     expect(notesTemplate.id).toBe("notes_default_cs");
+  });
+
+  it("loads notes template from AppData even when data root has no notes assets", async () => {
+    const userDataRoot = await makeUserDataRoot();
+    const emptyDataRoot = await fs.mkdtemp(path.join(os.tmpdir(), "stagepilot-empty-data-root-"));
+    tmpDirs.push(emptyDataRoot);
+
+    const repo = await loadRepository({ userDataRoot, dataRoot: "data" });
+    expect(repo.getNotesTemplate("notes_default_cs").id).toBe("notes_default_cs");
+
+    await expect(loadRepository({ userDataRoot, dataRoot: emptyDataRoot })).rejects.toThrow();
   });
 
   it("ignores stale AppData preset copies", async () => {

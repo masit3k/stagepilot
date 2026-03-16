@@ -5,6 +5,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { bootstrapSeed } from "./bootstrapSeed.js";
+import defaultNotesTemplate from "./defaultNotesTemplate.notes_default_cs.json";
 
 const tmpDirs: string[] = [];
 
@@ -31,15 +32,9 @@ async function makeSeedRoot(): Promise<string> {
     "bands",
     "musicians",
     "contacts",
-    path.join("assets", "templates", "notes"),
   ]) {
     await fs.mkdir(path.join(seedRoot, folder), { recursive: true });
   }
-  await fs.cp(
-    path.resolve("data", "assets", "templates", "notes"),
-    path.join(seedRoot, "assets", "templates", "notes"),
-    { recursive: true },
-  );
   await fs.writeFile(
     path.join(seedRoot, "bands", "b1.json"),
     JSON.stringify({ id: "b1", name: "Band 1" }),
@@ -49,7 +44,7 @@ async function makeSeedRoot(): Promise<string> {
 }
 
 describe("bootstrapSeed", () => {
-  it("seeds user/library data and notes templates but not presets", async () => {
+  it("seeds user/library data and appdata notes template but not presets", async () => {
     const root = await makeRoot();
     const seedRoot = await makeSeedRoot();
 
@@ -58,9 +53,10 @@ describe("bootstrapSeed", () => {
     await expect(
       fs.access(path.join(root, "catalog", "bands", "b1.json")),
     ).resolves.toBeUndefined();
-    await expect(
-      fs.access(path.join(root, "catalog", "templates", "notes", "notes_default_cs.json")),
-    ).resolves.toBeUndefined();
+    const notesPath = path.join(root, "catalog", "templates", "notes", "notes_default_cs.json");
+    await expect(fs.access(notesPath)).resolves.toBeUndefined();
+    const notes = JSON.parse(await fs.readFile(notesPath, "utf8"));
+    expect(notes).toEqual(defaultNotesTemplate);
     await expect(
       fs.access(path.join(root, "catalog", "presets", "groups")),
     ).rejects.toBeTruthy();
@@ -69,22 +65,16 @@ describe("bootstrapSeed", () => {
     ).rejects.toBeTruthy();
   });
 
-  it("is idempotent", async () => {
+  it("does not overwrite existing appdata notes template", async () => {
     const root = await makeRoot();
     const seedRoot = await makeSeedRoot();
-
-    await bootstrapSeed({ root, seedRoot });
-    const first = await fs.readFile(
-      path.join(root, "catalog", "templates", "notes", "notes_default_cs.json"),
-      "utf8",
-    );
+    const notesPath = path.join(root, "catalog", "templates", "notes", "notes_default_cs.json");
+    await fs.mkdir(path.dirname(notesPath), { recursive: true });
+    await fs.writeFile(notesPath, "{\"id\":\"notes_default_cs\",\"lang\":\"cs\",\"inputs\":[]}", "utf8");
 
     await bootstrapSeed({ root, seedRoot });
 
-    const second = await fs.readFile(
-      path.join(root, "catalog", "templates", "notes", "notes_default_cs.json"),
-      "utf8",
-    );
-    expect(second).toBe(first);
+    const result = await fs.readFile(notesPath, "utf8");
+    expect(result).toBe("{\"id\":\"notes_default_cs\",\"lang\":\"cs\",\"inputs\":[]}");
   });
 });

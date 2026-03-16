@@ -3,6 +3,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { catalogPaths } from "./catalogPaths.js";
+import defaultNotesTemplate from "./defaultNotesTemplate.notes_default_cs.json";
 
 async function copyJsonTreeIfMissing(from: string, to: string): Promise<void> {
   const entries = await fs.readdir(from, { withFileTypes: true });
@@ -18,6 +19,14 @@ async function copyJsonTreeIfMissing(from: string, to: string): Promise<void> {
   }
 }
 
+async function ensureDefaultNotesTemplate(templatesNotesDir: string): Promise<void> {
+  const filePath = path.join(templatesNotesDir, "notes_default_cs.json");
+  await fs.mkdir(templatesNotesDir, { recursive: true });
+  await fs.access(filePath).catch(async () => {
+    await fs.writeFile(filePath, `${JSON.stringify(defaultNotesTemplate, null, 2)}\n`, "utf8");
+  });
+}
+
 export async function bootstrapSeed({
   root,
   seedRoot,
@@ -30,8 +39,5 @@ export async function bootstrapSeed({
   await copyJsonTreeIfMissing(path.join(seedRoot, "bands"), p.bands);
   await copyJsonTreeIfMissing(path.join(seedRoot, "musicians"), p.musicians);
   await copyJsonTreeIfMissing(path.join(seedRoot, "contacts"), p.contacts);
-  await copyJsonTreeIfMissing(
-    path.join(seedRoot, "assets", "templates", "notes"),
-    p.templatesNotes,
-  );
+  await ensureDefaultNotesTemplate(p.templatesNotes);
 }
