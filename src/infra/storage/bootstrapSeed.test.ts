@@ -31,134 +31,60 @@ async function makeSeedRoot(): Promise<string> {
     "bands",
     "musicians",
     "contacts",
-    path.join("assets", "presets", "monitors"),
     path.join("assets", "templates", "notes"),
   ]) {
     await fs.mkdir(path.join(seedRoot, folder), { recursive: true });
   }
   await fs.cp(
-    path.resolve("data", "assets", "presets", "groups"),
-    path.join(seedRoot, "assets", "presets", "groups"),
+    path.resolve("data", "assets", "templates", "notes"),
+    path.join(seedRoot, "assets", "templates", "notes"),
     { recursive: true },
+  );
+  await fs.writeFile(
+    path.join(seedRoot, "bands", "b1.json"),
+    JSON.stringify({ id: "b1", name: "Band 1" }),
+    "utf8",
   );
   return seedRoot;
 }
 
-describe("bootstrapSeed seeded preset note migration", () => {
-  it("updates stale seeded no-mic and talkback note text while keeping unrelated presets unchanged", async () => {
+describe("bootstrapSeed", () => {
+  it("seeds user/library data and notes templates but not presets", async () => {
     const root = await makeRoot();
     const seedRoot = await makeSeedRoot();
 
     await bootstrapSeed({ root, seedRoot });
 
-    const leadPath = path.join(
-      root,
-      "catalog",
-      "presets",
-      "groups",
-      "vocs",
-      "vocal_lead_no_mic.json",
-    );
-    const backPath = path.join(
-      root,
-      "catalog",
-      "presets",
-      "groups",
-      "vocs",
-      "vocal_back_no_mic.json",
-    );
-    const talkbackPath = path.join(
-      root,
-      "catalog",
-      "presets",
-      "groups",
-      "talkback",
-      "talkback.json",
-    );
-    const unaffectedPath = path.join(
-      root,
-      "catalog",
-      "presets",
-      "groups",
-      "vocs",
-      "vocal_lead_wired.json",
-    );
-
-    const oldText =
-      "BETA 58A, SE V7, SM58 – boom mic stand (requested from sound engineer)";
-    const expectedText =
-      "BETA 58A, SE V7, SM58 – boom mic stand (provided by FOH)";
-
-    const leadPreset = JSON.parse(await fs.readFile(leadPath, "utf8")) as {
-      inputs: Array<{ key: string; note?: string }>;
-    };
-    leadPreset.inputs[0].note = oldText;
-    await fs.writeFile(
-      leadPath,
-      `${JSON.stringify(leadPreset, null, 2)}\n`,
-      "utf8",
-    );
-
-    const backPreset = JSON.parse(await fs.readFile(backPath, "utf8")) as {
-      input: { key: string; note?: string };
-    };
-    backPreset.input.note = oldText;
-    await fs.writeFile(
-      backPath,
-      `${JSON.stringify(backPreset, null, 2)}\n`,
-      "utf8",
-    );
-
-    const talkbackPreset = JSON.parse(
-      await fs.readFile(talkbackPath, "utf8"),
-    ) as { input: { key: string; note?: string } };
-    talkbackPreset.input.note = oldText;
-    await fs.writeFile(
-      talkbackPath,
-      `${JSON.stringify(talkbackPreset, null, 2)}\n`,
-      "utf8",
-    );
-
-    const unaffectedBefore = await fs.readFile(unaffectedPath, "utf8");
-
-    await bootstrapSeed({ root, seedRoot });
-
-    const migratedLead = JSON.parse(await fs.readFile(leadPath, "utf8")) as {
-      inputs: Array<{ note?: string }>;
-    };
-    const migratedBack = JSON.parse(await fs.readFile(backPath, "utf8")) as {
-      input: { note?: string };
-    };
-    const migratedTalkback = JSON.parse(
-      await fs.readFile(talkbackPath, "utf8"),
-    ) as { input: { note?: string } };
-    const unaffectedAfter = await fs.readFile(unaffectedPath, "utf8");
-
-    expect(migratedLead.inputs[0].note).toBe(expectedText);
-    expect(migratedBack.input.note).toBe(expectedText);
-    expect(migratedTalkback.input.note).toBe(expectedText);
-    expect(unaffectedAfter).toBe(unaffectedBefore);
+    await expect(
+      fs.access(path.join(root, "catalog", "bands", "b1.json")),
+    ).resolves.toBeUndefined();
+    await expect(
+      fs.access(path.join(root, "catalog", "templates", "notes", "notes_default_cs.json")),
+    ).resolves.toBeUndefined();
+    await expect(
+      fs.access(path.join(root, "catalog", "presets", "groups")),
+    ).rejects.toBeTruthy();
+    await expect(
+      fs.access(path.join(root, "catalog", "presets", "monitors")),
+    ).rejects.toBeTruthy();
   });
 
-  it("is idempotent when note text is already canonical", async () => {
+  it("is idempotent", async () => {
     const root = await makeRoot();
     const seedRoot = await makeSeedRoot();
 
     await bootstrapSeed({ root, seedRoot });
-
-    const leadPath = path.join(
-      root,
-      "catalog",
-      "presets",
-      "groups",
-      "vocs",
-      "vocal_lead_no_mic.json",
+    const first = await fs.readFile(
+      path.join(root, "catalog", "templates", "notes", "notes_default_cs.json"),
+      "utf8",
     );
-    const first = await fs.readFile(leadPath, "utf8");
 
     await bootstrapSeed({ root, seedRoot });
 
-    const second = await fs.readFile(leadPath, "utf8");
+    const second = await fs.readFile(
+      path.join(root, "catalog", "templates", "notes", "notes_default_cs.json"),
+      "utf8",
+    );
     expect(second).toBe(first);
   });
 });

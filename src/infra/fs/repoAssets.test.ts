@@ -20,21 +20,32 @@ async function makeUserDataRoot(): Promise<string> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "stagepilot-user-data-"));
   tmpDirs.push(root);
   await fs.mkdir(path.join(root, "projects"), { recursive: true });
-  await fs.cp(path.resolve("data", "bands"), path.join(root, "catalog", "bands"), { recursive: true });
-  await fs.cp(path.resolve("data", "musicians"), path.join(root, "catalog", "musicians"), { recursive: true });
-  await fs.cp(path.resolve("data", "contacts"), path.join(root, "catalog", "contacts"), { recursive: true });
-  await fs.cp(path.resolve("data", "assets", "presets", "groups"), path.join(root, "catalog", "presets", "groups"), { recursive: true });
-  await fs.cp(path.resolve("data", "assets", "presets", "monitors"), path.join(root, "catalog", "presets", "monitors"), { recursive: true });
+  await fs.mkdir(path.join(root, "catalog", "bands"), { recursive: true });
+  await fs.mkdir(path.join(root, "catalog", "musicians", "bass"), { recursive: true });
+  await fs.mkdir(path.join(root, "catalog", "contacts"), { recursive: true });
+  await fs.writeFile(
+    path.join(root, "catalog", "bands", "pl.json"),
+    JSON.stringify({ id: "pl", code: "PL", name: "Praise Leaders", defaultLineup: {} }),
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(root, "catalog", "musicians", "bass", "m1.json"),
+    JSON.stringify({ id: "m1", group: "bass", name: "M1" }),
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(root, "catalog", "contacts", "c1.json"),
+    JSON.stringify({ id: "c1", firstName: "C", lastName: "One" }),
+    "utf8",
+  );
   await fs.cp(path.resolve("data", "assets", "templates", "notes"), path.join(root, "catalog", "templates", "notes"), { recursive: true });
   return root;
 }
 
-describe("loadRepository assets paths", () => {
-  it("loads group presets, monitor presets, and notes templates from AppData catalog", async () => {
+describe("loadRepository split sources", () => {
+  it("loads presets from repo assets and notes templates from AppData", async () => {
     const userDataRoot = await makeUserDataRoot();
-    const repo = await loadRepository({
-      userDataRoot,
-    });
+    const repo = await loadRepository({ userDataRoot });
 
     const bassPreset = repo.getPreset("el_bass_xlr_amp") as { group: string };
     const migratedBassPreset = repo.getPreset("el_bass_xlr") as { id: string };
@@ -47,5 +58,44 @@ describe("loadRepository assets paths", () => {
     expect(drumsPreset.id).toBe("standard-9");
     expect(monitorPreset.type).toBe("monitor");
     expect(notesTemplate.id).toBe("notes_default_cs");
+  });
+
+  it("ignores stale AppData preset copies", async () => {
+    const userDataRoot = await makeUserDataRoot();
+    const stalePresetPath = path.join(
+      userDataRoot,
+      "catalog",
+      "presets",
+      "groups",
+      "vocs",
+      "vocal_lead_no_mic.json",
+    );
+    await fs.mkdir(path.dirname(stalePresetPath), { recursive: true });
+    const stalePreset = {
+      id: "vocal_lead_no_mic",
+      type: "group",
+      group: "vocs",
+      inputs: [{ key: "voc_lead", note: "STALE_FROM_APPDATA" }],
+    };
+    await fs.writeFile(stalePresetPath, `${JSON.stringify(stalePreset, null, 2)}\n`, "utf8");
+
+    const repo = await loadRepository({ userDataRoot });
+    const preset = repo.getPreset("vocal_lead_no_mic") as {
+      inputs?: Array<{ note?: string }>;
+    };
+
+    expect(preset.inputs?.[0]?.note).toBe(
+      "BETA 58A, SE V7, SM58 – boom mic stand (provided by FOH)",
+    );
+  });
+
+  it("fails when requested notes template is missing in AppData", async () => {
+    const userDataRoot = await makeUserDataRoot();
+    await fs.rm(path.join(userDataRoot, "catalog", "templates", "notes", "notes_default_cs.json"));
+    const repo = await loadRepository({ userDataRoot });
+
+    expect(() => repo.getNotesTemplate("notes_default_cs")).toThrow(
+      "NotesTemplate not found: notes_default_cs",
+    );
   });
 });

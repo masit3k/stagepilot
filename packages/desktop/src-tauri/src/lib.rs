@@ -968,9 +968,10 @@ fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSet
     }
 
     let mut preset_catalog: HashMap<String, Value> = HashMap::new();
+    let workspace_root = resolve_workspace_root();
     for preset_dir in [
-        catalog_entity_dir(&app, "presets/groups")?,
-        catalog_entity_dir(&app, "presets/monitors")?,
+        workspace_root.join("data/assets/presets/groups"),
+        workspace_root.join("data/assets/presets/monitors"),
     ] {
         if !preset_dir.exists() {
             continue;

@@ -3,6 +3,8 @@ import type { Band, Group, LineupValue, Musician, NotesTemplate, PresetEntity, P
 import { resolvePresetIdAlias } from "../../domain/model/presetAliases.js";
 import { loadJsonFile } from "../fs/loadJson.js";
 import { listJsonFiles } from "../fs/loadTree.js";
+import { getAllGroupPresetsDir, getMonitorPresetsDir } from "../fs/assetsPaths.js";
+import { DATA_ROOT } from "../fs/dataRoot.js";
 import { catalogPathsForRoot, resolveStorageRoot } from "./catalogPaths.js";
 
 export interface DataRepository {
@@ -13,7 +15,12 @@ export interface DataRepository {
   getNotesTemplate(id: string): NotesTemplate;
 }
 
-export async function loadCatalogRepository(userDataRoot = resolveStorageRoot()): Promise<DataRepository> {
+export async function loadCatalogRepository(options?: {
+  userDataRoot?: string;
+  dataRoot?: string;
+}): Promise<DataRepository> {
+  const userDataRoot = options?.userDataRoot ?? resolveStorageRoot();
+  const dataRoot = options?.dataRoot ?? DATA_ROOT;
   const paths = catalogPathsForRoot(userDataRoot);
   const projects = await loadMap<Project>(paths.projects);
   const bands = await loadBandsMap(paths.bands);
@@ -25,8 +32,8 @@ export async function loadCatalogRepository(userDataRoot = resolveStorageRoot())
     }
   }
   const musicians = await loadMusiciansMap(paths.musicians);
-  const groupPresets = await loadMap<PresetEntity>(paths.presetsGroups);
-  const monitorPresets = await loadMap<PresetEntity>(paths.presetsMonitors);
+  const groupPresets = await loadMap<PresetEntity>(getAllGroupPresetsDir(dataRoot));
+  const monitorPresets = await loadMap<PresetEntity>(getMonitorPresetsDir(dataRoot));
   const presets = new Map<string, PresetEntity>([...groupPresets, ...monitorPresets]);
   const notesTemplates = await loadMap<NotesTemplate>(paths.templatesNotes);
 

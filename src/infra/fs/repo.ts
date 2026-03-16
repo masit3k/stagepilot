@@ -3,5 +3,5 @@ import { loadCatalogRepository, type DataRepository } from "../storage/catalogRe
 export type { DataRepository };
 
 export async function loadRepository(options?: { userDataRoot?: string; dataRoot?: string }): Promise<DataRepository> {
-  return loadCatalogRepository(options?.userDataRoot);
+  return loadCatalogRepository(options);
 }

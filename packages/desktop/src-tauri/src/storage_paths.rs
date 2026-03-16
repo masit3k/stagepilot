@@ -7,38 +7,8 @@ use tauri::Manager;
 
 const STORAGE_DIR_NAME: &str = "stagepilot";
 const STORAGE_SCHEMA_VERSION: u32 = 2;
-const STORAGE_SEED_VERSION: u32 = 1;
+const STORAGE_SEED_VERSION: u32 = 2;
 const MAX_ID_LEN: usize = 120;
-const PROVIDED_BY_FOH_NOTE: &str = "BETA 58A, SE V7, SM58 – boom mic stand (provided by FOH)";
-
-struct PresetNoteMigrationTarget {
-    id: &'static str,
-    rel_path: &'static str,
-    input_key: &'static str,
-    note: &'static str,
-}
-
-const SEEDED_PRESET_NOTE_MIGRATIONS: [PresetNoteMigrationTarget; 3] = [
-    PresetNoteMigrationTarget {
-        id: "vocal_lead_no_mic",
-        rel_path: "vocs/vocal_lead_no_mic.json",
-        input_key: "voc_lead",
-        note: PROVIDED_BY_FOH_NOTE,
-    },
-    PresetNoteMigrationTarget {
-        id: "vocal_back_no_mic",
-        rel_path: "vocs/vocal_back_no_mic.json",
-        input_key: "voc_back_{ownerKey}",
-        note: PROVIDED_BY_FOH_NOTE,
-    },
-    PresetNoteMigrationTarget {
-        id: "talkback",
-        rel_path: "talkback/talkback.json",
-        input_key: "tb_{ownerKey}",
-        note: PROVIDED_BY_FOH_NOTE,
-    },
-];
-
 #[derive(Debug)]
 pub enum StorageError {
     Io(std::io::Error),
@@ -127,8 +97,6 @@ fn ensure_dirs(root: &Path) -> Result<(), StorageError> {
         "catalog/musicians/vocs",
         "catalog/musicians/talkback",
         "catalog/contacts",
-        "catalog/presets/groups",
-        "catalog/presets/monitors",
         "catalog/templates/notes",
     ] {
         fs::create_dir_all(root.join(folder))?;
@@ -259,76 +227,9 @@ fn seed_catalog(root: &Path) -> Result<(), StorageError> {
     copy_seed_dir_if_missing(&seed.join("musicians"), &root.join("catalog/musicians"))?;
     copy_seed_dir_if_missing(&seed.join("contacts"), &root.join("catalog/contacts"))?;
     copy_seed_dir_if_missing(
-        &seed.join("assets/presets/groups"),
-        &root.join("catalog/presets/groups"),
-    )?;
-    copy_seed_dir_if_missing(
-        &seed.join("assets/presets/monitors"),
-        &root.join("catalog/presets/monitors"),
-    )?;
-    copy_seed_dir_if_missing(
         &seed.join("assets/templates/notes"),
         &root.join("catalog/templates/notes"),
     )?;
-    migrate_seeded_preset_notes(root)?;
-    Ok(())
-}
-
-fn migrate_seeded_preset_notes(root: &Path) -> Result<(), StorageError> {
-    let presets_root = root.join("catalog/presets/groups");
-    for target in SEEDED_PRESET_NOTE_MIGRATIONS {
-        let file = presets_root.join(target.rel_path);
-        if !file.exists() {
-            continue;
-        }
-        let content = fs::read_to_string(&file)?;
-        let mut value: serde_json::Value = serde_json::from_str(&content).map_err(|err| {
-            StorageError::Resolve(format!("Invalid preset JSON in {} ({err})", file.display()))
-        })?;
-
-        if value.get("id").and_then(|v| v.as_str()) != Some(target.id) {
-            continue;
-        }
-
-        let mut changed = false;
-        if let Some(input) = value.get_mut("input").and_then(|v| v.as_object_mut()) {
-            if input.get("key").and_then(|v| v.as_str()) == Some(target.input_key)
-                && input.get("note").and_then(|v| v.as_str()) != Some(target.note)
-            {
-                input.insert(
-                    "note".to_string(),
-                    serde_json::Value::String(target.note.to_string()),
-                );
-                changed = true;
-            }
-        }
-
-        if let Some(inputs) = value.get_mut("inputs").and_then(|v| v.as_array_mut()) {
-            for input in inputs.iter_mut() {
-                if let Some(input_obj) = input.as_object_mut() {
-                    if input_obj.get("key").and_then(|v| v.as_str()) == Some(target.input_key)
-                        && input_obj.get("note").and_then(|v| v.as_str()) != Some(target.note)
-                    {
-                        input_obj.insert(
-                            "note".to_string(),
-                            serde_json::Value::String(target.note.to_string()),
-                        );
-                        changed = true;
-                    }
-                }
-            }
-        }
-
-        if changed {
-            let bytes = serde_json::to_vec_pretty(&value).map_err(|e| {
-                StorageError::Resolve(format!(
-                    "Failed to serialize migrated preset {} ({e})",
-                    file.display()
-                ))
-            })?;
-            atomic_write_bytes(&file, &bytes)?;
-        }
-    }
     Ok(())
 }
 
