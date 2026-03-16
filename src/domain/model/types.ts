@@ -332,6 +332,12 @@ export type MetaLineModel =
   | {
       kind: "plain";
       value: string;
+    }
+  | {
+      kind: "split";
+      subtitle: string;
+      updateDateLabel: string;
+      updateDateValue: string;
     };
 
 /** Výstup pipeline – připraveno pro render (PDF) nebo export. */

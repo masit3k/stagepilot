@@ -27,6 +27,18 @@ export function normalizeProject(input: ProjectJson): Project {
       ? raw.displayName.trim() || undefined
       : undefined;
   const stageplan = (input as ProjectJson).stageplan;
+  const createdAt =
+    "createdAt" in input &&
+    typeof input.createdAt === "string" &&
+    input.createdAt.trim().length > 0
+      ? input.createdAt.trim()
+      : undefined;
+  const updatedAt =
+    "updatedAt" in input &&
+    typeof input.updatedAt === "string" &&
+    input.updatedAt.trim().length > 0
+      ? input.updatedAt.trim()
+      : undefined;
   const lineup = "lineup" in input ? input.lineup : undefined;
   const bandLeaderId =
     "bandLeaderId" in input &&
@@ -82,6 +94,8 @@ export function normalizeProject(input: ProjectJson): Project {
         eventVenue,
         documentDate,
         note: input.note?.trim() || input.title?.trim() || undefined,
+        createdAt,
+        updatedAt,
         template: input.template?.trim() || undefined,
         lineup,
         backVocalIds,
@@ -100,6 +114,8 @@ export function normalizeProject(input: ProjectJson): Project {
       purpose,
       documentDate,
       note: input.note?.trim() || input.title?.trim() || undefined,
+      createdAt,
+      updatedAt,
       template: input.template?.trim() || undefined,
       lineup,
       backVocalIds,
@@ -125,6 +141,8 @@ export function normalizeProject(input: ProjectJson): Project {
       eventDate,
       eventVenue,
       documentDate: eventDate,
+      createdAt,
+      updatedAt,
       lineup,
       backVocalIds,
       bandLeaderId,

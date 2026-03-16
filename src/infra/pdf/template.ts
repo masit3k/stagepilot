@@ -23,6 +23,18 @@ function renderMetaLine(metaLine: MetaLineModel, esc: (s: string) => string): st
     `.trim();
   }
 
+  if (metaLine.kind === "split") {
+    const subtitleHtml = metaLine.subtitle
+      ? `<div class="metaLine">${esc(metaLine.subtitle)}</div>`
+      : "";
+    return `
+      ${subtitleHtml}
+      <div class="metaLine">
+        <span class="metaLabel">${esc(metaLine.updateDateLabel)}</span> ${esc(metaLine.updateDateValue)}
+      </div>
+    `.trim();
+  }
+
   return `
     <div class="metaLine">
       ${esc(metaLine.value)}

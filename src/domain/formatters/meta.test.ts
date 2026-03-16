@@ -29,7 +29,7 @@ describe("formatProjectMetaLine", () => {
     });
   });
 
-  it("uses same update date source for generic template", () => {
+  it("uses generic subtitle as note plus document year and update date from updatedAt", () => {
     const line = formatProjectMetaLine({
       purpose: "general",
       note: "Tour",
@@ -38,8 +38,10 @@ describe("formatProjectMetaLine", () => {
     });
 
     expect(line).toEqual({
-      kind: "plain",
-      value: "Tour (datum aktualizace: 12. 3. 2026)",
+      kind: "split",
+      subtitle: "Tour 2026",
+      updateDateLabel: "datum aktualizace:",
+      updateDateValue: "12. 3. 2026",
     });
   });
 
@@ -64,8 +66,10 @@ describe("formatProjectMetaLine", () => {
       value: "10. 3. 2026, Klub (datum aktualizace: 1. 1. 2026)",
     });
     expect(genericLine).toEqual({
-      kind: "plain",
-      value: "Tour (datum aktualizace: 1. 1. 2026)",
+      kind: "split",
+      subtitle: "Tour 2026",
+      updateDateLabel: "datum aktualizace:",
+      updateDateValue: "1. 1. 2026",
     });
   });
 });

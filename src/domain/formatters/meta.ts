@@ -23,6 +23,12 @@ function resolveUpdatedDateIso(args: {
   return args.documentDate;
 }
 
+function extractYearFromIso(isoDate: string): string {
+  const normalized = (isoDate ?? "").trim();
+  const match = /^(\d{4})-\d{2}-\d{2}$/.exec(normalized);
+  return match?.[1] ?? "";
+}
+
 export function formatProjectMetaLine(args: {
   purpose: "event" | "general";
   eventDate?: string;
@@ -48,9 +54,14 @@ export function formatProjectMetaLine(args: {
     };
   }
 
-  const note = args.note?.trim() || "Stage plan";
+  const note = args.note?.trim() ?? "";
+  const validityYear = extractYearFromIso(args.documentDate);
+  const subtitle = [note, validityYear].filter(Boolean).join(" ");
+
   return {
-    kind: "plain",
-    value: `${note} (datum aktualizace: ${updatedDate})`,
+    kind: "split",
+    subtitle,
+    updateDateLabel: "datum aktualizace:",
+    updateDateValue: updatedDate,
   };
 }

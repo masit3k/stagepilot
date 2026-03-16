@@ -692,6 +692,8 @@ export function buildDocument(
 
       documentDate: project.documentDate,
       note: project.note,
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt,
 
       metaLine: buildMetaLine(project),
       logoFile: band.logoFile,
