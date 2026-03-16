@@ -21,8 +21,8 @@ const DRUM_NOTES = {
 
 function padLabel(mode: PadMode, channels: PadChannels): string {
   const modeLabel = mode === "backing" ? "BACKING" : "SFX";
-  if (channels === "stereo") return `PAD L/R (${modeLabel}, stereo)`;
-  return `PAD (${modeLabel}, mono)`;
+  if (channels === "stereo") return `PAD L/R (${modeLabel})`;
+  return `PAD (${modeLabel})`;
 }
 
 export function drumCatalogForSetup(setup: DrumSetup): DrumCatalogEntry[] {
@@ -72,12 +72,12 @@ export function drumCatalogForSetup(setup: DrumSetup): DrumCatalogEntry[] {
     } else {
       entries.push({
         key: `dr_pad_${setup.pad.channels}_${setup.pad.mode}_l`,
-        label: `PAD L (${setup.pad.mode === "backing" ? "BACKING" : "SFX"}, stereo)`,
+        label: `PAD L (${setup.pad.mode === "backing" ? "BACKING" : "SFX"})`,
         note: DRUM_NOTES.pad,
       });
       entries.push({
         key: `dr_pad_${setup.pad.channels}_${setup.pad.mode}_r`,
-        label: `PAD R (${setup.pad.mode === "backing" ? "BACKING" : "SFX"}, stereo)`,
+        label: `PAD R (${setup.pad.mode === "backing" ? "BACKING" : "SFX"})`,
         note: DRUM_NOTES.pad,
       });
     }
