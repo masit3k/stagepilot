@@ -47,12 +47,16 @@ async function makeUserDataRoot(): Promise<string> {
         {
           kind: "drum_setup",
           setup: {
-            tomCount: 2,
-            floorTomCount: 1,
+            kickCount: 1,
+            kicks: [{ in: true, out: true }],
+            snareCount: 1,
+            snares: [{ top: true, bottom: true }],
             hasHiHat: true,
+            tomCount: 2,
+            floorCount: 1,
             hasOverheads: true,
-            extraSnareCount: 0,
             pad: { enabled: true, mode: "sfx", channels: "stereo" },
+            tracks: { enabled: false },
           },
         },
       ],
@@ -141,7 +145,7 @@ describe("loadRepository split sources", () => {
   });
 
 
-  it("normalizes legacy drummer preset payload at repository read boundary", async () => {
+  it("keeps canonical drummer preset payload at repository read boundary", async () => {
     const userDataRoot = await makeUserDataRoot();
     const repo = await loadRepository({ userDataRoot });
 
@@ -153,6 +157,24 @@ describe("loadRepository split sources", () => {
     expect(drumSetup.setup.floorCount).toBe(1);
     expect(drumSetup.setup.snareCount).toBe(1);
     expect(drumSetup.setup.pad).toEqual({ enabled: true, mode: "sfx", channels: "stereo" });
+  });
+
+  it("fails on legacy drummer preset payload", async () => {
+    const userDataRoot = await makeUserDataRoot();
+    const legacyDrummerPath = path.join(userDataRoot, "catalog", "musicians", "drums", "dr1.json");
+    await fs.writeFile(
+      legacyDrummerPath,
+      JSON.stringify({
+        id: "dr1",
+        firstName: "Dr",
+        lastName: "One",
+        group: "drums",
+        presets: [{ kind: "drum_setup", setup: { tomCount: 2, floorTomCount: 1, hasHiHat: true, hasOverheads: true, extraSnareCount: 0 } }],
+      }),
+      "utf8",
+    );
+
+    await expect(loadRepository({ userDataRoot })).rejects.toThrow("unsupported legacy drum setup shape");
   });
 
 });

@@ -24,21 +24,6 @@ export type DrumDefinition = {
   tracks: DrumTracks;
 };
 
-type LegacyDrumPad = {
-  enabled?: unknown;
-  mode?: unknown;
-  channels?: unknown;
-};
-
-type LegacyDrumDefinition = {
-  tomCount?: unknown;
-  floorTomCount?: unknown;
-  hasHiHat?: unknown;
-  hasOverheads?: unknown;
-  extraSnareCount?: unknown;
-  pad?: LegacyDrumPad;
-};
-
 export function createDefaultDrumDefinition(): DrumDefinition {
   return {
     kickCount: 1,
@@ -55,148 +40,103 @@ export function createDefaultDrumDefinition(): DrumDefinition {
 }
 
 export function normalizeDrumDefinition(definition: DrumDefinition): DrumDefinition {
-  const kicks: [DrumKick, DrumKick?] = [definition.kicks?.[0] ?? { in: true, out: true }];
-  if (definition.kickCount === 2) kicks[1] = definition.kicks[1] ?? { in: true, out: false };
-
-  const snares: [DrumSnare, DrumSnare?, DrumSnare?] = [definition.snares?.[0] ?? { top: true, bottom: true }];
-  if (definition.snareCount >= 2) snares[1] = definition.snares[1] ?? { top: true, bottom: false };
-  if (definition.snareCount >= 3) snares[2] = definition.snares[2] ?? { top: true, bottom: false };
-
-  const pad = !definition.pad.enabled
-    ? { enabled: false as const }
-    : definition.pad.mode === "backing"
-    ? { enabled: true as const, mode: "backing" as const, channels: "stereo" as const }
-    : { enabled: true as const, mode: "sfx" as const, channels: definition.pad.channels };
-
   return {
     ...definition,
-    kicks,
-    snares,
-    pad,
-  };
-}
-
-function asBoolean(value: unknown, fallback: boolean): boolean {
-  return typeof value === "boolean" ? value : fallback;
-}
-
-function asCount<T extends number>(value: unknown, allowed: readonly T[], fallback: T): T {
-  return typeof value === "number" && (allowed as readonly number[]).includes(value) ? (value as T) : fallback;
-}
-
-function isLegacyDrumDefinition(input: unknown): input is LegacyDrumDefinition {
-  if (!input || typeof input !== "object") return false;
-  return "floorTomCount" in input || "extraSnareCount" in input;
-}
-
-function toLegacyDrumDefinition(input: LegacyDrumDefinition): DrumDefinition {
-  const fallback = createDefaultDrumDefinition();
-  const snareCount = Math.max(1, Math.min(3, 1 + (typeof input.extraSnareCount === "number" ? input.extraSnareCount : 0))) as 1 | 2 | 3;
-  const padEnabled = input.pad?.enabled === true;
-
-  return normalizeDrumDefinition({
-    kickCount: 1,
-    kicks: [{ in: true, out: true }],
-    snareCount,
+    kicks: [definition.kicks[0], definition.kickCount === 2 ? definition.kicks[1] : undefined],
     snares: [
-      { top: true, bottom: true },
-      ...(snareCount >= 2 ? [{ top: true, bottom: false } as DrumSnare] : []),
-      ...(snareCount >= 3 ? [{ top: true, bottom: false } as DrumSnare] : []),
-    ] as [DrumSnare, DrumSnare?, DrumSnare?],
-    hasHiHat: asBoolean(input.hasHiHat, fallback.hasHiHat),
-    tomCount: asCount(input.tomCount, [0, 1, 2, 3, 4] as const, fallback.tomCount),
-    floorCount: asCount(input.floorTomCount, [0, 1, 2, 3] as const, fallback.floorCount),
-    hasOverheads: asBoolean(input.hasOverheads, fallback.hasOverheads),
-    pad: !padEnabled
-      ? ({ enabled: false } as const)
-      : ({
-          enabled: true as const,
-          mode: input.pad?.mode === "backing" ? ("backing" as const) : ("sfx" as const),
-          channels: input.pad?.channels === "stereo" ? ("stereo" as const) : ("mono" as const),
-        } as const),
-    tracks: { enabled: false },
-  });
-}
-
-export function parseDrumDefinition(input: unknown, fallback = createDefaultDrumDefinition()): DrumDefinition {
-  if (isLegacyDrumDefinition(input)) return toLegacyDrumDefinition(input);
-  if (!input || typeof input !== "object") return fallback;
-  const raw = input as Partial<DrumDefinition>;
-
-  const kickCount = asCount(raw.kickCount, [1, 2] as const, fallback.kickCount);
-  const snareCount = asCount(raw.snareCount, [1, 2, 3] as const, fallback.snareCount);
-  const tomCount = asCount(raw.tomCount, [0, 1, 2, 3, 4] as const, fallback.tomCount);
-  const floorCount = asCount(raw.floorCount, [0, 1, 2, 3] as const, fallback.floorCount);
-
-  const kicks = [
-    {
-      in: asBoolean(raw.kicks?.[0]?.in, fallback.kicks[0].in),
-      out: asBoolean(raw.kicks?.[0]?.out, fallback.kicks[0].out),
-    },
-    kickCount === 2
-      ? {
-          in: asBoolean(raw.kicks?.[1]?.in, fallback.kicks[1]?.in ?? true),
-          out: asBoolean(raw.kicks?.[1]?.out, fallback.kicks[1]?.out ?? false),
-        }
-      : undefined,
-  ] as [DrumKick, DrumKick?];
-
-  const snares = [
-    {
-      top: asBoolean(raw.snares?.[0]?.top, fallback.snares[0].top),
-      bottom: asBoolean(raw.snares?.[0]?.bottom, fallback.snares[0].bottom),
-    },
-    snareCount >= 2
-      ? {
-          top: asBoolean(raw.snares?.[1]?.top, fallback.snares[1]?.top ?? true),
-          bottom: asBoolean(raw.snares?.[1]?.bottom, fallback.snares[1]?.bottom ?? false),
-        }
-      : undefined,
-    snareCount >= 3
-      ? {
-          top: asBoolean(raw.snares?.[2]?.top, fallback.snares[2]?.top ?? true),
-          bottom: asBoolean(raw.snares?.[2]?.bottom, fallback.snares[2]?.bottom ?? false),
-        }
-      : undefined,
-  ] as [DrumSnare, DrumSnare?, DrumSnare?];
-
-  const pad: DrumPad = !raw.pad || typeof raw.pad !== "object" || raw.pad.enabled !== true
-    ? ({ enabled: false } as const)
-    : ({
-        enabled: true as const,
-        mode: raw.pad.mode === "backing" ? ("backing" as const) : ("sfx" as const),
-        channels: raw.pad.channels === "stereo" ? ("stereo" as const) : ("mono" as const),
-      } as const);
-
-  const tracks = {
-    enabled: asBoolean(raw.tracks?.enabled, fallback.tracks.enabled),
+      definition.snares[0],
+      definition.snareCount >= 2 ? definition.snares[1] : undefined,
+      definition.snareCount >= 3 ? definition.snares[2] : undefined,
+    ],
   };
-
-  return normalizeDrumDefinition({
-    kickCount,
-    kicks,
-    snareCount,
-    snares,
-    hasHiHat: asBoolean(raw.hasHiHat, fallback.hasHiHat),
-    tomCount,
-    floorCount,
-    hasOverheads: asBoolean(raw.hasOverheads, fallback.hasOverheads),
-    pad,
-    tracks,
-  });
 }
 
-export function parsePersistedDrumDefinition(input: unknown, context = "drum definition"): DrumDefinition {
+function readBoolean(value: unknown, context: string, field: string): boolean {
+  if (typeof value !== "boolean") throw new Error(`Invalid ${context}: ${field} must be boolean.`);
+  return value;
+}
+
+function readCount<T extends number>(value: unknown, allowed: readonly T[], context: string, field: string): T {
+  if (typeof value !== "number" || !(allowed as readonly number[]).includes(value)) {
+    throw new Error(`Invalid ${context}: ${field} must be one of [${allowed.join(", ")}].`);
+  }
+  return value as T;
+}
+
+function readKick(value: unknown, context: string, field: string): DrumKick {
+  if (!value || typeof value !== "object") throw new Error(`Invalid ${context}: ${field} must be object.`);
+  const raw = value as Record<string, unknown>;
+  return {
+    in: readBoolean(raw.in, context, `${field}.in`),
+    out: readBoolean(raw.out, context, `${field}.out`),
+  };
+}
+
+function readSnare(value: unknown, context: string, field: string): DrumSnare {
+  if (!value || typeof value !== "object") throw new Error(`Invalid ${context}: ${field} must be object.`);
+  const raw = value as Record<string, unknown>;
+  return {
+    top: readBoolean(raw.top, context, `${field}.top`),
+    bottom: readBoolean(raw.bottom, context, `${field}.bottom`),
+  };
+}
+
+function parsePad(value: unknown, context: string): DrumPad {
+  if (!value || typeof value !== "object") throw new Error(`Invalid ${context}: pad must be object.`);
+  const raw = value as Record<string, unknown>;
+  const enabled = readBoolean(raw.enabled, context, "pad.enabled");
+  if (!enabled) return { enabled: false };
+
+  if (raw.mode !== "sfx" && raw.mode !== "backing") {
+    throw new Error(`Invalid ${context}: pad.mode must be 'sfx' or 'backing'.`);
+  }
+  if (raw.channels !== "mono" && raw.channels !== "stereo") {
+    throw new Error(`Invalid ${context}: pad.channels must be 'mono' or 'stereo'.`);
+  }
+
+  return { enabled: true, mode: raw.mode, channels: raw.channels };
+}
+
+export function parseDrumDefinition(input: unknown, context = "drum definition"): DrumDefinition {
   if (!input || typeof input !== "object") {
     throw new Error(`Invalid ${context}: expected object.`);
   }
 
   const raw = input as Record<string, unknown>;
-  const hasCanonicalMarkers = ["kickCount", "kicks", "snareCount", "snares", "floorCount", "tracks"].some((key) => key in raw);
-  const hasLegacyMarkers = isLegacyDrumDefinition(raw);
-  if (!hasCanonicalMarkers && !hasLegacyMarkers) {
-    throw new Error(`Invalid ${context}: unsupported shape.`);
+  if ("floorTomCount" in raw || "extraSnareCount" in raw) {
+    throw new Error(`Invalid ${context}: unsupported legacy drum setup shape.`);
   }
 
-  return parseDrumDefinition(raw);
+  const kickCount = readCount(raw.kickCount, [1, 2] as const, context, "kickCount");
+  const snareCount = readCount(raw.snareCount, [1, 2, 3] as const, context, "snareCount");
+  const tomCount = readCount(raw.tomCount, [0, 1, 2, 3, 4] as const, context, "tomCount");
+  const floorCount = readCount(raw.floorCount, [0, 1, 2, 3] as const, context, "floorCount");
+
+  if (!Array.isArray(raw.kicks)) throw new Error(`Invalid ${context}: kicks must be an array.`);
+  if (!Array.isArray(raw.snares)) throw new Error(`Invalid ${context}: snares must be an array.`);
+  if (raw.kicks.length < kickCount) throw new Error(`Invalid ${context}: kicks length must be >= kickCount.`);
+  if (raw.snares.length < snareCount) throw new Error(`Invalid ${context}: snares length must be >= snareCount.`);
+  if (!raw.tracks || typeof raw.tracks !== "object") throw new Error(`Invalid ${context}: tracks must be object.`);
+
+  const tracksRaw = raw.tracks as Record<string, unknown>;
+  return normalizeDrumDefinition({
+    kickCount,
+    kicks: [readKick(raw.kicks[0], context, "kicks[0]"), kickCount === 2 ? readKick(raw.kicks[1], context, "kicks[1]") : undefined],
+    snareCount,
+    snares: [
+      readSnare(raw.snares[0], context, "snares[0]"),
+      snareCount >= 2 ? readSnare(raw.snares[1], context, "snares[1]") : undefined,
+      snareCount >= 3 ? readSnare(raw.snares[2], context, "snares[2]") : undefined,
+    ],
+    hasHiHat: readBoolean(raw.hasHiHat, context, "hasHiHat"),
+    tomCount,
+    floorCount,
+    hasOverheads: readBoolean(raw.hasOverheads, context, "hasOverheads"),
+    pad: parsePad(raw.pad, context),
+    tracks: { enabled: readBoolean(tracksRaw.enabled, context, "tracks.enabled") },
+  });
+}
+
+export function parsePersistedDrumDefinition(input: unknown, context = "drum definition"): DrumDefinition {
+  return parseDrumDefinition(input, context);
 }

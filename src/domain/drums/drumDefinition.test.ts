@@ -2,31 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseDrumDefinition, parsePersistedDrumDefinition } from "./drumDefinition.js";
 
 describe("drumDefinition persistence parsing", () => {
-  it("converts legacy persisted drummer setup to canonical drum definition", () => {
-    const parsed = parsePersistedDrumDefinition({
-      tomCount: 2,
-      floorTomCount: 1,
-      hasHiHat: true,
-      hasOverheads: true,
-      extraSnareCount: 1,
-      pad: {
-        enabled: true,
-        mode: "sfx",
-        channels: "stereo",
-      },
-    });
-
-    expect(parsed.kickCount).toBe(1);
-    expect(parsed.kicks[0]).toEqual({ in: true, out: true });
-    expect(parsed.snareCount).toBe(2);
-    expect(parsed.snares[0]).toEqual({ top: true, bottom: true });
-    expect(parsed.snares[1]).toEqual({ top: true, bottom: false });
-    expect(parsed.floorCount).toBe(1);
-    expect(parsed.pad).toEqual({ enabled: true, mode: "sfx", channels: "stereo" });
-    expect(parsed.tracks.enabled).toBe(false);
-  });
-
-  it("keeps canonical persisted shape valid", () => {
+  it("parses canonical persisted drummer setup", () => {
     const parsed = parsePersistedDrumDefinition({
       kickCount: 1,
       kicks: [{ in: true, out: false }],
@@ -46,18 +22,28 @@ describe("drumDefinition persistence parsing", () => {
 
   it("throws explicit error for unsupported drum payload", () => {
     expect(() => parsePersistedDrumDefinition({ foo: "bar" }, "musician m1 preset[0]")).toThrow(
-      "Invalid musician m1 preset[0]: unsupported shape.",
+      "Invalid musician m1 preset[0]: kickCount must be one of [1, 2].",
     );
   });
 
-  it("parseDrumDefinition still accepts legacy shape for compatibility", () => {
-    const parsed = parseDrumDefinition({
-      tomCount: 3,
-      floorTomCount: 0,
-      extraSnareCount: 0,
-    });
-    expect(parsed.tomCount).toBe(3);
-    expect(parsed.floorCount).toBe(0);
-    expect(parsed.snareCount).toBe(1);
+  it("rejects legacy drum shape", () => {
+    expect(() =>
+      parsePersistedDrumDefinition(
+        {
+          tomCount: 2,
+          floorTomCount: 1,
+          hasHiHat: true,
+          hasOverheads: true,
+          extraSnareCount: 1,
+        },
+        "musician m1 preset[0]",
+      ),
+    ).toThrow("Invalid musician m1 preset[0]: unsupported legacy drum setup shape.");
+  });
+
+  it("parseDrumDefinition is strict canonical-only", () => {
+    expect(() => parseDrumDefinition({ tomCount: 3, floorTomCount: 0, extraSnareCount: 0 })).toThrow(
+      "Invalid drum definition: unsupported legacy drum setup shape.",
+    );
   });
 });

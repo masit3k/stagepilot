@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { Band, Group, LineupValue, Musician, NotesTemplate, PresetEntity, PresetItem, Project } from "../../domain/model/types.js";
+import type { Band, Group, LineupValue, Musician, NotesTemplate, PresetEntity, Project } from "../../domain/model/types.js";
 import { resolvePresetIdAlias } from "../../domain/model/presetAliases.js";
 import { parsePersistedDrumDefinition } from "../../domain/drums/drumDefinition.js";
 import { loadJsonFile } from "../fs/loadJson.js";
@@ -53,13 +53,10 @@ export async function loadCatalogRepository(options?: {
 
 
 
-function normalizeMusicianPresets(musician: Musician): PresetItem[] {
-  return (musician.presets ?? []).map((item, index) => {
-    if (item.kind !== "drum_setup") return item;
-    return {
-      ...item,
-      setup: parsePersistedDrumDefinition(item.setup, `musician ${musician.id} preset[${index}]`),
-    };
+function assertCanonicalMusicianPresets(musician: Musician): void {
+  (musician.presets ?? []).forEach((item, index) => {
+    if (item.kind !== "drum_setup") return;
+    parsePersistedDrumDefinition(item.setup, `musician ${musician.id} preset[${index}]`);
   });
 }
 
@@ -82,10 +79,8 @@ async function loadMusiciansMap(absDir: string): Promise<Map<string, Musician>> 
     if (!isGroup(roleDir)) throw new Error(`Musician path must be catalog/musicians/<role>/<id>.json: ${f}`);
     if (roleDir !== musician.group) throw new Error(`Musician group/path mismatch for ${id}: ${roleDir} != ${musician.group}`);
     if (map.has(id)) throw new Error(`Duplicate id ${id} in ${absDir}`);
-    map.set(id, {
-      ...musician,
-      presets: normalizeMusicianPresets(musician),
-    });
+    assertCanonicalMusicianPresets(musician);
+    map.set(id, musician);
   }
   return map;
 }

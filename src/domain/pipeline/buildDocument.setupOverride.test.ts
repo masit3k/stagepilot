@@ -497,7 +497,7 @@ it("emits stageplan input ownerRole from current lineup assignment", () => {
   expect(electric?.ownerRole).toBe("guitar");
 });
 
-  it("builds document for drummer with legacy persisted drum_setup without crashing", () => {
+  it("builds document for drummer with canonical persisted drum_setup", () => {
     const band: Band = {
       id: "band-d",
       name: "Band",
@@ -513,13 +513,17 @@ it("emits stageplan input ownerRole from current lineup assignment", () => {
         {
           kind: "drum_setup",
           setup: {
-            tomCount: 2,
-            floorTomCount: 1,
+            kickCount: 1,
+            kicks: [{ in: true, out: true }],
+            snareCount: 1,
+            snares: [{ top: true, bottom: true }],
             hasHiHat: true,
+            tomCount: 2,
+            floorCount: 1,
             hasOverheads: true,
-            extraSnareCount: 0,
             pad: { enabled: true, mode: "sfx", channels: "stereo" },
-          } as unknown as never,
+            tracks: { enabled: false },
+          },
         },
       ],
     };

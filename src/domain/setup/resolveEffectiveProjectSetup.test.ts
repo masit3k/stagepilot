@@ -60,7 +60,7 @@ describe("resolveEffectiveProjectSetup", () => {
   });
 
 
-  it("resolves drummer setup from legacy persisted drum_setup payload", () => {
+  it("resolves drummer setup from canonical persisted drum_setup payload", () => {
     const band: Band = {
       id: "band",
       name: "Band",
@@ -76,13 +76,17 @@ describe("resolveEffectiveProjectSetup", () => {
         {
           kind: "drum_setup",
           setup: {
-            tomCount: 2,
-            floorTomCount: 1,
+            kickCount: 1,
+            kicks: [{ in: true, out: true }],
+            snareCount: 1,
+            snares: [{ top: true, bottom: true }],
             hasHiHat: true,
+            tomCount: 2,
+            floorCount: 1,
             hasOverheads: true,
-            extraSnareCount: 0,
             pad: { enabled: true, mode: "sfx", channels: "stereo" },
-          } as unknown as never,
+            tracks: { enabled: false },
+          },
         },
       ],
     };

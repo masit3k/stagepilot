@@ -51,20 +51,24 @@ describe("resolveDefaultMusicianSetup", () => {
     ]);
   });
 
-  it("converts legacy drum_setup preset payload to canonical drum inputs", () => {
+  it("resolves canonical drum_setup preset payload", () => {
     const resolved = resolveDefaultMusicianSetup({
       role: "drums",
       presetItems: [
         {
           kind: "drum_setup",
           setup: {
-            tomCount: 2,
-            floorTomCount: 1,
+            kickCount: 1,
+            kicks: [{ in: true, out: true }],
+            snareCount: 1,
+            snares: [{ top: true, bottom: true }],
             hasHiHat: true,
+            tomCount: 2,
+            floorCount: 1,
             hasOverheads: true,
-            extraSnareCount: 0,
             pad: { enabled: true, mode: "sfx", channels: "stereo" },
-          } as unknown as never,
+            tracks: { enabled: false },
+          },
         },
       ],
       getPresetByRef: (ref) => presetsByRef[ref],
