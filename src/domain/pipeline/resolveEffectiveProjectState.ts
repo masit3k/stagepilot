@@ -1,5 +1,5 @@
 import { GROUP_ORDER, type Group } from "../model/groups.js";
-import { parseDrumDefinition, type DrumDefinition } from "../drums/drumDefinition.js";
+import { createDefaultDrumDefinition, parseDrumDefinition, type DrumDefinition } from "../drums/drumDefinition.js";
 import type { LineupValue, PresetOverridePatch, Project } from "../model/types.js";
 import { resolveEffectiveTalkbackAssignment } from "../talkback/resolveEffectiveTalkbackAssignment.js";
 
@@ -8,6 +8,53 @@ type LegacyLineupEntry = { musicianId?: unknown; presetOverride?: unknown; drumD
 type ProjectWithLineup = Project & {
   lineup?: Record<string, unknown>;
 };
+
+function normalizeMalformedDrumDefinition(input: unknown): DrumDefinition {
+  const fallback = createDefaultDrumDefinition();
+  if (!input || typeof input !== "object") return fallback;
+  const raw = input as Record<string, unknown>;
+
+  const kickCount = raw.kickCount === 2 ? 2 : 1;
+  const snareCount = raw.snareCount === 2 || raw.snareCount === 3 ? raw.snareCount : 1;
+
+  const kicks = Array.from({ length: kickCount }, (_, index) => {
+    const value = Array.isArray(raw.kicks) ? raw.kicks[index] : undefined;
+    if (!value || typeof value !== "object") return { in: true, out: true };
+    const kick = value as Record<string, unknown>;
+    return {
+      in: typeof kick.in === "boolean" ? kick.in : true,
+      out: typeof kick.out === "boolean" ? kick.out : true,
+    };
+  });
+
+  const snares = Array.from({ length: snareCount }, (_, index) => {
+    const value = Array.isArray(raw.snares) ? raw.snares[index] : undefined;
+    if (!value || typeof value !== "object") return { top: true, bottom: true };
+    const snare = value as Record<string, unknown>;
+    return {
+      top: typeof snare.top === "boolean" ? snare.top : true,
+      bottom: typeof snare.bottom === "boolean" ? snare.bottom : true,
+    };
+  });
+
+  const candidate: Record<string, unknown> = {
+    ...fallback,
+    ...raw,
+    kickCount,
+    snareCount,
+    kicks,
+    snares,
+  };
+  return parseDrumDefinition(candidate);
+}
+
+function parseLineupDrumDefinition(input: unknown): DrumDefinition {
+  try {
+    return parseDrumDefinition(input);
+  } catch {
+    return normalizeMalformedDrumDefinition(input);
+  }
+}
 
 function normalizeLineupEntry(entry: unknown): { musicianId: string; presetOverride?: PresetOverridePatch; drumDefinition?: DrumDefinition } | null {
   if (typeof entry === "string") {
@@ -24,7 +71,7 @@ function normalizeLineupEntry(entry: unknown): { musicianId: string; presetOverr
           ? { presetOverride: legacy.presetOverride as PresetOverridePatch }
           : {}),
         ...(legacy.drumDefinition && typeof legacy.drumDefinition === "object"
-          ? { drumDefinition: parseDrumDefinition(legacy.drumDefinition) }
+          ? { drumDefinition: parseLineupDrumDefinition(legacy.drumDefinition) }
           : {}),
       };
     }

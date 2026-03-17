@@ -58,4 +58,34 @@ describe("desktop_preview stdout/stderr protocol", () => {
     expect(stdout).not.toContain("[pdf-preview]");
     expect(stderr).toContain("[pdf-preview] buildDocument success");
   });
+
+  it("returns structured JSON error with phase metadata when runner throws", async () => {
+    const io = createIo();
+    const stdoutResult = readStream(io.stdout);
+    const stderrResult = readStream(io.stderr);
+
+    const exitCode = await main(
+      ["--project-id", "project-1", "--user-data-dir", "/tmp/user-data"],
+      io,
+      async (_args, log) => {
+        log("[pdf-preview] buildDocument start");
+        throw new Error("boom");
+      },
+    );
+
+    io.stdout.end();
+    io.stderr.end();
+
+    const stdout = await stdoutResult;
+    const stderr = await stderrResult;
+    const parsed = JSON.parse(stdout);
+
+    expect(exitCode).toBe(0);
+    expect(parsed.ok).toBe(false);
+    expect(parsed.code).toBe("PREVIEW_FAILED");
+    expect(parsed.error.phase).toBe("buildDocument start");
+    expect(parsed.error.message).toBe("boom");
+    expect(stderr).toContain("[preview-script] failed");
+    expect(stderr).toContain("phase: 'buildDocument start'");
+  });
 });

@@ -28,7 +28,6 @@ import type {
   PresetItem,
 } from "../../../../../src/domain/model/types";
 import { resolveEffectiveMusicianSetup } from "../../../../../src/domain/setup/resolveEffectiveMusicianSetup";
-import { createDefaultDrumDefinition, parseDrumDefinition } from "../../../../../src/domain/drums/drumDefinition";
 import { resolveDrumInputs } from "../../../../../src/domain/drums/resolveDrumInputs";
 import {
   MusicianSelector,
@@ -97,6 +96,7 @@ import {
 } from "../../../../../src/domain/lineup/effectiveInstrumentGroups";
 import { resolveMusicianDisplayName } from "../domain/ui/musicianDisplayName";
 import { composeSetupModalTitle } from "../domain/ui/setupModalTitle";
+import { resolveDrumsSetupDefinition } from "./domain/ui/resolveDrumsSetupDefinition";
 
 export function ProjectSetupPage({
   id,
@@ -1622,7 +1622,13 @@ export function ProjectSetupPage({
               );
               const drumSetup =
                 selectedSetupMusician.role === "drums"
-                  ? parseDrumDefinition(selectedRoleSlot?.drumDefinition, createDefaultDrumDefinition())
+                  ? resolveDrumsSetupDefinition({
+                      slotDrumDefinition: selectedRoleSlot?.drumDefinition,
+                      musicianPresetItems:
+                        setupData?.musicianPresetsById?.[
+                          selectedSetupMusician.musicianId
+                        ],
+                    })
                   : null;
               const musicianDefaultPreset = resolveMusicianDefaultPreset(
                 selectedSetupMusician.role,
