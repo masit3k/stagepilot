@@ -32,31 +32,55 @@ function parseArgs(args: string[]): Args {
 
 async function run(): Promise<Response> {
   const { projectId, userDataDir, hideMusicianNames } = parseArgs(argv.slice(2));
+  console.info("[pdf-preview] start", { projectId, userDataDir, hideMusicianNames });
+
   const projectsDir = path.join(userDataDir, "projects");
+  console.info("[pdf-preview] resolve project path start", { projectsDir, projectId });
   const projectPath = await resolveProjectPathById(projectsDir, projectId);
+  console.info("[pdf-preview] resolve project path success", { projectPath });
+
   const rawProject = await loadJsonFile<ProjectJson>(projectPath);
+  console.info("[pdf-preview] project json loaded", { bandRef: rawProject.bandRef, id: rawProject.id });
   const project = normalizeProject(rawProject);
+  console.info("[pdf-preview] project normalized", { id: project.id, bandRef: project.bandRef });
+
+  console.info("[pdf-preview] repository load start");
   const repo = await loadRepository({ userDataRoot: userDataDir });
+  console.info("[pdf-preview] repository load success");
+
   const band = repo.getBand(project.bandRef);
+  console.info("[pdf-preview] band resolved", { bandId: band.id, defaultContactId: band.defaultContactId });
+
+  console.info("[pdf-preview] buildDocument start");
   const vm = buildDocument(project, repo);
+  console.info("[pdf-preview] buildDocument success", { inputCount: vm.inputs.length });
+
+  console.info("[pdf-preview] validateDocument start");
   validateDocument(vm);
+  console.info("[pdf-preview] validateDocument success");
+
+  console.info("[pdf-preview] contact line resolve start");
   const contactLine = await loadDefaultContactLine(
     band.defaultContactId,
     band,
     repo,
     userDataDir,
   );
+  console.info("[pdf-preview] contact line resolve success", { hasContactLine: Boolean(contactLine) });
 
   const tmpDir = path.join(userDataDir, "temp");
   await mkdir(tmpDir, { recursive: true });
   const slug = project.slug ?? formatProjectSlug(project, band);
-  // Uses slug (human doc key), not id (UUID).
   const previewPdfPath = path.join(tmpDir, `preview_${slug}.pdf`);
+
+  console.info("[pdf-preview] template render start", { previewPdfPath });
   await renderPdf(vm, {
     outFile: previewPdfPath,
     contactLine,
     stageplan: { hideMusicianNames },
   });
+  console.info("[pdf-preview] template render success", { previewPdfPath });
+
   return { ok: true, result: { previewPdfPath } };
 }
 

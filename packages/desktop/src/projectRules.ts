@@ -295,8 +295,12 @@ export function normalizeLineupSlots(
   return entries
     .map((entry) => {
       if (typeof entry === "string") return { musicianId: entry };
+      if (!entry || typeof entry !== "object") return null;
+      const musicianId =
+        typeof entry.musicianId === "string" ? entry.musicianId : "";
+      if (!musicianId) return null;
       const normalized = {
-        musicianId: entry.musicianId,
+        musicianId,
         presetOverride: entry.presetOverride,
       } as LineupSlotValue;
       if (entry.drumDefinition && typeof entry.drumDefinition === "object") {
@@ -304,7 +308,7 @@ export function normalizeLineupSlots(
       }
       return normalized;
     })
-    .filter((entry) => Boolean(entry.musicianId))
+    .filter((entry): entry is LineupSlotValue => Boolean(entry?.musicianId))
     .slice(0, Math.max(maxSlots, 0));
 }
 
