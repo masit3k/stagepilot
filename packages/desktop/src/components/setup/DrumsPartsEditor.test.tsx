@@ -5,7 +5,9 @@ import { DrumsPartsEditor } from "./DrumsPartsEditor";
 
 const baseSetup: DrumDefinition = {
   kickCount: 1,
+  kicks: [{ in: true, out: true }],
   snareCount: 1,
+  snares: [{ top: true, bottom: true }],
   tomCount: 2,
   floorCount: 1,
   hasHiHat: true,
@@ -43,5 +45,33 @@ describe("DrumsPartsEditor", () => {
     expect(html).toContain('class="setup-stepper"');
     expect(html).toContain('aria-label="Decrease Kicks"');
     expect(html).toContain('aria-label="Increase Floors"');
+  });
+
+  it("does not render obsolete generated inputs/remove UI", () => {
+    const html = renderToStaticMarkup(
+      <DrumsPartsEditor setup={baseSetup} onChange={() => {}} />,
+    );
+
+    expect(html).not.toContain("Remove");
+    expect(html).not.toContain("Effective inputs");
+    expect(html).not.toContain("No additional inputs available");
+  });
+
+  it("scopes mode and channels controls to PAD only", () => {
+    const htmlWithPad = renderToStaticMarkup(
+      <DrumsPartsEditor setup={baseSetup} onChange={() => {}} />,
+    );
+    expect(htmlWithPad).toContain("Mode");
+    expect(htmlWithPad).toContain("Channels");
+
+    const htmlWithoutPad = renderToStaticMarkup(
+      <DrumsPartsEditor
+        setup={{ ...baseSetup, pad: { enabled: false }, tracks: { enabled: true } }}
+        onChange={() => {}}
+      />,
+    );
+    expect(htmlWithoutPad).not.toContain("Mode");
+    expect(htmlWithoutPad).not.toContain("Channels");
+    expect(htmlWithoutPad).toContain("Tracks");
   });
 });

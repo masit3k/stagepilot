@@ -33,7 +33,6 @@ import {
   MusicianSelector,
   type SetupMusicianItem,
 } from "../../components/setup/MusicianSelector";
-import { SelectedInputsList } from "../../components/setup/SelectedInputsList";
 import { DrumsPartsEditor } from "../../components/setup/DrumsPartsEditor";
 import { MonitoringEditor } from "../../components/setup/MonitoringEditor";
 import { SetupModalShell } from "../components/setup/SetupModalShell";
@@ -76,7 +75,6 @@ import type { ProjectRouteProps } from "./shared/pageTypes";
 import {
   buildSetupFieldCatalog,
   buildVisibleLineupSections,
-  GROUP_INPUT_LIBRARY,
   ROLE_ORDER,
   buildInputsPatchFromTarget,
   createFallbackSetupData,
@@ -1603,16 +1601,6 @@ export function ProjectSetupPage({
                   effectiveSectionInputs,
                 ),
               });
-              const availableInputs = (
-                GROUP_INPUT_LIBRARY[
-                  selectedSetupMusician.role as keyof typeof GROUP_INPUT_LIBRARY
-                ] ?? []
-              ).filter(
-                (item: InputChannel) =>
-                  !effectiveSectionInputs.some(
-                    (effectiveItem) => effectiveItem.key === item.key,
-                  ),
-              );
               const selectedRoleSlots = normalizeLineupSlots(
                 lineup[selectedSetupMusician.role],
                 getRoleSlotLimit(selectedSetupMusician.role),
@@ -1861,51 +1849,7 @@ export function ProjectSetupPage({
                                 }}
                               />
                             ) : null}
-                            {selectedSetupMusician.role === "drums" ? (
-                              <SelectedInputsList
-                                effectiveInputs={effectiveSectionInputs}
-                                inputDiffMeta={resolved.diffMeta.inputs}
-                                availableInputs={availableInputs}
-                                nonRemovableKeys={[
-                                  "dr_kick_1_out",
-                                  "dr_kick_1_in",
-                                  "dr_snare1_top",
-                                  "dr_snare1_bottom",
-                                ]}
-                                onRemoveInput={(key) => {
-                                  setSetupDraftBySlot((prev) => {
-                                    const prior =
-                                      prev[selectedSetupMusician.slotKey];
-                                    const nextRemove = Array.from(
-                                      new Set([
-                                        ...(prior?.inputs?.removeKeys ?? []),
-                                        key,
-                                      ]),
-                                    );
-                                    const nextAdd = (
-                                      prior?.inputs?.add ?? []
-                                    ).filter((item) => item.key !== key);
-                                    const nextPatch = {
-                                      ...prior,
-                                      inputs: {
-                                        ...prior?.inputs,
-                                        removeKeys: nextRemove,
-                                        add: nextAdd,
-                                      },
-                                    };
-                                    return {
-                                      ...prev,
-                                      [selectedSetupMusician.slotKey]:
-                                        normalizeSetupOverridePatch(
-                                          resolved.defaultPreset,
-                                          nextPatch,
-                                        ),
-                                    };
-                                  });
-                                }}
-                                onAddInput={() => {}}
-                              />
-                            ) : (
+                            {selectedSetupMusician.role === "drums" ? null : (
                               inputSectionGroups.map((group) => (
                                 <SetupSection
                                   key={group.key}

@@ -1,4 +1,10 @@
-import type { DrumDefinition } from "../../../../../src/domain/drums/drumDefinition";
+import {
+  toFloorCount,
+  toKickCount,
+  toSnareCount,
+  toTomCount,
+  type DrumDefinition,
+} from "../../../../../src/domain/drums/drumDefinition";
 import { SetupSection } from "../../app/components/setup/SetupSection";
 import { SetupCounterControl } from "../../app/components/setup/fields/SetupCounterControl";
 
@@ -32,7 +38,7 @@ export function DrumsPartsEditor({ setup, onChange }: DrumsPartsEditorProps) {
                   value={setup.kickCount}
                   min={1}
                   max={2}
-                  onChange={(count) => onChange({ ...setup, kickCount: count })}
+                  onChange={(count) => onChange({ ...setup, kickCount: toKickCount(count) })}
                 />
               </span>
             </div>
@@ -50,7 +56,7 @@ export function DrumsPartsEditor({ setup, onChange }: DrumsPartsEditorProps) {
                   min={1}
                   max={3}
                   onChange={(count) =>
-                    onChange({ ...setup, snareCount: count })
+                    onChange({ ...setup, snareCount: toSnareCount(count) })
                   }
                 />
               </span>
@@ -81,7 +87,7 @@ export function DrumsPartsEditor({ setup, onChange }: DrumsPartsEditorProps) {
                   value={setup.tomCount}
                   min={0}
                   max={4}
-                  onChange={(count) => onChange({ ...setup, tomCount: count })}
+                  onChange={(count) => onChange({ ...setup, tomCount: toTomCount(count) })}
                 />
               </span>
             </div>
@@ -99,7 +105,7 @@ export function DrumsPartsEditor({ setup, onChange }: DrumsPartsEditorProps) {
                   min={0}
                   max={3}
                   onChange={(count) =>
-                    onChange({ ...setup, floorCount: count })
+                    onChange({ ...setup, floorCount: toFloorCount(count) })
                   }
                 />
               </span>

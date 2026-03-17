@@ -24,6 +24,40 @@ export type DrumDefinition = {
   tracks: DrumTracks;
 };
 
+function clampToAllowed<T extends number>(value: number, allowed: readonly T[]): T {
+  let next = allowed[0];
+  let minDistance = Math.abs(value - next);
+  for (const option of allowed) {
+    const distance = Math.abs(value - option);
+    if (distance < minDistance) {
+      next = option;
+      minDistance = distance;
+    }
+  }
+  return next;
+}
+
+const KICK_COUNTS = [1, 2] as const;
+const SNARE_COUNTS = [1, 2, 3] as const;
+const TOM_COUNTS = [0, 1, 2, 3, 4] as const;
+const FLOOR_COUNTS = [0, 1, 2, 3] as const;
+
+export function toKickCount(value: number): DrumDefinition["kickCount"] {
+  return clampToAllowed(value, KICK_COUNTS);
+}
+
+export function toSnareCount(value: number): DrumDefinition["snareCount"] {
+  return clampToAllowed(value, SNARE_COUNTS);
+}
+
+export function toTomCount(value: number): DrumDefinition["tomCount"] {
+  return clampToAllowed(value, TOM_COUNTS);
+}
+
+export function toFloorCount(value: number): DrumDefinition["floorCount"] {
+  return clampToAllowed(value, FLOOR_COUNTS);
+}
+
 export function createDefaultDrumDefinition(): DrumDefinition {
   return {
     kickCount: 1,
