@@ -847,6 +847,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  font-weight: 500;
+  color: var(--text);
 }
 
 .setup-field-control--compact {
@@ -869,7 +873,9 @@
 }
 
 .setup-toggle-row__text {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  font-weight: 500;
   color: var(--muted);
 }
 
@@ -944,8 +950,9 @@
 .setup-stepper__value {
   min-width: 28px;
   text-align: center;
-  font-size: 0.9rem;
-  font-weight: 400;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  font-weight: 500;
   color: var(--muted);
 }
 

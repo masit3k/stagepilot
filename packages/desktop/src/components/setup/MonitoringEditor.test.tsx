@@ -39,7 +39,6 @@ describe("MonitoringEditor", () => {
     expect(html).toContain("Additional wedge monitor");
   });
 
-
   it("renders all runtime monitoring options", () => {
     const html = renderToStaticMarkup(
       <MonitoringEditor
@@ -69,7 +68,9 @@ describe("MonitoringEditor", () => {
     );
 
     expect(html).toContain("No monitor selected");
-    expect(html).toContain('<select class="setup-field-control" aria-label="Monitoring"><option value="" selected="">No monitor selected</option>');
+    expect(html).toContain(
+      '<select class="setup-field-control" aria-label="Monitoring"><option value="" selected="">No monitor selected</option>',
+    );
   });
   it("renders checked row and stepper when additional wedge is enabled", () => {
     const html = renderToStaticMarkup(
@@ -81,11 +82,15 @@ describe("MonitoringEditor", () => {
       />,
     );
 
-    expect(html).toContain("setup-field-row setup-toggle-row setup-toggle-row--checked");
-    expect(html).toContain('<span class="setup-toggle-row__text">Additional wedge monitor</span>');
+    expect(html).toContain(
+      "setup-field-row setup-toggle-row setup-toggle-row--checked",
+    );
+    expect(html).toContain(
+      '<span class="setup-toggle-row__text">Additional wedge monitor</span>',
+    );
     expect(html).toContain("setup-stepper__btn");
     expect(html).toContain("setup-stepper__value");
-    expect(html).toContain('aria-label="Decrease additional wedges"');
+    expect(html).toContain('aria-label="Decrease Additional wedges"');
   });
 
   it("exposes row-level toggle container and a propagation-safe stepper", () => {
@@ -114,7 +119,9 @@ describe("MonitoringEditor", () => {
       />,
     );
 
-    expect(html).toContain('<span class="setup-toggle-row__text">Additional wedge monitor</span>');
+    expect(html).toContain(
+      '<span class="setup-toggle-row__text">Additional wedge monitor</span>',
+    );
     expect(html).not.toContain('<label class="setup-toggle-row__text"');
   });
 
