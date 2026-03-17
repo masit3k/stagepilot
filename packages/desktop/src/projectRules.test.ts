@@ -182,4 +182,10 @@ describe("lineup slot overrides", () => {
     );
     expect(selected.sort()).toEqual(["fuchs_tomas", "krecmer_matej"].sort());
   });
+
+  it("throws when persisted lineup array contains null slot entries", () => {
+    expect(() =>
+      normalizeLineupSlots([null] as unknown as Array<{ musicianId: string }>, 1),
+    ).toThrow(/musicianId/);
+  });
 });

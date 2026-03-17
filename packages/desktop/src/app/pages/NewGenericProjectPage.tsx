@@ -182,12 +182,21 @@ export function NewGenericProjectPage({
   }, [registerNavigationGuard, isDirty, persist, isCommitting]);
 
   async function createProject() {
+    console.info("[project-open] continue-click", {
+      page: "NewGenericProjectPage",
+      editingProjectId: editingProjectId ?? null,
+      isDirty,
+    });
     const id = editingProjectId ?? generateUuidV7();
     if (!editingProjectId && !selectedBand) return;
     if (shouldSaveGenericSetupOnContinue(editingProjectId, isDirty)) {
       setIsCommitting(true);
       await persist(id);
     }
+    console.info("[project-open] continue-navigate", {
+      target: `/projects/${encodeURIComponent(id)}/setup`,
+      persisted: shouldSaveGenericSetupOnContinue(editingProjectId, isDirty),
+    });
     navigate(`/projects/${encodeURIComponent(id)}/setup`);
   }
 

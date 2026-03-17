@@ -213,12 +213,44 @@ export function ProjectSetupPage({
   useEffect(() => {
     snapshotHydratedRef.current = false;
     (async () => {
-      const parsedRaw = JSON.parse(
-        await invoke<string>("read_project", { projectId: id }),
-      ) as NewProjectPayload;
+      console.info("[project-open] setup-init-start", { projectId: id });
+      let rawProject = "";
+      try {
+        console.info("[project-open] before-read_project", { projectId: id });
+        rawProject = await invoke<string>("read_project", { projectId: id });
+        console.info("[project-open] after-read_project", {
+          projectId: id,
+          rawLength: rawProject.length,
+        });
+      } catch (error) {
+        console.error("[project-open] read_project-failed", {
+          projectId: id,
+          error,
+        });
+        throw error;
+      }
+      let parsedRaw: NewProjectPayload;
+      try {
+        parsedRaw = JSON.parse(rawProject) as NewProjectPayload;
+        console.info("[project-open] after-json-parse", {
+          projectId: id,
+          hasLineup: Boolean(parsedRaw.lineup),
+          lineupKeys: Object.keys(parsedRaw.lineup ?? {}),
+        });
+      } catch (error) {
+        console.error("[project-open] json-parse-failed", {
+          projectId: id,
+          error,
+        });
+        throw error;
+      }
       const parsed = migrateProjectTalkbackOwner(
         migrateProjectLineupVocsToLeadBack(parsedRaw),
       );
+      console.info("[project-open] after-project-migrate", {
+        projectId: id,
+        lineupKeys: Object.keys(parsed.lineup ?? {}),
+      });
       const parsedHasTalkbackOverride = Object.prototype.hasOwnProperty.call(
         parsedRaw,
         "talkbackOwnerId",
@@ -264,6 +296,11 @@ export function ProjectSetupPage({
         setStatus(data.loadWarnings.join("\n"));
       }
       setSetupData(data);
+      console.info("[project-open] setup-data-loaded", {
+        projectId: id,
+        bandRef: parsed.bandRef,
+        hasDefaultLineup: Boolean(data.defaultLineup),
+      });
       const hasStoredLineup = Boolean(
         parsed.lineup && Object.keys(parsed.lineup).length > 0,
       );
@@ -280,6 +317,11 @@ export function ProjectSetupPage({
       const initialLineup = {
         ...(hasStoredLineup ? parsed.lineup : fallbackLineup),
       };
+      console.info("[project-open] pre-normalize-lineup", {
+        projectId: id,
+        hasStoredLineup,
+        keys: Object.keys(initialLineup),
+      });
       if (initialLineup.lead_vocs && !initialLineup.vocs) {
         initialLineup.vocs = initialLineup.lead_vocs;
       }
@@ -291,6 +333,10 @@ export function ProjectSetupPage({
         parsed.bandLeaderId,
         parsedHasTalkbackOverride ? parsedTalkbackOwnerId : undefined,
       );
+      console.info("[project-open] initial-setup-snapshot", {
+        projectId: id,
+        selectedMusicians: getUniqueSelectedMusicians(initialState.lineup, ROLE_ORDER).length,
+      });
       setLineup(initialLineup);
       setBandLeaderId(initialState.bandLeaderId);
       if (!hasStoredLineup) {
@@ -326,6 +372,10 @@ export function ProjectSetupPage({
         initialState.lineup,
         ROLE_ORDER,
       );
+      console.info("[project-open] after-serialize-lineup", {
+        projectId: id,
+        serializedKeys: Object.keys(initialSerializedLineup),
+      });
       const initialTemplateMusicians = getUniqueSelectedMusicians(
         initialState.lineup,
         ROLE_ORDER,
@@ -366,7 +416,7 @@ export function ProjectSetupPage({
         hasTalkbackOverride: parsedHasTalkbackOverride,
       });
     })().catch((error) => {
-      console.error("Failed to initialize setup page", {
+      console.error("[project-open] setup-init-failed", {
         projectId: id,
         error,
       });

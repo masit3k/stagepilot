@@ -198,6 +198,11 @@ export function NewEventProjectPage({
   }, [registerNavigationGuard, isDirty, persist, isCommitting]);
 
   async function createProject() {
+    console.info("[project-open] continue-click", {
+      page: "NewEventProjectPage",
+      editingProjectId: editingProjectId ?? null,
+      isDirty,
+    });
     const message = getDateValidationMessage(eventDateInput);
     if (message) {
       setEventDateTouched(true);
@@ -213,10 +218,18 @@ export function NewEventProjectPage({
     const id = editingProjectId ?? generateUuidV7();
     setIsCommitting(true);
     if (editingProjectId && !isDirty) {
+      console.info("[project-open] continue-navigate", {
+        target: `/projects/${encodeURIComponent(id)}/setup`,
+        persisted: false,
+      });
       navigate(`/projects/${encodeURIComponent(id)}/setup`);
       return;
     }
     await persist(id);
+    console.info("[project-open] continue-navigate", {
+      target: `/projects/${encodeURIComponent(id)}/setup`,
+      persisted: true,
+    });
     navigate(`/projects/${encodeURIComponent(id)}/setup`);
   }
 
