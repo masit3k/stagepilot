@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseDrumDefinition, parsePersistedDrumDefinition } from "./drumDefinition.js";
+import { parseDrumDefinition, parsePersistedDrumDefinition, toFloorCount, toKickCount, toSnareCount, toTomCount } from "./drumDefinition.js";
 
 describe("drumDefinition persistence parsing", () => {
   it("parses canonical persisted drummer setup", () => {
@@ -45,5 +45,16 @@ describe("drumDefinition persistence parsing", () => {
     expect(() => parseDrumDefinition({ tomCount: 3, floorTomCount: 0, extraSnareCount: 0 })).toThrow(
       "Invalid drum definition: unsupported legacy drum setup shape.",
     );
+  });
+});
+
+
+describe("count helpers clamp to domain unions", () => {
+  it("clamps numeric values without casts", () => {
+    expect(toKickCount(0)).toBe(1);
+    expect(toKickCount(5)).toBe(2);
+    expect(toSnareCount(2)).toBe(2);
+    expect(toTomCount(9)).toBe(4);
+    expect(toFloorCount(-10)).toBe(0);
   });
 });

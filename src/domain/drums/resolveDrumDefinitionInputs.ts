@@ -1,73 +1,68 @@
 import type { InputChannel } from "../model/types.js";
-import { DRUM_NOTES } from "./drumNotes.js";
 import type { DrumDefinition } from "./drumDefinition.js";
 import { normalizeDrumDefinition } from "./drumDefinition.js";
-import { DRUM_INPUT_ID_BY_KEY, DRUM_INPUT_KEYS_IN_ORDER, type DrumInputKey } from "./drumInputIds.js";
+import { loadDrumCatalog } from "./drumInputCatalog.js";
 import { validateDrumDefinition } from "./validateDrumDefinition.js";
 
-const LABELS: Record<DrumInputKey, string> = {
-  dr_kick_1_out: "Kick OUT",
-  dr_kick_1_in: "Kick IN",
-  dr_kick_2_out: "Kick 2 OUT",
-  dr_kick_2_in: "Kick 2 IN",
-  dr_snare1_top: "Snare 1 TOP",
-  dr_snare1_bottom: "Snare 1 BOTTOM",
-  dr_snare2_top: "Snare 2 TOP",
-  dr_snare2_bottom: "Snare 2 BOTTOM",
-  dr_snare3_top: "Snare 3 TOP",
-  dr_snare3_bottom: "Snare 3 BOTTOM",
-  dr_hihat: "Hi-hat",
-  dr_tom_1: "Tom 1",
-  dr_tom_2: "Tom 2",
-  dr_tom_3: "Tom 3",
-  dr_tom_4: "Tom 4",
-  dr_floor_1: "Floor 1",
-  dr_floor_2: "Floor 2",
-  dr_floor_3: "Floor 3",
-  dr_oh_l: "OH L",
-  dr_oh_r: "OH R",
-  dr_pad_mono_sfx: "PAD (SFX, mono)",
-  dr_pad_stereo_sfx_l: "PAD (SFX, stereo) L",
-  dr_pad_stereo_sfx_r: "PAD (SFX, stereo) R",
-  dr_pad_stereo_backing_l: "PAD (backing, stereo) L",
-  dr_pad_stereo_backing_r: "PAD (backing, stereo) R",
-  dr_tracks_l: "Playback (stereo) L",
-  dr_tracks_r: "Playback (stereo) R",
-};
+export function resolveDrumActiveSlots(definition: DrumDefinition): string[] {
+  const slots = new Set<string>();
 
-function isEnabled(definition: DrumDefinition, key: DrumInputKey): boolean {
-  if (key.startsWith("dr_kick_1")) {
-    const kick = definition.kicks[0];
-    return key.endsWith("_in") ? Boolean(kick?.in) : Boolean(kick?.out);
+  const kick1 = definition.kicks[0];
+  if (kick1?.out) slots.add("kick_1_out");
+  if (kick1?.in) slots.add("kick_1_in");
+
+  if (definition.kickCount >= 2) {
+    const kick2 = definition.kicks[1];
+    if (kick2?.out) slots.add("kick_2_out");
+    if (kick2?.in) slots.add("kick_2_in");
   }
-  if (key.startsWith("dr_kick_2")) {
-    if (definition.kickCount < 2) return false;
-    const kick = definition.kicks[1];
-    return key.endsWith("_in") ? Boolean(kick?.in) : Boolean(kick?.out);
+
+  const snare1 = definition.snares[0];
+  if (snare1?.top) slots.add("snare_1_top");
+  if (snare1?.bottom) slots.add("snare_1_bottom");
+
+  if (definition.snareCount >= 2) {
+    const snare2 = definition.snares[1];
+    if (snare2?.top) slots.add("snare_2_top");
+    if (snare2?.bottom) slots.add("snare_2_bottom");
   }
-  if (key.startsWith("dr_snare1")) {
-    const snare = definition.snares[0];
-    return key.endsWith("_top") ? Boolean(snare?.top) : Boolean(snare?.bottom);
+
+  if (definition.snareCount >= 3) {
+    const snare3 = definition.snares[2];
+    if (snare3?.top) slots.add("snare_3_top");
+    if (snare3?.bottom) slots.add("snare_3_bottom");
   }
-  if (key.startsWith("dr_snare2")) {
-    if (definition.snareCount < 2) return false;
-    const snare = definition.snares[1];
-    return key.endsWith("_top") ? Boolean(snare?.top) : Boolean(snare?.bottom);
+
+  if (definition.hasHiHat) slots.add("hihat");
+
+  for (let i = 1; i <= definition.tomCount; i += 1) slots.add(`tom_${i}`);
+  for (let i = 1; i <= definition.floorCount; i += 1) slots.add(`floor_${i}`);
+
+  if (definition.hasOverheads) {
+    slots.add("overheads_l");
+    slots.add("overheads_r");
   }
-  if (key.startsWith("dr_snare3")) {
-    if (definition.snareCount < 3) return false;
-    const snare = definition.snares[2];
-    return key.endsWith("_top") ? Boolean(snare?.top) : Boolean(snare?.bottom);
+
+  if (definition.pad.enabled) {
+    if (definition.pad.mode === "sfx" && definition.pad.channels === "mono") {
+      slots.add("pad_mono_sfx");
+    }
+    if (definition.pad.mode === "sfx" && definition.pad.channels === "stereo") {
+      slots.add("pad_stereo_sfx_l");
+      slots.add("pad_stereo_sfx_r");
+    }
+    if (definition.pad.mode === "backing") {
+      slots.add("pad_stereo_backing_l");
+      slots.add("pad_stereo_backing_r");
+    }
   }
-  if (key === "dr_hihat") return definition.hasHiHat;
-  if (key.startsWith("dr_tom_")) return Number(key.split("_").at(-1)) <= definition.tomCount;
-  if (key.startsWith("dr_floor_")) return Number(key.split("_").at(-1)) <= definition.floorCount;
-  if (key === "dr_oh_l" || key === "dr_oh_r") return definition.hasOverheads;
-  if (key === "dr_pad_mono_sfx") return definition.pad.enabled && definition.pad.mode === "sfx" && definition.pad.channels === "mono";
-  if (key === "dr_pad_stereo_sfx_l" || key === "dr_pad_stereo_sfx_r") return definition.pad.enabled && definition.pad.mode === "sfx" && definition.pad.channels === "stereo";
-  if (key === "dr_pad_stereo_backing_l" || key === "dr_pad_stereo_backing_r") return definition.pad.enabled && definition.pad.mode === "backing";
-  if (key === "dr_tracks_l" || key === "dr_tracks_r") return definition.tracks.enabled;
-  return false;
+
+  if (definition.tracks.enabled) {
+    slots.add("tracks_l");
+    slots.add("tracks_r");
+  }
+
+  return Array.from(slots);
 }
 
 export function resolveDrumDefinitionInputs(definition: DrumDefinition): InputChannel[] {
@@ -75,11 +70,17 @@ export function resolveDrumDefinitionInputs(definition: DrumDefinition): InputCh
   const errors = validateDrumDefinition(normalized);
   if (errors.length > 0) throw new Error(errors.map((error) => error.message).join(" "));
 
-  return DRUM_INPUT_KEYS_IN_ORDER.filter((key) => isEnabled(normalized, key)).map((key) => ({
-    id: DRUM_INPUT_ID_BY_KEY[key],
-    key,
-    label: LABELS[key],
-    note: DRUM_NOTES[key],
-    group: "drums",
-  }));
+  const activeSlots = new Set(resolveDrumActiveSlots(normalized));
+  const catalog = loadDrumCatalog();
+
+  return catalog.items
+    .filter((item) => activeSlots.has(item.slot))
+    .sort((a, b) => a.order - b.order)
+    .map((item) => ({
+      id: item.id,
+      key: item.key,
+      label: item.label,
+      note: item.note,
+      group: "drums",
+    }));
 }

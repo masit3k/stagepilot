@@ -5,206 +5,155 @@ import {
   toTomCount,
   type DrumDefinition,
 } from "../../../../../src/domain/drums/drumDefinition";
+import drumSetupBlueprintAsset from "../../../../../data/assets/catalog/setup/drums.json";
 import { SetupSection } from "../../app/components/setup/SetupSection";
-import { SetupCounterControl } from "../../app/components/setup/fields/SetupCounterControl";
+import { SetupCounterRow } from "../../app/components/setup/fields/SetupCounterRow";
+import { SetupSelectRow } from "../../app/components/setup/fields/SetupSelectRow";
+import { SetupToggleRow } from "../../app/components/setup/fields/SetupToggleRow";
 
 type DrumsPartsEditorProps = {
   setup: DrumDefinition;
   onChange: (next: DrumDefinition) => void;
 };
 
-export function DrumsPartsEditor({ setup, onChange }: DrumsPartsEditorProps) {
-  const activePad = setup.pad.enabled
-    ? setup.pad
-    : {
-        enabled: true as const,
-        mode: "sfx" as const,
-        channels: "mono" as const,
+type DrumSetupBlueprint = {
+  type: "setup_blueprint";
+  id: "drum-setup-blueprint";
+  group: "drums";
+  sections: Array<{
+    id: string;
+    label: string;
+    items: Array<{
+      id: string;
+      label: string;
+      control: "count" | "boolean" | "compound";
+      field: string;
+      allowed?: number[];
+      options?: {
+        mode?: Array<"sfx" | "backing">;
+        channels?: Array<"mono" | "stereo">;
       };
+    }>;
+  }>;
+};
+
+const drumSetupBlueprint = drumSetupBlueprintAsset as DrumSetupBlueprint;
+
+function updateCountField(setup: DrumDefinition, field: string, value: number): DrumDefinition {
+  switch (field) {
+    case "kickCount":
+      return { ...setup, kickCount: toKickCount(value) };
+    case "snareCount":
+      return { ...setup, snareCount: toSnareCount(value) };
+    case "tomCount":
+      return { ...setup, tomCount: toTomCount(value) };
+    case "floorCount":
+      return { ...setup, floorCount: toFloorCount(value) };
+    default:
+      return setup;
+  }
+}
+
+function updateBooleanField(setup: DrumDefinition, field: string, checked: boolean): DrumDefinition {
+  switch (field) {
+    case "hasHiHat":
+      return { ...setup, hasHiHat: checked };
+    case "hasOverheads":
+      return { ...setup, hasOverheads: checked };
+    case "tracks.enabled":
+      return { ...setup, tracks: { enabled: checked } };
+    default:
+      return setup;
+  }
+}
+
+export function DrumsPartsEditor({ setup, onChange }: DrumsPartsEditorProps) {
+  const activePad = setup.pad.enabled ? setup.pad : { enabled: true as const, mode: "sfx" as const, channels: "mono" as const };
 
   return (
     <>
-      <SetupSection title="Input">
-        <div className="setup-toggle-grid">
-          <div className="setup-field-block">
-            <div
-              className="setup-field-row setup-toggle-row setup-toggle-row--checked"
-              role="group"
-            >
-              <span className="setup-toggle-row__text">Kicks</span>
-              <span className="setup-toggle-row__trailing">
-                <SetupCounterControl
-                  label="Kicks"
-                  value={setup.kickCount}
-                  min={1}
-                  max={2}
-                  onChange={(count) => onChange({ ...setup, kickCount: toKickCount(count) })}
-                />
-              </span>
-            </div>
-          </div>
-          <div className="setup-field-block">
-            <div
-              className="setup-field-row setup-toggle-row setup-toggle-row--checked"
-              role="group"
-            >
-              <span className="setup-toggle-row__text">Snares</span>
-              <span className="setup-toggle-row__trailing">
-                <SetupCounterControl
-                  label="Snares"
-                  value={setup.snareCount}
-                  min={1}
-                  max={3}
-                  onChange={(count) =>
-                    onChange({ ...setup, snareCount: toSnareCount(count) })
-                  }
-                />
-              </span>
-            </div>
-          </div>
-          <label
-            className={`setup-field-row setup-toggle-row ${setup.hasHiHat ? "setup-toggle-row--checked" : ""}`}
-          >
-            <input
-              type="checkbox"
-              className="setup-checkbox"
-              checked={setup.hasHiHat}
-              onChange={(e) =>
-                onChange({ ...setup, hasHiHat: e.target.checked })
+      {drumSetupBlueprint.sections.map((section) => (
+        <SetupSection key={section.id} title={section.label}>
+          <div className="setup-toggle-grid">
+            {section.items.map((item) => {
+              if (item.control === "count" && item.allowed) {
+                return (
+                  <SetupCounterRow
+                    key={item.id}
+                    label={item.label}
+                    value={setup[item.field as keyof DrumDefinition] as number}
+                    min={Math.min(...item.allowed)}
+                    max={Math.max(...item.allowed)}
+                    onChange={(next) => onChange(updateCountField(setup, item.field, next))}
+                  />
+                );
               }
-            />
-            <span className="setup-toggle-row__text">Hi-hat</span>
-          </label>
-          <div className="setup-field-block">
-            <div
-              className="setup-field-row setup-toggle-row setup-toggle-row--checked"
-              role="group"
-            >
-              <span className="setup-toggle-row__text">Toms</span>
-              <span className="setup-toggle-row__trailing">
-                <SetupCounterControl
-                  label="Toms"
-                  value={setup.tomCount}
-                  min={0}
-                  max={4}
-                  onChange={(count) => onChange({ ...setup, tomCount: toTomCount(count) })}
-                />
-              </span>
-            </div>
+
+              if (item.control === "boolean") {
+                return (
+                  <SetupToggleRow
+                    key={item.id}
+                    label={item.label}
+                    checked={Boolean(
+                      item.field === "tracks.enabled"
+                        ? setup.tracks.enabled
+                        : setup[item.field as keyof DrumDefinition],
+                    )}
+                    onChange={(checked) => onChange(updateBooleanField(setup, item.field, checked))}
+                  />
+                );
+              }
+
+              if (item.control === "compound" && item.field === "pad") {
+                return (
+                  <div key={item.id}>
+                    <SetupToggleRow
+                      label={item.label}
+                      checked={setup.pad.enabled}
+                      onChange={(checked) =>
+                        onChange({
+                          ...setup,
+                          pad: checked ? { enabled: true, mode: "sfx", channels: "mono" } : { enabled: false },
+                        })
+                      }
+                    />
+                    {setup.pad.enabled ? (
+                      <div className="setup-field-row">
+                        <SetupSelectRow
+                          label="Mode"
+                          value={activePad.mode}
+                          options={item.options?.mode ?? ["sfx", "backing"]}
+                          onChange={(mode) =>
+                            onChange({
+                              ...setup,
+                              pad: { enabled: true, mode, channels: activePad.channels },
+                            })
+                          }
+                          formatOptionLabel={(mode) => mode.toUpperCase()}
+                        />
+                        <SetupSelectRow
+                          label="Channels"
+                          value={activePad.channels}
+                          options={item.options?.channels ?? ["mono", "stereo"]}
+                          onChange={(channels) =>
+                            onChange({
+                              ...setup,
+                              pad: { enabled: true, mode: activePad.mode, channels },
+                            })
+                          }
+                          formatOptionLabel={(channels) => channels[0].toUpperCase() + channels.slice(1)}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              }
+
+              return null;
+            })}
           </div>
-          <div className="setup-field-block">
-            <div
-              className="setup-field-row setup-toggle-row setup-toggle-row--checked"
-              role="group"
-            >
-              <span className="setup-toggle-row__text">Floors</span>
-              <span className="setup-toggle-row__trailing">
-                <SetupCounterControl
-                  label="Floors"
-                  value={setup.floorCount}
-                  min={0}
-                  max={3}
-                  onChange={(count) =>
-                    onChange({ ...setup, floorCount: toFloorCount(count) })
-                  }
-                />
-              </span>
-            </div>
-          </div>
-          <label
-            className={`setup-field-row setup-toggle-row ${setup.hasOverheads ? "setup-toggle-row--checked" : ""}`}
-          >
-            <input
-              type="checkbox"
-              className="setup-checkbox"
-              checked={setup.hasOverheads}
-              onChange={(e) =>
-                onChange({ ...setup, hasOverheads: e.target.checked })
-              }
-            />
-            <span className="setup-toggle-row__text">Overhead</span>
-          </label>
-        </div>
-      </SetupSection>
-      <SetupSection title="Additional inputs">
-        <div className="setup-toggle-grid">
-          <label
-            className={`setup-field-row setup-toggle-row ${setup.pad.enabled ? "setup-toggle-row--checked" : ""}`}
-          >
-            <input
-              type="checkbox"
-              className="setup-checkbox"
-              checked={setup.pad.enabled}
-              onChange={(e) =>
-                onChange({
-                  ...setup,
-                  pad: e.target.checked
-                    ? { enabled: true, mode: "sfx", channels: "mono" }
-                    : { enabled: false },
-                })
-              }
-            />
-            <span className="setup-toggle-row__text">PAD</span>
-          </label>
-          <label
-            className={`setup-field-row setup-toggle-row ${setup.tracks.enabled ? "setup-toggle-row--checked" : ""}`}
-          >
-            <input
-              type="checkbox"
-              className="setup-checkbox"
-              checked={setup.tracks.enabled}
-              onChange={(e) =>
-                onChange({ ...setup, tracks: { enabled: e.target.checked } })
-              }
-            />
-            <span className="setup-toggle-row__text">Tracks</span>
-          </label>
-          {setup.pad.enabled ? (
-            <div className="setup-field-row">
-              <label>
-                Mode
-                <select
-                  className="setup-field-control"
-                  value={activePad.mode}
-                  onChange={(e) =>
-                    onChange({
-                      ...setup,
-                      pad: {
-                        enabled: true,
-                        mode: e.target.value as "sfx" | "backing",
-                        channels: activePad.channels,
-                      },
-                    })
-                  }
-                >
-                  <option value="sfx">SFX</option>
-                  <option value="backing">BACKING</option>
-                </select>
-              </label>
-              <label>
-                Channels
-                <select
-                  className="setup-field-control"
-                  value={activePad.channels}
-                  onChange={(e) =>
-                    onChange({
-                      ...setup,
-                      pad: {
-                        enabled: true,
-                        mode: activePad.mode,
-                        channels: e.target.value as "mono" | "stereo",
-                      },
-                    })
-                  }
-                >
-                  <option value="mono">Mono</option>
-                  <option value="stereo">Stereo</option>
-                </select>
-              </label>
-            </div>
-          ) : null}
-        </div>
-      </SetupSection>
+        </SetupSection>
+      ))}
     </>
   );
 }

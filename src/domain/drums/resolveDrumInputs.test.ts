@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createDefaultDrumDefinition } from "./drumDefinition.js";
-import { resolveDrumDefinitionInputs } from "./resolveDrumDefinitionInputs.js";
+import { resolveDrumActiveSlots, resolveDrumDefinitionInputs } from "./resolveDrumDefinitionInputs.js";
 import { validateDrumDefinition } from "./validateDrumDefinition.js";
 
 describe("validateDrumDefinition", () => {
@@ -24,35 +24,38 @@ describe("resolveDrumDefinitionInputs", () => {
     expect(keys[0]).toBe("dr_kick_1_out");
   });
 
-  it("assigns stable semantic ids", () => {
+  it("assigns stable semantic ids from catalog", () => {
     const definition = createDefaultDrumDefinition();
     const kickIn = resolveDrumDefinitionInputs(definition).find((item) => item.key === "dr_kick_1_in");
     expect(kickIn?.id).toBe("kick_1_in");
   });
-});
 
-
-describe("drum labels and notes", () => {
-  it("uses target kick label + note", () => {
+  it("resolves active slots from domain state", () => {
     const definition = createDefaultDrumDefinition();
-    const kickOut = resolveDrumDefinitionInputs(definition).find((item) => item.key === "dr_kick_1_out");
-    expect(kickOut?.label).toBe("Kick OUT");
-    expect(kickOut?.note).toBe("Beta 52A / SE V Kick / e602 / D6 / D112 – kick mic stand");
+    definition.kickCount = 1;
+    definition.kicks = [{ in: true, out: true }];
+    definition.pad = { enabled: true, mode: "backing", channels: "stereo" };
+    const slots = resolveDrumActiveSlots(definition);
+    expect(slots).toContain("kick_1_out");
+    expect(slots).toContain("kick_1_in");
+    expect(slots).not.toContain("kick_2_out");
+    expect(slots).toContain("pad_stereo_backing_l");
+    expect(slots).toContain("pad_stereo_backing_r");
   });
 
-  it("uses stereo note for stereo pad and tracks", () => {
+  it("keeps pad and tracks separation", () => {
     const definition = createDefaultDrumDefinition();
     definition.pad = { enabled: true, mode: "sfx", channels: "stereo" };
-    definition.tracks = { enabled: true };
-    const resolved = resolveDrumDefinitionInputs(definition);
-    const leftPad = resolved.find((item) => item.key === "dr_pad_stereo_sfx_l");
-    const rightPad = resolved.find((item) => item.key === "dr_pad_stereo_sfx_r");
-    const tracksL = resolved.find((item) => item.key === "dr_tracks_l");
-    const tracksR = resolved.find((item) => item.key === "dr_tracks_r");
+    definition.tracks = { enabled: false };
 
-    expect(leftPad?.note).toBe("2x TS jack 6.3mm – DI box");
-    expect(rightPad?.note).toBe("2x TS jack 6.3mm – DI box");
-    expect(tracksL?.note).toBe("2x TS jack 6.3mm – DI box");
-    expect(tracksR?.note).toBe("2x TS jack 6.3mm – DI box");
+    const keysWithoutTracks = resolveDrumDefinitionInputs(definition).map((item) => item.key);
+    expect(keysWithoutTracks).toContain("dr_pad_stereo_sfx_l");
+    expect(keysWithoutTracks).toContain("dr_pad_stereo_sfx_r");
+    expect(keysWithoutTracks).not.toContain("dr_tracks_l");
+
+    definition.tracks = { enabled: true };
+    const keysWithTracks = resolveDrumDefinitionInputs(definition).map((item) => item.key);
+    expect(keysWithTracks).toContain("dr_tracks_l");
+    expect(keysWithTracks).toContain("dr_tracks_r");
   });
 });

@@ -1,0 +1,36 @@
+{
+  "type": "setup_blueprint",
+  "id": "drum-setup-blueprint",
+  "group": "drums",
+  "sections": [
+    {
+      "id": "input",
+      "label": "Input",
+      "items": [
+        { "id": "kicks", "label": "Kicks", "control": "count", "field": "kickCount", "allowed": [1, 2] },
+        { "id": "snares", "label": "Snares", "control": "count", "field": "snareCount", "allowed": [1, 2, 3] },
+        { "id": "hihat", "label": "Hi-hat", "control": "boolean", "field": "hasHiHat" },
+        { "id": "toms", "label": "Toms", "control": "count", "field": "tomCount", "allowed": [0, 1, 2, 3, 4] },
+        { "id": "floors", "label": "Floors", "control": "count", "field": "floorCount", "allowed": [0, 1, 2, 3] },
+        { "id": "overheads", "label": "Overhead", "control": "boolean", "field": "hasOverheads" }
+      ]
+    },
+    {
+      "id": "additional",
+      "label": "Additional inputs",
+      "items": [
+        {
+          "id": "pad",
+          "label": "PAD",
+          "control": "compound",
+          "field": "pad",
+          "options": {
+            "mode": ["sfx", "backing"],
+            "channels": ["mono", "stereo"]
+          }
+        },
+        { "id": "tracks", "label": "Tracks", "control": "boolean", "field": "tracks.enabled" }
+      ]
+    }
+  ]
+}
