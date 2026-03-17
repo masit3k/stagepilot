@@ -1,5 +1,5 @@
 import type { Group } from "../model/groups.js";
-import { createDefaultDrumDefinition } from "../drums/drumDefinition.js";
+import { createDefaultDrumDefinition, parsePersistedDrumDefinition } from "../drums/drumDefinition.js";
 import { resolveDrumDefinitionInputs } from "../drums/resolveDrumDefinitionInputs.js";
 import type {
   Band,
@@ -44,7 +44,12 @@ export function resolveEffectiveProjectSetup(args: {
         getPresetByRef: args.getPresetByRef,
       });
       if (role === "drums") {
-        const drumDefinition = state.drumDefinitionByMusicianId.get(musicianId) ?? createDefaultDrumDefinition();
+        const musicianPresetDefinition = musician.presets.find((item) => item.kind === "drum_setup")?.setup;
+        const drumDefinition =
+          state.drumDefinitionByMusicianId.get(musicianId) ??
+          (musicianPresetDefinition
+            ? parsePersistedDrumDefinition(musicianPresetDefinition, `musician ${musicianId} drum_setup`)
+            : createDefaultDrumDefinition());
         byMusicianId.set(musicianId, {
           inputs: resolveDrumDefinitionInputs(drumDefinition),
           monitoring: defaultPreset.monitoring,

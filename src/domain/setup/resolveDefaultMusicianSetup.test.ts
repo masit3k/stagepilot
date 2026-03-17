@@ -50,4 +50,30 @@ describe("resolveDefaultMusicianSetup", () => {
       "el_bass_mic",
     ]);
   });
+
+  it("converts legacy drum_setup preset payload to canonical drum inputs", () => {
+    const resolved = resolveDefaultMusicianSetup({
+      role: "drums",
+      presetItems: [
+        {
+          kind: "drum_setup",
+          setup: {
+            tomCount: 2,
+            floorTomCount: 1,
+            hasHiHat: true,
+            hasOverheads: true,
+            extraSnareCount: 0,
+            pad: { enabled: true, mode: "sfx", channels: "stereo" },
+          } as unknown as never,
+        },
+      ],
+      getPresetByRef: (ref) => presetsByRef[ref],
+    });
+
+    expect(resolved.inputs.map((item) => item.key)).toContain("dr_kick_1_out");
+    expect(resolved.inputs.map((item) => item.key)).toContain("dr_floor_1");
+    expect(resolved.inputs.map((item) => item.key)).toContain("dr_pad_stereo_sfx_l");
+    expect(resolved.inputs.map((item) => item.key)).toContain("dr_pad_stereo_sfx_r");
+  });
+
 });

@@ -39,6 +39,7 @@ import {
   drumRankByResolvedKey,
   resolveDrumInputs,
 } from "../drums/resolveDrumInputs.js";
+import { parsePersistedDrumDefinition } from "../drums/drumDefinition.js";
 
 /* ============================================================
  * Helpers
@@ -216,7 +217,8 @@ function expandPresetItem(
 ): BuiltInput[] {
   switch (item.kind) {
     case "drum_setup": {
-      return resolveDrumInputs(item.setup).map((ch) => ({
+      const definition = parsePersistedDrumDefinition(item.setup, "musician drum_setup preset");
+      return resolveDrumInputs(definition).map((ch) => ({
         key: ch.key,
         label: ch.label,
         group: ch.group ?? lineupGroup,

@@ -1,6 +1,6 @@
 import type { InputChannel, PresetEntity, PresetItem } from "../model/types";
 import { resolveDrumInputs } from "../drums/resolveDrumInputs";
-import { createDefaultDrumDefinition } from "../drums/drumDefinition";
+import { createDefaultDrumDefinition, parsePersistedDrumDefinition } from "../drums/drumDefinition";
 
 export type SetupCapabilitySection =
   | "drums"
@@ -145,7 +145,10 @@ export function resolveMusicianCapabilityInputs(args: {
     }
 
     if (item.kind === "drum_setup") {
-      const inputs = resolveDrumInputs(item.setup ?? createDefaultDrumDefinition());
+      const parsedSetup = item.setup
+        ? parsePersistedDrumDefinition(item.setup, "lineup drummer preset")
+        : createDefaultDrumDefinition();
+      const inputs = resolveDrumInputs(parsedSetup);
       inputs.forEach((input) => {
         if (!byKey.has(input.key)) byKey.set(input.key, { ...input });
       });

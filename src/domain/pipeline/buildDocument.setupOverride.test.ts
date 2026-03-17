@@ -496,3 +496,68 @@ it("emits stageplan input ownerRole from current lineup assignment", () => {
   expect(acoustic?.ownerRole).toBe("vocs");
   expect(electric?.ownerRole).toBe("guitar");
 });
+
+  it("builds document for drummer with legacy persisted drum_setup without crashing", () => {
+    const band: Band = {
+      id: "band-d",
+      name: "Band",
+      bandLeader: "dr-1",
+      defaultLineup: { drums: "dr-1" },
+    };
+    const drummer: Musician = {
+      id: "dr-1",
+      firstName: "Dr",
+      lastName: "One",
+      group: "drums",
+      presets: [
+        {
+          kind: "drum_setup",
+          setup: {
+            tomCount: 2,
+            floorTomCount: 1,
+            hasHiHat: true,
+            hasOverheads: true,
+            extraSnareCount: 0,
+            pad: { enabled: true, mode: "sfx", channels: "stereo" },
+          } as unknown as never,
+        },
+      ],
+    };
+    const notes: NotesTemplate = {
+      id: "notes_default_cs",
+      lang: "cs",
+      inputs: [],
+      monitors: [],
+    };
+    const project: Project = {
+      id: "p-drum-doc",
+      bandRef: "band-d",
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: { drums: "dr-1" },
+    };
+
+    const repo: DataRepository = {
+      getBand: () => band,
+      getMusician: () => drummer,
+      getProject: () => project,
+      getPreset: (id: string) => {
+        if (id === "wedge") return { type: "monitor", id, label: "Wedge" };
+        if (id === "talkback")
+          return {
+            type: "talkback_type",
+            id: "talkback",
+            label: "Talkback",
+            group: "talkback",
+            input: { key: "tb_{ownerKey}", label: "Talkback ({ownerLabel})" },
+          };
+        throw new Error(`unknown preset ${id}`);
+      },
+      getNotesTemplate: () => notes,
+    };
+
+    const vm = buildDocument(project, repo);
+    expect(vm.inputs.some((item) => item.key === "dr_kick_1_out")).toBe(true);
+    expect(vm.inputs.some((item) => item.key === "dr_pad_stereo_sfx_l")).toBe(true);
+  });
+

@@ -24,6 +24,21 @@ export type DrumDefinition = {
   tracks: DrumTracks;
 };
 
+type LegacyDrumPad = {
+  enabled?: unknown;
+  mode?: unknown;
+  channels?: unknown;
+};
+
+type LegacyDrumDefinition = {
+  tomCount?: unknown;
+  floorTomCount?: unknown;
+  hasHiHat?: unknown;
+  hasOverheads?: unknown;
+  extraSnareCount?: unknown;
+  pad?: LegacyDrumPad;
+};
+
 export function createDefaultDrumDefinition(): DrumDefinition {
   return {
     kickCount: 1,
@@ -40,10 +55,10 @@ export function createDefaultDrumDefinition(): DrumDefinition {
 }
 
 export function normalizeDrumDefinition(definition: DrumDefinition): DrumDefinition {
-  const kicks: [DrumKick, DrumKick?] = [definition.kicks[0] ?? { in: true, out: true }];
+  const kicks: [DrumKick, DrumKick?] = [definition.kicks?.[0] ?? { in: true, out: true }];
   if (definition.kickCount === 2) kicks[1] = definition.kicks[1] ?? { in: true, out: false };
 
-  const snares: [DrumSnare, DrumSnare?, DrumSnare?] = [definition.snares[0] ?? { top: true, bottom: true }];
+  const snares: [DrumSnare, DrumSnare?, DrumSnare?] = [definition.snares?.[0] ?? { top: true, bottom: true }];
   if (definition.snareCount >= 2) snares[1] = definition.snares[1] ?? { top: true, bottom: false };
   if (definition.snareCount >= 3) snares[2] = definition.snares[2] ?? { top: true, bottom: false };
 
@@ -69,7 +84,42 @@ function asCount<T extends number>(value: unknown, allowed: readonly T[], fallba
   return typeof value === "number" && (allowed as readonly number[]).includes(value) ? (value as T) : fallback;
 }
 
+function isLegacyDrumDefinition(input: unknown): input is LegacyDrumDefinition {
+  if (!input || typeof input !== "object") return false;
+  return "floorTomCount" in input || "extraSnareCount" in input;
+}
+
+function toLegacyDrumDefinition(input: LegacyDrumDefinition): DrumDefinition {
+  const fallback = createDefaultDrumDefinition();
+  const snareCount = Math.max(1, Math.min(3, 1 + (typeof input.extraSnareCount === "number" ? input.extraSnareCount : 0))) as 1 | 2 | 3;
+  const padEnabled = input.pad?.enabled === true;
+
+  return normalizeDrumDefinition({
+    kickCount: 1,
+    kicks: [{ in: true, out: true }],
+    snareCount,
+    snares: [
+      { top: true, bottom: true },
+      ...(snareCount >= 2 ? [{ top: true, bottom: false } as DrumSnare] : []),
+      ...(snareCount >= 3 ? [{ top: true, bottom: false } as DrumSnare] : []),
+    ] as [DrumSnare, DrumSnare?, DrumSnare?],
+    hasHiHat: asBoolean(input.hasHiHat, fallback.hasHiHat),
+    tomCount: asCount(input.tomCount, [0, 1, 2, 3, 4] as const, fallback.tomCount),
+    floorCount: asCount(input.floorTomCount, [0, 1, 2, 3] as const, fallback.floorCount),
+    hasOverheads: asBoolean(input.hasOverheads, fallback.hasOverheads),
+    pad: !padEnabled
+      ? ({ enabled: false } as const)
+      : ({
+          enabled: true as const,
+          mode: input.pad?.mode === "backing" ? ("backing" as const) : ("sfx" as const),
+          channels: input.pad?.channels === "stereo" ? ("stereo" as const) : ("mono" as const),
+        } as const),
+    tracks: { enabled: false },
+  });
+}
+
 export function parseDrumDefinition(input: unknown, fallback = createDefaultDrumDefinition()): DrumDefinition {
+  if (isLegacyDrumDefinition(input)) return toLegacyDrumDefinition(input);
   if (!input || typeof input !== "object") return fallback;
   const raw = input as Partial<DrumDefinition>;
 
@@ -134,4 +184,19 @@ export function parseDrumDefinition(input: unknown, fallback = createDefaultDrum
     pad,
     tracks,
   });
+}
+
+export function parsePersistedDrumDefinition(input: unknown, context = "drum definition"): DrumDefinition {
+  if (!input || typeof input !== "object") {
+    throw new Error(`Invalid ${context}: expected object.`);
+  }
+
+  const raw = input as Record<string, unknown>;
+  const hasCanonicalMarkers = ["kickCount", "kicks", "snareCount", "snares", "floorCount", "tracks"].some((key) => key in raw);
+  const hasLegacyMarkers = isLegacyDrumDefinition(raw);
+  if (!hasCanonicalMarkers && !hasLegacyMarkers) {
+    throw new Error(`Invalid ${context}: unsupported shape.`);
+  }
+
+  return parseDrumDefinition(raw);
 }

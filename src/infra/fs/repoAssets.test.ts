@@ -23,6 +23,7 @@ async function makeUserDataRoot(): Promise<string> {
   await fs.mkdir(path.join(root, "projects"), { recursive: true });
   await fs.mkdir(path.join(root, "catalog", "bands"), { recursive: true });
   await fs.mkdir(path.join(root, "catalog", "musicians", "bass"), { recursive: true });
+  await fs.mkdir(path.join(root, "catalog", "musicians", "drums"), { recursive: true });
   await fs.mkdir(path.join(root, "catalog", "contacts"), { recursive: true });
   await fs.mkdir(path.join(root, "catalog", "templates", "notes"), { recursive: true });
   await fs.writeFile(
@@ -32,7 +33,30 @@ async function makeUserDataRoot(): Promise<string> {
   );
   await fs.writeFile(
     path.join(root, "catalog", "musicians", "bass", "m1.json"),
-    JSON.stringify({ id: "m1", group: "bass", name: "M1" }),
+    JSON.stringify({ id: "m1", group: "bass", name: "M1", presets: [] }),
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(root, "catalog", "musicians", "drums", "dr1.json"),
+    JSON.stringify({
+      id: "dr1",
+      firstName: "Dr",
+      lastName: "One",
+      group: "drums",
+      presets: [
+        {
+          kind: "drum_setup",
+          setup: {
+            tomCount: 2,
+            floorTomCount: 1,
+            hasHiHat: true,
+            hasOverheads: true,
+            extraSnareCount: 0,
+            pad: { enabled: true, mode: "sfx", channels: "stereo" },
+          },
+        },
+      ],
+    }),
     "utf8",
   );
   await fs.writeFile(
@@ -115,4 +139,20 @@ describe("loadRepository split sources", () => {
       "NotesTemplate not found: notes_default_cs",
     );
   });
+
+
+  it("normalizes legacy drummer preset payload at repository read boundary", async () => {
+    const userDataRoot = await makeUserDataRoot();
+    const repo = await loadRepository({ userDataRoot });
+
+    const drummer = repo.getMusician("dr1");
+    const drumSetup = drummer.presets.find((item) => item.kind === "drum_setup");
+
+    expect(drumSetup?.kind).toBe("drum_setup");
+    if (drumSetup?.kind !== "drum_setup") return;
+    expect(drumSetup.setup.floorCount).toBe(1);
+    expect(drumSetup.setup.snareCount).toBe(1);
+    expect(drumSetup.setup.pad).toEqual({ enabled: true, mode: "sfx", channels: "stereo" });
+  });
+
 });

@@ -7,6 +7,7 @@ import type {
   PresetItem,
 } from "../model/types.js";
 import { resolveDrumDefinitionInputs } from "../drums/resolveDrumDefinitionInputs.js";
+import { parsePersistedDrumDefinition } from "../drums/drumDefinition.js";
 import { createDefaultMusicianPreset } from "../rules/presetOverride.js";
 import { orderInputs } from "./orderInputs.js";
 
@@ -64,7 +65,7 @@ export function resolveDefaultMusicianSetup(args: {
     const explicit = (args.presetItems ?? []).find((item): item is Extract<PresetItem, { kind: "drum_setup" }> => item.kind === "drum_setup");
     if (explicit) {
       return {
-        inputs: resolveDrumDefinitionInputs(explicit.setup),
+        inputs: resolveDrumDefinitionInputs(parsePersistedDrumDefinition(explicit.setup, `musician ${args.role} drum_setup`)),
         monitoring: monitorPresetRef ? { ...resolvedMonitoring, monitorRef: monitorPresetRef } : resolvedMonitoring,
       };
     }

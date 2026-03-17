@@ -58,4 +58,50 @@ describe("resolveEffectiveProjectSetup", () => {
 
     expect(resolved.byMusicianId.get("bass-1")?.monitoring.monitorRef).toBe("iem_stereo_wired");
   });
+
+
+  it("resolves drummer setup from legacy persisted drum_setup payload", () => {
+    const band: Band = {
+      id: "band",
+      name: "Band",
+      bandLeader: "dr-1",
+      defaultLineup: { drums: "dr-1" },
+    };
+    const drummer: Musician = {
+      id: "dr-1",
+      firstName: "Dr",
+      lastName: "One",
+      group: "drums",
+      presets: [
+        {
+          kind: "drum_setup",
+          setup: {
+            tomCount: 2,
+            floorTomCount: 1,
+            hasHiHat: true,
+            hasOverheads: true,
+            extraSnareCount: 0,
+            pad: { enabled: true, mode: "sfx", channels: "stereo" },
+          } as unknown as never,
+        },
+      ],
+    };
+    const project: Project = {
+      id: "p-drum",
+      bandRef: "band",
+      purpose: "event",
+      documentDate: "2026-01-01",
+    };
+
+    const resolved = resolveEffectiveProjectSetup({
+      project,
+      band,
+      bandLeaderId: "dr-1",
+      getMusicianById: () => drummer,
+      getPresetByRef: () => undefined,
+    });
+
+    expect(resolved.byMusicianId.get("dr-1")?.inputs.some((input) => input.key === "dr_pad_stereo_sfx_l")).toBe(true);
+  });
+
 });
