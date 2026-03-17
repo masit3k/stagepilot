@@ -1,4 +1,6 @@
 import type { Group } from "../model/groups.js";
+import { createDefaultDrumDefinition } from "../drums/drumDefinition.js";
+import { resolveDrumDefinitionInputs } from "../drums/resolveDrumDefinitionInputs.js";
 import type {
   Band,
   Musician,
@@ -41,6 +43,14 @@ export function resolveEffectiveProjectSetup(args: {
         musicianDefaults: args.musicianDefaultsById?.[musicianId],
         getPresetByRef: args.getPresetByRef,
       });
+      if (role === "drums") {
+        const drumDefinition = state.drumDefinitionByMusicianId.get(musicianId) ?? createDefaultDrumDefinition();
+        byMusicianId.set(musicianId, {
+          inputs: resolveDrumDefinitionInputs(drumDefinition),
+          monitoring: defaultPreset.monitoring,
+        });
+        continue;
+      }
       const patch: PresetOverridePatch | undefined = state.presetOverrideByMusicianId.get(musicianId);
       byMusicianId.set(musicianId, applyPresetOverride(defaultPreset, patch));
     }

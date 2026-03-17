@@ -3,7 +3,7 @@
 // Proč? Musí odpovídat reálným JSONům, jinak se rozbije pipeline i TS kontrola.
 
 import type { Group } from "./groups.js";
-import type { DrumSetup } from "../drums/drumSetup.js";
+import type { DrumDefinition } from "../drums/drumDefinition.js";
 export type { Group } from "./groups.js";
 
 /* ============================================================
@@ -170,7 +170,7 @@ export type PresetItem =
     }
   | {
       kind: "drum_setup";
-      setup: DrumSetup;
+      setup: DrumDefinition;
     }
   | {
       kind: "vocal";
@@ -191,6 +191,7 @@ export type PresetItem =
 
 /** Jeden vstupní kanál (z presetů). */
 export interface InputChannel {
+  id?: string;
   key: string;
   label: string;
   group?: Group; // když chybí, doplní se podle lineup group

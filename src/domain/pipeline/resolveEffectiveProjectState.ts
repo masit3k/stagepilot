@@ -1,14 +1,15 @@
 import { GROUP_ORDER, type Group } from "../model/groups.js";
+import type { DrumDefinition } from "../drums/drumDefinition.js";
 import type { LineupValue, PresetOverridePatch, Project } from "../model/types.js";
 import { resolveEffectiveTalkbackAssignment } from "../talkback/resolveEffectiveTalkbackAssignment.js";
 
-type LegacyLineupEntry = { musicianId?: unknown; presetOverride?: unknown };
+type LegacyLineupEntry = { musicianId?: unknown; presetOverride?: unknown; drumDefinition?: unknown };
 
 type ProjectWithLineup = Project & {
   lineup?: Record<string, unknown>;
 };
 
-function normalizeLineupEntry(entry: unknown): { musicianId: string; presetOverride?: PresetOverridePatch } | null {
+function normalizeLineupEntry(entry: unknown): { musicianId: string; presetOverride?: PresetOverridePatch; drumDefinition?: DrumDefinition } | null {
   if (typeof entry === "string") {
     const trimmed = entry.trim();
     return trimmed.length > 0 ? { musicianId: trimmed } : null;
@@ -22,6 +23,9 @@ function normalizeLineupEntry(entry: unknown): { musicianId: string; presetOverr
         ...(legacy.presetOverride && typeof legacy.presetOverride === "object"
           ? { presetOverride: legacy.presetOverride as PresetOverridePatch }
           : {}),
+        ...(legacy.drumDefinition && typeof legacy.drumDefinition === "object"
+          ? { drumDefinition: legacy.drumDefinition as DrumDefinition }
+          : {}),
       };
     }
   }
@@ -29,11 +33,11 @@ function normalizeLineupEntry(entry: unknown): { musicianId: string; presetOverr
   return null;
 }
 
-function normalizeLineupSlots(v: unknown): Array<{ musicianId: string; presetOverride?: PresetOverridePatch }> {
+function normalizeLineupSlots(v: unknown): Array<{ musicianId: string; presetOverride?: PresetOverridePatch; drumDefinition?: DrumDefinition }> {
   if (Array.isArray(v)) {
     return v
       .map((entry) => normalizeLineupEntry(entry))
-      .filter((entry): entry is { musicianId: string; presetOverride?: PresetOverridePatch } => Boolean(entry));
+      .filter((entry): entry is { musicianId: string; presetOverride?: PresetOverridePatch; drumDefinition?: DrumDefinition } => Boolean(entry));
   }
 
   const single = normalizeLineupEntry(v);
@@ -55,10 +59,12 @@ export function resolveEffectiveProjectState(args: {
   effectiveLineup: Record<Group, string[]>;
   presetOverrideByMusicianId: Map<string, PresetOverridePatch>;
   effectiveTalkbackOwnerId: string;
+  drumDefinitionByMusicianId: Map<string, DrumDefinition>;
 } {
   const projectLineup = ((args.project as ProjectWithLineup).lineup ?? {}) as Record<string, unknown>;
   const effectiveLineup = {} as Record<Group, string[]>;
   const presetOverrideByMusicianId = new Map<string, PresetOverridePatch>();
+  const drumDefinitionByMusicianId = new Map<string, DrumDefinition>();
 
   for (const group of GROUP_ORDER) {
     const projectSlots = normalizeLineupSlots(firstRoleValue(projectLineup, group));
@@ -69,6 +75,9 @@ export function resolveEffectiveProjectState(args: {
     for (const slot of resolvedSlots) {
       if (slot.presetOverride) {
         presetOverrideByMusicianId.set(slot.musicianId, slot.presetOverride);
+      }
+      if (slot.drumDefinition) {
+        drumDefinitionByMusicianId.set(slot.musicianId, slot.drumDefinition);
       }
     }
   }
@@ -85,5 +94,6 @@ export function resolveEffectiveProjectState(args: {
     effectiveLineup,
     presetOverrideByMusicianId,
     effectiveTalkbackOwnerId,
+    drumDefinitionByMusicianId,
   };
 }

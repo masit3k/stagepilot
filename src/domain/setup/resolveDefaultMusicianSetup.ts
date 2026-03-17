@@ -6,6 +6,7 @@ import type {
   PresetEntity,
   PresetItem,
 } from "../model/types.js";
+import { resolveDrumDefinitionInputs } from "../drums/resolveDrumDefinitionInputs.js";
 import { createDefaultMusicianPreset } from "../rules/presetOverride.js";
 import { orderInputs } from "./orderInputs.js";
 
@@ -57,6 +58,17 @@ export function resolveDefaultMusicianSetup(args: {
       const entity = args.getPresetByRef(monitorRef);
       return entity?.type === "monitor";
     });
+
+
+  if (args.role === "drums") {
+    const explicit = (args.presetItems ?? []).find((item): item is Extract<PresetItem, { kind: "drum_setup" }> => item.kind === "drum_setup");
+    if (explicit) {
+      return {
+        inputs: resolveDrumDefinitionInputs(explicit.setup),
+        monitoring: monitorPresetRef ? { ...resolvedMonitoring, monitorRef: monitorPresetRef } : resolvedMonitoring,
+      };
+    }
+  }
 
   const inputsFromPresets =
     args.role === "bass"

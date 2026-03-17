@@ -35,7 +35,6 @@ import {
 } from "../formatters/index.js";
 import { applyPresetOverride } from "../rules/presetOverride.js";
 import { getMonitorLabel, type MonitorPresetIndex } from "../monitors/getMonitorLabel.js";
-import { migrateLegacyDrumPresetRefs } from "../drums/drumSetup.js";
 import {
   drumRankByResolvedKey,
   resolveDrumInputs,
@@ -214,7 +213,6 @@ function expandPresetItem(
   item: PresetItem,
   lineupGroup: Group,
   repo: DataRepository,
-  context?: { drummerLegacyRefs?: string[] },
 ): BuiltInput[] {
   switch (item.kind) {
     case "drum_setup": {
@@ -228,25 +226,6 @@ function expandPresetItem(
     }
 
     case "preset": {
-      if (lineupGroup === "drums") {
-        const legacyDrumRefs = context?.drummerLegacyRefs ?? [];
-        if (
-          [
-            "standard_9",
-            "standard_10",
-            "sample_pad_mono",
-            "sample_pad_stereo",
-            "snare_2",
-            "effect_snare",
-          ].includes(item.ref)
-        ) {
-          if (!legacyDrumRefs.includes(item.ref)) {
-            legacyDrumRefs.push(item.ref);
-          }
-          return [];
-        }
-      }
-
       const ent: PresetEntity = repo.getPreset(item.ref);
 
       if (ent.type !== "preset") {
@@ -417,9 +396,7 @@ export function buildDocument(
       });
     }
 
-    const drummerLegacyRefs: string[] = [];
-    let hasExplicitDrumSetup = false;
-    for (const item of effectivePresetItems) {
+      for (const item of effectivePresetItems) {
       if (group === "bass" && item.kind === "preset") {
         continue;
       }
@@ -427,10 +404,7 @@ export function buildDocument(
         continue;
       }
 
-      const expanded = expandPresetItem(item, group, repo, {
-        drummerLegacyRefs,
-      });
-      if (item.kind === "drum_setup") hasExplicitDrumSetup = true;
+      const expanded = expandPresetItem(item, group, repo);
       if (item.kind === "preset" && /^vocal_lead/i.test(item.ref)) {
         for (const input of expanded) {
           input.ownerGender = musician.gender;
@@ -451,26 +425,7 @@ export function buildDocument(
       );
     }
 
-    if (
-      group === "drums" &&
-      !hasExplicitDrumSetup &&
-      drummerLegacyRefs.length > 0
-    ) {
-      const resolvedFromLegacy = resolveDrumInputs(
-        migrateLegacyDrumPresetRefs(drummerLegacyRefs),
-      );
-      inputs.push(
-        ...resolvedFromLegacy.map((ch) => ({
-          key: ch.key,
-          label: ch.label,
-          group: ch.group ?? group,
-          note: ch.note,
-          ownerRole: group,
-        })),
-      );
-    }
-
-    const eventOverride = group === "bass" ? undefined : ctx.presetOverrideByMusicianId.get(musician.id);
+    const eventOverride = group === "bass" || group === "drums" ? undefined : ctx.presetOverrideByMusicianId.get(musician.id);
     if (eventOverride) {
       const affected = inputs.filter((input) => input.group === group);
       const patched = applyInputOverridePatch(affected, eventOverride);

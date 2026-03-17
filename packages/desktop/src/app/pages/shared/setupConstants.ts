@@ -7,7 +7,7 @@ import type {
   PresetItem,
   PresetOverridePatch as DomainPresetOverridePatch,
 } from "../../../../../../src/domain/model/types";
-import { STANDARD_10_SETUP } from "../../../../../../src/domain/drums/drumSetup";
+import { createDefaultDrumDefinition } from "../../../../../../src/domain/drums/drumDefinition";
 import { resolveDrumInputs } from "../../../../../../src/domain/drums/resolveDrumInputs";
 import { resolveDefaultMusicianSetup } from "../../../../../../src/domain/setup/resolveDefaultMusicianSetup";
 import {
@@ -44,7 +44,7 @@ export type VisibleLineupSection =
     };
 
 export const GROUP_INPUT_LIBRARY: Record<Group, InputChannel[]> = {
-  drums: resolveDrumInputs(STANDARD_10_SETUP),
+  drums: resolveDrumInputs(createDefaultDrumDefinition()),
   bass: [
     {
       key: "el_bass_xlr_amp",
@@ -136,14 +136,24 @@ export function resolveMusicianDefaultSetupForRole(args: {
   presetCatalog?: Record<string, Preset> | Record<string, PresetEntity>;
   bandDefaults?: Partial<MusicianSetupPreset>;
 }): MusicianSetupPreset {
+  const mergedMonitoring = {
+    ...(args.musicianDefaults?.monitoring ?? {}),
+    ...(args.roleScopedDefaults?.monitoring ?? {}),
+  };
+
   const mergedDefaults: Partial<MusicianSetupPreset> = {
     ...(args.musicianDefaults ?? {}),
     ...(args.roleScopedDefaults ?? {}),
-    ...(args.musicianDefaults?.monitoring || args.roleScopedDefaults?.monitoring
+    ...(mergedMonitoring.monitorRef
       ? {
           monitoring: {
-            ...(args.musicianDefaults?.monitoring ?? {}),
-            ...(args.roleScopedDefaults?.monitoring ?? {}),
+            monitorRef: mergedMonitoring.monitorRef,
+            ...(typeof mergedMonitoring.additionalWedgeCount === "number"
+              ? {
+                  additionalWedgeCount:
+                    mergedMonitoring.additionalWedgeCount,
+                }
+              : {}),
           },
         }
       : {}),

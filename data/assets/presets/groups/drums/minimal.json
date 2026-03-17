@@ -1,12 +1,12 @@
 {
+  "type": "preset",
   "id": "minimal",
-  "label": "Minimal (kick+snare+hat)",
-  "setup": {
-    "tomCount": 0,
-    "floorTomCount": 0,
-    "hasHiHat": true,
-    "hasOverheads": false,
-    "extraSnareCount": 0,
-    "pad": { "enabled": false }
-  }
+  "label": "Drums Minimal",
+  "group": "drums",
+  "inputs": [
+    { "key": "dr_kick_1_out", "label": "Kick 1 Out" },
+    { "key": "dr_snare1_top", "label": "Snare 1 Top" },
+    { "key": "dr_oh_l", "label": "OH L" },
+    { "key": "dr_oh_r", "label": "OH R" }
+  ]
 }

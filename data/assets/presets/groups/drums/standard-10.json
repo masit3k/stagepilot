@@ -1,12 +1,18 @@
 {
+  "type": "preset",
   "id": "standard-10",
-  "label": "Standard 10ch",
-  "setup": {
-    "tomCount": 2,
-    "floorTomCount": 1,
-    "hasHiHat": true,
-    "hasOverheads": true,
-    "extraSnareCount": 0,
-    "pad": { "enabled": false }
-  }
+  "label": "Drums Standard 10",
+  "group": "drums",
+  "inputs": [
+    { "key": "dr_kick_1_out", "label": "Kick 1 Out" },
+    { "key": "dr_kick_1_in", "label": "Kick 1 In" },
+    { "key": "dr_snare1_top", "label": "Snare 1 Top" },
+    { "key": "dr_snare1_bottom", "label": "Snare 1 Bottom" },
+    { "key": "dr_hihat", "label": "Hi-Hat" },
+    { "key": "dr_tom_1", "label": "Tom 1" },
+    { "key": "dr_tom_2", "label": "Tom 2" },
+    { "key": "dr_floor_1", "label": "Floor 1" },
+    { "key": "dr_oh_l", "label": "OH L" },
+    { "key": "dr_oh_r", "label": "OH R" }
+  ]
 }

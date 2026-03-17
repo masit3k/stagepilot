@@ -1,3 +1,4 @@
+import type { DrumDefinition } from "../../../src/domain/drums/drumDefinition";
 import {
   formatEventDateForDisplayName,
   formatEventDateForSlug,
@@ -51,6 +52,7 @@ export type PresetOverridePatch = {
 export type LineupSlotValue = {
   musicianId: string;
   presetOverride?: PresetOverridePatch;
+  drumDefinition?: DrumDefinition;
 };
 
 export type LineupEntry = string | LineupSlotValue;
@@ -294,7 +296,7 @@ export function normalizeLineupSlots(
     .map((entry) =>
       typeof entry === "string"
         ? { musicianId: entry }
-        : { musicianId: entry.musicianId, presetOverride: entry.presetOverride },
+        : { musicianId: entry.musicianId, presetOverride: entry.presetOverride, drumDefinition: entry.drumDefinition },
     )
     .filter((entry) => Boolean(entry.musicianId))
     .slice(0, Math.max(maxSlots, 0));

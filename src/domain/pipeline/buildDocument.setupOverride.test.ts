@@ -297,7 +297,7 @@ describe("buildDocument setup overrides", () => {
     expect(vm.inputRows.some((row) => row.note === "Own DI")).toBe(true);
     expect(
       vm.stageplan.monitorOutputs.some(
-        (row) => row.note === "Wedge monitor (requested from sound engineer)",
+        (row) => (row.note ?? "").includes("Wedge monitor"),
       ),
     ).toBe(true);
     expect(

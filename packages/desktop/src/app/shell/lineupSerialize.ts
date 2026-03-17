@@ -16,12 +16,13 @@ export function serializeLineupForProject(
     const persistRole = role === "vocs" ? "lead_vocs" : role;
     const roleSlotLimit = getRoleSlotLimit(role);
     const slots = normalizeLineupSlots(lineup[role], roleSlotLimit);
-    const hasOverrides = slots.some((slot) => Boolean(slot.presetOverride));
+    const hasOverrides = slots.some((slot) => Boolean(slot.presetOverride) || Boolean(slot.drumDefinition));
 
     if (hasOverrides) {
       const entry: LineupSlotValue[] = slots.map((slot) => ({
         musicianId: slot.musicianId,
         ...(slot.presetOverride ? { presetOverride: slot.presetOverride } : {}),
+        ...(slot.drumDefinition ? { drumDefinition: slot.drumDefinition } : {}),
       }));
       if (entry.length === 0) continue;
       serialized[persistRole] = roleSlotLimit <= 1 ? entry[0] : entry;
