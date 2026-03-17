@@ -13,4 +13,16 @@ describe("formatVocalLabel", () => {
   it("omits unknown gender marker", () => {
     expect(formatVocalLabel({ role: "lead", index: 2, gender: "x", leadCount: 2 })).toBe("Lead vocal 2");
   });
+
+  it("supports uppercase suffix style for input lists", () => {
+    expect(
+      formatVocalLabel({
+        role: "lead",
+        index: 1,
+        gender: "m",
+        leadCount: 2,
+        multiLeadStyle: "input_list_upper_suffix",
+      }),
+    ).toBe("Lead vocal 1 MALE");
+  });
 });

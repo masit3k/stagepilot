@@ -1,4 +1,5 @@
 export * from "./inputlist.js";
+export * from "./inputLabels.js";
 export * from "./meta.js";
 export * from "./monitors.js";
 export * from "./stageplan.js";

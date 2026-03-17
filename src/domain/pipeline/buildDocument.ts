@@ -27,10 +27,12 @@ import { resolvePowerForStageplan } from "../stageplan/resolvePowerForStageplan.
 import {
   formatInputListLabel,
   formatInputListNote,
+  formatDrumInputDisplayLabel,
+  formatLeadVocalDisplayLabel,
   formatMonitorLabel,
   formatMonitoringLabel,
   formatProjectMetaLine,
-  formatVocalLabel,
+  groupActiveDrumInputsByFamily,
   resolveStereoPair,
 } from "../formatters/index.js";
 import { applyPresetOverride } from "../rules/presetOverride.js";
@@ -599,20 +601,24 @@ export function buildDocument(
   const reorderedInputs = reorderAcousticGuitars(inputs);
   const formattedKeysInputs = formatKeysInputInstances(reorderedInputs);
   const disambiguatedInputs = disambiguateInputKeys(formattedKeysInputs);
+  const drumFamilyState = groupActiveDrumInputsByFamily(disambiguatedInputs);
   const leadGenderByIndex = leadResolved.map((m) => m.gender);
   const finalizedInputs = disambiguatedInputs.map((input) => {
-    if (!input.key.startsWith("voc_lead")) return input;
-
-    const indexMatch = /voc_lead_(\d+)/i.exec(input.key);
-    const index = indexMatch ? Number(indexMatch[1]) : 1;
-    const label = formatVocalLabel({
-      role: "lead",
-      index,
-      gender: leadGenderByIndex[index - 1],
-      leadCount: leadVocalCount,
-    });
-
-    return { ...input, label };
+    if (input.group === "drums") {
+      return { ...input, label: formatDrumInputDisplayLabel(input, drumFamilyState) };
+    }
+    if (input.key.startsWith("voc_lead")) {
+      return {
+        ...input,
+        label: formatLeadVocalDisplayLabel({
+          key: input.key,
+          fallbackLabel: input.label,
+          leadCount: leadVocalCount,
+          leadGenderByIndex,
+        }),
+      };
+    }
+    return input;
   });
 
   const inputsWithCh = assignChannelsWithOddStereoRule(finalizedInputs);

@@ -1,11 +1,14 @@
 import drumCatalogAsset from "../../../data/assets/catalog/inputs/drums.json";
 
 export type DrumInputCatalogItem = {
+  /** Stable external/catalog key used by integrations and persisted references. */
   key: string;
+  /** Stable asset item identifier for this concrete catalog row. */
   id: string;
   label: string;
   note: string;
   order: number;
+  /** Domain resolution identifier matched against resolved drum definition slots. */
   slot: string;
 };
 

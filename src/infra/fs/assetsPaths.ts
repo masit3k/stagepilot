@@ -30,3 +30,7 @@ export function getTemplatesDir(dataRoot: string = DATA_ROOT): string {
 export function getNotesTemplatesDir(dataRoot: string = DATA_ROOT): string {
   return path.join(getTemplatesDir(dataRoot), "notes");
 }
+
+export function getDrumSetupBlueprintPath(dataRoot: string = DATA_ROOT): string {
+  return path.join(getAssetsRoot(dataRoot), "setup-blueprints", "drums.json");
+}
