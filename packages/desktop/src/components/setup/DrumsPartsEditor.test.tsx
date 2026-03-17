@@ -57,6 +57,19 @@ describe("DrumsPartsEditor", () => {
     expect(html).not.toContain("No additional inputs available");
   });
 
+
+  it("renders PAD settings as a subordinate vertical block", () => {
+    const html = renderToStaticMarkup(
+      <DrumsPartsEditor setup={baseSetup} onChange={() => {}} />,
+    );
+
+    expect(html).toContain('data-testid="pad-settings"');
+    expect(html).toContain('class="setup-pad-settings__row"><label>Mode');
+    expect(html).toContain('class="setup-pad-settings__row"><label>Channels');
+    expect(html).toContain('Mode<select class="setup-field-control"');
+    expect(html).toContain('Channels<select class="setup-field-control"');
+  });
+
   it("scopes mode and channels controls to PAD only", () => {
     const htmlWithPad = renderToStaticMarkup(
       <DrumsPartsEditor setup={baseSetup} onChange={() => {}} />,

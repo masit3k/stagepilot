@@ -100,12 +100,12 @@ export function MonitoringEditor({
               })
             }
           >
-            <option value="">No monitor selected</option>
             {monitorOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
             ))}
+            <option value="">No monitor selected</option>
           </select>
         </div>
       </label>

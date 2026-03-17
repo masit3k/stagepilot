@@ -68,10 +68,27 @@ describe("MonitoringEditor", () => {
     );
 
     expect(html).toContain("No monitor selected");
-    expect(html).toContain(
-      '<select class="setup-field-control" aria-label="Monitoring"><option value="" selected="">No monitor selected</option>',
+    expect(html).toContain('value="" selected="">No monitor selected</option></select>');
+  });
+
+  it("renders No monitor selected as the final option", () => {
+    const html = renderToStaticMarkup(
+      <MonitoringEditor
+        monitorOptions={[
+          { value: "iem_stereo_wireless", label: "IEM stereo wireless" },
+          { value: "wedge", label: "Wedge" },
+        ]}
+        effectiveMonitoring={{ monitorRef: "wedge" }}
+        diffMeta={baseDiffMeta}
+        onChangePatch={() => {}}
+      />,
+    );
+
+    expect(html.indexOf('value="wedge"')).toBeLessThan(
+      html.indexOf('value="">No monitor selected</option>'),
     );
   });
+
   it("renders checked row and stepper when additional wedge is enabled", () => {
     const html = renderToStaticMarkup(
       <MonitoringEditor

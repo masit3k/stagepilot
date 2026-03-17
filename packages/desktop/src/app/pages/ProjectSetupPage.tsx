@@ -72,6 +72,7 @@ import type {
 import { toPersistableProject } from "../shell/types";
 import { serializeLineupForProject } from "../shell/lineupSerialize";
 import type { ProjectRouteProps } from "./shared/pageTypes";
+import { resolveTalkbackSummaryLabel } from "./shared/talkbackSummary";
 import {
   buildSetupFieldCatalog,
   buildVisibleLineupSections,
@@ -1340,8 +1341,10 @@ export function ProjectSetupPage({
           <div className="lineup-card__body section-divider">
             <div className="lineup-list__row">
               <span className="lineup-list__name">
-                {selectedOptions.find((m) => m.id === talkbackCurrentOwnerId)
-                  ?.name || ""}
+                {resolveTalkbackSummaryLabel(
+                  selectedOptions.find((m) => m.id === talkbackCurrentOwnerId)
+                    ?.name,
+                )}
               </span>
               <button
                 type="button"

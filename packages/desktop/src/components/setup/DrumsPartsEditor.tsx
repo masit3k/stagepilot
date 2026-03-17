@@ -5,7 +5,7 @@ import {
   toTomCount,
   type DrumDefinition,
 } from "../../../../../src/domain/drums/drumDefinition";
-import drumSetupBlueprintAsset from "../../../../../data/assets/catalog/setup/drums.json";
+import drumSetupBlueprintAsset from "../../../../../data/assets/setup-blueprints/drums.json";
 import { SetupSection } from "../../app/components/setup/SetupSection";
 import { SetupCounterRow } from "../../app/components/setup/fields/SetupCounterRow";
 import { SetupSelectRow } from "../../app/components/setup/fields/SetupSelectRow";
@@ -118,31 +118,35 @@ export function DrumsPartsEditor({ setup, onChange }: DrumsPartsEditorProps) {
                       }
                     />
                     {setup.pad.enabled ? (
-                      <div className="setup-field-row">
-                        <SetupSelectRow
-                          label="Mode"
-                          value={activePad.mode}
-                          options={item.options?.mode ?? ["sfx", "backing"]}
-                          onChange={(mode) =>
-                            onChange({
-                              ...setup,
-                              pad: { enabled: true, mode, channels: activePad.channels },
-                            })
-                          }
-                          formatOptionLabel={(mode) => mode.toUpperCase()}
-                        />
-                        <SetupSelectRow
-                          label="Channels"
-                          value={activePad.channels}
-                          options={item.options?.channels ?? ["mono", "stereo"]}
-                          onChange={(channels) =>
-                            onChange({
-                              ...setup,
-                              pad: { enabled: true, mode: activePad.mode, channels },
-                            })
-                          }
-                          formatOptionLabel={(channels) => channels[0].toUpperCase() + channels.slice(1)}
-                        />
+                      <div className="setup-pad-settings" data-testid="pad-settings">
+                        <div className="setup-pad-settings__row">
+                          <SetupSelectRow
+                            label="Mode"
+                            value={activePad.mode}
+                            options={item.options?.mode ?? ["sfx", "backing"]}
+                            onChange={(mode) =>
+                              onChange({
+                                ...setup,
+                                pad: { enabled: true, mode, channels: activePad.channels },
+                              })
+                            }
+                            formatOptionLabel={(mode) => mode.toUpperCase()}
+                          />
+                        </div>
+                        <div className="setup-pad-settings__row">
+                          <SetupSelectRow
+                            label="Channels"
+                            value={activePad.channels}
+                            options={item.options?.channels ?? ["mono", "stereo"]}
+                            onChange={(channels) =>
+                              onChange({
+                                ...setup,
+                                pad: { enabled: true, mode: activePad.mode, channels },
+                              })
+                            }
+                            formatOptionLabel={(channels) => channels[0].toUpperCase() + channels.slice(1)}
+                          />
+                        </div>
                       </div>
                     ) : null}
                   </div>
