@@ -10,6 +10,43 @@ import {
 } from "../modals/ExportResultModal";
 import type { ProjectRouteProps } from "./shared/pageTypes";
 
+export type PreviewRequestLifecycle = {
+  startRequest: () => { accepted: boolean; requestId: number };
+  isCurrentRequest: (requestId: number) => boolean;
+  finishRequest: (requestId: number) => void;
+  invalidateRequests: () => void;
+};
+
+export function createPreviewRequestLifecycle(): PreviewRequestLifecycle {
+  let latestRequestId = 0;
+  let inFlightRequestId: number | null = null;
+
+  return {
+    startRequest() {
+      if (inFlightRequestId !== null) {
+        return {
+          accepted: false,
+          requestId: latestRequestId,
+        };
+      }
+      latestRequestId += 1;
+      inFlightRequestId = latestRequestId;
+      return { accepted: true, requestId: latestRequestId };
+    },
+    isCurrentRequest(requestId) {
+      return requestId === latestRequestId;
+    },
+    finishRequest(requestId) {
+      if (inFlightRequestId === requestId) {
+        inFlightRequestId = null;
+      }
+    },
+    invalidateRequests() {
+      latestRequestId += 1;
+      inFlightRequestId = null;
+    },
+  };
+}
 
 type PreviewState =
   | { kind: "idle" }
@@ -32,7 +69,12 @@ export function ProjectPreviewPage({
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [hideMusicianNames, setHideMusicianNames] = useState(false);
   const [exportModal, setExportModal] = useState<ExportModalState>(null);
-  const hasGeneratedOnEntry = useRef(false);
+  const lifecycleRef = useRef<PreviewRequestLifecycle>(
+    createPreviewRequestLifecycle(),
+  );
+  const hasSeenHideNamesEffect = useRef(false);
+  const hideMusicianNamesRef = useRef(hideMusicianNames);
+  const cleanupPreviewKeyRef = useRef(id);
 
   function releasePreviewUrl() {
     setPreviewUrl((current) => {
@@ -41,14 +83,20 @@ export function ProjectPreviewPage({
     });
   }
 
-  const regeneratePreview = useCallback(async () => {
+  const startPreviewGeneration = useCallback(async () => {
+    const request = lifecycleRef.current.startRequest();
+    if (!request.accepted) {
+      return;
+    }
+
     setPreviewState({ kind: "generating" });
     setStatus("");
     releasePreviewUrl();
+
     try {
       const result = await invoke<{ previewPdfPath: string }>(
         "build_project_pdf_preview",
-        { projectId: id, hideMusicianNames },
+        { projectId: id, hideMusicianNames: hideMusicianNamesRef.current },
       );
       console.info("[preview] generated", {
         previewPath: result.previewPdfPath,
@@ -60,12 +108,22 @@ export function ProjectPreviewPage({
         type: "application/pdf",
       });
       const nextUrl = URL.createObjectURL(blob);
+
+      if (!lifecycleRef.current.isCurrentRequest(request.requestId)) {
+        URL.revokeObjectURL(nextUrl);
+        return;
+      }
+
       setPreviewUrl((current) => {
         if (current) URL.revokeObjectURL(current);
         return nextUrl;
       });
       setPreviewState({ kind: "ready", path: result.previewPdfPath });
     } catch (err) {
+      if (!lifecycleRef.current.isCurrentRequest(request.requestId)) {
+        return;
+      }
+
       const message =
         typeof err === "object" && err !== null && "message" in err
           ? String((err as { message?: string }).message ?? "Failed to generate preview.")
@@ -79,8 +137,10 @@ export function ProjectPreviewPage({
           : `Preview failed: ${message}`,
         missingPreview,
       });
+    } finally {
+      lifecycleRef.current.finishRequest(request.requestId);
     }
-  }, [hideMusicianNames, id]);
+  }, [id]);
 
   useEffect(() => {
     invoke<string>("read_project", { projectId: id })
@@ -97,27 +157,35 @@ export function ProjectPreviewPage({
   }, [registerNavigationGuard]);
 
   useEffect(() => {
-    hasGeneratedOnEntry.current = false;
-  }, [id]);
+    hideMusicianNamesRef.current = hideMusicianNames;
+  }, [hideMusicianNames]);
 
   useEffect(() => {
-    if (!hasGeneratedOnEntry.current) {
-      hasGeneratedOnEntry.current = true;
-      regeneratePreview();
-    }
+    cleanupPreviewKeyRef.current = project?.slug || id;
+  }, [id, project?.slug]);
+
+  useEffect(() => {
+    hasSeenHideNamesEffect.current = false;
+    startPreviewGeneration();
+
     return () => {
+      lifecycleRef.current.invalidateRequests();
       releasePreviewUrl();
       // Uses slug (human doc key), not id (UUID).
-      invoke("cleanup_preview_pdf", { previewKey: project?.slug || id }).catch(
+      invoke("cleanup_preview_pdf", { previewKey: cleanupPreviewKeyRef.current }).catch(
         () => undefined,
       );
     };
-  }, [id, regeneratePreview]);
+  }, [id, startPreviewGeneration]);
 
   useEffect(() => {
-    if (!hasGeneratedOnEntry.current) return;
-    regeneratePreview();
-  }, [hideMusicianNames, regeneratePreview]);
+    if (!hasSeenHideNamesEffect.current) {
+      hasSeenHideNamesEffect.current = true;
+      return;
+    }
+
+    startPreviewGeneration();
+  }, [hideMusicianNames, startPreviewGeneration]);
 
   const runExport = useCallback(async () => {
     if (!project) return;
@@ -197,7 +265,7 @@ export function ProjectPreviewPage({
               <button
                 type="button"
                 className="button-secondary"
-                onClick={regeneratePreview}
+                onClick={startPreviewGeneration}
               >
                 {previewState.missingPreview
                   ? "Generate preview again"
@@ -227,7 +295,7 @@ export function ProjectPreviewPage({
         <button
           type="button"
           className="button-secondary"
-          onClick={regeneratePreview}
+          onClick={startPreviewGeneration}
           disabled={isRegeneratingPreview}
         >
           {isRegeneratingPreview ? "Regenerating…" : "Regenerate preview"}
