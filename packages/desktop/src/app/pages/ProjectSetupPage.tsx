@@ -28,7 +28,7 @@ import type {
   PresetItem,
 } from "../../../../../src/domain/model/types";
 import { resolveEffectiveMusicianSetup } from "../../../../../src/domain/setup/resolveEffectiveMusicianSetup";
-import { inferDrumSetupFromLegacyInputs } from "../../../../../src/domain/drums/drumSetup";
+import { createDefaultDrumDefinition, parseDrumDefinition } from "../../../../../src/domain/drums/drumDefinition";
 import { resolveDrumInputs } from "../../../../../src/domain/drums/resolveDrumInputs";
 import {
   MusicianSelector,
@@ -684,6 +684,9 @@ export function ProjectSetupPage({
           ...(previous?.musicianId === musicianId && previous?.presetOverride
             ? { presetOverride: previous.presetOverride }
             : {}),
+          ...(previous?.musicianId === musicianId && previous?.drumDefinition
+            ? { drumDefinition: previous.drumDefinition }
+            : {}),
         }
       : { musicianId: "" };
     setRoleSlots(role, current);
@@ -753,11 +756,13 @@ export function ProjectSetupPage({
               .defaultPreset,
             override,
           );
+          const persistedSlot = normalizeLineupSlots(lineup[role], roleSlotLimit)[slotIndex];
           return {
             musicianId: slot.musicianId,
             ...(normalizedOverride
               ? { presetOverride: normalizedOverride }
               : {}),
+            ...(persistedSlot?.drumDefinition ? { drumDefinition: persistedSlot.drumDefinition } : {}),
           };
         },
       );
@@ -1558,9 +1563,16 @@ export function ProjectSetupPage({
                     (effectiveItem) => effectiveItem.key === item.key,
                   ),
               );
+              const selectedRoleSlots = normalizeLineupSlots(
+                lineup[selectedSetupMusician.role],
+                getRoleSlotLimit(selectedSetupMusician.role),
+              );
+              const selectedRoleSlot = selectedRoleSlots.find(
+                (slot) => slot.musicianId === selectedSetupMusician.musicianId,
+              );
               const drumSetup =
                 selectedSetupMusician.role === "drums"
-                  ? inferDrumSetupFromLegacyInputs(effective.inputs)
+                  ? parseDrumDefinition(selectedRoleSlot?.drumDefinition, createDefaultDrumDefinition())
                   : null;
               const musicianDefaultPreset = resolveMusicianDefaultPreset(
                 selectedSetupMusician.role,
@@ -1752,6 +1764,20 @@ export function ProjectSetupPage({
                                 onChange={(nextSetup) => {
                                   const targetInputs =
                                     resolveDrumInputs(nextSetup);
+                                  setLineup((prevLineup) => {
+                                    const nextLineup = { ...prevLineup };
+                                    const roleSlots = normalizeLineupSlots(
+                                      nextLineup[selectedSetupMusician.role],
+                                      getRoleSlotLimit(selectedSetupMusician.role),
+                                    );
+                                    const updatedSlots = roleSlots.map((slot) =>
+                                      slot.musicianId === selectedSetupMusician.musicianId
+                                        ? { ...slot, drumDefinition: nextSetup }
+                                        : slot,
+                                    );
+                                    nextLineup[selectedSetupMusician.role] = updatedSlots[0];
+                                    return nextLineup;
+                                  });
                                   setSetupDraftBySlot((prev) => {
                                     const prior =
                                       prev[selectedSetupMusician.slotKey];
@@ -1785,8 +1811,8 @@ export function ProjectSetupPage({
                                 inputDiffMeta={resolved.diffMeta.inputs}
                                 availableInputs={availableInputs}
                                 nonRemovableKeys={[
-                                  "dr_kick_out",
-                                  "dr_kick_in",
+                                  "dr_kick_1_out",
+                                  "dr_kick_1_in",
                                   "dr_snare1_top",
                                   "dr_snare1_bottom",
                                 ]}

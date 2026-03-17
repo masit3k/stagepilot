@@ -1,5 +1,5 @@
 import { GROUP_ORDER, type Group } from "../model/groups.js";
-import type { DrumDefinition } from "../drums/drumDefinition.js";
+import { parseDrumDefinition, type DrumDefinition } from "../drums/drumDefinition.js";
 import type { LineupValue, PresetOverridePatch, Project } from "../model/types.js";
 import { resolveEffectiveTalkbackAssignment } from "../talkback/resolveEffectiveTalkbackAssignment.js";
 
@@ -24,7 +24,7 @@ function normalizeLineupEntry(entry: unknown): { musicianId: string; presetOverr
           ? { presetOverride: legacy.presetOverride as PresetOverridePatch }
           : {}),
         ...(legacy.drumDefinition && typeof legacy.drumDefinition === "object"
-          ? { drumDefinition: legacy.drumDefinition as DrumDefinition }
+          ? { drumDefinition: parseDrumDefinition(legacy.drumDefinition) }
           : {}),
       };
     }

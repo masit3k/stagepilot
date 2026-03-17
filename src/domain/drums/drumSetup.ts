@@ -1,12 +1,5 @@
-import type { InputChannel } from "../model/types.js";
-import type { DrumDefinition } from "./drumDefinition.js";
-import { createDefaultDrumDefinition } from "./drumDefinition.js";
+import type { DrumDefinition, DrumPad } from "./drumDefinition.js";
 
 export type DrumSetup = DrumDefinition;
-
-export const STANDARD_10_SETUP = createDefaultDrumDefinition();
-export const STANDARD_9_SETUP = createDefaultDrumDefinition();
-
-export function inferDrumSetupFromLegacyInputs(_inputs: InputChannel[]): DrumDefinition {
-  return createDefaultDrumDefinition();
-}
+export type PadMode = Exclude<Extract<DrumPad, { enabled: true }>['mode'], never>;
+export type PadChannels = Exclude<Extract<DrumPad, { enabled: true }>['channels'], never>;

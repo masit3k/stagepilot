@@ -30,3 +30,29 @@ describe("resolveDrumDefinitionInputs", () => {
     expect(kickIn?.id).toBe("kick_1_in");
   });
 });
+
+
+describe("drum labels and notes", () => {
+  it("uses target kick label + note", () => {
+    const definition = createDefaultDrumDefinition();
+    const kickOut = resolveDrumDefinitionInputs(definition).find((item) => item.key === "dr_kick_1_out");
+    expect(kickOut?.label).toBe("Kick OUT");
+    expect(kickOut?.note).toBe("Beta 52A / SE V Kick / e602 / D6 / D112 – kick mic stand");
+  });
+
+  it("uses stereo note for stereo pad and tracks", () => {
+    const definition = createDefaultDrumDefinition();
+    definition.pad = { enabled: true, mode: "sfx", channels: "stereo" };
+    definition.tracks = { enabled: true };
+    const resolved = resolveDrumDefinitionInputs(definition);
+    const leftPad = resolved.find((item) => item.key === "dr_pad_stereo_sfx_l");
+    const rightPad = resolved.find((item) => item.key === "dr_pad_stereo_sfx_r");
+    const tracksL = resolved.find((item) => item.key === "dr_tracks_l");
+    const tracksR = resolved.find((item) => item.key === "dr_tracks_r");
+
+    expect(leftPad?.note).toBe("2x TS jack 6.3mm – DI box");
+    expect(rightPad?.note).toBe("2x TS jack 6.3mm – DI box");
+    expect(tracksL?.note).toBe("2x TS jack 6.3mm – DI box");
+    expect(tracksR?.note).toBe("2x TS jack 6.3mm – DI box");
+  });
+});

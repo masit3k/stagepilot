@@ -1,14 +1,22 @@
-import type { DrumSetup } from "../../../../../src/domain/drums/drumSetup";
+import type { DrumDefinition } from "../../../../../src/domain/drums/drumDefinition";
 
 type DrumsPartsEditorProps = {
-  setup: DrumSetup;
-  onChange: (next: DrumSetup) => void;
+  setup: DrumDefinition;
+  onChange: (next: DrumDefinition) => void;
 };
 
 export function DrumsPartsEditor({ setup, onChange }: DrumsPartsEditorProps) {
-  const activePad = setup.pad.enabled ? setup.pad : { enabled: true as const, mode: "sfx" as const, channels: "mono" as const };
-  const setCount = (field: "tomCount" | "floorTomCount" | "extraSnareCount", delta: number, max: number) => {
-    const next = Math.max(0, Math.min(max, setup[field] + delta));
+  const activePad = setup.pad.enabled
+    ? setup.pad
+    : { enabled: true as const, mode: "sfx" as const, channels: "mono" as const };
+
+  const setCount = (
+    field: "tomCount" | "floorCount" | "snareCount" | "kickCount",
+    delta: number,
+    min: number,
+    max: number,
+  ) => {
+    const next = Math.max(min, Math.min(max, setup[field] + delta));
     onChange({ ...setup, [field]: next });
   };
 
@@ -16,11 +24,13 @@ export function DrumsPartsEditor({ setup, onChange }: DrumsPartsEditorProps) {
     <section>
       <h4>Drum parts</h4>
       <div className="setup-editor-list">
-        <div className="setup-editor-list__row"><span>Toms</span><div><button type="button" className="button-secondary" onClick={() => setCount("tomCount", -1, 4)}>-</button><span> {setup.tomCount} </span><button type="button" className="button-secondary" onClick={() => setCount("tomCount", 1, 4)}>+</button></div></div>
-        <div className="setup-editor-list__row"><span>Floor toms</span><div><button type="button" className="button-secondary" onClick={() => setCount("floorTomCount", -1, 4)}>-</button><span> {setup.floorTomCount} </span><button type="button" className="button-secondary" onClick={() => setCount("floorTomCount", 1, 4)}>+</button></div></div>
-        <div className="setup-editor-list__row"><span>Additional snares</span><div><button type="button" className="button-secondary" onClick={() => setCount("extraSnareCount", -1, 2)}>-</button><span> {setup.extraSnareCount} </span><button type="button" className="button-secondary" onClick={() => setCount("extraSnareCount", 1, 2)}>+</button></div></div>
+        <div className="setup-editor-list__row"><span>Kicks</span><div><button type="button" className="button-secondary" onClick={() => setCount("kickCount", -1, 1, 2)}>-</button><span> {setup.kickCount} </span><button type="button" className="button-secondary" onClick={() => setCount("kickCount", 1, 1, 2)}>+</button></div></div>
+        <div className="setup-editor-list__row"><span>Snares</span><div><button type="button" className="button-secondary" onClick={() => setCount("snareCount", -1, 1, 3)}>-</button><span> {setup.snareCount} </span><button type="button" className="button-secondary" onClick={() => setCount("snareCount", 1, 1, 3)}>+</button></div></div>
+        <div className="setup-editor-list__row"><span>Toms</span><div><button type="button" className="button-secondary" onClick={() => setCount("tomCount", -1, 0, 4)}>-</button><span> {setup.tomCount} </span><button type="button" className="button-secondary" onClick={() => setCount("tomCount", 1, 0, 4)}>+</button></div></div>
+        <div className="setup-editor-list__row"><span>Floor toms</span><div><button type="button" className="button-secondary" onClick={() => setCount("floorCount", -1, 0, 3)}>-</button><span> {setup.floorCount} </span><button type="button" className="button-secondary" onClick={() => setCount("floorCount", 1, 0, 3)}>+</button></div></div>
         <label className="setup-editor-list__row"><span>Hi-hat</span><input type="checkbox" checked={setup.hasHiHat} onChange={(e) => onChange({ ...setup, hasHiHat: e.target.checked })} /></label>
         <label className="setup-editor-list__row"><span>OH pair</span><input type="checkbox" checked={setup.hasOverheads} onChange={(e) => onChange({ ...setup, hasOverheads: e.target.checked })} /></label>
+        <label className="setup-editor-list__row"><span>Tracks (stereo)</span><input type="checkbox" checked={setup.tracks.enabled} onChange={(e) => onChange({ ...setup, tracks: { enabled: e.target.checked } })} /></label>
         <label className="setup-editor-list__row"><span>PAD</span><input type="checkbox" checked={setup.pad.enabled} onChange={(e) => onChange({ ...setup, pad: e.target.checked ? { enabled: true, mode: "sfx", channels: "mono" } : { enabled: false } })} /></label>
       </div>
       {setup.pad.enabled ? (

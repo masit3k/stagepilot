@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  STANDARD_10_SETUP,
-} from "../drums/drumSetup";
+import { createDefaultDrumDefinition } from "../drums/drumDefinition";
 import {
   getAcousticGuitarMembers,
   hasAcousticGuitarPreset,
@@ -171,7 +169,7 @@ describe("resolveMusicianCapabilityInputs", () => {
       presetItems: [
         {
           kind: "drum_setup",
-          setup: STANDARD_10_SETUP,
+          setup: createDefaultDrumDefinition(),
         },
       ],
       getPresetByRef: () => undefined,

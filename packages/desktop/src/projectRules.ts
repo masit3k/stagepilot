@@ -1,4 +1,4 @@
-import type { DrumDefinition } from "../../../src/domain/drums/drumDefinition";
+import { parseDrumDefinition, type DrumDefinition } from "../../../src/domain/drums/drumDefinition";
 import {
   formatEventDateForDisplayName,
   formatEventDateForSlug,
@@ -293,11 +293,17 @@ export function normalizeLineupSlots(
   if (!value) return [];
   const entries = Array.isArray(value) ? value : [value];
   return entries
-    .map((entry) =>
-      typeof entry === "string"
-        ? { musicianId: entry }
-        : { musicianId: entry.musicianId, presetOverride: entry.presetOverride, drumDefinition: entry.drumDefinition },
-    )
+    .map((entry) => {
+      if (typeof entry === "string") return { musicianId: entry };
+      const normalized = {
+        musicianId: entry.musicianId,
+        presetOverride: entry.presetOverride,
+      } as LineupSlotValue;
+      if (entry.drumDefinition && typeof entry.drumDefinition === "object") {
+        normalized.drumDefinition = parseDrumDefinition(entry.drumDefinition);
+      }
+      return normalized;
+    })
     .filter((entry) => Boolean(entry.musicianId))
     .slice(0, Math.max(maxSlots, 0));
 }
