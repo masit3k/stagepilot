@@ -1,6 +1,8 @@
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { PassThrough } from "node:stream";
 import { describe, expect, it } from "vitest";
-import { main } from "./desktop_preview.js";
+import { isExecutedAsMainModule, main } from "./desktop_preview.js";
 
 type StreamPair = {
   stdout: PassThrough;
@@ -26,6 +28,31 @@ function readStream(stream: PassThrough): Promise<string> {
   });
 }
 
+describe("desktop_preview entrypoint detection", () => {
+  it("returns false when argv entrypoint is missing", () => {
+    expect(isExecutedAsMainModule(undefined, "file:///module.ts")).toBe(false);
+  });
+
+  it("compares module URL with pathToFileURL-compatible filesystem path", () => {
+    const entryPath = path.join(
+      "/workspace/stagepilot",
+      "scripts",
+      "desktop_preview.ts",
+    );
+
+    expect(isExecutedAsMainModule(entryPath, pathToFileURL(entryPath).href)).toBe(
+      true,
+    );
+    expect(
+      isExecutedAsMainModule(entryPath, pathToFileURL(`${entryPath}.other`).href),
+    ).toBe(false);
+  });
+
+  it("does not auto-run main when imported", async () => {
+    const imported = await import("./desktop_preview.js");
+    expect(typeof imported.main).toBe("function");
+  });
+});
 describe("desktop_preview stdout/stderr protocol", () => {
   it("writes only JSON payload to stdout and sends diagnostics to stderr", async () => {
     const io = createIo();

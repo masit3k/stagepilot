@@ -3,6 +3,7 @@ import { mkdir } from "node:fs/promises";
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { argv, exit } from "node:process";
+import { pathToFileURL } from "node:url";
 import { loadDefaultContactLine } from "../src/app/usecases/exportPdf.js";
 import { normalizeProject } from "../src/app/usecases/normalizeProject.js";
 import type { ProjectJson } from "../src/domain/model/types.js";
@@ -156,10 +157,15 @@ export async function main(
   }
 }
 
-if (
-  process.argv[1] &&
-  import.meta.url === new URL(process.argv[1], "file://").href
-) {
+export function isExecutedAsMainModule(
+  argvEntryPoint: string | undefined = process.argv[1],
+  moduleUrl: string = import.meta.url,
+): boolean {
+  if (!argvEntryPoint) return false;
+  return moduleUrl === pathToFileURL(argvEntryPoint).href;
+}
+
+if (isExecutedAsMainModule()) {
   main()
     .then((code) => exit(code))
     .catch((err) => {
