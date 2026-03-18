@@ -7,7 +7,10 @@ describe("ChangeBackVocsModal", () => {
     const html = renderToStaticMarkup(
       <ChangeBackVocsModal
         open
-        members={[{ id: "m1", name: "One" }, { id: "m2", name: "Two" }]}
+        members={[
+          { id: "m1", name: "One", primaryGroup: "bass" },
+          { id: "m2", name: "Two", primaryGroup: "keys" },
+        ]}
         initialSelectedIds={new Set(["m2"])}
         onCancel={vi.fn()}
         onSave={vi.fn()}
@@ -15,7 +18,9 @@ describe("ChangeBackVocsModal", () => {
     );
 
     expect(html).toContain("One");
+    expect(html).toContain("(BASS)");
     expect(html).toContain("Two");
+    expect(html).toContain("(KEYS)");
     expect(html).toContain("checked");
     expect(html).toContain("Select BACK VOCS");
   });
@@ -24,7 +29,7 @@ describe("ChangeBackVocsModal", () => {
     const html = renderToStaticMarkup(
       <ChangeBackVocsModal
         open
-        members={[{ id: "m1", name: "One" }]}
+        members={[{ id: "m1", name: "One", primaryGroup: "vocs" }]}
         initialSelectedIds={new Set()}
         onCancel={vi.fn()}
         onSave={vi.fn()}

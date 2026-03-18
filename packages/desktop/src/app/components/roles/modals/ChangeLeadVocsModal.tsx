@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { getRoleDisplayName } from "../../../../projectRules";
 import type { LeadVocalCandidate } from "../../../domain/roles/resolveLeadVocalCandidates";
+import { CandidateDisplayLabel } from "./CandidateDisplayLabel";
 
 type ChangeLeadVocsModalProps = {
   open: boolean;
@@ -39,9 +39,10 @@ function renderCandidateRow(
         }}
       />
       <span>
-        {candidate.displayName}
-        {" "}
-        <small className="subtle">({getRoleDisplayName(candidate.primaryGroup)})</small>
+        <CandidateDisplayLabel
+          displayName={candidate.displayName}
+          primaryGroup={candidate.primaryGroup}
+        />
         {candidate.hasLeadPreset ? (
           <small className="subtle"> • Lead vocal preset</small>
         ) : null}

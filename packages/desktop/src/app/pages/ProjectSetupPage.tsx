@@ -168,10 +168,7 @@ export function ProjectSetupPage({
       storedLeader?: string,
       storedTalkback?: string,
     ) => {
-      const selected = getUniqueSelectedMusicians(
-        nextLineup,
-        ROLE_ORDER,
-      );
+      const selected = getUniqueSelectedMusicians(nextLineup, ROLE_ORDER);
       const resolvedLeader = resolveBandLeaderId({
         selectedMusicianIds: selected,
         storedBandLeaderId: storedLeader,
@@ -263,7 +260,9 @@ export function ProjectSetupPage({
         typeof parsed.talkbackOwnerId === "string"
           ? parsed.talkbackOwnerId.trim()
           : "";
-      const parsedHasBackVocalOverride = Array.isArray((parsed.lineup ?? {}).back_vocs);
+      const parsedHasBackVocalOverride = Array.isArray(
+        (parsed.lineup ?? {}).back_vocs,
+      );
       const parsedHasLeadVocalOverride = Array.isArray(parsed.leadVocalistIds);
       setProject(parsed);
       const persistedBackVocalIds = normalizeLineupValue(
@@ -271,7 +270,9 @@ export function ProjectSetupPage({
         8,
       );
       const persistedLeadVocalistIds = Array.isArray(parsed.leadVocalistIds)
-        ? parsed.leadVocalistIds.filter((item) => typeof item === "string" && item.trim().length > 0)
+        ? parsed.leadVocalistIds.filter(
+            (item) => typeof item === "string" && item.trim().length > 0,
+          )
         : [];
       setBackVocalIds(persistedBackVocalIds);
       setLeadVocalistIds(persistedLeadVocalistIds);
@@ -345,7 +346,10 @@ export function ProjectSetupPage({
       );
       console.info("[project-open] initial-setup-snapshot", {
         projectId: id,
-        selectedMusicians: getUniqueSelectedMusicians(initialState.lineup, ROLE_ORDER).length,
+        selectedMusicians: getUniqueSelectedMusicians(
+          initialState.lineup,
+          ROLE_ORDER,
+        ).length,
       });
       setLineup(initialLineup);
       setBandLeaderId(initialState.bandLeaderId);
@@ -353,10 +357,7 @@ export function ProjectSetupPage({
         const updatedProject: NewProjectPayload = {
           ...parsed,
           lineup: {
-            ...serializeLineupForProject(
-              initialState.lineup,
-              ROLE_ORDER,
-            ),
+            ...serializeLineupForProject(initialState.lineup, ROLE_ORDER),
             ...(Array.isArray((parsed.lineup ?? {}).back_vocs)
               ? {
                   back_vocs: normalizeLineupValue(
@@ -406,7 +407,8 @@ export function ProjectSetupPage({
         group: initialRoleByMusicianId.get(musicianId) ?? "vocs",
         presets: (data.musicianPresetsById?.[musicianId] ?? []) as PresetItem[],
       }));
-      const initialLeadVocalIdsFromPreset = getLeadVocsFromTemplate(initialMusicians);
+      const initialLeadVocalIdsFromPreset =
+        getLeadVocsFromTemplate(initialMusicians);
       const effectiveInitialLeadVocalIds = parsedHasLeadVocalOverride
         ? persistedLeadVocalistIds.filter((idValue) =>
             initialTemplateMusicians.includes(idValue),
@@ -444,20 +446,11 @@ export function ProjectSetupPage({
   }, [id, applyState, buildSetupSnapshot]);
 
   const errors = useMemo(
-    () =>
-      !setupData
-        ? []
-        : validateLineup(
-            lineup,
-            ROLE_ORDER,
-          ),
+    () => (!setupData ? [] : validateLineup(lineup, ROLE_ORDER)),
     [lineup, setupData],
   );
   const selectedMusicianIds = useMemo(
-    () =>
-      !setupData
-        ? []
-        : getUniqueSelectedMusicians(lineup, ROLE_ORDER),
+    () => (!setupData ? [] : getUniqueSelectedMusicians(lineup, ROLE_ORDER)),
     [lineup, setupData],
   );
   const selectedOptions = useMemo(() => {
@@ -537,7 +530,9 @@ export function ProjectSetupPage({
   );
   const selectedLeadVocalistIds = useMemo(() => {
     if (hasLeadVocalOverride) {
-      return leadVocalistIds.filter((idValue) => templateMusicianIds.has(idValue));
+      return leadVocalistIds.filter((idValue) =>
+        templateMusicianIds.has(idValue),
+      );
     }
     return defaultLeadVocalistIds;
   }, [
@@ -555,7 +550,9 @@ export function ProjectSetupPage({
       resolveLeadVocalCandidates({
         lineupCandidates: selectedTemplateMusicians
           .map((musician) => {
-            const member = templateMusicians.find((item) => item.id === musician.id);
+            const member = templateMusicians.find(
+              (item) => item.id === musician.id,
+            );
             if (!member) return null;
             return {
               musicianId: musician.id,
@@ -567,11 +564,11 @@ export function ProjectSetupPage({
             };
           })
           .filter(Boolean) as Array<{
-            musicianId: string;
-            displayName: string;
-            primaryGroup: Group;
-            hasLeadVocalPreset: boolean;
-          }>,
+          musicianId: string;
+          displayName: string;
+          primaryGroup: Group;
+          hasLeadVocalPreset: boolean;
+        }>,
         selectedLeadVocalistIds,
       }),
     [selectedLeadVocalistIds, selectedTemplateMusicians, templateMusicians],
@@ -593,7 +590,10 @@ export function ProjectSetupPage({
   );
   const selectedBackVocalIds = useMemo(() => {
     const explicitSelectedIds = Array.from(
-      sanitizeBackVocsSelection(new Set(backVocalIds), selectedLeadVocalistIdSet),
+      sanitizeBackVocsSelection(
+        new Set(backVocalIds),
+        selectedLeadVocalistIdSet,
+      ),
     ).filter((idValue) => templateMusicianIds.has(idValue));
 
     if (hasBackVocalOverride) return explicitSelectedIds;
@@ -629,8 +629,25 @@ export function ProjectSetupPage({
   );
   const backVocalCandidates = useMemo(
     () =>
-      templateMusicians.filter((item) => backVocalCandidateIds.has(item.id)),
-    [backVocalCandidateIds, templateMusicians],
+      selectedTemplateMusicians
+        .filter((musician) => backVocalCandidateIds.has(musician.id))
+        .map((musician) => {
+          const member = templateMusicians.find(
+            (item) => item.id === musician.id,
+          );
+          if (!member) return null;
+          return {
+            id: member.id,
+            name: member.name,
+            primaryGroup: musician.group,
+          };
+        })
+        .filter(Boolean) as Array<{
+        id: string;
+        name: string;
+        primaryGroup: Group;
+      }>,
+    [backVocalCandidateIds, selectedTemplateMusicians, templateMusicians],
   );
 
   const serializedLineup = useMemo(() => {
@@ -640,10 +657,7 @@ export function ProjectSetupPage({
   const defaultSelectedBackVocalIds = useMemo(() => {
     if (!setupData) return [] as string[];
     const defaultLineup = { ...(setupData.defaultLineup ?? {}) };
-    const selectedIds = getUniqueSelectedMusicians(
-      defaultLineup,
-      ROLE_ORDER,
-    );
+    const selectedIds = getUniqueSelectedMusicians(defaultLineup, ROLE_ORDER);
     const roleByMusicianId = new Map<string, Group>();
     ROLE_ORDER.forEach((role) => {
       const roleSlotLimit = getRoleSlotLimit(role);
@@ -672,7 +686,9 @@ export function ProjectSetupPage({
     bandLeaderId,
     talkbackOwnerId: talkbackCurrentOwnerId,
     hasTalkbackOverride,
-    leadVocalistIds: [...selectedLeadVocalistIds].sort((a, b) => a.localeCompare(b)),
+    leadVocalistIds: [...selectedLeadVocalistIds].sort((a, b) =>
+      a.localeCompare(b),
+    ),
     hasLeadVocalOverride,
     backVocalIds: [...selectedBackVocalIds].sort((a, b) => a.localeCompare(b)),
     hasBackVocalOverride,
@@ -685,17 +701,19 @@ export function ProjectSetupPage({
     );
     return JSON.stringify({
       ...defaults,
-      lineup: serializeLineupForProject(
-        defaults.lineup,
-        ROLE_ORDER,
-      ),
+      lineup: serializeLineupForProject(defaults.lineup, ROLE_ORDER),
       backVocalIds: defaultSelectedBackVocalIds,
       leadVocalistIds: defaultLeadVocalistIds,
       hasLeadVocalOverride: false,
       hasBackVocalOverride: false,
       hasTalkbackOverride: false,
     });
-  }, [defaultLeadVocalistIds, defaultSelectedBackVocalIds, setupData, buildSetupSnapshot]);
+  }, [
+    defaultLeadVocalistIds,
+    defaultSelectedBackVocalIds,
+    setupData,
+    buildSetupSnapshot,
+  ]);
   const currentDirtyState = useMemo<LineupDirtyComparisonState>(
     () => ({
       lineup: serializedLineup,
@@ -768,10 +786,7 @@ export function ProjectSetupPage({
     });
     setProject(payload);
     initialSnapshotRef.current = createLineupDirtyBaseline({
-      lineup: serializeLineupForProject(
-        payload.lineup ?? {},
-        ROLE_ORDER,
-      ),
+      lineup: serializeLineupForProject(payload.lineup ?? {}, ROLE_ORDER),
       bandLeaderId: payload.bandLeaderId ?? "",
       talkbackOwnerId: hasTalkbackOverride
         ? (payload.talkbackOwnerId ?? "")
@@ -891,13 +906,18 @@ export function ProjectSetupPage({
               .defaultPreset,
             override,
           );
-          const persistedSlot = normalizeLineupSlots(lineup[role], roleSlotLimit)[slotIndex];
+          const persistedSlot = normalizeLineupSlots(
+            lineup[role],
+            roleSlotLimit,
+          )[slotIndex];
           return {
             musicianId: slot.musicianId,
             ...(normalizedOverride
               ? { presetOverride: normalizedOverride }
               : {}),
-            ...(persistedSlot?.drumDefinition ? { drumDefinition: persistedSlot.drumDefinition } : {}),
+            ...(persistedSlot?.drumDefinition
+              ? { drumDefinition: persistedSlot.drumDefinition }
+              : {}),
           };
         },
       );
@@ -1115,7 +1135,10 @@ export function ProjectSetupPage({
 
   const visibleLineupSections = useMemo(() => {
     if (!setupData) {
-      return ROLE_ORDER.map((role) => ({ kind: "role" as const, role }));
+      return ROLE_ORDER.filter((role) => role !== "vocs").map((role) => ({
+        kind: "role" as const,
+        role,
+      }));
     }
 
     return buildVisibleLineupSections({
@@ -1126,7 +1149,7 @@ export function ProjectSetupPage({
       },
       resolveMusicianDefaultInputs: (musicianId) =>
         resolveMusicianCapabilityDefaultInputs(musicianId),
-    });
+    }).filter((section) => section.kind !== "role" || section.role !== "vocs");
   }, [lineup, resolveMusicianCapabilityDefaultInputs, setupData]);
 
   const resetModalRef = useModalBehavior(showResetConfirmation, () =>
@@ -1185,26 +1208,31 @@ export function ProjectSetupPage({
         {visibleLineupSections.map((section) => {
           if (section.kind === "acoustic_guitar") {
             return (
-              <article
-                key="acoustic-guitar"
-                className="lineup-card"
-              >
+              <article key="acoustic-guitar" className="lineup-card">
                 <h3>AC. GUITAR</h3>
                 <div className="lineup-card__body section-divider">
                   <div className="lineup-list lineup-list--single">
                     {section.members.map((member) => {
-                      const sourceRoleSlotLimit = getRoleSlotLimit(member.sourceRole);
+                      const sourceRoleSlotLimit = getRoleSlotLimit(
+                        member.sourceRole,
+                      );
                       const sourceSlots = normalizeLineupSlots(
                         lineup[member.sourceRole],
                         sourceRoleSlotLimit,
                       );
                       const sourceSlot = sourceSlots[member.sourceSlotIndex];
-                      const musicianId = sourceSlot?.musicianId ?? member.musicianId;
-                      const sourceMembers = resolveEligibleMembersForSection("acoustic_guitar", member.sourceRole);
+                      const musicianId =
+                        sourceSlot?.musicianId ?? member.musicianId;
+                      const sourceMembers = resolveEligibleMembersForSection(
+                        "acoustic_guitar",
+                        member.sourceRole,
+                      );
                       const selectedName = musicianId
                         ? resolveMusicianDisplayName({
                             musicianId,
-                            preferredName: sourceMembers.find((m) => m.id === musicianId)?.name,
+                            preferredName: sourceMembers.find(
+                              (m) => m.id === musicianId,
+                            )?.name,
                           })
                         : "Not selected";
 
@@ -1213,12 +1241,18 @@ export function ProjectSetupPage({
                           key={`acoustic-guitar-${member.sourceRole}-${member.sourceSlotIndex}-${member.musicianId}`}
                           className="lineup-list__row"
                         >
-                          <span className="lineup-list__name">{selectedName}</span>
+                          <span className="lineup-list__name">
+                            {selectedName}
+                          </span>
                           <div className="lineup-list__actions">
                             <button
                               type="button"
                               className="button-secondary"
-                              disabled={!musicianId || sourceMembers.filter((m) => m.id !== musicianId).length === 0}
+                              disabled={
+                                !musicianId ||
+                                sourceMembers.filter((m) => m.id !== musicianId)
+                                  .length === 0
+                              }
                               onClick={() =>
                                 setEditing({
                                   role: member.sourceRole,
@@ -1240,7 +1274,8 @@ export function ProjectSetupPage({
                                   PresetOverridePatch | undefined
                                 > = {};
                                 ROLE_ORDER.forEach((setupRole) => {
-                                  const setupRoleSlotLimit = getRoleSlotLimit(setupRole);
+                                  const setupRoleSlotLimit =
+                                    getRoleSlotLimit(setupRole);
                                   normalizeLineupSlots(
                                     lineup[setupRole],
                                     setupRoleSlotLimit,
@@ -1282,10 +1317,12 @@ export function ProjectSetupPage({
           const role = section.role;
           const roleSlotLimit = getRoleSlotLimit(role);
           const selected = normalizeLineupValue(lineup[role], roleSlotLimit);
-          const sectionCapability: SetupCapabilitySection = role === "guitar"
-            ? "guitar"
-            : (role as SetupCapabilitySection);
-          const members = resolveEligibleMembersForSection(sectionCapability, role);
+          const sectionCapability: SetupCapabilitySection =
+            role === "guitar" ? "guitar" : (role as SetupCapabilitySection);
+          const members = resolveEligibleMembersForSection(
+            sectionCapability,
+            role,
+          );
 
           return (
             <article key={role} className="lineup-card">
@@ -1295,92 +1332,100 @@ export function ProjectSetupPage({
                       role: "guitar",
                       musicianId: selected[0],
                       resolveInputs: (musicianId) =>
-                        resolveSlotSetup("guitar", musicianId).resolved.defaultPreset
-                          .inputs,
-                      fallback: getRoleDisplayName(
-                        role,
-                      ),
+                        resolveSlotSetup("guitar", musicianId).resolved
+                          .defaultPreset.inputs,
+                      fallback: getRoleDisplayName(role),
                     })
-                  : getRoleDisplayName(
-                      role,
-                    )}
+                  : getRoleDisplayName(role)}
               </h3>
               <div className="lineup-card__body section-divider">
                 <div className="lineup-list lineup-list--single">
-                  {(selected.length ? selected : [""]).map((musicianId, index) => {
-                    const alternatives = members.filter((m) => m.id !== musicianId);
-                    return (
-                      <div key={`${role}-${index}`} className="lineup-list__row">
-                        <span className="lineup-list__name">
-                          {musicianId
-                            ? resolveMusicianDisplayName({
-                                musicianId,
-                                preferredName: members.find((m) => m.id === musicianId)?.name,
-                              })
-                            : "Not selected"}
-                        </span>
-                        <div className="lineup-list__actions">
-                          <button
-                            type="button"
-                            className="button-secondary"
-                            disabled={alternatives.length === 0}
-                            onClick={() =>
-                              setEditing({
-                                role,
-                                slotIndex: index,
-                                currentSelectedId: musicianId || undefined,
-                              })
-                            }
-                          >
-                            Change
-                          </button>
-                          <button
-                            type="button"
-                            className="button-secondary"
-                            disabled={!musicianId}
-                            onClick={() => {
-                              if (!setupData) return;
-                              const draftEntries: Record<
-                                string,
-                                PresetOverridePatch | undefined
-                              > = {};
-                              ROLE_ORDER.forEach((setupRole) => {
-                                const setupRoleSlotLimit = getRoleSlotLimit(setupRole);
-                                normalizeLineupSlots(
-                                  lineup[setupRole],
-                                  setupRoleSlotLimit,
-                                ).forEach((setupSlot, setupIndex) => {
-                                  if (!setupSlot.musicianId) return;
-                                  draftEntries[`${setupRole}:${setupIndex}`] =
-                                    normalizeSetupOverridePatch(
-                                      resolveSlotSetup(
-                                        setupRole as Group,
-                                        setupSlot.musicianId,
-                                      ).resolved.defaultPreset,
-                                      setupSlot.presetOverride,
-                                    );
+                  {(selected.length ? selected : [""]).map(
+                    (musicianId, index) => {
+                      const alternatives = members.filter(
+                        (m) => m.id !== musicianId,
+                      );
+                      return (
+                        <div
+                          key={`${role}-${index}`}
+                          className="lineup-list__row"
+                        >
+                          <span className="lineup-list__name">
+                            {musicianId
+                              ? resolveMusicianDisplayName({
+                                  musicianId,
+                                  preferredName: members.find(
+                                    (m) => m.id === musicianId,
+                                  )?.name,
+                                })
+                              : "Not selected"}
+                          </span>
+                          <div className="lineup-list__actions">
+                            <button
+                              type="button"
+                              className="button-secondary"
+                              disabled={alternatives.length === 0}
+                              onClick={() =>
+                                setEditing({
+                                  role,
+                                  slotIndex: index,
+                                  currentSelectedId: musicianId || undefined,
+                                })
+                              }
+                            >
+                              Change
+                            </button>
+                            <button
+                              type="button"
+                              className="button-secondary"
+                              disabled={!musicianId}
+                              onClick={() => {
+                                if (!setupData) return;
+                                const draftEntries: Record<
+                                  string,
+                                  PresetOverridePatch | undefined
+                                > = {};
+                                ROLE_ORDER.forEach((setupRole) => {
+                                  const setupRoleSlotLimit =
+                                    getRoleSlotLimit(setupRole);
+                                  normalizeLineupSlots(
+                                    lineup[setupRole],
+                                    setupRoleSlotLimit,
+                                  ).forEach((setupSlot, setupIndex) => {
+                                    if (!setupSlot.musicianId) return;
+                                    draftEntries[`${setupRole}:${setupIndex}`] =
+                                      normalizeSetupOverridePatch(
+                                        resolveSlotSetup(
+                                          setupRole as Group,
+                                          setupSlot.musicianId,
+                                        ).resolved.defaultPreset,
+                                        setupSlot.presetOverride,
+                                      );
+                                  });
                                 });
-                              });
-                              setSetupDraftBySlot(draftEntries);
-                              const slotKey = `${role}:${index}`;
-                              setSelectedSetupSlotKey(slotKey);
-                              setEditingSetup({
-                                role,
-                                slotIndex: index,
-                                musicianId,
-                              });
-                            }}
-                          >
-                            Setup
-                            {normalizeLineupSlots(lineup[role], roleSlotLimit)[index]
-                              ?.presetOverride
-                              ? " •"
-                              : ""}
-                          </button>
+                                setSetupDraftBySlot(draftEntries);
+                                const slotKey = `${role}:${index}`;
+                                setSelectedSetupSlotKey(slotKey);
+                                setEditingSetup({
+                                  role,
+                                  slotIndex: index,
+                                  musicianId,
+                                });
+                              }}
+                            >
+                              Setup
+                              {normalizeLineupSlots(
+                                lineup[role],
+                                roleSlotLimit,
+                              )[index]?.presetOverride
+                                ? " •"
+                                : ""}
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    },
+                  )}
                 </div>
               </div>
             </article>
@@ -1406,10 +1451,8 @@ export function ProjectSetupPage({
                 if (!setupSlot.musicianId) return;
                 draftEntries[`${setupRole}:${setupIndex}`] =
                   normalizeSetupOverridePatch(
-                    resolveSlotSetup(
-                      setupRole as Group,
-                      setupSlot.musicianId,
-                    ).resolved.defaultPreset,
+                    resolveSlotSetup(setupRole as Group, setupSlot.musicianId)
+                      .resolved.defaultPreset,
                     setupSlot.presetOverride,
                   );
               });
@@ -1741,9 +1784,16 @@ export function ProjectSetupPage({
               const inputSectionGroups =
                 effectiveInputGroups.length > 0
                   ? effectiveInputGroups
-                  : [{ key: "vocs", label: "", inputs: effectiveSectionInputs }];
+                  : [
+                      {
+                        key: "vocs",
+                        label: "",
+                        inputs: effectiveSectionInputs,
+                      },
+                    ];
               const setupTitle = composeSetupModalTitle({
-                templateType: project?.purpose === "generic" ? "generic" : "event",
+                templateType:
+                  project?.purpose === "generic" ? "generic" : "event",
                 musicianName: selectedSetupMusician.musicianName,
                 instrumentLabels: resolveDistinctInstrumentLabels(
                   effectiveSectionInputs,
@@ -1992,14 +2042,22 @@ export function ProjectSetupPage({
                                     const nextLineup = { ...prevLineup };
                                     const roleSlots = normalizeLineupSlots(
                                       nextLineup[selectedSetupMusician.role],
-                                      getRoleSlotLimit(selectedSetupMusician.role),
+                                      getRoleSlotLimit(
+                                        selectedSetupMusician.role,
+                                      ),
                                     );
-                                    const updatedSlots = roleSlots.map((slot) =>
-                                      slot.musicianId === selectedSetupMusician.musicianId
-                                        ? { ...slot, drumDefinition: nextSetup }
-                                        : slot,
+                                    const updatedSlots = roleSlots.map(
+                                      (slot) =>
+                                        slot.musicianId ===
+                                        selectedSetupMusician.musicianId
+                                          ? {
+                                              ...slot,
+                                              drumDefinition: nextSetup,
+                                            }
+                                          : slot,
                                     );
-                                    nextLineup[selectedSetupMusician.role] = updatedSlots[0];
+                                    nextLineup[selectedSetupMusician.role] =
+                                      updatedSlots[0];
                                     return nextLineup;
                                   });
                                   setSetupDraftBySlot((prev) => {
@@ -2029,47 +2087,48 @@ export function ProjectSetupPage({
                                 }}
                               />
                             ) : null}
-                            {selectedSetupMusician.role === "drums" ? null : (
-                              inputSectionGroups.map((group) => (
-                                <SetupSection
-                                  key={group.key}
-                                  title={
-                                    inputSectionGroups.length === 1
-                                      ? "Input"
-                                      : `Input – ${group.label}`
-                                  }
-                                  modified={resolved.diffMeta.inputs.some(
-                                    (item) => isDiffOriginOverridden(item.origin),
-                                  )}
-                                >
-                                  <SchemaRenderer
-                                    fields={
-                                      group.key === "keys"
-                                        ? KEYS_FIELDS
-                                        : group.key === "acoustic_guitar" ||
-                                            group.key === "electric_guitar"
-                                          ? GUITAR_FIELDS
-                                          : LEAD_VOCS_FIELDS
+                            {selectedSetupMusician.role === "drums"
+                              ? null
+                              : inputSectionGroups.map((group) => (
+                                  <SetupSection
+                                    key={group.key}
+                                    title={
+                                      inputSectionGroups.length === 1
+                                        ? "Input"
+                                        : `Input – ${group.label}`
                                     }
-                                    state={{
-                                      defaultPreset: resolved.defaultPreset,
-                                      effectivePreset: effective,
-                                      patch: currentPatch,
-                                    }}
-                                    onPatch={(nextPatch) =>
-                                      setSetupDraftBySlot((prev) => ({
-                                        ...prev,
-                                        [selectedSetupMusician.slotKey]:
-                                          normalizeSetupOverridePatch(
-                                            resolved.defaultPreset,
-                                            nextPatch,
-                                          ),
-                                      }))
-                                    }
-                                  />
-                                </SetupSection>
-                              ))
-                            )}
+                                    modified={resolved.diffMeta.inputs.some(
+                                      (item) =>
+                                        isDiffOriginOverridden(item.origin),
+                                    )}
+                                  >
+                                    <SchemaRenderer
+                                      fields={
+                                        group.key === "keys"
+                                          ? KEYS_FIELDS
+                                          : group.key === "acoustic_guitar" ||
+                                              group.key === "electric_guitar"
+                                            ? GUITAR_FIELDS
+                                            : LEAD_VOCS_FIELDS
+                                      }
+                                      state={{
+                                        defaultPreset: resolved.defaultPreset,
+                                        effectivePreset: effective,
+                                        patch: currentPatch,
+                                      }}
+                                      onPatch={(nextPatch) =>
+                                        setSetupDraftBySlot((prev) => ({
+                                          ...prev,
+                                          [selectedSetupMusician.slotKey]:
+                                            normalizeSetupOverridePatch(
+                                              resolved.defaultPreset,
+                                              nextPatch,
+                                            ),
+                                        }))
+                                      }
+                                    />
+                                  </SetupSection>
+                                ))}
                           </div>
                           <div className="setup-editor-column">
                             <SetupSection
@@ -2130,7 +2189,9 @@ export function ProjectSetupPage({
             suggestedCandidates={
               leadVocalCandidateSections.suggestedLeadVocalCandidates
             }
-            otherCandidates={leadVocalCandidateSections.otherLeadVocalCandidates}
+            otherCandidates={
+              leadVocalCandidateSections.otherLeadVocalCandidates
+            }
             initialSelectedIds={new Set(selectedLeadVocalistIds)}
             onCancel={() => setIsLeadVocsModalOpen(false)}
             onSave={(nextSelectedIds) => {
@@ -2261,12 +2322,7 @@ export function ProjectSetupPage({
               ×
             </button>
             <div className="panel__header panel__header--stack selector-dialog__title">
-              <h3>
-                Select{" "}
-                {getRoleDisplayName(
-                  editing.role,
-                )}
-              </h3>
+              <h3>Select {getRoleDisplayName(editing.role)}</h3>
             </div>
             <div className="selector-dialog__divider section-divider" />
             <div className="selector-list">
@@ -2275,7 +2331,9 @@ export function ProjectSetupPage({
                 : editing.role === "talkback"
                   ? [{ id: "", name: "Nobody assigned" }, ...selectedOptions]
                   : resolveEligibleMembersForSection(
-                      editing.role === "guitar" ? "guitar" : (editing.role as SetupCapabilitySection),
+                      editing.role === "guitar"
+                        ? "guitar"
+                        : (editing.role as SetupCapabilitySection),
                       editing.role,
                     )
               ).map((member) => (

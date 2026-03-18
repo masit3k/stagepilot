@@ -21,18 +21,29 @@ export type LeadVocalCandidateSections = {
   otherLeadVocalCandidates: LeadVocalCandidate[];
 };
 
-const GROUP_ORDER: Group[] = ["drums", "bass", "guitar", "keys", "vocs", "talkback"];
+const GROUP_ORDER: Group[] = [
+  "drums",
+  "bass",
+  "guitar",
+  "keys",
+  "vocs",
+  "talkback",
+];
 
 function groupRank(group: Group): number {
   const index = GROUP_ORDER.indexOf(group);
   return index >= 0 ? index : GROUP_ORDER.length;
 }
 
-function compareCandidates(left: LeadVocalCandidate, right: LeadVocalCandidate): number {
+function compareCandidates(
+  left: LeadVocalCandidate,
+  right: LeadVocalCandidate,
+): number {
   if (left.isSelected !== right.isSelected) return left.isSelected ? -1 : 1;
   if (left.isSuggested !== right.isSuggested) return left.isSuggested ? -1 : 1;
 
-  const groupDiff = groupRank(left.primaryGroup) - groupRank(right.primaryGroup);
+  const groupDiff =
+    groupRank(left.primaryGroup) - groupRank(right.primaryGroup);
   if (groupDiff !== 0) return groupDiff;
 
   const nameDiff = left.displayName.localeCompare(right.displayName, "en");
@@ -49,7 +60,7 @@ export function resolveLeadVocalCandidates(args: {
 
   const candidates = args.lineupCandidates.map((candidate) => {
     const isSelected = selectedSet.has(candidate.musicianId);
-    const isSuggested = candidate.hasLeadVocalPreset || isSelected;
+    const isSuggested = candidate.hasLeadVocalPreset;
     return {
       musicianId: candidate.musicianId,
       displayName: candidate.displayName,

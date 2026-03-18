@@ -33,15 +33,15 @@ describe("resolveLeadVocalCandidates", () => {
       selectedLeadVocalistIds: ["voc-1", "keys-1"],
     });
 
-    expect(result.suggestedLeadVocalCandidates.map((item) => item.musicianId)).toEqual([
-      "keys-1",
-      "voc-1",
-      "drm-1",
-    ]);
-    expect(result.otherLeadVocalCandidates.map((item) => item.musicianId)).toEqual(["gtr-1"]);
+    expect(
+      result.suggestedLeadVocalCandidates.map((item) => item.musicianId),
+    ).toEqual(["keys-1", "drm-1"]);
+    expect(
+      result.otherLeadVocalCandidates.map((item) => item.musicianId),
+    ).toEqual(["voc-1", "gtr-1"]);
   });
 
-  it("does not duplicate entries across sections", () => {
+  it("keeps selected non-suggested candidates in other section without duplication", () => {
     const result = resolveLeadVocalCandidates({
       lineupCandidates: [
         {
@@ -54,7 +54,12 @@ describe("resolveLeadVocalCandidates", () => {
       selectedLeadVocalistIds: ["m1"],
     });
 
-    expect(result.suggestedLeadVocalCandidates).toHaveLength(1);
-    expect(result.otherLeadVocalCandidates).toHaveLength(0);
+    expect(result.suggestedLeadVocalCandidates).toHaveLength(0);
+    expect(result.otherLeadVocalCandidates).toHaveLength(1);
+    expect(result.otherLeadVocalCandidates[0]).toMatchObject({
+      musicianId: "m1",
+      isSelected: true,
+      isSuggested: false,
+    });
   });
 });

@@ -35,6 +35,8 @@ describe("ChangeLeadVocsModal", () => {
 
     expect(html).toContain("Suggested lead vocalists");
     expect(html).toContain("Other lineup members");
+    expect(html).toContain("(KEYS)");
+    expect(html).toContain("(GUITAR)");
     expect(html).toContain("Lead vocal preset");
     expect(html).toContain("checked");
   });
