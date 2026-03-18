@@ -1,11 +1,13 @@
 import type { InputChannel } from "../model/types.js";
 import type { DrumDefinition } from "./drumDefinition.js";
-import { normalizeDrumDefinition } from "./drumDefinition.js";
+import { normalizeDrumDefinition, resolveBackingTrackInput } from "./drumDefinition.js";
 import { loadDrumCatalog, type DrumInputCatalogItem } from "./drumInputCatalog.js";
 import { validateDrumDefinition } from "./validateDrumDefinition.js";
 
 export function resolveDrumTrackSlots(definition: DrumDefinition): string[] {
-  return definition.tracks.enabled ? ["tracks_l", "tracks_r"] : [];
+  const backingTrack = resolveBackingTrackInput(definition);
+  if (!backingTrack) return [];
+  return backingTrack.channels === "mono" ? ["tracks_l"] : ["tracks_l", "tracks_r"];
 }
 
 export function resolveDrumActiveSlots(definition: DrumDefinition): string[] {
@@ -67,8 +69,8 @@ export function resolveDrumActiveSlots(definition: DrumDefinition): string[] {
 }
 
 function drumOrderingGroup(item: DrumInputCatalogItem): number {
-  if (item.category === "pad") return 3;
   if (item.category === "tracks") return 4;
+  if (item.category === "pad") return 3;
   return 1;
 }
 

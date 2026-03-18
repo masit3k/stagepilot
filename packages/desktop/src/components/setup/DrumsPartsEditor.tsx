@@ -1,4 +1,5 @@
 import {
+  normalizeDrumDefinition,
   toFloorCount,
   toKickCount,
   toSnareCount,
@@ -6,6 +7,7 @@ import {
   type DrumDefinition,
 } from "../../../../../src/domain/drums/drumDefinition";
 import drumSetupBlueprintAsset from "../../../../../data/assets/setup-blueprints/drums.json";
+import { useEffect, useState } from "react";
 import { SetupSection } from "../../app/components/setup/SetupSection";
 import { SetupCounterRow } from "../../app/components/setup/fields/SetupCounterRow";
 import { SetupSelectRow } from "../../app/components/setup/fields/SetupSelectRow";
@@ -44,10 +46,32 @@ const drumSetupBlueprint = drumSetupBlueprintAsset as DrumSetupBlueprint;
 
 export function updateCountField(setup: DrumDefinition, field: CountField, value: number): DrumDefinition {
   switch (field) {
-    case "kickCount":
-      return { ...setup, kickCount: toKickCount(value) };
-    case "snareCount":
-      return { ...setup, snareCount: toSnareCount(value) };
+    case "kickCount": {
+      const nextKickCount = toKickCount(value);
+      const currentKick2 = setup.kicks[1];
+      return normalizeDrumDefinition({
+        ...setup,
+        kickCount: nextKickCount,
+        kicks: [
+          setup.kicks[0] ?? { in: true, out: true },
+          nextKickCount >= 2 ? (currentKick2 ?? { in: true, out: true }) : undefined,
+        ],
+      });
+    }
+    case "snareCount": {
+      const nextSnareCount = toSnareCount(value);
+      const currentSnare2 = setup.snares[1];
+      const currentSnare3 = setup.snares[2];
+      return normalizeDrumDefinition({
+        ...setup,
+        snareCount: nextSnareCount,
+        snares: [
+          setup.snares[0] ?? { top: true, bottom: true },
+          nextSnareCount >= 2 ? (currentSnare2 ?? { top: true, bottom: true }) : undefined,
+          nextSnareCount >= 3 ? (currentSnare3 ?? { top: true, bottom: true }) : undefined,
+        ],
+      });
+    }
     case "tomCount":
       return { ...setup, tomCount: toTomCount(value) };
     case "floorCount":
@@ -95,7 +119,21 @@ function booleanFieldValue(setup: DrumDefinition, field: BooleanField): boolean 
 }
 
 export function DrumsPartsEditor({ setup, onChange }: DrumsPartsEditorProps) {
-  const activePad = setup.pad.enabled ? setup.pad : { enabled: true as const, mode: "sfx" as const, channels: "mono" as const };
+  const [localSetup, setLocalSetup] = useState<DrumDefinition>(setup);
+
+  useEffect(() => {
+    setLocalSetup(setup);
+  }, [setup]);
+
+  const updateSetup = (transform: (current: DrumDefinition) => DrumDefinition) => {
+    setLocalSetup((current) => {
+      const next = transform(current);
+      onChange(next);
+      return next;
+    });
+  };
+
+  const activePad = localSetup.pad.enabled ? localSetup.pad : { enabled: true as const, mode: "sfx" as const, channels: "mono" as const };
 
   return (
     <>
@@ -108,10 +146,10 @@ export function DrumsPartsEditor({ setup, onChange }: DrumsPartsEditorProps) {
                   <SetupCounterRow
                     key={item.id}
                     label={item.label}
-                    value={countFieldValue(setup, item.field)}
+                    value={countFieldValue(localSetup, item.field)}
                     min={Math.min(...item.allowed)}
                     max={Math.max(...item.allowed)}
-                    onChange={(next) => onChange(updateCountField(setup, item.field, next))}
+                    onChange={(next) => updateSetup((current) => updateCountField(current, item.field, next))}
                   />
                 );
               }
@@ -121,8 +159,8 @@ export function DrumsPartsEditor({ setup, onChange }: DrumsPartsEditorProps) {
                   <SetupToggleRow
                     key={item.id}
                     label={item.label}
-                    checked={booleanFieldValue(setup, item.field)}
-                    onChange={(checked) => onChange(updateBooleanField(setup, item.field, checked))}
+                    checked={booleanFieldValue(localSetup, item.field)}
+                    onChange={(checked) => updateSetup((current) => updateBooleanField(current, item.field, checked))}
                   />
                 );
               }
@@ -131,15 +169,15 @@ export function DrumsPartsEditor({ setup, onChange }: DrumsPartsEditorProps) {
                 <div key={item.id}>
                   <SetupToggleRow
                     label={item.label}
-                    checked={setup.pad.enabled}
+                    checked={localSetup.pad.enabled}
                     onChange={(checked) =>
-                      onChange({
-                        ...setup,
+                      updateSetup((current) => ({
+                        ...current,
                         pad: checked ? { enabled: true, mode: "sfx", channels: "mono" } : { enabled: false },
-                      })
+                      }))
                     }
                   />
-                  {setup.pad.enabled ? (
+                  {localSetup.pad.enabled ? (
                     <div className="setup-pad-settings" data-testid="pad-settings">
                       <div className="setup-pad-settings__row">
                         <SetupSelectRow
@@ -147,10 +185,10 @@ export function DrumsPartsEditor({ setup, onChange }: DrumsPartsEditorProps) {
                           value={activePad.mode}
                           options={item.options?.mode ?? ["sfx", "backing"]}
                           onChange={(mode) =>
-                            onChange({
-                              ...setup,
+                            updateSetup((current) => ({
+                              ...current,
                               pad: { enabled: true, mode, channels: activePad.channels },
-                            })
+                            }))
                           }
                           formatOptionLabel={(mode) => mode.toUpperCase()}
                         />
@@ -161,10 +199,10 @@ export function DrumsPartsEditor({ setup, onChange }: DrumsPartsEditorProps) {
                           value={activePad.channels}
                           options={item.options?.channels ?? ["mono", "stereo"]}
                           onChange={(channels) =>
-                            onChange({
-                              ...setup,
+                            updateSetup((current) => ({
+                              ...current,
                               pad: { enabled: true, mode: activePad.mode, channels },
-                            })
+                            }))
                           }
                           formatOptionLabel={(channels) => channels[0].toUpperCase() + channels.slice(1)}
                         />

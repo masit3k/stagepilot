@@ -341,6 +341,7 @@ function buildStageplanBoxes(
   };
 
   const isPadInput = (label: string): boolean => /pad/i.test(label);
+  const isBackingTrackInput = (label: string): boolean => /backing\s*track/i.test(label);
   const isDummyInput = (label: string): boolean => /dummy/i.test(label);
   const isBackVocalDrums = (label: string): boolean => /back vocal\s*[-–—]\s*drums/i.test(label);
   const formatRange = (label: string, items: Array<{ channelNo: number }>): string | null => {
@@ -392,21 +393,39 @@ function buildStageplanBoxes(
       slot === "drums"
         ? (() => {
             const padInputs = inputs.filter((item) => isPadInput(item.label) && !isDummyInput(item.label));
+            const backingTrackInputs = inputs.filter((item) => isBackingTrackInput(item.label) && !isDummyInput(item.label));
             const backVocalInputs = inputs.filter((item) => isBackVocalDrums(item.label));
             const drumInputs = inputs.filter(
-              (item) => item.group === "drums" && !isPadInput(item.label) && !isDummyInput(item.label) && !isBackVocalDrums(item.label)
+              (item) =>
+                item.group === "drums" &&
+                !isPadInput(item.label) &&
+                !isBackingTrackInput(item.label) &&
+                !isDummyInput(item.label) &&
+                !isBackVocalDrums(item.label)
             );
             const bullets: string[] = [];
             const drumRange = formatRange("Drums", drumInputs);
             const padRange = formatRange("PAD", padInputs);
+            const backingTrackRange = formatRange("Backing track", backingTrackInputs);
             const padLines = buildInputLines(padInputs);
             const collapsedPadLines = collapseStereoForStageplan(padLines);
             const padStereoLine = padInputs.length === 2 && collapsedPadLines.length === 1 ? (collapsedPadLines[0]?.text ?? null) : null;
+            const backingTrackLines = buildInputLines(backingTrackInputs);
+            const collapsedBackingTrackLines = collapseStereoForStageplan(backingTrackLines);
+            const backingTrackStereoLine =
+              backingTrackInputs.length === 2 && collapsedBackingTrackLines.length === 1
+                ? (collapsedBackingTrackLines[0]?.text ?? null)
+                : null;
             if (drumRange) bullets.push(drumRange);
             if (padStereoLine) {
               bullets.push(padStereoLine);
             } else if (padRange) {
               bullets.push(padRange);
+            }
+            if (backingTrackStereoLine) {
+              bullets.push(backingTrackStereoLine);
+            } else if (backingTrackRange) {
+              bullets.push(backingTrackRange);
             }
             for (const item of backVocalInputs) {
               bullets.push(`${item.label} (${item.channelNo})`);

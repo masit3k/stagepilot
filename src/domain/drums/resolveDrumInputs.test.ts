@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createDefaultDrumDefinition } from "./drumDefinition.js";
+import { createDefaultDrumDefinition, resolveBackingTrackInput } from "./drumDefinition.js";
 import { orderResolvedDrumInputs, resolveDrumActiveSlots, resolveDrumDefinitionInputs } from "./resolveDrumDefinitionInputs.js";
 import { validateDrumDefinition } from "./validateDrumDefinition.js";
 
@@ -15,6 +15,17 @@ describe("validateDrumDefinition", () => {
 });
 
 describe("resolveDrumDefinitionInputs", () => {
+  it("normalizes backing track input as an explicit stereo source", () => {
+    const definition = createDefaultDrumDefinition();
+    expect(resolveBackingTrackInput(definition)).toBeNull();
+
+    definition.tracks.enabled = true;
+    expect(resolveBackingTrackInput(definition)).toEqual({
+      type: "backing_track",
+      channels: "stereo",
+    });
+  });
+
   it("resolves deterministic keys with tracks", () => {
     const definition = createDefaultDrumDefinition();
     definition.tracks.enabled = true;

@@ -52,7 +52,9 @@ describe("DrumsPartsEditor", () => {
     const snareUpdate = updateCountField(baseSetup, "snareCount", 2);
 
     expect(kickUpdate.kickCount).toBe(2);
+    expect(kickUpdate.kicks[1]).toEqual({ in: true, out: true });
     expect(snareUpdate.snareCount).toBe(2);
+    expect(snareUpdate.snares[1]).toEqual({ top: true, bottom: true });
   });
 
   it("updates backing track toggle through typed boolean field", () => {

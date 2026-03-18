@@ -10,6 +10,7 @@ export type DrumPad =
     };
 
 export type DrumTracks = { enabled: boolean };
+export type BackingTrackInput = { type: "backing_track"; channels: "mono" | "stereo" };
 
 export type DrumDefinition = {
   kickCount: 1 | 2;
@@ -71,6 +72,11 @@ export function createDefaultDrumDefinition(): DrumDefinition {
     pad: { enabled: false },
     tracks: { enabled: false },
   };
+}
+
+export function resolveBackingTrackInput(definition: DrumDefinition): BackingTrackInput | null {
+  if (!definition.tracks.enabled) return null;
+  return { type: "backing_track", channels: "stereo" };
 }
 
 export function normalizeDrumDefinition(definition: DrumDefinition): DrumDefinition {

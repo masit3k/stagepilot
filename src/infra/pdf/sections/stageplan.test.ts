@@ -211,6 +211,30 @@ describe("stageplan render plan", () => {
     expect(leadBox?.inputBullets.join(" ")).toContain("Acoustic guitar");
   });
 
+  it("renders backing track separately from drums and PAD in drums box", () => {
+    const plan = buildStageplanPlan({
+      lineupByRole: {
+        drums: { firstName: "Drummer", isBandLeader: false },
+      },
+      leadVocals: [{ firstName: "Lead", isBandLeader: false }],
+      inputs: [
+        { channelNo: 1, label: "Kick OUT", group: "drums" },
+        { channelNo: 2, label: "Kick IN", group: "drums" },
+        { channelNo: 3, label: "PAD SFX L", group: "drums" },
+        { channelNo: 4, label: "PAD SFX R", group: "drums" },
+        { channelNo: 5, label: "Backing track L", group: "drums" },
+        { channelNo: 6, label: "Backing track R", group: "drums" },
+      ],
+      monitorOutputs: [],
+      powerByRole: {},
+    });
+
+    const drumsBox = plan.boxes.find((box) => box.slot === "drums");
+    expect(drumsBox?.inputBullets).toEqual(
+      expect.arrayContaining(["Drums (1–2)", "PAD SFX (3+4)", "Backing track (5+6)"]),
+    );
+  });
+
   it("keeps layout but omits names when hideMusicianNames is enabled", () => {
     const baseVm = {
       lineupByRole: {
