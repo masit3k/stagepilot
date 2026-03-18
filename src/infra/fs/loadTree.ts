@@ -3,7 +3,14 @@ import path from "node:path";
 
 export async function listJsonFiles(dir: string): Promise<string[]> {
   const result: string[] = [];
-  const entries = await fs.readdir(dir, { withFileTypes: true });
+  let entries: fs.Dirent[];
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true });
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") return result;
+    throw error;
+  }
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {

@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { loadRepository } from "../fs/repo.js";
+import { bootstrapSeed } from "../storage/bootstrapSeed.js";
 import { buildDocument } from "../../domain/pipeline/buildDocument.js";
 import type { Project } from "../../domain/model/types.js";
 import { renderInputlistHtml } from "./template.js";
@@ -13,6 +14,10 @@ describe("inputlist template layout", () => {
   it("renders page 1 without stageplan and page 2 with stageplan boxes", async () => {
     const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "stagepilot-"));
     await fs.mkdir(path.join(tmpRoot, "projects"), { recursive: true });
+    await bootstrapSeed({
+      root: tmpRoot,
+      seedRoot: path.join(process.cwd(), "data", "assets", "catalog"),
+    });
 
     try {
       const repo = await loadRepository({ userDataRoot: tmpRoot });
@@ -57,6 +62,10 @@ describe("inputlist template layout", () => {
   it("keeps contact line while hiding names only on stageplan", async () => {
     const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "stagepilot-"));
     await fs.mkdir(path.join(tmpRoot, "projects"), { recursive: true });
+    await bootstrapSeed({
+      root: tmpRoot,
+      seedRoot: path.join(process.cwd(), "data", "assets", "catalog"),
+    });
 
     try {
       const repo = await loadRepository({ userDataRoot: tmpRoot });

@@ -18,8 +18,8 @@ describe("resolveEffectiveProjectState", () => {
     const resolved = resolveEffectiveProjectState({
       project,
       bandDefaultLineup: {
-        drums: "drummer-default",
-        guitar: "guitar-default",
+        drums: ["drummer-default"],
+        guitar: ["guitar-default"],
       },
       bandLeaderId: "drummer-default",
     });
@@ -44,7 +44,7 @@ describe("resolveEffectiveProjectState", () => {
 
     const resolved = resolveEffectiveProjectState({
       project,
-      bandDefaultLineup: { bass: "bass-default" },
+      bandDefaultLineup: { bass: ["bass-default"] },
       bandLeaderId: "bass-default",
     });
 
@@ -77,7 +77,7 @@ describe("resolveEffectiveProjectState", () => {
       bandRef: "band-1",
       purpose: "generic",
       documentDate: "2026-01-01",
-      lineup: { bass: "bass-1" },
+      lineup: { bass: ["bass-1"] },
       talkbackOverride: { mode: "assigned", musicianId: "bass-1" },
     };
 

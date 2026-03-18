@@ -1,6 +1,6 @@
 import { GROUP_ORDER, type Group } from "../model/groups.js";
 import { createDefaultDrumDefinition, parseDrumDefinition, type DrumDefinition } from "../drums/drumDefinition.js";
-import type { LineupValue, PresetOverridePatch, Project } from "../model/types.js";
+import type { DefaultLineup, PresetOverridePatch, Project } from "../model/types.js";
 import { resolveEffectiveTalkbackAssignment } from "../talkback/resolveEffectiveTalkbackAssignment.js";
 
 type LegacyLineupEntry = { musicianId?: unknown; presetOverride?: unknown; drumDefinition?: unknown };
@@ -91,16 +91,9 @@ function normalizeLineupSlots(v: unknown): Array<{ musicianId: string; presetOve
   return single ? [single] : [];
 }
 
-function firstRoleValue(lineup: Record<string, unknown>, role: Group): unknown {
-  if (role === "vocs") {
-    return lineup.lead_vocs ?? lineup.vocs;
-  }
-  return lineup[role];
-}
-
 export function resolveEffectiveProjectState(args: {
   project: Project;
-  bandDefaultLineup: Partial<Record<Group, LineupValue>>;
+  bandDefaultLineup: DefaultLineup;
   bandLeaderId: string;
 }): {
   effectiveLineup: Record<Group, string[]>;
@@ -114,8 +107,8 @@ export function resolveEffectiveProjectState(args: {
   const drumDefinitionByMusicianId = new Map<string, DrumDefinition>();
 
   for (const group of GROUP_ORDER) {
-    const projectSlots = normalizeLineupSlots(firstRoleValue(projectLineup, group));
-    const fallbackSlots = normalizeLineupSlots(args.bandDefaultLineup[group]);
+    const projectSlots = normalizeLineupSlots(projectLineup[group]);
+    const fallbackSlots = (args.bandDefaultLineup[group] ?? []).map((musicianId) => ({ musicianId }));
     const resolvedSlots = projectSlots.length > 0 ? projectSlots : fallbackSlots;
     effectiveLineup[group] = resolvedSlots.map((slot) => slot.musicianId);
 

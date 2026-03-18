@@ -62,6 +62,10 @@ export type BandSetupData = {
   bandLeader?: string | null;
   defaultContactId?: string | null;
   defaultLineup?: LineupMap | null;
+  defaultVocals?: {
+    lead?: string[] | null;
+    back?: string[] | null;
+  } | null;
   members: Record<string, MemberOption[]>;
   musicianDefaults?: Record<string, Partial<MusicianSetupPreset>>;
   musicianPresetsById?: Record<string, PresetItem[]>;

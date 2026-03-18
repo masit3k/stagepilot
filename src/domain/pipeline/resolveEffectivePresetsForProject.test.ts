@@ -8,6 +8,7 @@ const band: Band = {
   code: "b1",
   bandLeader: "leader-1",
   defaultLineup: {},
+  defaultVocals: { lead: [], back: [] },
 };
 
 const repo = {

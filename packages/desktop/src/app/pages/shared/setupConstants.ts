@@ -260,6 +260,7 @@ export function createFallbackSetupData(
     id: project.bandRef,
     name: project.displayName || project.bandRef,
     defaultLineup: {},
+    defaultVocals: { lead: [], back: [] },
     members: Object.fromEntries(
       [...ROLE_ORDER, "talkback"].map((role) => [role, []]),
     ) as Record<string, MemberOption[]>,

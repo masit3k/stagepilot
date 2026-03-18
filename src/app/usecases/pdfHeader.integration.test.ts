@@ -10,7 +10,8 @@ function createRepo(): DataRepository {
     id: "band",
     name: "Band",
     bandLeader: "bass-1",
-    defaultLineup: { bass: "bass-1" },
+    defaultLineup: { bass: ["bass-1"] },
+    defaultVocals: { lead: [], back: [] },
   };
   const musician: Musician = {
     id: "bass-1",

@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { loadRepository } from "../../fs/repo.js";
+import { bootstrapSeed } from "../../storage/bootstrapSeed.js";
 import { buildDocument } from "../../../domain/pipeline/buildDocument.js";
 import type { Project } from "../../../domain/model/types.js";
 import { __stageplanTestExports, buildStageplanPlan, matchStageplanLayout } from "./stageplan.js";
@@ -20,6 +21,10 @@ describe("stageplan render plan", () => {
   it("builds boxes and respects typography for PL sample data", async () => {
     const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "stagepilot-"));
     await fs.mkdir(path.join(tmpRoot, "projects"), { recursive: true });
+    await bootstrapSeed({
+      root: tmpRoot,
+      seedRoot: path.join(process.cwd(), "data", "assets", "catalog"),
+    });
 
     try {
       const repo = await loadRepository({ userDataRoot: tmpRoot });

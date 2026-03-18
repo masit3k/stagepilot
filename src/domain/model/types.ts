@@ -122,11 +122,14 @@ export interface ProjectJsonV2 {
  */
 export type ProjectJson = LegacyProjectJson | ProjectJsonV2;
 
-/** Lineup: pro danou skupinu může být jeden muzikant nebo více muzikantů. */
-export type LineupValue = string | string[];
+/** Canonical default lineup kapely: group -> ordered musicianId[] */
+export type DefaultLineup = Partial<Record<Group, string[]>>;
 
-/** Default lineup kapely: group -> musicianId(s). */
-export type DefaultLineup = Partial<Record<Group, LineupValue>>;
+/** Canonical explicit vocal assignments overlaying default lineup membership. */
+export type DefaultVocals = {
+  lead: string[];
+  back: string[];
+};
 
 /** Kapela: statická definice (knihovna). */
 export interface Band {
@@ -138,6 +141,9 @@ export interface Band {
 
   /** Výchozí obsazení kapely pro generování (group -> musicianId(s)). */
   defaultLineup: DefaultLineup;
+
+  /** Výchozí vokální role nad default lineup membership. */
+  defaultVocals: DefaultVocals;
 
   defaultContactId?: string;
 

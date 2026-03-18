@@ -15,7 +15,8 @@ describe("buildDocument setup overrides", () => {
       id: "band",
       name: "Band",
       bandLeader: "bass-1",
-      defaultLineup: { bass: "bass-1" },
+      defaultLineup: { bass: ["bass-1"] },
+      defaultVocals: { lead: [], back: [] },
     };
     const musician: Musician = {
       id: "bass-1",
@@ -119,7 +120,8 @@ describe("buildDocument setup overrides", () => {
       id: "band",
       name: "Band",
       bandLeader: "bass-1",
-      defaultLineup: { bass: "bass-1" },
+      defaultLineup: { bass: ["bass-1"] },
+      defaultVocals: { lead: [], back: [] },
     };
     const musician: Musician = {
       id: "bass-1",
@@ -152,7 +154,7 @@ describe("buildDocument setup overrides", () => {
       bandRef: "band",
       purpose: "event",
       documentDate: "2026-01-01",
-      lineup: { bass: "bass-1" },
+      lineup: { bass: ["bass-1"] },
       talkbackOverride: { mode: "none" },
     };
 
@@ -187,7 +189,8 @@ describe("buildDocument setup overrides", () => {
       id: "band",
       name: "Band",
       bandLeader: "lead-1",
-      defaultLineup: { vocs: "lead-1", guitar: "gtr-1" },
+      defaultLineup: { vocs: ["lead-1"], guitar: ["gtr-1"] },
+      defaultVocals: { lead: [], back: [] },
     };
     const lead: Musician = {
       id: "lead-1",
@@ -226,7 +229,7 @@ describe("buildDocument setup overrides", () => {
       bandRef: "band",
       purpose: "event",
       documentDate: "2026-01-01",
-      lineup: { vocs: "lead-1", guitar: "gtr-1" },
+      lineup: { vocs: ["lead-1"], guitar: ["gtr-1"] },
     };
 
     const repo: DataRepository = {
@@ -312,7 +315,8 @@ describe("buildDocument setup overrides", () => {
       id: "band",
       name: "Band",
       bandLeader: "keys-1",
-      defaultLineup: { vocs: "voc-1", keys: "keys-1" },
+      defaultLineup: { vocs: ["voc-1"], keys: ["keys-1"] },
+      defaultVocals: { lead: [], back: [] },
     };
     const vocalist: Musician = {
       id: "voc-1",
@@ -339,7 +343,7 @@ describe("buildDocument setup overrides", () => {
       bandRef: "band",
       purpose: "event",
       documentDate: "2026-01-01",
-      lineup: { vocs: "voc-1", keys: "keys-1" },
+      lineup: { vocs: ["voc-1"], keys: ["keys-1"] },
       leadVocalistIds: ["keys-1"],
     };
     const notes: NotesTemplate = {
@@ -398,7 +402,8 @@ describe("buildDocument setup overrides", () => {
       id: "band",
       name: "Band",
       bandLeader: "lead-1",
-      defaultLineup: { vocs: "lead-1" },
+      defaultLineup: { vocs: ["lead-1"] },
+      defaultVocals: { lead: [], back: [] },
     };
     const lead: Musician = {
       id: "lead-1",
@@ -491,7 +496,8 @@ it("emits stageplan input ownerRole from current lineup assignment", () => {
     id: "band-owner",
     name: "Band",
     bandLeader: "guitar-1",
-    defaultLineup: { guitar: "guitar-1", vocs: "vocs-1" },
+    defaultLineup: { guitar: ["guitar-1"], vocs: ["vocs-1"] },
+    defaultVocals: { lead: [], back: [] },
   };
   const guitar: Musician = {
     id: "guitar-1",
@@ -587,7 +593,8 @@ it("emits stageplan input ownerRole from current lineup assignment", () => {
       id: "band-d",
       name: "Band",
       bandLeader: "dr-1",
-      defaultLineup: { drums: "dr-1" },
+      defaultLineup: { drums: ["dr-1"] },
+      defaultVocals: { lead: [], back: [] },
     };
     const drummer: Musician = {
       id: "dr-1",
@@ -623,7 +630,7 @@ it("emits stageplan input ownerRole from current lineup assignment", () => {
       bandRef: "band-d",
       purpose: "event",
       documentDate: "2026-01-01",
-      lineup: { drums: "dr-1" },
+      lineup: { drums: ["dr-1"] },
     };
 
     const repo: DataRepository = {
@@ -662,7 +669,8 @@ it("emits stageplan input ownerRole from current lineup assignment", () => {
       id: "band-d-override",
       name: "Band",
       bandLeader: "dr-2",
-      defaultLineup: { drums: "dr-2", bass: "b-1" },
+      defaultLineup: { drums: ["dr-2"], bass: ["b-1"] },
+      defaultVocals: { lead: [], back: [] },
     };
     const drummer: Musician = {
       id: "dr-2",
@@ -726,7 +734,7 @@ it("emits stageplan input ownerRole from current lineup assignment", () => {
             tracks: { enabled: true, channels: "stereo" },
           },
         },
-        bass: "b-1",
+        bass: ["b-1"],
       },
     };
 
@@ -753,7 +761,7 @@ it("emits stageplan input ownerRole from current lineup assignment", () => {
             tracks: { enabled: false },
           },
         },
-        bass: "b-1",
+        bass: ["b-1"],
       },
     };
 

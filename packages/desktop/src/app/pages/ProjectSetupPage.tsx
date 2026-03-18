@@ -410,21 +410,33 @@ export function ProjectSetupPage({
       }));
       const initialLeadVocalIdsFromPreset =
         getLeadVocsFromTemplate(initialMusicians);
+      const defaultLeadVocalIdsFromBand = Array.isArray(
+        data.defaultVocals?.lead,
+      )
+        ? data.defaultVocals.lead.filter((idValue) =>
+            initialTemplateMusicians.includes(idValue),
+          )
+        : [];
       const effectiveInitialLeadVocalIds = parsedHasLeadVocalOverride
         ? persistedLeadVocalistIds.filter((idValue) =>
             initialTemplateMusicians.includes(idValue),
           )
-        : Array.from(initialLeadVocalIdsFromPreset).sort((a, b) =>
-            a.localeCompare(b),
-          );
+        : (defaultLeadVocalIdsFromBand.length > 0
+            ? defaultLeadVocalIdsFromBand
+            : Array.from(initialLeadVocalIdsFromPreset)
+          ).sort((a, b) => a.localeCompare(b));
       const effectiveBackVocalIds = parsedHasBackVocalOverride
         ? normalizeLineupValue((parsed.lineup ?? {}).back_vocs, 8)
         : Array.from(
             sanitizeBackVocsSelection(
-              getBackVocsFromTemplate(initialMusicians),
+              Array.isArray(data.defaultVocals?.back)
+                ? new Set(data.defaultVocals.back)
+                : getBackVocsFromTemplate(initialMusicians),
               new Set(effectiveInitialLeadVocalIds),
             ),
-          ).sort((a, b) => a.localeCompare(b));
+          )
+            .filter((idValue) => initialTemplateMusicians.includes(idValue))
+            .sort((a, b) => a.localeCompare(b));
       initialSnapshotRef.current = createLineupDirtyBaseline({
         lineup: initialSerializedLineup,
         bandLeaderId: initialState.bandLeaderId,
@@ -524,10 +536,14 @@ export function ProjectSetupPage({
     : (defaultTalkbackOwnerIds[0] ?? bandLeaderId);
   const defaultLeadVocalistIds = useMemo(
     () =>
-      Array.from(getLeadVocsFromTemplate(selectedTemplateMusicians))
+      Array.from(
+        Array.isArray(setupData?.defaultVocals?.lead)
+          ? new Set(setupData.defaultVocals.lead)
+          : getLeadVocsFromTemplate(selectedTemplateMusicians),
+      )
         .filter((idValue) => templateMusicianIds.has(idValue))
         .sort((a, b) => a.localeCompare(b)),
-    [selectedTemplateMusicians, templateMusicianIds],
+    [selectedTemplateMusicians, setupData?.defaultVocals?.lead, templateMusicianIds],
   );
   const selectedLeadVocalistIds = useMemo(() => {
     if (hasLeadVocalOverride) {
@@ -654,9 +670,16 @@ export function ProjectSetupPage({
       presets: (setupData.musicianPresetsById?.[musicianId] ??
         []) as PresetItem[],
     }));
-    const leadIds = getLeadVocsFromTemplate(musicians);
+    const leadIds = Array.isArray(setupData.defaultVocals?.lead)
+      ? new Set(setupData.defaultVocals.lead)
+      : getLeadVocsFromTemplate(musicians);
     return Array.from(
-      sanitizeBackVocsSelection(getBackVocsFromTemplate(musicians), leadIds),
+      sanitizeBackVocsSelection(
+        Array.isArray(setupData.defaultVocals?.back)
+          ? new Set(setupData.defaultVocals.back)
+          : getBackVocsFromTemplate(musicians),
+        leadIds,
+      ),
     ).sort((a, b) => a.localeCompare(b));
   }, [setupData]);
 

@@ -12,6 +12,7 @@ describe("formatContactLine", () => {
     name: "Band",
     bandLeader: "leader-id",
     defaultLineup: {},
+    defaultVocals: { lead: [], back: [] },
   };
 
   const contact = {
@@ -61,7 +62,13 @@ describe("loadDefaultContactLine", () => {
     const contact = { id: "contact-1", firstName: "Explicit", lastName: "Root", phone: "+420731247870" };
     await fs.writeFile(path.join(rootA, "catalog", "contacts", "contact-1.json"), JSON.stringify(contact), "utf8");
 
-    const band: Band = { id: "band-1", name: "Band", bandLeader: "leader-id", defaultLineup: {} };
+    const band: Band = {
+      id: "band-1",
+      name: "Band",
+      bandLeader: "leader-id",
+      defaultLineup: {},
+      defaultVocals: { lead: [], back: [] },
+    };
     const repo: DataRepository = {
       getBand: () => { throw new Error("not used"); },
       getMusician: () => { throw new Error("not found"); },

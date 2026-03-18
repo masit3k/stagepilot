@@ -535,7 +535,12 @@ export function buildDocument(
       )
     : [];
   const leadsByPreset = allLineupMusicians.filter((m) => hasLeadPreset(m));
-  const fallbackLeadVocalists = leadsByPreset.length > 0 ? leadsByPreset : vocsAll;
+  const defaultLeadVocalists = (ctx.band.defaultVocals?.lead ?? [])
+    .map((musicianId) => ctx.membersById.get(musicianId))
+    .filter((musician): musician is Musician => Boolean(musician));
+  const fallbackLeadVocalists = defaultLeadVocalists.length > 0
+    ? defaultLeadVocalists
+    : (leadsByPreset.length > 0 ? leadsByPreset : vocsAll);
   const leadResolved = explicitLeadVocalistIds
     ? explicitLeadVocalists
     : fallbackLeadVocalists;

@@ -16,24 +16,22 @@ async function main(): Promise<void> {
 
   const results = await migrateBandsDefaultLineupVocs({
     bandsRoot: paths.bands,
-    musiciansRoot: paths.musicians,
-    writeChanges: !dryRun,
   });
 
-  const changed = results.filter((item) => item.changed);
-  const unchanged = results.length - changed.length;
+  const valid = results.filter((item) => item.isValidCanonicalModel);
+  const invalid = results.length - valid.length;
 
-  process.stdout.write(`Band lineup VOCS migration ${dryRun ? "(dry-run)" : "(write)"}\n`);
+  process.stdout.write(`Band canonical model validation ${dryRun ? "(dry-run)" : "(write disabled)"}\n`);
   process.stdout.write(`Root: ${resolvedRoot}\n`);
   for (const result of results) {
-    const status = result.changed ? "UPDATED" : "UNCHANGED";
-    const added = result.addedVocalMembers.length > 0 ? ` added=[${result.addedVocalMembers.join(", ")}]` : "";
-    process.stdout.write(`- ${status} ${result.bandId}${added}\n`);
+    const status = result.isValidCanonicalModel ? "VALID" : "INVALID";
+    const issues = result.issues.length > 0 ? ` issues=[${result.issues.join(" | ")}]` : "";
+    process.stdout.write(`- ${status} ${result.bandId}${issues}\n`);
   }
-  process.stdout.write(`Summary: total=${results.length} updated=${changed.length} unchanged=${unchanged}\n`);
+  process.stdout.write(`Summary: total=${results.length} valid=${valid.length} invalid=${invalid}\n`);
 }
 
 main().catch((error) => {
-  process.stderr.write(`Band lineup VOCS migration failed: ${error instanceof Error ? error.message : String(error)}\n`);
+  process.stderr.write(`Band canonical model validation failed: ${error instanceof Error ? error.message : String(error)}\n`);
   process.exitCode = 1;
 });

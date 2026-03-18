@@ -28,7 +28,13 @@ async function makeUserDataRoot(): Promise<string> {
   await fs.mkdir(path.join(root, "catalog", "templates", "notes"), { recursive: true });
   await fs.writeFile(
     path.join(root, "catalog", "bands", "pl.json"),
-    JSON.stringify({ id: "pl", code: "PL", name: "Praise Leaders", defaultLineup: {} }),
+    JSON.stringify({
+      id: "pl",
+      code: "PL",
+      name: "Praise Leaders",
+      defaultLineup: {},
+      defaultVocals: { lead: [], back: [] },
+    }),
     "utf8",
   );
   await fs.writeFile(

@@ -110,6 +110,7 @@ struct BandSetupData {
     band_leader: Option<String>,
     default_contact_id: Option<String>,
     default_lineup: Option<Value>,
+    default_vocals: Option<Value>,
     members: HashMap<String, Vec<MemberOption>>,
     musician_defaults: HashMap<String, Value>,
     musician_presets_by_id: HashMap<String, Vec<Value>>,
@@ -144,36 +145,21 @@ struct NodeExportResponse {
     version_pdf_path: Option<String>,
 }
 
-fn lineup_ids(value: Option<&Value>) -> Vec<String> {
-    let Some(value) = value else { return Vec::new(); };
-    match value {
-        Value::String(id) => vec![id.trim().to_string()].into_iter().filter(|id| !id.is_empty()).collect(),
-        Value::Array(items) => items
-            .iter()
-            .filter_map(|item| item.as_str())
-            .map(|id| id.trim().to_string())
-            .filter(|id| !id.is_empty())
-            .collect(),
-        _ => Vec::new(),
-    }
-}
-
 fn normalize_default_lineup_keys(default_lineup: Option<Value>) -> Option<Value> {
-    let Some(Value::Object(mut lineup)) = default_lineup else {
+    let Some(Value::Object(lineup)) = default_lineup else {
         return default_lineup;
     };
 
-    let mut merged_vocs = lineup_ids(lineup.get("vocs"));
-    for legacy_key in ["lead_vocs", "lead_voc"] {
-        for musician_id in lineup_ids(lineup.get(legacy_key)) {
-            if !merged_vocs.iter().any(|existing| existing == &musician_id) {
-                merged_vocs.push(musician_id);
-            }
+    for forbidden_key in ["lead_vocs", "lead_voc", "back_vocs"] {
+        if lineup.contains_key(forbidden_key) {
+            return None;
         }
     }
 
-    if !merged_vocs.is_empty() {
-        lineup.insert("vocs".to_string(), Value::Array(merged_vocs.into_iter().map(Value::String).collect()));
+    for (_role, value) in &lineup {
+        if !value.is_array() {
+            return None;
+        }
     }
 
     Some(Value::Object(lineup))
@@ -960,12 +946,10 @@ fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSet
     }
 
     let mut load_warnings: Vec<String> = Vec::new();
-    if let Some(default_lineup) = normalize_default_lineup_keys(json.get("defaultLineup").cloned())
-    {
+    if let Some(default_lineup) = normalize_default_lineup_keys(json.get("defaultLineup").cloned()) {
         if let Some(obj) = default_lineup.as_object() {
             for (role, value) in obj {
                 let ids: Vec<String> = match value {
-                    Value::String(v) => vec![v.clone()],
                     Value::Array(arr) => arr
                         .iter()
                         .filter_map(|item| item.as_str().map(|s| s.to_string()))
@@ -982,6 +966,11 @@ fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSet
                 }
             }
         }
+    } else if json.get("defaultLineup").is_some() {
+        load_warnings.push(format!(
+            "Band '{}' has non-canonical defaultLineup (arrays only, no legacy lead_voc/lead_vocs/back_vocs).",
+            requested
+        ));
     }
 
     let mut preset_catalog: HashMap<String, Value> = HashMap::new();
@@ -1035,6 +1024,7 @@ fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSet
             .and_then(|v| v.as_str())
             .map(|v| v.to_string()),
         default_lineup: normalize_default_lineup_keys(json.get("defaultLineup").cloned()),
+        default_vocals: json.get("defaultVocals").cloned(),
         members,
         musician_defaults,
         musician_presets_by_id,

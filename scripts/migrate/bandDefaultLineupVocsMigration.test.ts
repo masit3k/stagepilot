@@ -6,19 +6,12 @@ import { migrateBandsDefaultLineupVocs } from "./bandDefaultLineupVocsMigration"
 
 const tempRoots: string[] = [];
 
-async function createFixture(): Promise<{ root: string; bandsDir: string; musiciansDir: string }> {
+async function createFixture(): Promise<{ root: string; bandsDir: string }> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "stagepilot-band-migrate-"));
   tempRoots.push(root);
 
   const bandsDir = path.join(root, "catalog", "bands");
-  const musiciansDir = path.join(root, "catalog", "musicians");
   await fs.mkdir(bandsDir, { recursive: true });
-  await fs.mkdir(path.join(musiciansDir, "vocs"), { recursive: true });
-  await fs.mkdir(path.join(musiciansDir, "keys"), { recursive: true });
-
-  await fs.writeFile(path.join(musiciansDir, "vocs", "voc-1.json"), JSON.stringify({ id: "voc-1", group: "vocs" }));
-  await fs.writeFile(path.join(musiciansDir, "vocs", "voc-2.json"), JSON.stringify({ id: "voc-2", group: "vocs" }));
-  await fs.writeFile(path.join(musiciansDir, "keys", "keys-1.json"), JSON.stringify({ id: "keys-1", group: "keys" }));
 
   await fs.writeFile(
     path.join(bandsDir, "band-a.json"),
@@ -26,8 +19,11 @@ async function createFixture(): Promise<{ root: string; bandsDir: string; musici
       id: "band-a",
       defaultLineup: {
         vocs: ["voc-1"],
-        lead_vocs: ["voc-2", "keys-1"],
-        back_vocs: ["voc-2", "missing"],
+        keys: ["keys-1"],
+      },
+      defaultVocals: {
+        lead: ["voc-1"],
+        back: ["keys-1"],
       },
     }),
   );
@@ -37,7 +33,7 @@ async function createFixture(): Promise<{ root: string; bandsDir: string; musici
     JSON.stringify({ id: "band-b", defaultLineup: { lead_vocs: ["keys-1"] } }),
   );
 
-  return { root, bandsDir, musiciansDir };
+  return { root, bandsDir };
 }
 
 afterEach(async () => {
@@ -46,27 +42,35 @@ afterEach(async () => {
 });
 
 describe("migrateBandsDefaultLineupVocs", () => {
-  it("adds only valid group=vocs selected lead/back ids and is idempotent", async () => {
+  it("validates canonical default lineup/defaultVocals model", async () => {
     const fixture = await createFixture();
 
-    const first = await migrateBandsDefaultLineupVocs({
+    const results = await migrateBandsDefaultLineupVocs({
       bandsRoot: fixture.bandsDir,
-      musiciansRoot: fixture.musiciansDir,
-      writeChanges: true,
     });
-    const second = await migrateBandsDefaultLineupVocs({
+    const byId = new Map(results.map((result) => [result.bandId, result]));
+    expect(byId.get("band-a")?.isValidCanonicalModel).toBe(true);
+    expect(byId.get("band-a")?.issues).toEqual([]);
+    expect(byId.get("band-b")?.isValidCanonicalModel).toBe(false);
+    expect(byId.get("band-b")?.issues[0]).toContain(
+      "Band must define defaultVocals",
+    );
+  });
+
+  it("flags lead/back overlap as canonical validation error", async () => {
+    const fixture = await createFixture();
+    await fs.writeFile(
+      path.join(fixture.bandsDir, "band-c.json"),
+      JSON.stringify({
+        id: "band-c",
+        defaultLineup: { vocs: ["voc-1"] },
+        defaultVocals: { lead: ["voc-1"], back: ["voc-1"] },
+      }),
+    );
+    const results = await migrateBandsDefaultLineupVocs({
       bandsRoot: fixture.bandsDir,
-      musiciansRoot: fixture.musiciansDir,
-      writeChanges: true,
     });
-
-    const bandA = JSON.parse(await fs.readFile(path.join(fixture.bandsDir, "band-a.json"), "utf8")) as {
-      defaultLineup: Record<string, unknown>;
-    };
-
-    expect(first.find((item) => item.bandId === "band-a")?.addedVocalMembers).toEqual(["voc-2"]);
-    expect(bandA.defaultLineup.vocs).toEqual(["voc-1", "voc-2"]);
-    expect(first.find((item) => item.bandId === "band-b")?.changed).toBe(false);
-    expect(second.every((item) => !item.changed)).toBe(true);
+    const issue = results.find((item) => item.bandId === "band-c")?.issues[0] ?? "";
+    expect(issue).toContain("cannot be in both");
   });
 });

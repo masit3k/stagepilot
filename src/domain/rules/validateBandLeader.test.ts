@@ -8,6 +8,7 @@ const baseBand: Band = {
   name: "Test Band",
   bandLeader: "leader-id",
   defaultLineup: {},
+  defaultVocals: { lead: [], back: [] },
 };
 
 const makeRepo = (musicians: Record<string, Musician>): DataRepository =>
