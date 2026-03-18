@@ -144,19 +144,36 @@ struct NodeExportResponse {
     version_pdf_path: Option<String>,
 }
 
+fn lineup_ids(value: Option<&Value>) -> Vec<String> {
+    let Some(value) = value else { return Vec::new(); };
+    match value {
+        Value::String(id) => vec![id.trim().to_string()].into_iter().filter(|id| !id.is_empty()).collect(),
+        Value::Array(items) => items
+            .iter()
+            .filter_map(|item| item.as_str())
+            .map(|id| id.trim().to_string())
+            .filter(|id| !id.is_empty())
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
 fn normalize_default_lineup_keys(default_lineup: Option<Value>) -> Option<Value> {
     let Some(Value::Object(mut lineup)) = default_lineup else {
         return default_lineup;
     };
 
-    if let Some(value) = lineup.remove("lead_vocs") {
-        lineup.insert("vocs".to_string(), value);
-    } else if let Some(value) = lineup.remove("lead_voc") {
-        lineup.insert("vocs".to_string(), value);
+    let mut merged_vocs = lineup_ids(lineup.get("vocs"));
+    for legacy_key in ["lead_vocs", "lead_voc"] {
+        for musician_id in lineup_ids(lineup.get(legacy_key)) {
+            if !merged_vocs.iter().any(|existing| existing == &musician_id) {
+                merged_vocs.push(musician_id);
+            }
+        }
     }
 
-    if let Some(value) = lineup.remove("vocs") {
-        lineup.insert("vocs".to_string(), value);
+    if !merged_vocs.is_empty() {
+        lineup.insert("vocs".to_string(), Value::Array(merged_vocs.into_iter().map(Value::String).collect()));
     }
 
     Some(Value::Object(lineup))

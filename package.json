@@ -15,7 +15,8 @@
     "format": "biome format --write .",
     "dev": "npm --prefix packages/desktop run dev",
     "build:desktop": "npm --prefix packages/desktop run build",
-    "smoke:pdf-preview": "node --enable-source-maps --import tsx scripts/smoke_pdf_preview.ts"
+    "smoke:pdf-preview": "node --enable-source-maps --import tsx scripts/smoke_pdf_preview.ts",
+    "migrate:band-default-lineup-vocs": "node --enable-source-maps --import tsx scripts/migrate/migrateBandDefaultLineupVocs.ts"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.10.0",

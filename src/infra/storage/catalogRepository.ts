@@ -2,6 +2,7 @@ import path from "node:path";
 import type { Band, Group, LineupValue, Musician, NotesTemplate, PresetEntity, Project } from "../../domain/model/types.js";
 import { resolvePresetIdAlias } from "../../domain/model/presetAliases.js";
 import { parsePersistedDrumDefinition } from "../../domain/drums/drumDefinition.js";
+import { withLegacyVocalMembershipInDefaultLineup } from "../../domain/model/defaultLineupVocs.js";
 import { loadJsonFile } from "../fs/loadJson.js";
 import { listJsonFiles } from "../fs/loadTree.js";
 import { getAllGroupPresetsDir, getMonitorPresetsDir } from "../fs/assetsPaths.js";
@@ -89,10 +90,10 @@ async function loadBandsMap(absDir: string): Promise<Map<string, Band>> {
   const map = await loadMap<Band>(absDir);
   for (const [id, band] of map.entries()) {
     const defaultLineup = (band.defaultLineup ?? {}) as Record<string, LineupValue | undefined>;
-    const leadVocals = defaultLineup.lead_vocs ?? defaultLineup.lead_voc;
-    if (leadVocals !== undefined) {
-      map.set(id, { ...band, defaultLineup: { ...defaultLineup, vocs: leadVocals } });
-    }
+    map.set(id, {
+      ...band,
+      defaultLineup: withLegacyVocalMembershipInDefaultLineup(defaultLineup) as typeof defaultLineup,
+    });
   }
   return map;
 }

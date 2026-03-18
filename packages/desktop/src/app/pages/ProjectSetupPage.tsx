@@ -64,6 +64,7 @@ import {
   sanitizeBackVocsSelection,
 } from "../components/roles/utils/backVocs";
 import { resolveLeadVocalCandidates } from "../domain/roles/resolveLeadVocalCandidates";
+import { resolveLineupVocalCandidates } from "../domain/roles/resolveLineupVocalCandidates";
 import { withFrom } from "../shell/routes";
 import * as projectsApi from "../services/projectsApi";
 import type {
@@ -545,33 +546,26 @@ export function ProjectSetupPage({
     () => new Set(selectedLeadVocalistIds),
     [selectedLeadVocalistIds],
   );
+  const lineupVocalCandidates = useMemo(
+    () =>
+      resolveLineupVocalCandidates({
+        lineupMusicians: selectedTemplateMusicians,
+        lineupMembers: templateMusicians,
+      }),
+    [selectedTemplateMusicians, templateMusicians],
+  );
   const leadVocalCandidateSections = useMemo(
     () =>
       resolveLeadVocalCandidates({
-        lineupCandidates: selectedTemplateMusicians
-          .map((musician) => {
-            const member = templateMusicians.find(
-              (item) => item.id === musician.id,
-            );
-            if (!member) return null;
-            return {
-              musicianId: musician.id,
-              displayName: member.name,
-              primaryGroup: musician.group,
-              hasLeadVocalPreset: getLeadVocsFromTemplate([musician]).has(
-                musician.id,
-              ),
-            };
-          })
-          .filter(Boolean) as Array<{
-          musicianId: string;
-          displayName: string;
-          primaryGroup: Group;
-          hasLeadVocalPreset: boolean;
-        }>,
+        lineupCandidates: lineupVocalCandidates.map((candidate) => ({
+          musicianId: candidate.id,
+          displayName: candidate.name,
+          primaryGroup: candidate.primaryGroup,
+          hasLeadVocalPreset: candidate.hasLeadVocalPreset,
+        })),
         selectedLeadVocalistIds,
       }),
-    [selectedLeadVocalistIds, selectedTemplateMusicians, templateMusicians],
+    [lineupVocalCandidates, selectedLeadVocalistIds],
   );
   const leadVocalMembers = useMemo(
     () =>
@@ -629,25 +623,10 @@ export function ProjectSetupPage({
   );
   const backVocalCandidates = useMemo(
     () =>
-      selectedTemplateMusicians
-        .filter((musician) => backVocalCandidateIds.has(musician.id))
-        .map((musician) => {
-          const member = templateMusicians.find(
-            (item) => item.id === musician.id,
-          );
-          if (!member) return null;
-          return {
-            id: member.id,
-            name: member.name,
-            primaryGroup: musician.group,
-          };
-        })
-        .filter(Boolean) as Array<{
-        id: string;
-        name: string;
-        primaryGroup: Group;
-      }>,
-    [backVocalCandidateIds, selectedTemplateMusicians, templateMusicians],
+      lineupVocalCandidates.filter((candidate) =>
+        backVocalCandidateIds.has(candidate.id),
+      ),
+    [backVocalCandidateIds, lineupVocalCandidates],
   );
 
   const serializedLineup = useMemo(() => {
