@@ -6,6 +6,7 @@
     "pdf": "npm run cli -- --pdf",
     "pdf:dev": "npm run cli:dev -- --pdf",
     "smoke:versions": "node --enable-source-maps --import tsx scripts/smoke_versions.ts",
+    "audit:user-vocals": "node --enable-source-maps --import tsx scripts/audit/auditUserDataVocals.ts",
     "tauri": "npm --prefix packages/desktop run tauri",
     "tauri:dev": "npm run tauri -- dev",
     "tauri:build": "npm run tauri -- build",
