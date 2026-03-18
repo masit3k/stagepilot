@@ -126,12 +126,12 @@ describe("role slot limits", () => {
   });
 
   it("uses static role labels", () => {
-    expect(getRoleDisplayName("vocs")).toBe("LEAD VOCS");
+    expect(getRoleDisplayName("vocs")).toBe("VOCS");
   });
 
   it("validates lineup against static slot limits", () => {
     expect(validateLineup({ vocs: ["a", "b", "c", "d", "e"] }, ["vocs"]))
-      .toContain("LEAD VOCS: expected up to 4 slot(s), selected 5.");
+      .toContain("VOCS: expected up to 4 slot(s), selected 5.");
   });
 
   it("prefers band JSON bandLeader for defaults", () => {

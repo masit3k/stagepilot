@@ -267,10 +267,7 @@ function roleDataForSlot(
 
 export function matchStageplanLayout(vm: DocumentViewModel["stageplan"]): StageplanLayoutDefinition {
   const leadCount = vm.leadVocals?.length ?? (vm.lineupByRole.vocs?.firstName ? 1 : 0);
-  if (leadCount === 2) return STAGEPLAN_LAYOUTS.layout_6_2_vocs;
-  if (leadCount > 2) {
-    throw new Error(`Unsupported lead vocal count for stageplan layout: ${leadCount}`);
-  }
+  if (leadCount >= 2) return STAGEPLAN_LAYOUTS.layout_6_2_vocs;
   return STAGEPLAN_LAYOUTS.layout_5_party;
 }
 

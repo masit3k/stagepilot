@@ -1,4 +1,4 @@
-import type { LineupMap, LineupSlotValue } from "../../../projectRules";
+import type { LineupSlotValue } from "../../../projectRules";
 
 type LineupComparableValue =
   | string
@@ -12,7 +12,9 @@ export type LineupDirtyComparisonState = {
   lineup: LineupComparableMap;
   bandLeaderId: string;
   talkbackOwnerId: string;
+  leadVocalistIds: string[];
   backVocalIds: string[];
+  hasLeadVocalOverride?: boolean;
   hasBackVocalOverride?: boolean;
   hasTalkbackOverride?: boolean;
 };
@@ -33,7 +35,11 @@ export function normalizeLineupForComparison(
     lineup: normalizedLineup,
     bandLeaderId: value.bandLeaderId,
     talkbackOwnerId: value.talkbackOwnerId,
+    leadVocalistIds: [...value.leadVocalistIds].sort((a, b) =>
+      a.localeCompare(b),
+    ),
     backVocalIds: [...value.backVocalIds].sort((a, b) => a.localeCompare(b)),
+    hasLeadVocalOverride: Boolean(value.hasLeadVocalOverride),
     hasBackVocalOverride: Boolean(value.hasBackVocalOverride),
     hasTalkbackOverride: Boolean(value.hasTalkbackOverride),
   };

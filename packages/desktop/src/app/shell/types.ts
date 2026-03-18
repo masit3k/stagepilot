@@ -94,6 +94,7 @@ export type NewProjectPayload = {
     | { mode: "assigned"; musicianId: string };
   hasTalkbackOverride?: boolean;
   backVocalIds?: string[];
+  leadVocalistIds?: string[];
 };
 
 export type NavigationGuard = {
@@ -127,6 +128,7 @@ export function toPersistableProject(
     hasTalkbackOverride,
     note,
     backVocalIds,
+    leadVocalistIds,
   } = project;
 
   return {
@@ -154,5 +156,6 @@ export function toPersistableProject(
         : {}),
     ...(note ? { note } : {}),
     ...(Array.isArray(backVocalIds) ? { backVocalIds } : {}),
+    ...(Array.isArray(leadVocalistIds) ? { leadVocalistIds } : {}),
   };
 }

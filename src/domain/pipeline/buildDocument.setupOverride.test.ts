@@ -307,6 +307,92 @@ describe("buildDocument setup overrides", () => {
     ).toBe(true);
   });
 
+  it("uses explicit lead vocalist ids as authoritative output source", () => {
+    const band: Band = {
+      id: "band",
+      name: "Band",
+      bandLeader: "keys-1",
+      defaultLineup: { vocs: "voc-1", keys: "keys-1" },
+    };
+    const vocalist: Musician = {
+      id: "voc-1",
+      firstName: "Vocal",
+      lastName: "Default",
+      group: "vocs",
+      presets: [
+        { kind: "preset", ref: "vocal_lead_no_mic" },
+        { kind: "monitor", ref: "wedge" },
+      ],
+    };
+    const keys: Musician = {
+      id: "keys-1",
+      firstName: "Keys",
+      lastName: "Player",
+      group: "keys",
+      presets: [
+        { kind: "preset", ref: "keys" },
+        { kind: "monitor", ref: "wedge" },
+      ],
+    };
+    const project: Project = {
+      id: "p-lead-override",
+      bandRef: "band",
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: { vocs: "voc-1", keys: "keys-1" },
+      leadVocalistIds: ["keys-1"],
+    };
+    const notes: NotesTemplate = {
+      id: "notes_default_cs",
+      lang: "cs",
+      inputs: [],
+      monitors: [],
+    };
+
+    const repo: DataRepository = {
+      getBand: () => band,
+      getMusician: (id: string) => (id === "keys-1" ? keys : vocalist),
+      getProject: () => project,
+      getPreset: (id: string) => {
+        if (id === "keys")
+          return {
+            type: "preset",
+            id: "keys",
+            label: "Keys",
+            group: "keys",
+            inputs: [
+              { key: "keys_l", label: "Keys L", group: "keys" },
+              { key: "keys_r", label: "Keys R", group: "keys" },
+            ],
+          };
+        if (id === "vocal_lead_no_mic")
+          return {
+            type: "preset",
+            id: "vocal_lead_no_mic",
+            label: "Lead vocal (no mic)",
+            group: "vocs",
+            inputs: [{ key: "voc_lead", label: "Lead vocal", group: "vocs" }],
+          };
+        if (id === "wedge") return { type: "monitor", id, label: "Wedge" };
+        if (id === "talkback")
+          return {
+            type: "talkback_type",
+            id: "talkback",
+            label: "Talkback",
+            group: "talkback",
+            input: { key: "tb_{ownerKey}", label: "Talkback ({ownerLabel})" },
+          };
+        throw new Error(`unknown preset ${id}`);
+      },
+      getNotesTemplate: () => notes,
+    };
+
+    const vm = buildDocument(project, repo);
+    const leadNames = (vm.stageplan.leadVocals ?? []).map((item) => item.firstName);
+    expect(leadNames).toEqual(["Keys"]);
+    expect(leadNames).not.toContain("Vocal");
+  });
+
   it("keeps explicit lineup input note override over seeded no-mic preset note", () => {
     const band: Band = {
       id: "band",

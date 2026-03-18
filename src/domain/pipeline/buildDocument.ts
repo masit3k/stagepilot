@@ -519,11 +519,26 @@ export function buildDocument(
   const bassM = ctx.pickByGroup("bass");
   const drumsM = ctx.pickByGroup("drums");
 
+  const allLineupMusicians = ctx.lineupMusicians.map((x) => x.musician);
   const vocsAll = ctx.lineupMusicians
     .filter((x) => x.group === "vocs")
     .map((x) => x.musician);
-  const leads = vocsAll.filter((m) => hasLeadPreset(m));
-  const leadResolved = leads.length > 0 ? leads : vocsAll;
+  const explicitLeadVocalistIds = Array.isArray(project.leadVocalistIds)
+    ? project.leadVocalistIds.filter((id): id is string => typeof id === "string")
+    : undefined;
+  const explicitLeadVocalists = explicitLeadVocalistIds
+    ? explicitLeadVocalistIds
+      .map((musicianId) => ctx.membersById.get(musicianId))
+      .filter((musician): musician is Musician => Boolean(musician))
+      .filter((musician) =>
+        allLineupMusicians.some((lineupMusician) => lineupMusician.id === musician.id),
+      )
+    : [];
+  const leadsByPreset = allLineupMusicians.filter((m) => hasLeadPreset(m));
+  const fallbackLeadVocalists = leadsByPreset.length > 0 ? leadsByPreset : vocsAll;
+  const leadResolved = explicitLeadVocalistIds
+    ? explicitLeadVocalists
+    : fallbackLeadVocalists;
   const leadVocalStageplanPersons = leadResolved.map((m) => ({
     firstName: m.firstName ?? null,
     isBandLeader: m.id === ctx.bandLeaderId,

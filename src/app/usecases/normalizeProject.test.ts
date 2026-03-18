@@ -37,4 +37,20 @@ describe("normalizeProject", () => {
     expect(normalized.createdAt).toBe("2026-01-02T10:00:00.000Z");
     expect(normalized.updatedAt).toBe("2026-03-12T09:45:00.000Z");
   });
+
+  it("normalizes explicit lead vocalist ids", () => {
+    const project: ProjectJsonV2 = {
+      id: "e-2",
+      bandRef: "pl",
+      purpose: "event",
+      eventDate: "2026-03-10",
+      eventVenue: "Klub",
+      documentDate: "2026-01-01",
+      leadVocalistIds: ["lead-1", "", "lead-2"],
+    };
+
+    const normalized = normalizeProject(project);
+
+    expect(normalized.leadVocalistIds).toEqual(["lead-1", "lead-2"]);
+  });
 });

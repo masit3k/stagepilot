@@ -99,6 +99,20 @@ describe("stageplan render plan", () => {
         powerByRole: {},
       }).id
     ).toBe("layout_6_2_vocs");
+
+    expect(
+      matchStageplanLayout({
+        lineupByRole: {},
+        leadVocals: [
+          { firstName: "A", isBandLeader: false },
+          { firstName: "B", isBandLeader: false },
+          { firstName: "C", isBandLeader: false },
+        ],
+        inputs: [],
+        monitorOutputs: [],
+        powerByRole: {},
+      }).id
+    ).toBe("layout_6_2_vocs");
   });
 
   it("renders layout_6_2_vocs in slot order with dynamic names", () => {

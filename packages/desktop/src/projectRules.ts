@@ -319,7 +319,7 @@ export function getRoleSlotLimit(role: string): number {
 export function getRoleDisplayName(
   role: string,
 ): string {
-  if (role === "vocs") return "LEAD VOCS";
+  if (role === "vocs") return "VOCS";
   const names: Record<string, string> = {
     drums: "DRUMS",
     bass: "BASS",

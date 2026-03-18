@@ -76,6 +76,13 @@ export function normalizeProject(input: ProjectJson): Project {
             typeof item === "string" && item.trim().length > 0,
         )
       : undefined;
+  const leadVocalistIds =
+    "leadVocalistIds" in input && Array.isArray(input.leadVocalistIds)
+      ? input.leadVocalistIds.filter(
+          (item): item is string =>
+            typeof item === "string" && item.trim().length > 0,
+        )
+      : undefined;
 
   if ("purpose" in input) {
     const purpose = assertPurpose(input.purpose);
@@ -99,6 +106,7 @@ export function normalizeProject(input: ProjectJson): Project {
         template: input.template?.trim() || undefined,
         lineup,
         backVocalIds,
+        leadVocalistIds,
         bandLeaderId,
         talkbackOwnerId,
         talkbackOverride,
@@ -119,6 +127,7 @@ export function normalizeProject(input: ProjectJson): Project {
       template: input.template?.trim() || undefined,
       lineup,
       backVocalIds,
+      leadVocalistIds,
       bandLeaderId,
       talkbackOwnerId,
       talkbackOverride,
@@ -145,6 +154,7 @@ export function normalizeProject(input: ProjectJson): Project {
       updatedAt,
       lineup,
       backVocalIds,
+      leadVocalistIds,
       bandLeaderId,
       talkbackOwnerId,
       talkbackOverride,

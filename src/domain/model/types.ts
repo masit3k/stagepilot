@@ -55,6 +55,7 @@ export interface Project {
   template?: string;
   lineup?: Record<string, unknown>;
   backVocalIds?: string[];
+  leadVocalistIds?: string[];
   bandLeaderId?: string;
   talkbackOwnerId?: string;
   talkbackOverride?:
@@ -104,6 +105,7 @@ export interface ProjectJsonV2 {
   template?: string;
   lineup?: Record<string, unknown>;
   backVocalIds?: string[];
+  leadVocalistIds?: string[];
   bandLeaderId?: string;
   talkbackOwnerId?: string;
   talkbackOverride?:

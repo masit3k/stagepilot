@@ -11,6 +11,7 @@ describe("isLineupSetupDirty", () => {
     lineup: { drums: "drummer-1", lead_vocs: "lead-1", back_vocs: ["back-1"] },
     bandLeaderId: "drummer-1",
     talkbackOwnerId: "drummer-1",
+    leadVocalistIds: ["lead-1"],
     backVocalIds: ["back-1"],
   };
 
