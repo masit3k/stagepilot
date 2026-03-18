@@ -75,11 +75,9 @@ export function resolveEffectivePresetsForProject(args: {
   const selectedMusicianSet = new Set(selectedIds);
   const backVocsState = resolveProjectBackVocsState({
     project,
-    activeMusicianIds: selectedIds,
-    musiciansById: new Map([[musician.id, musician]]),
   });
 
-  const selectedBackVocalIds = backVocsState.effectiveBackVocs.filter((id) =>
+  const selectedBackVocalIds = (backVocsState.explicitBackVocs ?? []).filter((id) =>
     selectedMusicianSet.has(id),
   );
   const selectedBackVocalSet = new Set(selectedBackVocalIds);

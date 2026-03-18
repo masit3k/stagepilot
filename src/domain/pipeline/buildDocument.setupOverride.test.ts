@@ -310,6 +310,98 @@ describe("buildDocument setup overrides", () => {
     ).toBe(true);
   });
 
+  it("does not print back vocal rows without explicit project lineup.back_vocs", () => {
+    const band: Band = {
+      id: "band",
+      name: "Band",
+      bandLeader: "lead-1",
+      defaultLineup: { vocs: ["lead-1"], guitar: ["gtr-1"] },
+      defaultVocals: { lead: [], back: ["gtr-1"] },
+    };
+    const lead: Musician = {
+      id: "lead-1",
+      firstName: "Lead",
+      lastName: "Singer",
+      group: "vocs",
+      presets: [{ kind: "preset", ref: "vocal_lead_no_mic" }],
+    };
+    const guitar: Musician = {
+      id: "gtr-1",
+      firstName: "Guitar",
+      lastName: "Player",
+      group: "guitar",
+      presets: [
+        { kind: "preset", ref: "el_guitar" },
+        {
+          kind: "vocal",
+          ref: "vocal_back_no_mic",
+          ownerKey: "guitar",
+          ownerLabel: "Guitar",
+        },
+      ],
+    };
+    const notes: NotesTemplate = {
+      id: "notes_default_cs",
+      lang: "cs",
+      inputs: [],
+      monitors: [],
+    };
+    const project: Project = {
+      id: "p-no-back-explicit",
+      bandRef: "band",
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: { vocs: ["lead-1"], guitar: ["gtr-1"] },
+    };
+    const repo: DataRepository = {
+      getBand: () => band,
+      getMusician: (id: string) => (id === "lead-1" ? lead : guitar),
+      getProject: () => project,
+      getPreset: (id: string) => {
+        if (id === "vocal_lead_no_mic")
+          return {
+            type: "preset",
+            id,
+            label: "Lead vocal (no mic)",
+            group: "vocs",
+            inputs: [{ key: "voc_lead", label: "Lead vocal", group: "vocs" }],
+          };
+        if (id === "vocal_back_no_mic")
+          return {
+            type: "vocal_type",
+            id,
+            label: "Back vocal (no mic)",
+            group: "vocs",
+            input: { key: "voc_back_{ownerKey}", label: "Back vocal – {ownerLabel}" },
+          };
+        if (id === "el_guitar")
+          return {
+            type: "preset",
+            id,
+            label: "Guitar",
+            group: "guitar",
+            inputs: [{ key: "gtr", label: "Guitar", group: "guitar" }],
+          };
+        if (id === "wedge") return { type: "monitor", id, label: "Wedge monitor" };
+        if (id === "talkback")
+          return {
+            type: "talkback_type",
+            id: "talkback",
+            label: "Talkback",
+            group: "talkback",
+            input: { key: "tb_{ownerKey}", label: "Talkback ({ownerLabel})" },
+          };
+        throw new Error(`unknown preset ${id}`);
+      },
+      getNotesTemplate: () => notes,
+    };
+
+    const vm = buildDocument(project, repo);
+    expect(
+      vm.inputs.some((input) => input.key.startsWith("voc_back_")),
+    ).toBe(false);
+  });
+
   it("uses explicit lead vocalist ids as authoritative output source", () => {
     const band: Band = {
       id: "band",

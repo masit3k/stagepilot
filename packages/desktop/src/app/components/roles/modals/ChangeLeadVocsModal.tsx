@@ -13,7 +13,7 @@ type ChangeLeadVocsModalProps = {
 };
 
 const VOCAL_EXCLUSION_NOTE =
-  "A musician selected as Lead Vocs cannot be selected as Back Vocs, and vice versa.";
+  "A musician selected as Lead Vocal cannot be selected as Back Vocal, and vice versa.";
 
 export function ChangeLeadVocsModal({
   open,

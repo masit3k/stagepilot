@@ -162,4 +162,94 @@ describe("resolveEffectivePresetsForProject", () => {
       ),
     ).toBe(false);
   });
+
+  it("does not include musician back vocal defaults when project has no explicit back_vocs", () => {
+    const musician: Musician = {
+      id: "voc-1",
+      firstName: "Back",
+      lastName: "Singer",
+      group: "vocs",
+      presets: [{ kind: "vocal", ref: "vocal_back_no_mic", ownerKey: "vocs" }],
+    };
+    const project: Project = {
+      id: "p-4",
+      bandRef: "band-1",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+      lineup: { vocs: "voc-1" },
+    };
+
+    const items = resolveEffectivePresetsForProject({
+      project,
+      band,
+      musician,
+      group: "vocs",
+      repo: repo as never,
+    });
+
+    expect(
+      items.some(
+        (item) =>
+          item.kind === "vocal" &&
+          "ref" in item &&
+          item.ref.startsWith("vocal_back_"),
+      ),
+    ).toBe(false);
+  });
+
+  it("uses only explicit project back_vocs selection for back vocal presets", () => {
+    const selectedBackSinger: Musician = {
+      id: "voc-1",
+      firstName: "Selected",
+      lastName: "Back",
+      group: "vocs",
+      presets: [{ kind: "vocal", ref: "vocal_back_no_mic", ownerKey: "vocs" }],
+    };
+    const nonSelectedBackSinger: Musician = {
+      id: "voc-2",
+      firstName: "NonSelected",
+      lastName: "Back",
+      group: "vocs",
+      presets: [{ kind: "vocal", ref: "vocal_back_no_mic", ownerKey: "vocs" }],
+    };
+    const project: Project = {
+      id: "p-5",
+      bandRef: "band-1",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+      lineup: { vocs: ["voc-1", "voc-2"], back_vocs: ["voc-1"] },
+    };
+
+    const selectedItems = resolveEffectivePresetsForProject({
+      project,
+      band,
+      musician: selectedBackSinger,
+      group: "vocs",
+      repo: repo as never,
+    });
+    const nonSelectedItems = resolveEffectivePresetsForProject({
+      project,
+      band,
+      musician: nonSelectedBackSinger,
+      group: "vocs",
+      repo: repo as never,
+    });
+
+    expect(
+      selectedItems.some(
+        (item) =>
+          item.kind === "vocal" &&
+          "ref" in item &&
+          item.ref.startsWith("vocal_back_"),
+      ),
+    ).toBe(true);
+    expect(
+      nonSelectedItems.some(
+        (item) =>
+          item.kind === "vocal" &&
+          "ref" in item &&
+          item.ref.startsWith("vocal_back_"),
+      ),
+    ).toBe(false);
+  });
 });

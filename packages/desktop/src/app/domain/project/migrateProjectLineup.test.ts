@@ -18,4 +18,19 @@ describe("migrateProjectLineupVocsToLeadBack", () => {
     expect(migrated.lineup).not.toHaveProperty("back_vocs");
     expect(migrated.lineup).not.toHaveProperty("vocs");
   });
+
+  it("preserves explicit empty back_vocs selection", () => {
+    const migrated = migrateProjectLineupVocsToLeadBack({
+      id: "p-2",
+      purpose: "event",
+      bandRef: "band-1",
+      documentDate: "2026-01-01",
+      eventDate: "2026-01-01",
+      eventVenue: "Venue",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      lineup: { lead_vocs: ["lead-1"], back_vocs: [] },
+    });
+
+    expect(migrated.lineup?.back_vocs).toEqual([]);
+  });
 });

@@ -1,21 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { Musician, Project } from "../model/types.js";
+import type { Project } from "../model/types.js";
 import {
-  collectActiveLineupMusicianIds,
   resolveProjectBackVocsState,
   resolveProjectTalkbackState,
 } from "./resolveProjectAudioAssignments.js";
 
-const backVocalist: Musician = {
-  id: "voc-back",
-  firstName: "Back",
-  lastName: "Voc",
-  group: "vocs",
-  presets: [{ kind: "vocal", ref: "vocal_back_no_mic", ownerKey: "vocs" }],
-};
-
 describe("resolveProjectBackVocsState", () => {
-  it("computes defaults from active lineup musicians when explicit value is missing", () => {
+  it("does not compute back vocals from defaults when explicit value is missing", () => {
     const project: Project = {
       id: "p-1",
       bandRef: "band-1",
@@ -24,15 +15,13 @@ describe("resolveProjectBackVocsState", () => {
       lineup: { vocs: "voc-back" },
     };
 
-    const active = collectActiveLineupMusicianIds(project);
     const resolved = resolveProjectBackVocsState({
       project,
-      activeMusicianIds: active,
-      musiciansById: new Map([["voc-back", backVocalist]]),
     });
 
     expect(resolved.hasExplicitBackVocsOverride).toBe(false);
-    expect(resolved.effectiveBackVocs).toEqual(["voc-back"]);
+    expect(resolved.defaultBackVocs).toEqual([]);
+    expect(resolved.effectiveBackVocs).toEqual([]);
   });
 
   it("respects explicit empty back_vocs override", () => {
@@ -46,8 +35,6 @@ describe("resolveProjectBackVocsState", () => {
 
     const resolved = resolveProjectBackVocsState({
       project,
-      activeMusicianIds: ["voc-back"],
-      musiciansById: new Map([["voc-back", backVocalist]]),
     });
 
     expect(resolved.hasExplicitBackVocsOverride).toBe(true);

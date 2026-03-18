@@ -1,4 +1,4 @@
-import type { Musician, PresetItem, Project } from "../model/types.js";
+import type { Project } from "../model/types.js";
 
 type ProjectWithLineup = Project & { lineup?: Record<string, unknown> };
 
@@ -47,21 +47,6 @@ export function collectActiveLineupMusicianIds(project: Project): string[] {
   return Array.from(selected);
 }
 
-function presetRef(item: PresetItem): string | undefined {
-  return "ref" in item && typeof item.ref === "string" ? item.ref : undefined;
-}
-
-function hasBackVocalPreset(musician: Musician): boolean {
-  return musician.presets.some((item) => {
-    const ref = presetRef(item);
-    return (
-      item.kind === "vocal" &&
-      typeof ref === "string" &&
-      ref.startsWith("vocal_back_")
-    );
-  });
-}
-
 export function hasOwnBackVocsOverride(project: Project): boolean {
   const lineup = (project as ProjectWithLineup).lineup;
   return Boolean(
@@ -71,8 +56,6 @@ export function hasOwnBackVocsOverride(project: Project): boolean {
 
 export function resolveProjectBackVocsState(args: {
   project: Project;
-  activeMusicianIds: string[];
-  musiciansById: Map<string, Musician>;
 }): {
   explicitBackVocs: string[] | undefined;
   defaultBackVocs: string[];
@@ -91,17 +74,10 @@ export function resolveProjectBackVocsState(args: {
     ? lineupEntries(lineup.back_vocs)
     : undefined;
 
-  const defaultBackVocs = args.activeMusicianIds
-    .filter((musicianId) => {
-      const musician = args.musiciansById.get(musicianId);
-      return musician ? hasBackVocalPreset(musician) : false;
-    })
-    .filter((musicianId, index, all) => all.indexOf(musicianId) === index);
-
   return {
     explicitBackVocs,
-    defaultBackVocs,
-    effectiveBackVocs: explicitBackVocs ?? defaultBackVocs,
+    defaultBackVocs: [],
+    effectiveBackVocs: explicitBackVocs ?? [],
     hasExplicitBackVocsOverride,
   };
 }
