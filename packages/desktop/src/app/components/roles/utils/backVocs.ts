@@ -72,6 +72,16 @@ export function getBackVocalCandidatesFromTemplate(musicians: Musician[]): Music
   return musicians.filter((musician) => !leadVocIds.has(musician.id));
 }
 
+export function filterBackVocalCandidates(args: {
+  lineupCandidates: Array<{ id: string }>;
+  selectedLeadVocalistIds: Iterable<string>;
+}): string[] {
+  const leadIds = new Set(args.selectedLeadVocalistIds);
+  return args.lineupCandidates
+    .map((candidate) => candidate.id)
+    .filter((id) => !leadIds.has(id));
+}
+
 export function sanitizeBackVocsSelection(selectedIds: Set<MusicianId>, leadVocIds: Set<MusicianId>): Set<MusicianId> {
   return new Set(Array.from(selectedIds).filter((id) => !leadVocIds.has(id)));
 }

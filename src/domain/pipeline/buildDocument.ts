@@ -27,8 +27,9 @@ import { resolvePowerForStageplan } from "../stageplan/resolvePowerForStageplan.
 import {
   formatInputListLabel,
   formatInputListNote,
+  formatLeadVocalPdfLabel,
   formatDrumInputDisplayLabel,
-  formatLeadVocalDisplayLabel,
+  formatBackVocalPdfLabel,
   formatMonitorLabel,
   formatMonitoringLabel,
   formatProjectMetaLine,
@@ -89,6 +90,7 @@ type BuiltInput = {
   note?: string;
   ownerGender?: "m" | "f" | "x";
   ownerRole: Group;
+  ownerMusicianId?: string;
 };
 
 type BuiltInputWithCh = BuiltInput & { ch: number };
@@ -412,7 +414,11 @@ export function buildDocument(
       if (item.kind === "preset" && /^vocal_lead/i.test(item.ref)) {
         for (const input of expanded) {
           input.ownerGender = musician.gender;
+          input.ownerMusicianId = musician.id;
         }
+      }
+      for (const input of expanded) {
+        if (!input.ownerMusicianId) input.ownerMusicianId = musician.id;
       }
       inputs.push(...expanded);
     }
@@ -425,6 +431,7 @@ export function buildDocument(
           group,
           note: input.note,
           ownerRole: group,
+          ownerMusicianId: musician.id,
         })),
       );
     }
@@ -548,10 +555,14 @@ export function buildDocument(
     firstName: m.firstName ?? null,
     isBandLeader: m.id === ctx.bandLeaderId,
   }));
-  const leadVocalCount = inputs.filter((input) =>
-    input.key.startsWith("voc_lead"),
-  ).length;
+  const leadResolvedVocs = leadResolved.filter((musician) => musician.group === "vocs");
+  const leadVocsIndexByMusicianId = new Map(
+    leadResolvedVocs.map((musician, index) => [musician.id, index + 1]),
+  );
+  const leadVocsCount = leadResolvedVocs.length;
+  const leadVocsGenderByIndex = leadResolvedVocs.map((musician) => musician.gender);
   const pushRow = (output: string, musician?: Musician | undefined) => {
+    if (!musician) return;
     monitorTableRows.push({
       no: String(monitorTableRows.length + 1),
       output,
@@ -565,11 +576,11 @@ export function buildDocument(
     guitarM,
   );
 
-  leadResolved.forEach((m, index) => {
+  leadResolvedVocs.forEach((m, index) => {
     pushRow(
       formatMonitorLabel(
         { kind: "lead", index: index + 1, gender: m.gender },
-        { leadCount: leadResolved.length },
+        { leadCount: leadVocsCount },
       ),
       m,
     );
@@ -622,19 +633,26 @@ export function buildDocument(
   const formattedKeysInputs = formatKeysInputInstances(reorderedInputs);
   const disambiguatedInputs = disambiguateInputKeys(formattedKeysInputs);
   const drumFamilyState = groupActiveDrumInputsByFamily(disambiguatedInputs);
-  const leadGenderByIndex = leadResolved.map((m) => m.gender);
   const finalizedInputs = disambiguatedInputs.map((input) => {
     if (input.group === "drums") {
       return { ...input, label: formatDrumInputDisplayLabel(input, drumFamilyState) };
     }
+    if (input.key.startsWith("voc_back_")) {
+      return {
+        ...input,
+        label: formatBackVocalPdfLabel(input.ownerRole),
+      };
+    }
     if (input.key.startsWith("voc_lead")) {
       return {
         ...input,
-        label: formatLeadVocalDisplayLabel({
-          key: input.key,
+        label: formatLeadVocalPdfLabel({
+          ownerRole: input.ownerRole,
+          ownerMusicianId: input.ownerMusicianId,
           fallbackLabel: input.label,
-          leadCount: leadVocalCount,
-          leadGenderByIndex,
+          leadVocsCount,
+          leadVocsIndexByMusicianId,
+          genderByLeadVocsIndex: leadVocsGenderByIndex,
         }),
       };
     }

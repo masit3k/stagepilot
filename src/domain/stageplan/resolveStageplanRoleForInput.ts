@@ -1,9 +1,9 @@
 import type { Group, StageplanInstrument } from "../model/types.js";
 
 const backVocalPattern =
-  /back vocal\s*[-–—]\s*(guitar|keys|bass|drums)/i;
+  /back vocal\s*(?:[-–—]|\()\s*(guitar|keys|bass|drums)\)?/i;
 const talkbackPattern =
-  /talkback\s*[-–—]\s*(guitar|keys|bass|drums)/i;
+  /talkback\s*(?:[-–—]|\()\s*(guitar|keys|bass|drums)\)?/i;
 
 function mapInstrumentMatch(match: string | undefined): StageplanInstrument | null {
   switch ((match ?? "").toLowerCase()) {

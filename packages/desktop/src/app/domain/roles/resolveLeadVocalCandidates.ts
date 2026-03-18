@@ -55,12 +55,15 @@ function compareCandidates(
 export function resolveLeadVocalCandidates(args: {
   lineupCandidates: LeadVocalCandidateInput[];
   selectedLeadVocalistIds: string[];
+  suggestedLeadVocalistIds?: Iterable<string>;
 }): LeadVocalCandidateSections {
   const selectedSet = new Set(args.selectedLeadVocalistIds);
+  const suggestedSet = new Set(args.suggestedLeadVocalistIds ?? []);
 
   const candidates = args.lineupCandidates.map((candidate) => {
     const isSelected = selectedSet.has(candidate.musicianId);
-    const isSuggested = candidate.hasLeadVocalPreset;
+    const isSuggested =
+      candidate.hasLeadVocalPreset || suggestedSet.has(candidate.musicianId);
     return {
       musicianId: candidate.musicianId,
       displayName: candidate.displayName,

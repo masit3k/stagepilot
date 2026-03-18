@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Musician, PresetEntity } from "../../../../../../../src/domain/model/types";
-import { applyBackVocsSelection, detectBackVocalPresetKind, getBackVocalCandidatesFromTemplate, getBackVocsFromTemplate, getLeadVocsFromTemplate, getTalkbackOwnersFromTemplate, isBackVocalPreset, resolveDefaultBackVocalRef, sanitizeBackVocsSelection } from "./backVocs";
+import { applyBackVocsSelection, detectBackVocalPresetKind, filterBackVocalCandidates, getBackVocalCandidatesFromTemplate, getBackVocsFromTemplate, getLeadVocsFromTemplate, getTalkbackOwnersFromTemplate, isBackVocalPreset, resolveDefaultBackVocalRef, sanitizeBackVocsSelection } from "./backVocs";
 
 const musicians: Musician[] = [
   {
@@ -112,6 +112,14 @@ it("excludes lead vocalists from back vocal candidates", () => {
     const lead = new Set(["m2"]);
 
     expect(Array.from(sanitizeBackVocsSelection(selected, lead)).sort()).toEqual(["m1", "m3"]);
+  });
+  it("filters out selected lead vocalists from lineup candidates", () => {
+    expect(
+      filterBackVocalCandidates({
+        lineupCandidates: [{ id: "m1" }, { id: "m2" }, { id: "m3" }],
+        selectedLeadVocalistIds: ["m2", "m4"],
+      }),
+    ).toEqual(["m1", "m3"]);
   });
   it("adds default ref for newly selected and preserves existing refs", () => {
     const updated = applyBackVocsSelection(musicians, new Set(["m2", "m3"]), "vocal_back_no_mic");

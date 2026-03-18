@@ -340,7 +340,7 @@ function buildStageplanBoxes(
   const isPadInput = (label: string): boolean => /pad/i.test(label);
   const isBackingTrackInput = (label: string): boolean => /backing\s*track/i.test(label);
   const isDummyInput = (label: string): boolean => /dummy/i.test(label);
-  const isBackVocalDrums = (label: string): boolean => /back vocal\s*[-–—]\s*drums/i.test(label);
+  const isBackVocalDrums = (label: string): boolean => /back vocal\s*(?:[-–—]|\()\s*drums\)?/i.test(label);
   const formatRange = (label: string, items: Array<{ channelNo: number }>): string | null => {
     if (items.length === 0) return null;
     const numbers = items.map((item) => item.channelNo);

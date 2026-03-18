@@ -34,6 +34,17 @@ describe("resolveStageplanRoleForInput", () => {
     ).toBe("Drums");
   });
 
+  it("maps back-vocal ownership mapping with parenthesis label format", () => {
+    expect(
+      resolveStageplanRoleForInput({
+        key: "voc_back_keys",
+        label: "Back vocal (keys)",
+        group: "vocs",
+        ownerRole: "vocs",
+      }),
+    ).toBe("Keys");
+  });
+
   it("keeps lead vocal mapping", () => {
     expect(
       resolveStageplanRoleForInput({

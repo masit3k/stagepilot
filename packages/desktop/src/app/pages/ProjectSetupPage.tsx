@@ -58,6 +58,7 @@ import { ChangeBackVocsModal } from "../components/roles/modals/ChangeBackVocsMo
 import { ChangeLeadVocsModal } from "../components/roles/modals/ChangeLeadVocsModal";
 import { BackVocsSetupModal } from "../components/roles/modals/BackVocsSetupModal";
 import {
+  filterBackVocalCandidates,
   getBackVocsFromTemplate,
   getLeadVocsFromTemplate,
   getTalkbackOwnersFromTemplate,
@@ -604,8 +605,9 @@ export function ProjectSetupPage({
           hasLeadVocalPreset: candidate.hasLeadVocalPreset,
         })),
         selectedLeadVocalistIds,
+        suggestedLeadVocalistIds: defaultLeadVocalistIds,
       }),
-    [lineupVocalCandidates, selectedLeadVocalistIds],
+    [defaultLeadVocalistIds, lineupVocalCandidates, selectedLeadVocalistIds],
   );
   const leadVocalMembers = useMemo(
     () =>
@@ -624,7 +626,15 @@ export function ProjectSetupPage({
   const hasSelectedBackVocs = selectedBackVocalIds.length > 0;
   const isBackVocsSetupDisabled = !hasSelectedBackVocs;
 
-  const backVocalCandidates = lineupVocalCandidates;
+  const backVocalCandidates = useMemo(() => {
+    const allowedIds = new Set(
+      filterBackVocalCandidates({
+        lineupCandidates: lineupVocalCandidates,
+        selectedLeadVocalistIds,
+      }),
+    );
+    return lineupVocalCandidates.filter((candidate) => allowedIds.has(candidate.id));
+  }, [lineupVocalCandidates, selectedLeadVocalistIds]);
 
   const serializedLineup = useMemo(() => {
     if (!setupData) return {} as LineupMap;

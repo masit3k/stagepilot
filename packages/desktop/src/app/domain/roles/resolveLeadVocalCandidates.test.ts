@@ -62,4 +62,22 @@ describe("resolveLeadVocalCandidates", () => {
       isSuggested: false,
     });
   });
+
+  it("treats default suggested lead vocal ids as suggested even without lead preset", () => {
+    const result = resolveLeadVocalCandidates({
+      lineupCandidates: [
+        {
+          musicianId: "m1",
+          displayName: "One",
+          primaryGroup: "keys",
+          hasLeadVocalPreset: false,
+        },
+      ],
+      selectedLeadVocalistIds: [],
+      suggestedLeadVocalistIds: ["m1"],
+    });
+
+    expect(result.suggestedLeadVocalCandidates.map((item) => item.musicianId)).toEqual(["m1"]);
+    expect(result.otherLeadVocalCandidates).toHaveLength(0);
+  });
 });

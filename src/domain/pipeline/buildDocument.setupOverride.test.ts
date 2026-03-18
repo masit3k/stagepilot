@@ -489,6 +489,115 @@ describe("buildDocument setup overrides", () => {
     expect(leadNames).not.toContain("Vocal");
   });
 
+  it("formats mixed lead/back vocal PDF labels and de-duplicates monitor rows", () => {
+    const band: Band = {
+      id: "band-vocal-labels",
+      name: "Band",
+      bandLeader: "voc-1",
+      defaultLineup: { vocs: ["voc-1"], guitar: ["gtr-1"], keys: ["keys-1"] },
+      defaultVocals: { lead: [], back: [] },
+    };
+    const vocs: Musician = {
+      id: "voc-1",
+      firstName: "Lead",
+      lastName: "Singer",
+      group: "vocs",
+      presets: [{ kind: "preset", ref: "vocal_lead_no_mic" }, { kind: "monitor", ref: "wedge" }],
+    };
+    const guitar: Musician = {
+      id: "gtr-1",
+      firstName: "Guitar",
+      lastName: "Player",
+      group: "guitar",
+      presets: [{ kind: "preset", ref: "el_guitar" }, { kind: "monitor", ref: "wedge" }],
+    };
+    const keys: Musician = {
+      id: "keys-1",
+      firstName: "Keys",
+      lastName: "Player",
+      group: "keys",
+      presets: [{ kind: "preset", ref: "keys_with_lead" }, { kind: "monitor", ref: "wedge" }],
+    };
+    const project: Project = {
+      id: "p-vocal-labels",
+      bandRef: "band-vocal-labels",
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: { vocs: ["voc-1"], guitar: ["gtr-1"], keys: ["keys-1"], back_vocs: ["gtr-1"] },
+      leadVocalistIds: ["voc-1", "keys-1"],
+    };
+    const notes: NotesTemplate = { id: "notes_default_cs", lang: "cs", inputs: [], monitors: [] };
+    const repo: DataRepository = {
+      getBand: () => band,
+      getMusician: (id: string) => (id === "voc-1" ? vocs : id === "gtr-1" ? guitar : keys),
+      getProject: () => project,
+      getPreset: (id: string) => {
+        if (id === "vocal_lead_no_mic") {
+          return {
+            type: "preset",
+            id,
+            label: "Lead vocal (no mic)",
+            group: "vocs",
+            inputs: [{ key: "voc_lead", label: "Lead vocal", group: "vocs" }],
+          };
+        }
+        if (id === "keys_with_lead") {
+          return {
+            type: "preset",
+            id,
+            label: "Keys + lead",
+            group: "keys",
+            inputs: [
+              { key: "keys_l", label: "Keys L", group: "keys" },
+              { key: "keys_r", label: "Keys R", group: "keys" },
+              { key: "voc_lead", label: "Lead vocal", group: "vocs" },
+            ],
+          };
+        }
+        if (id === "el_guitar") {
+          return {
+            type: "preset",
+            id,
+            label: "Guitar",
+            group: "guitar",
+            inputs: [{ key: "gtr", label: "Guitar", group: "guitar" }],
+          };
+        }
+        if (id === "vocal_back_no_mic") {
+          return {
+            type: "vocal_type",
+            id,
+            label: "Back vocal (no mic)",
+            group: "vocs",
+            input: { key: "voc_back_{ownerKey}", label: "Back vocal – {ownerLabel}" },
+          };
+        }
+        if (id === "wedge") return { type: "monitor", id, label: "Wedge" };
+        if (id === "talkback") {
+          return {
+            type: "talkback_type",
+            id,
+            label: "Talkback",
+            group: "talkback",
+            input: { key: "tb_{ownerKey}", label: "Talkback ({ownerLabel})" },
+          };
+        }
+        throw new Error(`unknown preset ${id}`);
+      },
+      getNotesTemplate: () => notes,
+    };
+
+    const vm = buildDocument(project, repo);
+    expect(vm.inputRows.some((row) => row.label === "Lead vocal")).toBe(true);
+    expect(vm.inputRows.some((row) => row.label === "Lead vocal (keys)")).toBe(true);
+    expect(vm.inputRows.some((row) => row.label === "Back vocal (guitar)")).toBe(true);
+    expect(vm.stageplan.monitorOutputs.map((row) => row.output)).toEqual([
+      "Guitar",
+      "Lead vocal",
+      "Keys",
+    ]);
+  });
+
   it("keeps explicit lineup input note override over seeded no-mic preset note", () => {
     const band: Band = {
       id: "band",
