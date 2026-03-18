@@ -23,6 +23,7 @@ describe("ChangeBackVocsModal", () => {
     expect(html).toContain("(KEYS)");
     expect(html).toContain("checked");
     expect(html).toContain("Select BACK VOCS");
+    expect(html).toContain("cannot be selected as Back Vocs");
   });
 
   it("does not render the obsolete no-preset error message", () => {

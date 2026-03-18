@@ -65,6 +65,7 @@ import {
 } from "../components/roles/utils/backVocs";
 import { resolveLeadVocalCandidates } from "../domain/roles/resolveLeadVocalCandidates";
 import { resolveLineupVocalCandidates } from "../domain/roles/resolveLineupVocalCandidates";
+import { enforceVocalSelectionInvariant } from "../domain/roles/vocalSelectionInvariant";
 import { withFrom } from "../shell/routes";
 import * as projectsApi from "../services/projectsApi";
 import type {
@@ -545,23 +546,12 @@ export function ProjectSetupPage({
         .sort((a, b) => a.localeCompare(b)),
     [selectedTemplateMusicians, setupData?.defaultVocals?.lead, templateMusicianIds],
   );
-  const selectedLeadVocalistIds = useMemo(() => {
+  const rawSelectedLeadVocalistIds = useMemo(() => {
     if (hasLeadVocalOverride) {
-      return leadVocalistIds.filter((idValue) =>
-        templateMusicianIds.has(idValue),
-      );
+      return leadVocalistIds.filter((idValue) => templateMusicianIds.has(idValue));
     }
     return defaultLeadVocalistIds;
-  }, [
-    defaultLeadVocalistIds,
-    hasLeadVocalOverride,
-    leadVocalistIds,
-    templateMusicianIds,
-  ]);
-  const selectedLeadVocalistIdSet = useMemo(
-    () => new Set(selectedLeadVocalistIds),
-    [selectedLeadVocalistIds],
-  );
+  }, [defaultLeadVocalistIds, hasLeadVocalOverride, leadVocalistIds, templateMusicianIds]);
   const lineupVocalCandidates = useMemo(
     () =>
       resolveLineupVocalCandidates({
@@ -569,6 +559,40 @@ export function ProjectSetupPage({
         lineupMembers: templateMusicians,
       }),
     [selectedTemplateMusicians, templateMusicians],
+  );
+  const defaultBackVocalIds = useMemo(
+    () =>
+      Array.from(
+        Array.isArray(setupData?.defaultVocals?.back)
+          ? new Set(setupData.defaultVocals.back)
+          : getBackVocsFromTemplate(selectedTemplateMusicians),
+      )
+        .filter((idValue) => templateMusicianIds.has(idValue))
+        .sort((a, b) => a.localeCompare(b)),
+    [selectedTemplateMusicians, setupData?.defaultVocals?.back, templateMusicianIds],
+  );
+  const rawSelectedBackVocalIds = useMemo(() => {
+    if (hasBackVocalOverride) {
+      return backVocalIds.filter((idValue) => templateMusicianIds.has(idValue));
+    }
+    return defaultBackVocalIds;
+  }, [backVocalIds, defaultBackVocalIds, hasBackVocalOverride, templateMusicianIds]);
+  const lineupVocalCandidateIdSet = useMemo(
+    () => new Set(lineupVocalCandidates.map((candidate) => candidate.id)),
+    [lineupVocalCandidates],
+  );
+  const { leadIds: selectedLeadVocalistIds, backIds: selectedBackVocalIds } = useMemo(
+    () =>
+      enforceVocalSelectionInvariant({
+        lineupCandidateIds: lineupVocalCandidateIdSet,
+        leadIds: rawSelectedLeadVocalistIds,
+        backIds: rawSelectedBackVocalIds,
+      }),
+    [lineupVocalCandidateIdSet, rawSelectedBackVocalIds, rawSelectedLeadVocalistIds],
+  );
+  const selectedLeadVocalistIdSet = useMemo(
+    () => new Set(selectedLeadVocalistIds),
+    [selectedLeadVocalistIds],
   );
   const leadVocalCandidateSections = useMemo(
     () =>
@@ -590,34 +614,6 @@ export function ProjectSetupPage({
       ),
     [selectedLeadVocalistIds, templateMusicians],
   );
-  const defaultBackVocalIds = useMemo(
-    () =>
-      sanitizeBackVocsSelection(
-        getBackVocsFromTemplate(selectedTemplateMusicians),
-        selectedLeadVocalistIdSet,
-      ),
-    [selectedLeadVocalistIdSet, selectedTemplateMusicians],
-  );
-  const selectedBackVocalIds = useMemo(() => {
-    const explicitSelectedIds = Array.from(
-      sanitizeBackVocsSelection(
-        new Set(backVocalIds),
-        selectedLeadVocalistIdSet,
-      ),
-    ).filter((idValue) => templateMusicianIds.has(idValue));
-
-    if (hasBackVocalOverride) return explicitSelectedIds;
-
-    return Array.from(defaultBackVocalIds).filter((idValue) =>
-      templateMusicianIds.has(idValue),
-    );
-  }, [
-    backVocalIds,
-    defaultBackVocalIds,
-    hasBackVocalOverride,
-    selectedLeadVocalistIdSet,
-    templateMusicianIds,
-  ]);
   const backVocalMembers = useMemo(
     () =>
       templateMusicians.filter((item) =>
@@ -628,22 +624,7 @@ export function ProjectSetupPage({
   const hasSelectedBackVocs = selectedBackVocalIds.length > 0;
   const isBackVocsSetupDisabled = !hasSelectedBackVocs;
 
-  const backVocalCandidateIds = useMemo(
-    () =>
-      new Set(
-        selectedTemplateMusicians
-          .filter((musician) => !selectedLeadVocalistIdSet.has(musician.id))
-          .map((musician) => musician.id),
-      ),
-    [selectedLeadVocalistIdSet, selectedTemplateMusicians],
-  );
-  const backVocalCandidates = useMemo(
-    () =>
-      lineupVocalCandidates.filter((candidate) =>
-        backVocalCandidateIds.has(candidate.id),
-      ),
-    [backVocalCandidateIds, lineupVocalCandidates],
-  );
+  const backVocalCandidates = lineupVocalCandidates;
 
   const serializedLineup = useMemo(() => {
     if (!setupData) return {} as LineupMap;
@@ -2195,10 +2176,18 @@ export function ProjectSetupPage({
               leadVocalCandidateSections.otherLeadVocalCandidates
             }
             initialSelectedIds={new Set(selectedLeadVocalistIds)}
+            disabledSelectedIds={new Set(selectedBackVocalIds)}
             onCancel={() => setIsLeadVocsModalOpen(false)}
             onSave={(nextSelectedIds) => {
-              setLeadVocalistIds(Array.from(nextSelectedIds));
+              const normalizedSelection = enforceVocalSelectionInvariant({
+                lineupCandidateIds: lineupVocalCandidateIdSet,
+                leadIds: nextSelectedIds,
+                backIds: selectedBackVocalIds,
+              });
+              setLeadVocalistIds(normalizedSelection.leadIds);
+              setBackVocalIds(normalizedSelection.backIds);
               setHasLeadVocalOverride(true);
+              setHasBackVocalOverride(true);
               setIsLeadVocsModalOpen(false);
             }}
           />
@@ -2213,17 +2202,18 @@ export function ProjectSetupPage({
           <ChangeBackVocsModal
             open={isBackVocsModalOpen}
             members={backVocalCandidates}
-            initialSelectedIds={sanitizeBackVocsSelection(
-              new Set(selectedBackVocalIds),
-              selectedLeadVocalistIdSet,
-            )}
+            initialSelectedIds={new Set(selectedBackVocalIds)}
+            disabledSelectedIds={new Set(selectedLeadVocalistIds)}
             onCancel={() => setIsBackVocsModalOpen(false)}
             onSave={(nextSelectedIds) => {
-              const sanitizedSelectedIds = sanitizeBackVocsSelection(
-                nextSelectedIds,
-                selectedLeadVocalistIdSet,
-              );
-              setBackVocalIds(Array.from(sanitizedSelectedIds));
+              const normalizedSelection = enforceVocalSelectionInvariant({
+                lineupCandidateIds: lineupVocalCandidateIdSet,
+                leadIds: selectedLeadVocalistIds,
+                backIds: nextSelectedIds,
+              });
+              setLeadVocalistIds(normalizedSelection.leadIds);
+              setBackVocalIds(normalizedSelection.backIds);
+              setHasLeadVocalOverride(true);
               setHasBackVocalOverride(true);
               setIsBackVocsModalOpen(false);
             }}

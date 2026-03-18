@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Group } from "../../../../../../../src/domain/model/groups";
-import { CandidateDisplayLabel } from "./CandidateDisplayLabel";
+import { VocalCandidateOptionRow } from "./VocalCandidateOptionRow";
 
 export type BackVocalCandidate = {
   id: string;
@@ -12,15 +12,20 @@ type ChangeBackVocsModalProps = {
   open: boolean;
   members: BackVocalCandidate[];
   initialSelectedIds: Set<string>;
+  disabledSelectedIds?: Set<string>;
   saveDisabled?: boolean;
   onCancel: () => void;
   onSave: (selectedIds: Set<string>) => void;
 };
 
+const VOCAL_EXCLUSION_NOTE =
+  "A musician selected as Lead Vocs cannot be selected as Back Vocs, and vice versa.";
+
 export function ChangeBackVocsModal({
   open,
   members,
   initialSelectedIds,
+  disabledSelectedIds = new Set<string>(),
   saveDisabled = false,
   onCancel,
   onSave,
@@ -36,6 +41,17 @@ export function ChangeBackVocsModal({
       setSelectedIds(new Set(initialSelectedIds));
     wasOpenRef.current = open;
   }, [open, initialSelectedIds]);
+
+  const toggleSelection = useMemo(
+    () => (candidateId: string) => {
+      if (disabledSelectedIds.has(candidateId)) return;
+      const next = new Set(selectedIds);
+      if (next.has(candidateId)) next.delete(candidateId);
+      else next.add(candidateId);
+      setSelectedIds(next);
+    },
+    [disabledSelectedIds, selectedIds],
+  );
 
   if (!open) return null;
 
@@ -57,42 +73,24 @@ export function ChangeBackVocsModal({
       <div className="panel__header panel__header--stack selector-dialog__title">
         <h3>Select BACK VOCS</h3>
       </div>
+      <p className="subtle">{VOCAL_EXCLUSION_NOTE}</p>
       <div className="selector-dialog__divider section-divider" />
       <div className="selector-list">
         {!hasCandidates ? (
           <p className="subtle">No eligible vocalists available.</p>
         ) : (
-          members.map((member) => {
-            const checked = selectedIds.has(member.id);
-            const id = `back-vocs-${member.id}`;
-            return (
-              <label
-                key={member.id}
-                className="selector-option selector-option--check"
-                htmlFor={id}
-                tabIndex={0}
-              >
-                <input
-                  id={id}
-                  className="setup-checkbox"
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => {
-                    const next = new Set(selectedIds);
-                    if (next.has(member.id)) next.delete(member.id);
-                    else next.add(member.id);
-                    setSelectedIds(next);
-                  }}
-                />
-                <span>
-                  <CandidateDisplayLabel
-                    displayName={member.name}
-                    primaryGroup={member.primaryGroup}
-                  />
-                </span>
-              </label>
-            );
-          })
+          members.map((member) => (
+            <VocalCandidateOptionRow
+              key={member.id}
+              id={member.id}
+              inputIdPrefix="back-vocs"
+              displayName={member.name}
+              primaryGroup={member.primaryGroup}
+              selected={selectedIds.has(member.id)}
+              disabled={disabledSelectedIds.has(member.id)}
+              onToggle={toggleSelection}
+            />
+          ))
         )}
       </div>
       <div className="modal-actions">

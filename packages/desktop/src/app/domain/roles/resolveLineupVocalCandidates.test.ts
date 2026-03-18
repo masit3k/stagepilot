@@ -17,7 +17,7 @@ describe("resolveLineupVocalCandidates", () => {
           firstName: "Keys",
           lastName: "Player",
           group: "keys",
-          presets: [{ kind: "preset", ref: "keys" }],
+          presets: [{ kind: "preset", ref: "vocal_back_wireless" }],
         },
       ],
       lineupMembers: [
@@ -28,16 +28,18 @@ describe("resolveLineupVocalCandidates", () => {
 
     expect(candidates).toEqual([
       {
-        id: "voc-only",
-        name: "Vocal Only",
-        primaryGroup: "vocs",
-        hasLeadVocalPreset: true,
-      },
-      {
         id: "keys-1",
         name: "Keys Player",
         primaryGroup: "keys",
         hasLeadVocalPreset: false,
+        hasBackVocalPreset: true,
+      },
+      {
+        id: "voc-only",
+        name: "Vocal Only",
+        primaryGroup: "vocs",
+        hasLeadVocalPreset: true,
+        hasBackVocalPreset: false,
       },
     ]);
   });

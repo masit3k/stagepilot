@@ -1,61 +1,26 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { LeadVocalCandidate } from "../../../domain/roles/resolveLeadVocalCandidates";
-import { CandidateDisplayLabel } from "./CandidateDisplayLabel";
+import { VocalCandidateOptionRow } from "./VocalCandidateOptionRow";
 
 type ChangeLeadVocsModalProps = {
   open: boolean;
   suggestedCandidates: LeadVocalCandidate[];
   otherCandidates: LeadVocalCandidate[];
   initialSelectedIds: Set<string>;
+  disabledSelectedIds?: Set<string>;
   onCancel: () => void;
   onSave: (selectedIds: Set<string>) => void;
 };
 
-function renderCandidateRow(
-  candidate: LeadVocalCandidate,
-  selectedIds: Set<string>,
-  setSelectedIds: (value: Set<string>) => void,
-) {
-  const checked = selectedIds.has(candidate.musicianId);
-  const id = `lead-vocs-${candidate.musicianId}`;
-
-  return (
-    <label
-      key={candidate.musicianId}
-      className="selector-option selector-option--check"
-      htmlFor={id}
-      tabIndex={0}
-    >
-      <input
-        id={id}
-        className="setup-checkbox"
-        type="checkbox"
-        checked={checked}
-        onChange={() => {
-          const next = new Set(selectedIds);
-          if (next.has(candidate.musicianId)) next.delete(candidate.musicianId);
-          else next.add(candidate.musicianId);
-          setSelectedIds(next);
-        }}
-      />
-      <span>
-        <CandidateDisplayLabel
-          displayName={candidate.displayName}
-          primaryGroup={candidate.primaryGroup}
-        />
-        {candidate.hasLeadPreset ? (
-          <small className="subtle"> • Lead vocal preset</small>
-        ) : null}
-      </span>
-    </label>
-  );
-}
+const VOCAL_EXCLUSION_NOTE =
+  "A musician selected as Lead Vocs cannot be selected as Back Vocs, and vice versa.";
 
 export function ChangeLeadVocsModal({
   open,
   suggestedCandidates,
   otherCandidates,
   initialSelectedIds,
+  disabledSelectedIds = new Set<string>(),
   onCancel,
   onSave,
 }: ChangeLeadVocsModalProps) {
@@ -70,6 +35,17 @@ export function ChangeLeadVocsModal({
     }
     wasOpenRef.current = open;
   }, [open, initialSelectedIds]);
+
+  const toggleSelection = useMemo(
+    () => (candidateId: string) => {
+      if (disabledSelectedIds.has(candidateId)) return;
+      const next = new Set(selectedIds);
+      if (next.has(candidateId)) next.delete(candidateId);
+      else next.add(candidateId);
+      setSelectedIds(next);
+    },
+    [disabledSelectedIds, selectedIds],
+  );
 
   if (!open) return null;
 
@@ -91,24 +67,45 @@ export function ChangeLeadVocsModal({
       <div className="panel__header panel__header--stack selector-dialog__title">
         <h3>Select LEAD VOCS</h3>
       </div>
+      <p className="subtle">{VOCAL_EXCLUSION_NOTE}</p>
       <div className="selector-dialog__divider section-divider" />
       <div className="selector-list">
         <h4 className="subtle">Suggested lead vocalists</h4>
         {suggestedCandidates.length === 0 ? (
           <p className="subtle">No suggested lead vocalists.</p>
         ) : (
-          suggestedCandidates.map((candidate) =>
-            renderCandidateRow(candidate, selectedIds, setSelectedIds),
-          )
+          suggestedCandidates.map((candidate) => (
+            <VocalCandidateOptionRow
+              key={candidate.musicianId}
+              id={candidate.musicianId}
+              inputIdPrefix="lead-vocs"
+              displayName={candidate.displayName}
+              primaryGroup={candidate.primaryGroup}
+              selected={selectedIds.has(candidate.musicianId)}
+              disabled={disabledSelectedIds.has(candidate.musicianId)}
+              onToggle={toggleSelection}
+              trailingNote={candidate.hasLeadPreset ? "Lead vocal preset" : undefined}
+            />
+          ))
         )}
         <div className="selector-dialog__divider section-divider" />
         <h4 className="subtle">Other lineup members</h4>
         {otherCandidates.length === 0 ? (
           <p className="subtle">No other lineup members.</p>
         ) : (
-          otherCandidates.map((candidate) =>
-            renderCandidateRow(candidate, selectedIds, setSelectedIds),
-          )
+          otherCandidates.map((candidate) => (
+            <VocalCandidateOptionRow
+              key={candidate.musicianId}
+              id={candidate.musicianId}
+              inputIdPrefix="lead-vocs"
+              displayName={candidate.displayName}
+              primaryGroup={candidate.primaryGroup}
+              selected={selectedIds.has(candidate.musicianId)}
+              disabled={disabledSelectedIds.has(candidate.musicianId)}
+              onToggle={toggleSelection}
+              trailingNote={candidate.hasLeadPreset ? "Lead vocal preset" : undefined}
+            />
+          ))
         )}
       </div>
       <div className="modal-actions">
