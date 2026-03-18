@@ -401,7 +401,7 @@ export function buildDocument(
     }
 
       for (const item of effectivePresetItems) {
-      if (group === "bass" && item.kind === "preset") {
+      if ((group === "bass" && item.kind === "preset") || (group === "drums" && item.kind === "drum_setup")) {
         continue;
       }
       if (item.kind === "monitor") {
@@ -417,7 +417,7 @@ export function buildDocument(
       inputs.push(...expanded);
     }
 
-    if (group === "bass" && effectiveMusicianSetup) {
+    if ((group === "bass" || group === "drums") && effectiveMusicianSetup) {
       inputs.push(
         ...effectiveMusicianSetup.inputs.map((input) => ({
           key: input.key,

@@ -399,7 +399,6 @@ describe("buildDocument setup overrides", () => {
       ),
     ).toBe(true);
   });
-});
 
 it("emits stageplan input ownerRole from current lineup assignment", () => {
   const band: Band = {
@@ -564,6 +563,163 @@ it("emits stageplan input ownerRole from current lineup assignment", () => {
     expect(vm.inputs.some((item) => item.key === "dr_kick_1_out")).toBe(true);
     expect(vm.inputs.some((item) => item.key === "dr_pad_stereo_sfx_l")).toBe(true);
     expect(vm.inputs.some((item) => item.key === "dr_tracks_l")).toBe(true);
+    expect(vm.inputs.filter((item) => item.key.startsWith("dr_kick_1_out")).length).toBe(1);
+    expect(vm.inputs.filter((item) => item.key.startsWith("dr_tracks_l")).length).toBe(1);
     const stageplanLabels = vm.stageplan.inputs.map((item) => item.label);
+    expect(stageplanLabels).toContain("Backing track L");
+    expect(stageplanLabels).toContain("Backing track R");
     expect(stageplanLabels.indexOf("Backing track L")).toBeGreaterThan(stageplanLabels.indexOf("PAD SFX R"));
   });
+
+  it("uses effective drumDefinition override from lineup for counts and tracks toggle", () => {
+    const band: Band = {
+      id: "band-d-override",
+      name: "Band",
+      bandLeader: "dr-2",
+      defaultLineup: { drums: "dr-2", bass: "b-1" },
+    };
+    const drummer: Musician = {
+      id: "dr-2",
+      firstName: "Dr",
+      lastName: "Two",
+      group: "drums",
+      presets: [
+        {
+          kind: "drum_setup",
+          setup: {
+            kickCount: 1,
+            kicks: [{ in: true, out: true }],
+            snareCount: 1,
+            snares: [{ top: true, bottom: true }],
+            hasHiHat: true,
+            tomCount: 1,
+            floorCount: 1,
+            hasOverheads: true,
+            pad: { enabled: false },
+            tracks: { enabled: false },
+          },
+        },
+      ],
+    };
+    const bassist: Musician = {
+      id: "b-1",
+      firstName: "Bass",
+      lastName: "One",
+      group: "bass",
+      presets: [{ kind: "preset", ref: "el_bass_xlr_pedalboard" }],
+    };
+    const notes: NotesTemplate = {
+      id: "notes_default_cs",
+      lang: "cs",
+      inputs: [],
+      monitors: [],
+    };
+
+    const projectWithTracks: Project = {
+      id: "p-drum-override-on",
+      bandRef: "band-d-override",
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: {
+        drums: {
+          musicianId: "dr-2",
+          drumDefinition: {
+            kickCount: 2,
+            kicks: [{ in: true, out: true }, { in: true, out: true }],
+            snareCount: 3,
+            snares: [
+              { top: true, bottom: true },
+              { top: true, bottom: true },
+              { top: true, bottom: true },
+            ],
+            hasHiHat: true,
+            tomCount: 4,
+            floorCount: 2,
+            hasOverheads: true,
+            pad: { enabled: false },
+            tracks: { enabled: true, channels: "stereo" },
+          },
+        },
+        bass: "b-1",
+      },
+    };
+
+    const projectWithoutTracks: Project = {
+      ...projectWithTracks,
+      id: "p-drum-override-off",
+      lineup: {
+        drums: {
+          musicianId: "dr-2",
+          drumDefinition: {
+            kickCount: 2,
+            kicks: [{ in: true, out: true }, { in: true, out: true }],
+            snareCount: 3,
+            snares: [
+              { top: true, bottom: true },
+              { top: true, bottom: true },
+              { top: true, bottom: true },
+            ],
+            hasHiHat: true,
+            tomCount: 4,
+            floorCount: 2,
+            hasOverheads: true,
+            pad: { enabled: false },
+            tracks: { enabled: false },
+          },
+        },
+        bass: "b-1",
+      },
+    };
+
+    const repoForProject = (currentProject: Project): DataRepository => ({
+      getBand: () => band,
+      getMusician: (id: string) => (id === "dr-2" ? drummer : bassist),
+      getProject: () => currentProject,
+      getPreset: (id: string) => {
+        if (id === "el_bass_xlr_pedalboard")
+          return {
+            type: "preset",
+            id,
+            label: "Electric bass guitar",
+            group: "bass",
+            inputs: [
+              {
+                key: "el_bass_xlr_pedalboard",
+                label: "Electric bass guitar",
+                group: "bass",
+              },
+            ],
+          };
+        if (id === "wedge") return { type: "monitor", id, label: "Wedge" };
+        if (id === "talkback")
+          return {
+            type: "talkback_type",
+            id,
+            label: "Talkback",
+            group: "talkback",
+            input: { key: "tb_{ownerKey}", label: "Talkback ({ownerLabel})" },
+          };
+        throw new Error(`unknown preset ${id}`);
+      },
+      getNotesTemplate: () => notes,
+    });
+
+    const vmWithTracks = buildDocument(projectWithTracks, repoForProject(projectWithTracks));
+    expect(vmWithTracks.inputs.some((item) => item.key === "dr_kick_2_out")).toBe(true);
+    expect(vmWithTracks.inputs.some((item) => item.key === "dr_snare3_top")).toBe(true);
+    expect(vmWithTracks.inputs.some((item) => item.key === "dr_tom_4")).toBe(true);
+    expect(vmWithTracks.inputs.some((item) => item.key === "dr_floor_2")).toBe(true);
+    expect(vmWithTracks.inputs.some((item) => item.key === "dr_tracks_l")).toBe(true);
+    expect(vmWithTracks.inputs.some((item) => item.key === "dr_tracks_r")).toBe(true);
+    expect(vmWithTracks.inputs.filter((item) => item.key.startsWith("dr_kick_1_out")).length).toBe(1);
+    expect(vmWithTracks.stageplan.inputs.some((item) => item.label === "Backing track L")).toBe(true);
+    expect(vmWithTracks.stageplan.inputs.some((item) => item.label === "Backing track R")).toBe(true);
+    expect(vmWithTracks.inputs.some((item) => item.key === "el_bass_xlr_pedalboard")).toBe(true);
+
+    const vmWithoutTracks = buildDocument(projectWithoutTracks, repoForProject(projectWithoutTracks));
+    expect(vmWithoutTracks.inputs.some((item) => item.key === "dr_tracks_l")).toBe(false);
+    expect(vmWithoutTracks.inputs.some((item) => item.key === "dr_tracks_r")).toBe(false);
+    expect(vmWithoutTracks.stageplan.inputs.some((item) => item.label === "Backing track L")).toBe(false);
+    expect(vmWithoutTracks.stageplan.inputs.some((item) => item.label === "Backing track R")).toBe(false);
+  });
+});
