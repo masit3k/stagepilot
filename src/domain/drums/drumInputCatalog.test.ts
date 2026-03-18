@@ -30,4 +30,16 @@ describe("drum input catalog asset", () => {
     expect(pad).toMatchObject({ category: "pad", mode: "sfx", channels: "stereo", side: "l" });
     expect(tracks).toMatchObject({ category: "tracks", channels: "stereo", side: "l" });
   });
+
+  it("uses key and slot identity without redundant item id", () => {
+    const filePath = resolve(process.cwd(), "data/assets/catalog/inputs/drums.json");
+    const catalog = JSON.parse(readFileSync(filePath, "utf-8")) as {
+      items: Array<{ key: string; slot: string; id?: unknown }>;
+    };
+
+    const first = catalog.items[0];
+    expect(typeof first.key).toBe("string");
+    expect(typeof first.slot).toBe("string");
+    expect("id" in first).toBe(false);
+  });
 });

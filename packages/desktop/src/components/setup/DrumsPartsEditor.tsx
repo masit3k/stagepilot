@@ -79,6 +79,10 @@ function updateBooleanField(setup: DrumDefinition, field: BooleanField, checked:
   }
 }
 
+export function updateDrumToggleField(setup: DrumDefinition, field: BooleanField, checked: boolean): DrumDefinition {
+  return updateBooleanField(setup, field, checked);
+}
+
 function booleanFieldValue(setup: DrumDefinition, field: BooleanField): boolean {
   switch (field) {
     case "hasHiHat":

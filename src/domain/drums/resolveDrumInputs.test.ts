@@ -24,10 +24,10 @@ describe("resolveDrumDefinitionInputs", () => {
     expect(keys[0]).toBe("dr_kick_1_out");
   });
 
-  it("assigns stable semantic ids from catalog", () => {
+  it("keeps stable catalog keys while resolving by slot", () => {
     const definition = createDefaultDrumDefinition();
     const kickIn = resolveDrumDefinitionInputs(definition).find((item) => item.key === "dr_kick_1_in");
-    expect(kickIn?.id).toBe("kick_1_in");
+    expect(kickIn?.key).toBe("dr_kick_1_in");
   });
 
   it("resolves active slots from domain state", () => {
@@ -59,9 +59,9 @@ describe("resolveDrumDefinitionInputs", () => {
 
   it("keeps ordering deterministic via metadata ordering helper", () => {
     const ordered = orderResolvedDrumInputs([
-      { key: "dr_tracks_l", id: "tracks_l", label: "Playback L", note: "", slot: "tracks_l", order: 260, category: "tracks" },
-      { key: "dr_oh_l", id: "overheads_l", label: "OH L", note: "", slot: "overheads_l", order: 190, category: "overhead", side: "l" },
-      { key: "dr_pad_mono_sfx", id: "pad_sfx_mono", label: "PAD SFX", note: "", slot: "pad_mono_sfx", order: 210, category: "pad", mode: "sfx", channels: "mono" },
+      { key: "dr_tracks_l", label: "Backing track L", note: "", slot: "tracks_l", order: 260, category: "tracks" },
+      { key: "dr_oh_l", label: "OH L", note: "", slot: "overheads_l", order: 190, category: "overhead", side: "l" },
+      { key: "dr_pad_mono_sfx", label: "PAD SFX", note: "", slot: "pad_mono_sfx", order: 210, category: "pad", mode: "sfx", channels: "mono" },
     ]);
     expect(ordered.map((item) => item.key)).toEqual(["dr_oh_l", "dr_pad_mono_sfx", "dr_tracks_l"]);
   });

@@ -3,5 +3,5 @@ import type { DrumDefinition } from "../../../../../src/domain/drums/drumDefinit
 type Props = { value: DrumDefinition; onChange: (next: DrumDefinition) => void };
 
 export function DrumAdditionalEditor({ value, onChange }: Props) {
-  return <section><h4>Additional</h4><label className="setup-editor-list__row"><span>Tracks</span><input type="checkbox" checked={value.tracks.enabled} onChange={(e)=>onChange({ ...value, tracks: { enabled: e.target.checked } })} /></label></section>;
+  return <section><h4>Additional</h4><label className="setup-editor-list__row"><span>Backing track</span><input type="checkbox" checked={value.tracks.enabled} onChange={(e)=>onChange({ ...value, tracks: { enabled: e.target.checked } })} /></label></section>;
 }

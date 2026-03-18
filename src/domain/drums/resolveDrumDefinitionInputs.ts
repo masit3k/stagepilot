@@ -89,7 +89,6 @@ export function resolveDrumDefinitionInputs(definition: DrumDefinition): InputCh
   const catalog = loadDrumCatalog();
 
   return orderResolvedDrumInputs(catalog.items.filter((item) => activeSlots.has(item.slot))).map((item) => ({
-    id: item.id,
     key: item.key,
     label: item.label,
     note: item.note,

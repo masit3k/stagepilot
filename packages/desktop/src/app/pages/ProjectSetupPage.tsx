@@ -1688,6 +1688,38 @@ export function ProjectSetupPage({
                     }}
                     onReset={() => {
                       if (!setupData) return;
+                      setLineup((prevLineup) => {
+                        const nextLineup = { ...prevLineup };
+                        ROLE_ORDER.forEach((role) => {
+                          const roleSlotLimit = getRoleSlotLimit(role);
+                          const roleSlots = normalizeLineupSlots(
+                            nextLineup[role],
+                            roleSlotLimit,
+                          );
+                          const updatedSlots = roleSlots.map((slot) => {
+                            if (
+                              slot.musicianId !==
+                              selectedSetupMusician.musicianId
+                            ) {
+                              return slot;
+                            }
+                            if (role !== "drums") {
+                              return slot;
+                            }
+                            return {
+                              ...slot,
+                              drumDefinition: resolveDrumsSetupDefinition({
+                                musicianPresetItems:
+                                  setupData.musicianPresetsById?.[
+                                    selectedSetupMusician.musicianId
+                                  ],
+                              }),
+                            };
+                          });
+                          nextLineup[role] = updatedSlots[0];
+                        });
+                        return nextLineup;
+                      });
                       setSetupDraftBySlot((prev) => {
                         const next = { ...prev };
                         ROLE_ORDER.forEach((role) => {

@@ -2,8 +2,6 @@ import drumCatalogAsset from "../../../data/assets/catalog/inputs/drums.json";
 
 export const DRUM_INPUT_KEY_ROLE =
   "Stable external catalog key used by integrations and persisted references." as const;
-export const DRUM_INPUT_ID_ROLE =
-  "Stable item identifier for one concrete catalog row in this asset." as const;
 export const DRUM_INPUT_SLOT_ROLE =
   "Resolver slot identifier: active drum slots are matched against this value." as const;
 
@@ -20,8 +18,6 @@ export type DrumInputCategory =
 export type DrumInputCatalogItem = {
   /** @see DRUM_INPUT_KEY_ROLE */
   key: string;
-  /** @see DRUM_INPUT_ID_ROLE */
-  id: string;
   label: string;
   note: string;
   order: number;

@@ -88,8 +88,8 @@
           }
         },
         {
-          "id": "tracks",
-          "label": "Tracks",
+          "id": "backing_track",
+          "label": "Backing track",
           "control": "boolean",
           "field": "tracks.enabled"
         }

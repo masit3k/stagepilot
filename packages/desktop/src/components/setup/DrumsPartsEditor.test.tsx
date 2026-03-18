@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { DrumDefinition } from "../../../../../src/domain/drums/drumDefinition";
-import { DrumsPartsEditor, updateCountField } from "./DrumsPartsEditor";
+import { DrumsPartsEditor, updateCountField, updateDrumToggleField } from "./DrumsPartsEditor";
 
 const baseSetup: DrumDefinition = {
   kickCount: 1,
@@ -31,7 +31,7 @@ describe("DrumsPartsEditor", () => {
     expect(html).toContain("Floor Toms");
     expect(html).toContain("Overhead");
     expect(html).toContain("PAD");
-    expect(html).toContain("Tracks");
+    expect(html).toContain("Backing track");
     expect(html).not.toContain("Floors");
     expect(html).not.toContain("OH pair");
     expect(html).not.toContain("Tracks (stereo)");
@@ -53,6 +53,11 @@ describe("DrumsPartsEditor", () => {
 
     expect(kickUpdate.kickCount).toBe(2);
     expect(snareUpdate.snareCount).toBe(2);
+  });
+
+  it("updates backing track toggle through typed boolean field", () => {
+    const toggle = updateDrumToggleField(baseSetup, "tracks.enabled", false);
+    expect(toggle.tracks.enabled).toBe(false);
   });
 
   it("does not render obsolete generated inputs/remove UI", () => {
@@ -92,6 +97,6 @@ describe("DrumsPartsEditor", () => {
     );
     expect(htmlWithoutPad).not.toContain("Mode");
     expect(htmlWithoutPad).not.toContain("Channels");
-    expect(htmlWithoutPad).toContain("Tracks");
+    expect(htmlWithoutPad).toContain("Backing track");
   });
 });
