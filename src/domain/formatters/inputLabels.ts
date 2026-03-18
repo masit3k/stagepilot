@@ -1,3 +1,4 @@
+import { getDrumCatalogItemByKey } from "../drums/drumInputCatalog.js";
 import type { Group } from "../model/groups.js";
 import { formatVocalLabel } from "./vocals.js";
 
@@ -12,22 +13,27 @@ type DrumFamily = "kick" | "snare" | "tom" | "floor";
 type DrumFamilyMember = {
   family: DrumFamily;
   index: number;
+  position?: "in" | "out" | "top" | "bottom";
 };
 
 export type DrumFamilyState = Record<DrumFamily, Set<number>>;
 
 function parseDrumFamilyMember(key: string): DrumFamilyMember | null {
-  const kick = /^dr_kick_(\d+)_(out|in)$/i.exec(key);
-  if (kick) return { family: "kick", index: Number(kick[1]) };
+  const catalogItem = getDrumCatalogItemByKey(key);
+  if (!catalogItem) return null;
 
-  const snare = /^dr_snare(\d+)_(top|bottom)$/i.exec(key);
-  if (snare) return { family: "snare", index: Number(snare[1]) };
-
-  const tom = /^dr_tom_(\d+)$/i.exec(key);
-  if (tom) return { family: "tom", index: Number(tom[1]) };
-
-  const floor = /^dr_floor_(\d+)$/i.exec(key);
-  if (floor) return { family: "floor", index: Number(floor[1]) };
+  if (catalogItem.category === "kick" && catalogItem.index) {
+    return { family: "kick", index: catalogItem.index, position: catalogItem.position };
+  }
+  if (catalogItem.category === "snare" && catalogItem.index) {
+    return { family: "snare", index: catalogItem.index, position: catalogItem.position };
+  }
+  if (catalogItem.category === "tom" && catalogItem.index) {
+    return { family: "tom", index: catalogItem.index };
+  }
+  if (catalogItem.category === "floorTom" && catalogItem.index) {
+    return { family: "floor", index: catalogItem.index };
+  }
 
   return null;
 }
@@ -55,30 +61,29 @@ export function shouldShowIndexedDrumFamily(state: DrumFamilyState, family: Drum
 }
 
 export function formatDrumInputDisplayLabel(input: DisplayInput, state: DrumFamilyState): string {
-  const kick = /^dr_kick_(\d+)_(out|in)$/i.exec(input.key);
-  if (kick) {
+  const catalogItem = getDrumCatalogItemByKey(input.key);
+  if (!catalogItem) return input.label;
+
+  if (catalogItem.category === "kick" && catalogItem.position) {
     const showIndex = shouldShowIndexedDrumFamily(state, "kick");
-    const side = kick[2].toUpperCase();
-    return showIndex ? `Kick ${kick[1]} ${side}` : `Kick ${side}`;
+    const side = catalogItem.position.toUpperCase();
+    return showIndex && catalogItem.index ? `Kick ${catalogItem.index} ${side}` : `Kick ${side}`;
   }
 
-  const snare = /^dr_snare(\d+)_(top|bottom)$/i.exec(input.key);
-  if (snare) {
+  if (catalogItem.category === "snare" && catalogItem.position) {
     const showIndex = shouldShowIndexedDrumFamily(state, "snare");
-    const side = snare[2].toUpperCase();
-    return showIndex ? `Snare ${snare[1]} ${side}` : `Snare ${side}`;
+    const side = catalogItem.position.toUpperCase();
+    return showIndex && catalogItem.index ? `Snare ${catalogItem.index} ${side}` : `Snare ${side}`;
   }
 
-  const tom = /^dr_tom_(\d+)$/i.exec(input.key);
-  if (tom) {
+  if (catalogItem.category === "tom") {
     const showIndex = shouldShowIndexedDrumFamily(state, "tom");
-    return showIndex ? `Tom ${tom[1]}` : "Tom";
+    return showIndex && catalogItem.index ? `Tom ${catalogItem.index}` : "Tom";
   }
 
-  const floor = /^dr_floor_(\d+)$/i.exec(input.key);
-  if (floor) {
+  if (catalogItem.category === "floorTom") {
     const showIndex = shouldShowIndexedDrumFamily(state, "floor");
-    return showIndex ? `Floor ${floor[1]}` : "Floor";
+    return showIndex && catalogItem.index ? `Floor ${catalogItem.index}` : "Floor";
   }
 
   return input.label;
@@ -100,6 +105,5 @@ export function formatLeadVocalDisplayLabel(args: {
     index,
     gender: args.leadGenderByIndex[index - 1],
     leadCount: args.leadCount,
-    multiLeadStyle: "input_list_upper_suffix",
   });
 }

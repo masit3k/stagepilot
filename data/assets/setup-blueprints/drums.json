@@ -49,7 +49,7 @@
         },
         {
           "id": "floors",
-          "label": "Floors",
+          "label": "Floor Toms",
           "control": "count",
           "field": "floorCount",
           "allowed": [

@@ -58,7 +58,7 @@ describe("drum input display label compaction", () => {
 });
 
 describe("lead vocal input list formatting", () => {
-  it("renders uppercase gender suffix without parentheses for multi-lead", () => {
+  it("renders multi-lead gender in parentheses", () => {
     expect(
       formatLeadVocalDisplayLabel({
         key: "voc_lead_1",
@@ -66,7 +66,7 @@ describe("lead vocal input list formatting", () => {
         leadCount: 2,
         leadGenderByIndex: ["m", "f"],
       }),
-    ).toBe("Lead vocal 1 MALE");
+    ).toBe("Lead vocal 1 (male)");
 
     expect(
       formatLeadVocalDisplayLabel({
@@ -75,6 +75,6 @@ describe("lead vocal input list formatting", () => {
         leadCount: 2,
         leadGenderByIndex: ["m", "f"],
       }),
-    ).toBe("Lead vocal 2 FEMALE");
+    ).toBe("Lead vocal 2 (female)");
   });
 });

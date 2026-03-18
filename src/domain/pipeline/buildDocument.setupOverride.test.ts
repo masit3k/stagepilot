@@ -522,7 +522,7 @@ it("emits stageplan input ownerRole from current lineup assignment", () => {
             floorCount: 1,
             hasOverheads: true,
             pad: { enabled: true, mode: "sfx", channels: "stereo" },
-            tracks: { enabled: false },
+            tracks: { enabled: true },
           },
         },
       ],
@@ -563,5 +563,8 @@ it("emits stageplan input ownerRole from current lineup assignment", () => {
     const vm = buildDocument(project, repo);
     expect(vm.inputs.some((item) => item.key === "dr_kick_1_out")).toBe(true);
     expect(vm.inputs.some((item) => item.key === "dr_pad_stereo_sfx_l")).toBe(true);
+    expect(vm.inputs.some((item) => item.key === "dr_tracks_l")).toBe(true);
+    const stageplanLabels = vm.stageplan.inputs.map((item) => item.label);
+    expect(stageplanLabels.indexOf("Playback L")).toBeGreaterThan(stageplanLabels.indexOf("PAD SFX R"));
   });
 

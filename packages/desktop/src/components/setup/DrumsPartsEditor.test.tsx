@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { DrumDefinition } from "../../../../../src/domain/drums/drumDefinition";
-import { DrumsPartsEditor } from "./DrumsPartsEditor";
+import { DrumsPartsEditor, updateCountField } from "./DrumsPartsEditor";
 
 const baseSetup: DrumDefinition = {
   kickCount: 1,
@@ -28,11 +28,11 @@ describe("DrumsPartsEditor", () => {
     expect(html).toContain("Snares");
     expect(html).toContain("Hi-hat");
     expect(html).toContain("Toms");
-    expect(html).toContain("Floors");
+    expect(html).toContain("Floor Toms");
     expect(html).toContain("Overhead");
     expect(html).toContain("PAD");
     expect(html).toContain("Tracks");
-    expect(html).not.toContain("Floor toms");
+    expect(html).not.toContain("Floors");
     expect(html).not.toContain("OH pair");
     expect(html).not.toContain("Tracks (stereo)");
   });
@@ -44,7 +44,15 @@ describe("DrumsPartsEditor", () => {
 
     expect(html).toContain('class="setup-stepper"');
     expect(html).toContain('aria-label="Decrease Kicks"');
-    expect(html).toContain('aria-label="Increase Floors"');
+    expect(html).toContain('aria-label="Increase Floor Toms"');
+  });
+
+  it("updates kicks and snares counters through typed count fields", () => {
+    const kickUpdate = updateCountField(baseSetup, "kickCount", 2);
+    const snareUpdate = updateCountField(baseSetup, "snareCount", 2);
+
+    expect(kickUpdate.kickCount).toBe(2);
+    expect(snareUpdate.snareCount).toBe(2);
   });
 
   it("does not render obsolete generated inputs/remove UI", () => {
@@ -56,7 +64,6 @@ describe("DrumsPartsEditor", () => {
     expect(html).not.toContain("Effective inputs");
     expect(html).not.toContain("No additional inputs available");
   });
-
 
   it("renders PAD settings as a subordinate vertical block", () => {
     const html = renderToStaticMarkup(

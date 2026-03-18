@@ -4,8 +4,13 @@ export type FormatVocalLabelArgs = {
   gender?: string;
   leadCount: number;
   genderMode?: "include" | "omit";
-  multiLeadStyle?: "legacy_parentheses" | "input_list_upper_suffix";
 };
+
+function normalizeGenderLabel(gender: string): string {
+  if (gender === "m") return "male";
+  if (gender === "f") return "female";
+  return gender;
+}
 
 export function formatVocalLabel({
   role,
@@ -13,7 +18,6 @@ export function formatVocalLabel({
   gender,
   leadCount,
   genderMode = "include",
-  multiLeadStyle = "legacy_parentheses",
 }: FormatVocalLabelArgs): string {
   const base = role === "lead" ? "Lead vocal" : "Vocal";
 
@@ -22,11 +26,6 @@ export function formatVocalLabel({
   }
 
   const showGender = genderMode === "include" && gender && gender !== "x";
-  if (showGender && multiLeadStyle === "input_list_upper_suffix") {
-    const marker = gender === "m" ? "MALE" : gender === "f" ? "FEMALE" : gender.toUpperCase();
-    return `${base} ${index} ${marker}`;
-  }
-
-  const genderSuffix = showGender ? ` (${gender})` : "";
+  const genderSuffix = showGender ? ` (${normalizeGenderLabel(gender)})` : "";
   return `${base} ${index}${genderSuffix}`;
 }

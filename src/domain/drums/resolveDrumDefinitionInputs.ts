@@ -1,8 +1,12 @@
 import type { InputChannel } from "../model/types.js";
 import type { DrumDefinition } from "./drumDefinition.js";
 import { normalizeDrumDefinition } from "./drumDefinition.js";
-import { loadDrumCatalog } from "./drumInputCatalog.js";
+import { loadDrumCatalog, type DrumInputCatalogItem } from "./drumInputCatalog.js";
 import { validateDrumDefinition } from "./validateDrumDefinition.js";
+
+export function resolveDrumTrackSlots(definition: DrumDefinition): string[] {
+  return definition.tracks.enabled ? ["tracks_l", "tracks_r"] : [];
+}
 
 export function resolveDrumActiveSlots(definition: DrumDefinition): string[] {
   const slots = new Set<string>();
@@ -57,12 +61,23 @@ export function resolveDrumActiveSlots(definition: DrumDefinition): string[] {
     }
   }
 
-  if (definition.tracks.enabled) {
-    slots.add("tracks_l");
-    slots.add("tracks_r");
-  }
+  resolveDrumTrackSlots(definition).forEach((slot) => slots.add(slot));
 
   return Array.from(slots);
+}
+
+function drumOrderingGroup(item: DrumInputCatalogItem): number {
+  if (item.category === "pad") return 3;
+  if (item.category === "tracks") return 4;
+  return 1;
+}
+
+export function orderResolvedDrumInputs(items: DrumInputCatalogItem[]): DrumInputCatalogItem[] {
+  return [...items].sort((a, b) => {
+    const groupOrder = drumOrderingGroup(a) - drumOrderingGroup(b);
+    if (groupOrder !== 0) return groupOrder;
+    return a.order - b.order;
+  });
 }
 
 export function resolveDrumDefinitionInputs(definition: DrumDefinition): InputChannel[] {
@@ -73,14 +88,11 @@ export function resolveDrumDefinitionInputs(definition: DrumDefinition): InputCh
   const activeSlots = new Set(resolveDrumActiveSlots(normalized));
   const catalog = loadDrumCatalog();
 
-  return catalog.items
-    .filter((item) => activeSlots.has(item.slot))
-    .sort((a, b) => a.order - b.order)
-    .map((item) => ({
-      id: item.id,
-      key: item.key,
-      label: item.label,
-      note: item.note,
-      group: "drums",
-    }));
+  return orderResolvedDrumInputs(catalog.items.filter((item) => activeSlots.has(item.slot))).map((item) => ({
+    id: item.id,
+    key: item.key,
+    label: item.label,
+    note: item.note,
+    group: "drums",
+  }));
 }

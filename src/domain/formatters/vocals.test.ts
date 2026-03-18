@@ -7,22 +7,21 @@ describe("formatVocalLabel", () => {
   });
 
   it("includes numbering and gender for multiple leads", () => {
-    expect(formatVocalLabel({ role: "lead", index: 2, gender: "m", leadCount: 2 })).toBe("Lead vocal 2 (m)");
+    expect(formatVocalLabel({ role: "lead", index: 2, gender: "m", leadCount: 2 })).toBe("Lead vocal 2 (male)");
   });
 
   it("omits unknown gender marker", () => {
     expect(formatVocalLabel({ role: "lead", index: 2, gender: "x", leadCount: 2 })).toBe("Lead vocal 2");
   });
 
-  it("supports uppercase suffix style for input lists", () => {
+  it("formats multi-lead label with parentheses and lowercase gender", () => {
     expect(
       formatVocalLabel({
         role: "lead",
         index: 1,
         gender: "m",
         leadCount: 2,
-        multiLeadStyle: "input_list_upper_suffix",
-      }),
-    ).toBe("Lead vocal 1 MALE");
+        }),
+    ).toBe("Lead vocal 1 (male)");
   });
 });

@@ -11,7 +11,7 @@ describe("formatMonitorLabel", () => {
 
   it("formats lead monitor labels via vocal formatter", () => {
     expect(formatMonitorLabel({ kind: "lead", index: 1, gender: "f" }, { leadCount: 1 })).toBe("Lead vocal");
-    expect(formatMonitorLabel({ kind: "lead", index: 2, gender: "m" }, { leadCount: 2 })).toBe("Lead vocal 2 (m)");
+    expect(formatMonitorLabel({ kind: "lead", index: 2, gender: "m" }, { leadCount: 2 })).toBe("Lead vocal 2 (male)");
   });
 });
 

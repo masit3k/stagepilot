@@ -13,4 +13,21 @@ describe("drum input catalog asset", () => {
     expect(Array.isArray(catalog.items)).toBe(true);
     expect((catalog.items ?? []).length).toBeGreaterThan(0);
   });
+
+  it("includes lightweight metadata for resolver and formatting", () => {
+    const filePath = resolve(process.cwd(), "data/assets/catalog/inputs/drums.json");
+    const catalog = JSON.parse(readFileSync(filePath, "utf-8")) as {
+      items: Array<{ key: string; category?: string; index?: number; position?: string; side?: string; mode?: string; channels?: string }>;
+    };
+
+    const kick = catalog.items.find((item) => item.key === "dr_kick_1_out");
+    const overhead = catalog.items.find((item) => item.key === "dr_oh_l");
+    const pad = catalog.items.find((item) => item.key === "dr_pad_stereo_sfx_l");
+    const tracks = catalog.items.find((item) => item.key === "dr_tracks_l");
+
+    expect(kick).toMatchObject({ category: "kick", index: 1, position: "out" });
+    expect(overhead).toMatchObject({ category: "overhead", side: "l" });
+    expect(pad).toMatchObject({ category: "pad", mode: "sfx", channels: "stereo", side: "l" });
+    expect(tracks).toMatchObject({ category: "tracks", channels: "stereo", side: "l" });
+  });
 });

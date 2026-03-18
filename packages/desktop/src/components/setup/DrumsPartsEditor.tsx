@@ -16,6 +16,9 @@ type DrumsPartsEditorProps = {
   onChange: (next: DrumDefinition) => void;
 };
 
+type CountField = "kickCount" | "snareCount" | "tomCount" | "floorCount";
+type BooleanField = "hasHiHat" | "hasOverheads" | "tracks.enabled";
+
 type DrumSetupBlueprint = {
   type: "setup_blueprint";
   id: "drum-setup-blueprint";
@@ -23,23 +26,23 @@ type DrumSetupBlueprint = {
   sections: Array<{
     id: string;
     label: string;
-    items: Array<{
-      id: string;
-      label: string;
-      control: "count" | "boolean" | "compound";
-      field: string;
-      allowed?: number[];
-      options?: {
-        mode?: Array<"sfx" | "backing">;
-        channels?: Array<"mono" | "stereo">;
-      };
-    }>;
+    items: Array<
+      | { id: string; label: string; control: "count"; field: CountField; allowed: number[] }
+      | { id: string; label: string; control: "boolean"; field: BooleanField }
+      | {
+          id: string;
+          label: string;
+          control: "compound";
+          field: "pad";
+          options?: { mode?: Array<"sfx" | "backing">; channels?: Array<"mono" | "stereo"> };
+        }
+    >;
   }>;
 };
 
 const drumSetupBlueprint = drumSetupBlueprintAsset as DrumSetupBlueprint;
 
-function updateCountField(setup: DrumDefinition, field: string, value: number): DrumDefinition {
+export function updateCountField(setup: DrumDefinition, field: CountField, value: number): DrumDefinition {
   switch (field) {
     case "kickCount":
       return { ...setup, kickCount: toKickCount(value) };
@@ -49,12 +52,23 @@ function updateCountField(setup: DrumDefinition, field: string, value: number): 
       return { ...setup, tomCount: toTomCount(value) };
     case "floorCount":
       return { ...setup, floorCount: toFloorCount(value) };
-    default:
-      return setup;
   }
 }
 
-function updateBooleanField(setup: DrumDefinition, field: string, checked: boolean): DrumDefinition {
+function countFieldValue(setup: DrumDefinition, field: CountField): number {
+  switch (field) {
+    case "kickCount":
+      return setup.kickCount;
+    case "snareCount":
+      return setup.snareCount;
+    case "tomCount":
+      return setup.tomCount;
+    case "floorCount":
+      return setup.floorCount;
+  }
+}
+
+function updateBooleanField(setup: DrumDefinition, field: BooleanField, checked: boolean): DrumDefinition {
   switch (field) {
     case "hasHiHat":
       return { ...setup, hasHiHat: checked };
@@ -62,8 +76,17 @@ function updateBooleanField(setup: DrumDefinition, field: string, checked: boole
       return { ...setup, hasOverheads: checked };
     case "tracks.enabled":
       return { ...setup, tracks: { enabled: checked } };
-    default:
-      return setup;
+  }
+}
+
+function booleanFieldValue(setup: DrumDefinition, field: BooleanField): boolean {
+  switch (field) {
+    case "hasHiHat":
+      return setup.hasHiHat;
+    case "hasOverheads":
+      return setup.hasOverheads;
+    case "tracks.enabled":
+      return setup.tracks.enabled;
   }
 }
 
@@ -74,14 +97,14 @@ export function DrumsPartsEditor({ setup, onChange }: DrumsPartsEditorProps) {
     <>
       {drumSetupBlueprint.sections.map((section) => (
         <SetupSection key={section.id} title={section.label}>
-          <div className="setup-toggle-grid">
+          <div className={`setup-toggle-grid ${section.id === "additional" ? "setup-toggle-grid--additional-drums" : ""}`}>
             {section.items.map((item) => {
-              if (item.control === "count" && item.allowed) {
+              if (item.control === "count") {
                 return (
                   <SetupCounterRow
                     key={item.id}
                     label={item.label}
-                    value={setup[item.field as keyof DrumDefinition] as number}
+                    value={countFieldValue(setup, item.field)}
                     min={Math.min(...item.allowed)}
                     max={Math.max(...item.allowed)}
                     onChange={(next) => onChange(updateCountField(setup, item.field, next))}
@@ -94,66 +117,58 @@ export function DrumsPartsEditor({ setup, onChange }: DrumsPartsEditorProps) {
                   <SetupToggleRow
                     key={item.id}
                     label={item.label}
-                    checked={Boolean(
-                      item.field === "tracks.enabled"
-                        ? setup.tracks.enabled
-                        : setup[item.field as keyof DrumDefinition],
-                    )}
+                    checked={booleanFieldValue(setup, item.field)}
                     onChange={(checked) => onChange(updateBooleanField(setup, item.field, checked))}
                   />
                 );
               }
 
-              if (item.control === "compound" && item.field === "pad") {
-                return (
-                  <div key={item.id}>
-                    <SetupToggleRow
-                      label={item.label}
-                      checked={setup.pad.enabled}
-                      onChange={(checked) =>
-                        onChange({
-                          ...setup,
-                          pad: checked ? { enabled: true, mode: "sfx", channels: "mono" } : { enabled: false },
-                        })
-                      }
-                    />
-                    {setup.pad.enabled ? (
-                      <div className="setup-pad-settings" data-testid="pad-settings">
-                        <div className="setup-pad-settings__row">
-                          <SetupSelectRow
-                            label="Mode"
-                            value={activePad.mode}
-                            options={item.options?.mode ?? ["sfx", "backing"]}
-                            onChange={(mode) =>
-                              onChange({
-                                ...setup,
-                                pad: { enabled: true, mode, channels: activePad.channels },
-                              })
-                            }
-                            formatOptionLabel={(mode) => mode.toUpperCase()}
-                          />
-                        </div>
-                        <div className="setup-pad-settings__row">
-                          <SetupSelectRow
-                            label="Channels"
-                            value={activePad.channels}
-                            options={item.options?.channels ?? ["mono", "stereo"]}
-                            onChange={(channels) =>
-                              onChange({
-                                ...setup,
-                                pad: { enabled: true, mode: activePad.mode, channels },
-                              })
-                            }
-                            formatOptionLabel={(channels) => channels[0].toUpperCase() + channels.slice(1)}
-                          />
-                        </div>
+              return (
+                <div key={item.id}>
+                  <SetupToggleRow
+                    label={item.label}
+                    checked={setup.pad.enabled}
+                    onChange={(checked) =>
+                      onChange({
+                        ...setup,
+                        pad: checked ? { enabled: true, mode: "sfx", channels: "mono" } : { enabled: false },
+                      })
+                    }
+                  />
+                  {setup.pad.enabled ? (
+                    <div className="setup-pad-settings" data-testid="pad-settings">
+                      <div className="setup-pad-settings__row">
+                        <SetupSelectRow
+                          label="Mode"
+                          value={activePad.mode}
+                          options={item.options?.mode ?? ["sfx", "backing"]}
+                          onChange={(mode) =>
+                            onChange({
+                              ...setup,
+                              pad: { enabled: true, mode, channels: activePad.channels },
+                            })
+                          }
+                          formatOptionLabel={(mode) => mode.toUpperCase()}
+                        />
                       </div>
-                    ) : null}
-                  </div>
-                );
-              }
-
-              return null;
+                      <div className="setup-pad-settings__row">
+                        <SetupSelectRow
+                          label="Channels"
+                          value={activePad.channels}
+                          options={item.options?.channels ?? ["mono", "stereo"]}
+                          onChange={(channels) =>
+                            onChange({
+                              ...setup,
+                              pad: { enabled: true, mode: activePad.mode, channels },
+                            })
+                          }
+                          formatOptionLabel={(channels) => channels[0].toUpperCase() + channels.slice(1)}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              );
             })}
           </div>
         </SetupSection>
