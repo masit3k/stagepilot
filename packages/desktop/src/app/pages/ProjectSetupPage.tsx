@@ -336,10 +336,6 @@ export function ProjectSetupPage({
         hasStoredLineup,
         keys: Object.keys(initialLineup),
       });
-      if (initialLineup.lead_vocs && !initialLineup.vocs) {
-        initialLineup.vocs = initialLineup.lead_vocs;
-      }
-      delete initialLineup.lead_vocs;
       delete initialLineup.back_vocs;
       const initialState = buildSetupSnapshot(
         initialLineup,

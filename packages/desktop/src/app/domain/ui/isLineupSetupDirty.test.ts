@@ -8,7 +8,7 @@ import {
 
 describe("isLineupSetupDirty", () => {
   const baseline = {
-    lineup: { drums: "drummer-1", lead_vocs: "lead-1", back_vocs: ["back-1"] },
+    lineup: { drums: "drummer-1", vocs: "lead-1", back_vocs: ["back-1"] },
     bandLeaderId: "drummer-1",
     talkbackOwnerId: "drummer-1",
     leadVocalistIds: ["lead-1"],
@@ -76,7 +76,7 @@ describe("isLineupSetupDirty", () => {
     const current = {
       ...baseline,
       lineup: {
-        lead_vocs: "lead-1",
+        vocs: "lead-1",
         back_vocs: ["back-1"],
         drums: "drummer-1",
       },

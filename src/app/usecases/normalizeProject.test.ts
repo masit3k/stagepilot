@@ -53,4 +53,37 @@ describe("normalizeProject", () => {
 
     expect(normalized.leadVocalistIds).toEqual(["lead-1", "lead-2"]);
   });
+
+  it("derives lead vocalist ids from legacy lineup.lead_vocs when explicit ids are absent", () => {
+    const normalized = normalizeProject({
+      id: "e-legacy",
+      bandRef: "pl",
+      purpose: "event",
+      eventDate: "2026-03-10",
+      eventVenue: "Klub",
+      documentDate: "2026-01-01",
+      lineup: {
+        lead_vocs: [{ musicianId: "lead-1" }, "lead-2", "", { musicianId: "" }],
+      },
+    } satisfies ProjectJsonV2);
+
+    expect(normalized.leadVocalistIds).toEqual(["lead-1", "lead-2"]);
+  });
+
+  it("keeps explicit empty lead vocalist ids and does not fallback to legacy lineup.lead_vocs", () => {
+    const normalized = normalizeProject({
+      id: "e-explicit-empty",
+      bandRef: "pl",
+      purpose: "event",
+      eventDate: "2026-03-10",
+      eventVenue: "Klub",
+      documentDate: "2026-01-01",
+      leadVocalistIds: [],
+      lineup: {
+        lead_vocs: ["legacy-lead"],
+      },
+    } satisfies ProjectJsonV2);
+
+    expect(normalized.leadVocalistIds).toEqual([]);
+  });
 });

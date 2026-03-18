@@ -2,6 +2,18 @@ import { describe, expect, it } from "vitest";
 import { serializeLineupForProject } from "./lineupSerialize";
 
 describe("serializeLineupForProject", () => {
+  it("persists vocs role as vocs and not legacy lead_vocs", () => {
+    const serialized = serializeLineupForProject(
+      {
+        vocs: ["lead-1"],
+      },
+      ["vocs"],
+    );
+
+    expect(serialized.vocs).toEqual(["lead-1"]);
+    expect(serialized).not.toHaveProperty("lead_vocs");
+  });
+
   it("keeps explicit empty back_vocs in serialized lineup", () => {
     const serialized = serializeLineupForProject(
       {

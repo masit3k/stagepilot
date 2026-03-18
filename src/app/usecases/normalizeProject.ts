@@ -4,6 +4,20 @@ import type {
   StagePlanPurpose,
 } from "../../domain/model/types.js";
 
+function normalizeLegacyLineupIds(value: unknown): string[] {
+  const entries = Array.isArray(value) ? value : [value];
+  return entries
+    .map((entry) => {
+      if (typeof entry === "string") return entry.trim();
+      if (entry && typeof entry === "object") {
+        const musicianId = (entry as { musicianId?: unknown }).musicianId;
+        if (typeof musicianId === "string") return musicianId.trim();
+      }
+      return "";
+    })
+    .filter((idValue) => idValue.length > 0);
+}
+
 function assertString(value: unknown, label: string): string {
   if (typeof value !== "string" || value.trim() === "") {
     throw new Error(`Missing or invalid ${label}.`);
@@ -76,13 +90,17 @@ export function normalizeProject(input: ProjectJson): Project {
             typeof item === "string" && item.trim().length > 0,
         )
       : undefined;
-  const leadVocalistIds =
-    "leadVocalistIds" in input && Array.isArray(input.leadVocalistIds)
-      ? input.leadVocalistIds.filter(
-          (item): item is string =>
-            typeof item === "string" && item.trim().length > 0,
-        )
-      : undefined;
+  const leadVocalistIds = (() => {
+    if ("leadVocalistIds" in input && Array.isArray(input.leadVocalistIds)) {
+      return input.leadVocalistIds.filter(
+        (item): item is string =>
+          typeof item === "string" && item.trim().length > 0,
+      );
+    }
+    const legacyLeadVocs = lineup?.lead_vocs;
+    if (legacyLeadVocs === undefined) return undefined;
+    return normalizeLegacyLineupIds(legacyLeadVocs);
+  })();
 
   if ("purpose" in input) {
     const purpose = assertPurpose(input.purpose);

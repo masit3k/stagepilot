@@ -489,6 +489,64 @@ describe("buildDocument setup overrides", () => {
     expect(leadNames).not.toContain("Vocal");
   });
 
+  it("respects explicit empty leadVocalistIds and does not fallback to defaults", () => {
+    const band: Band = {
+      id: "band-empty-lead",
+      name: "Band",
+      bandLeader: "voc-1",
+      defaultLineup: { vocs: ["voc-1"] },
+      defaultVocals: { lead: ["voc-1"], back: [] },
+    };
+    const vocalist: Musician = {
+      id: "voc-1",
+      firstName: "Vocal",
+      lastName: "Default",
+      group: "vocs",
+      presets: [{ kind: "preset", ref: "vocal_lead_no_mic" }, { kind: "monitor", ref: "wedge" }],
+    };
+    const project: Project = {
+      id: "p-empty-lead",
+      bandRef: "band-empty-lead",
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: { vocs: ["voc-1"] },
+      leadVocalistIds: [],
+    };
+    const notes: NotesTemplate = { id: "notes_default_cs", lang: "cs", inputs: [], monitors: [] };
+
+    const repo: DataRepository = {
+      getBand: () => band,
+      getMusician: () => vocalist,
+      getProject: () => project,
+      getPreset: (id: string) => {
+        if (id === "vocal_lead_no_mic") {
+          return {
+            type: "preset",
+            id,
+            label: "Lead vocal (no mic)",
+            group: "vocs",
+            inputs: [{ key: "voc_lead", label: "Lead vocal", group: "vocs" }],
+          };
+        }
+        if (id === "wedge") return { type: "monitor", id, label: "Wedge" };
+        if (id === "talkback") {
+          return {
+            type: "talkback_type",
+            id,
+            label: "Talkback",
+            group: "talkback",
+            input: { key: "tb_{ownerKey}", label: "Talkback ({ownerLabel})" },
+          };
+        }
+        throw new Error(`unknown preset ${id}`);
+      },
+      getNotesTemplate: () => notes,
+    };
+
+    const vm = buildDocument(project, repo);
+    expect(vm.stageplan.leadVocals).toEqual([]);
+  });
+
   it("formats mixed lead/back vocal PDF labels and de-duplicates monitor rows", () => {
     const band: Band = {
       id: "band-vocal-labels",

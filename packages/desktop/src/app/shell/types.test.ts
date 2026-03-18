@@ -35,7 +35,7 @@ describe("toPersistableProject talkback persistence", () => {
       documentDate: "2026-01-01",
       createdAt: "2026-01-01T00:00:00.000Z",
       lineup: {
-        lead_vocs: ["lead-1"],
+        vocs: ["lead-1"],
         back_vocs: [],
       },
     });

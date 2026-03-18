@@ -1,9 +1,9 @@
-import type { LineupMap } from "../../../projectRules";
+import { normalizeLineupValue, type LineupMap } from "../../../projectRules";
 import type { NewProjectPayload } from "../../shell/types";
 
 type LegacyLineup = LineupMap & {
-  vocs?: LineupMap[string];
   lead_vocs?: LineupMap[string];
+  vocs?: LineupMap[string];
 };
 
 export function migrateProjectLineupVocsToLeadBack(
@@ -13,16 +13,25 @@ export function migrateProjectLineupVocsToLeadBack(
   const migrated: LegacyLineup = { ...lineup };
 
   if (
-    !Object.prototype.hasOwnProperty.call(migrated, "lead_vocs") &&
-    migrated.vocs !== undefined
+    !Object.prototype.hasOwnProperty.call(migrated, "vocs") &&
+    migrated.lead_vocs !== undefined
   ) {
-    migrated.lead_vocs = migrated.vocs;
+    migrated.vocs = migrated.lead_vocs;
   }
 
-  delete migrated.vocs;
+  const hasExplicitLeadVocalistIds = Object.prototype.hasOwnProperty.call(
+    project,
+    "leadVocalistIds",
+  );
+  const legacyLeadVocalistIds = normalizeLineupValue(migrated.lead_vocs, 8);
+
+  delete migrated.lead_vocs;
 
   return {
     ...project,
     lineup: migrated,
+    ...(!hasExplicitLeadVocalistIds && lineup.lead_vocs !== undefined
+      ? { leadVocalistIds: legacyLeadVocalistIds }
+      : {}),
   };
 }
