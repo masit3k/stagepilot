@@ -6,13 +6,14 @@ export type BackVocalCandidate = {
   id: string;
   name: string;
   primaryGroup: Group;
+  isDisabled: boolean;
+  disabledReason?: string;
 };
 
 type ChangeBackVocsModalProps = {
   open: boolean;
   members: BackVocalCandidate[];
   initialSelectedIds: Set<string>;
-  disabledSelectedIds?: Set<string>;
   saveDisabled?: boolean;
   onCancel: () => void;
   onSave: (selectedIds: Set<string>) => void;
@@ -25,7 +26,6 @@ export function ChangeBackVocsModal({
   open,
   members,
   initialSelectedIds,
-  disabledSelectedIds = new Set<string>(),
   saveDisabled = false,
   onCancel,
   onSave,
@@ -44,13 +44,14 @@ export function ChangeBackVocsModal({
 
   const toggleSelection = useMemo(
     () => (candidateId: string) => {
-      if (disabledSelectedIds.has(candidateId)) return;
+      const candidate = members.find((item) => item.id === candidateId);
+      if (candidate?.isDisabled) return;
       const next = new Set(selectedIds);
       if (next.has(candidateId)) next.delete(candidateId);
       else next.add(candidateId);
       setSelectedIds(next);
     },
-    [disabledSelectedIds, selectedIds],
+    [members, selectedIds],
   );
 
   if (!open) return null;
@@ -87,8 +88,9 @@ export function ChangeBackVocsModal({
               displayName={member.name}
               primaryGroup={member.primaryGroup}
               selected={selectedIds.has(member.id)}
-              disabled={disabledSelectedIds.has(member.id)}
+              disabled={member.isDisabled}
               onToggle={toggleSelection}
+              trailingNote={member.isDisabled ? member.disabledReason : undefined}
             />
           ))
         )}

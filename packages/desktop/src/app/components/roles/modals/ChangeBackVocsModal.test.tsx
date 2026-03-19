@@ -8,8 +8,8 @@ describe("ChangeBackVocsModal", () => {
       <ChangeBackVocsModal
         open
         members={[
-          { id: "m1", name: "One", primaryGroup: "bass" },
-          { id: "m2", name: "Two", primaryGroup: "keys" },
+          { id: "m1", name: "One", primaryGroup: "bass", isDisabled: false },
+          { id: "m2", name: "Two", primaryGroup: "keys", isDisabled: false },
         ]}
         initialSelectedIds={new Set(["m2"])}
         onCancel={vi.fn()}
@@ -30,7 +30,7 @@ describe("ChangeBackVocsModal", () => {
     const html = renderToStaticMarkup(
       <ChangeBackVocsModal
         open
-        members={[{ id: "m1", name: "One", primaryGroup: "vocs" }]}
+        members={[{ id: "m1", name: "One", primaryGroup: "vocs", isDisabled: false }]}
         initialSelectedIds={new Set()}
         onCancel={vi.fn()}
         onSave={vi.fn()}

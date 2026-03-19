@@ -26,9 +26,10 @@ export function VocalCandidateOptionRow({
   return (
     <label
       key={id}
-      className="selector-option selector-option--check"
+      className={`selector-option selector-option--check${disabled ? " selector-option--disabled" : ""}`}
       htmlFor={inputId}
-      tabIndex={0}
+      tabIndex={disabled ? -1 : 0}
+      aria-disabled={disabled}
     >
       <input
         id={inputId}

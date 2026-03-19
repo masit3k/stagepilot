@@ -251,6 +251,16 @@ button:not([class]):hover:not(:disabled),
   height: 20px;
 }
 
+.selector-option--disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.selector-option--disabled:hover {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
 .status {
   margin: 0;
 }

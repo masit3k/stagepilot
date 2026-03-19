@@ -58,7 +58,6 @@ import { ChangeBackVocsModal } from "../components/roles/modals/ChangeBackVocsMo
 import { ChangeLeadVocsModal } from "../components/roles/modals/ChangeLeadVocsModal";
 import { BackVocsSetupModal } from "../components/roles/modals/BackVocsSetupModal";
 import {
-  filterBackVocalCandidates,
   getBackVocsFromTemplate,
   getLeadVocsFromTemplate,
   getTalkbackOwnersFromTemplate,
@@ -587,10 +586,6 @@ export function ProjectSetupPage({
       }),
     [lineupVocalCandidateIdSet, rawSelectedBackVocalIds, rawSelectedLeadVocalistIds],
   );
-  const selectedLeadVocalistIdSet = useMemo(
-    () => new Set(selectedLeadVocalistIds),
-    [selectedLeadVocalistIds],
-  );
   const leadVocalCandidateSections = useMemo(
     () =>
       resolveLeadVocalCandidates({
@@ -623,13 +618,17 @@ export function ProjectSetupPage({
   const isBackVocsSetupDisabled = !hasSelectedBackVocs;
 
   const backVocalCandidates = useMemo(() => {
-    const allowedIds = new Set(
-      filterBackVocalCandidates({
-        lineupCandidates: lineupVocalCandidates,
-        selectedLeadVocalistIds,
-      }),
-    );
-    return lineupVocalCandidates.filter((candidate) => allowedIds.has(candidate.id));
+    const selectedLeadIds = new Set(selectedLeadVocalistIds);
+    return lineupVocalCandidates.map((candidate) => {
+      const isDisabled = selectedLeadIds.has(candidate.id);
+      return {
+        id: candidate.id,
+        name: candidate.name,
+        primaryGroup: candidate.primaryGroup,
+        isDisabled,
+        disabledReason: isDisabled ? "Already selected as Lead Vocal" : undefined,
+      };
+    });
   }, [lineupVocalCandidates, selectedLeadVocalistIds]);
 
   const serializedLineup = useMemo(() => {
@@ -2209,7 +2208,6 @@ export function ProjectSetupPage({
             open={isBackVocsModalOpen}
             members={backVocalCandidates}
             initialSelectedIds={new Set(selectedBackVocalIds)}
-            disabledSelectedIds={new Set(selectedLeadVocalistIds)}
             onCancel={() => setIsBackVocsModalOpen(false)}
             onSave={(nextSelectedIds) => {
               const normalizedSelection = enforceVocalSelectionInvariant({
