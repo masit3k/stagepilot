@@ -151,6 +151,32 @@ describe("resolveEffectiveProjectState", () => {
     expect(resolved.effectiveTalkbackOwnerId).toBe("talkback-1");
   });
 
+  it("preserves explicit empty canonical overlays and talkback none", () => {
+    const project: Project = {
+      id: "p-overlays-empty",
+      bandRef: "band-1",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+      overlays: {
+        leadVocals: [],
+        backVocals: [],
+        talkback: { mode: "none", ownerId: null },
+      },
+      leadVocalistIds: ["legacy-lead"],
+      backVocalIds: ["legacy-back"],
+      talkbackOwnerId: "legacy-talkback",
+    };
+
+    const resolved = resolveEffectiveProjectState({
+      project,
+      bandLeaderId: "leader-1",
+    });
+
+    expect(resolved.effectiveOverlays.leadVocals).toEqual([]);
+    expect(resolved.effectiveOverlays.backVocals).toEqual([]);
+    expect(resolved.effectiveTalkbackOwnerId).toBe("");
+  });
+
   it("falls back talkback owner to band leader for legacy projects", () => {
     const project: Project = {
       id: "p-legacy",

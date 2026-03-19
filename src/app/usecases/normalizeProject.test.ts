@@ -130,4 +130,22 @@ describe("normalizeProject", () => {
     ]);
     expect(normalized.overlays?.talkback).toEqual({ mode: "none", ownerId: null });
   });
+
+  it("keeps explicit empty canonical overlays and does not fallback to legacy vocal ids", () => {
+    const normalized = normalizeProject({
+      id: "p-overlay-empty",
+      bandRef: "band-1",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+      leadVocalistIds: ["legacy-lead-1"],
+      backVocalIds: ["legacy-back-1"],
+      overlays: {
+        leadVocals: [],
+        backVocals: [],
+      },
+    } satisfies ProjectJsonV2);
+
+    expect(normalized.overlays?.leadVocals).toEqual([]);
+    expect(normalized.overlays?.backVocals).toEqual([]);
+  });
 });

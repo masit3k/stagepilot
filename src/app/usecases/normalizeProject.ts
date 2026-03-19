@@ -159,11 +159,17 @@ export function normalizeProject(input: ProjectJson): Project {
       "overlays" in input && input.overlays && typeof input.overlays === "object"
         ? (input.overlays as { leadVocals?: unknown; backVocals?: unknown; talkback?: unknown })
         : undefined;
-    const leadVocals = explicit?.leadVocals
-      ? normalizeOverlaySlots(explicit.leadVocals)
+    const hasExplicitLeadVocals = Boolean(
+      explicit && Object.prototype.hasOwnProperty.call(explicit, "leadVocals"),
+    );
+    const hasExplicitBackVocals = Boolean(
+      explicit && Object.prototype.hasOwnProperty.call(explicit, "backVocals"),
+    );
+    const leadVocals = hasExplicitLeadVocals
+      ? normalizeOverlaySlots(explicit?.leadVocals)
       : (leadVocalistIds ?? []).map((musicianId, index) => ({ slot: index + 1, musicianId }));
-    const backVocals = explicit?.backVocals
-      ? normalizeOverlaySlots(explicit.backVocals)
+    const backVocals = hasExplicitBackVocals
+      ? normalizeOverlaySlots(explicit?.backVocals)
       : (backVocalIds ?? []).map((musicianId, index) => ({ slot: index + 1, musicianId }));
     const talkback = (() => {
       const explicitTalkback = explicit?.talkback;
@@ -184,8 +190,12 @@ export function normalizeProject(input: ProjectJson): Project {
       return undefined;
     })();
     const normalized: ProjectOverlays = {};
-    if (leadVocals.length > 0 || Array.isArray(leadVocalistIds)) normalized.leadVocals = leadVocals;
-    if (backVocals.length > 0 || Array.isArray(backVocalIds)) normalized.backVocals = backVocals;
+    if (hasExplicitLeadVocals || leadVocals.length > 0 || Array.isArray(leadVocalistIds)) {
+      normalized.leadVocals = leadVocals;
+    }
+    if (hasExplicitBackVocals || backVocals.length > 0 || Array.isArray(backVocalIds)) {
+      normalized.backVocals = backVocals;
+    }
     if (talkback) normalized.talkback = talkback;
     return Object.keys(normalized).length > 0 ? normalized : undefined;
   })();
