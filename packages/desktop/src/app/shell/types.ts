@@ -62,9 +62,9 @@ export type BandSetupData = {
   bandLeader?: string | null;
   defaultContactId?: string | null;
   defaultLineup?: LineupMap | null;
-  defaultVocals?: {
-    lead?: string[] | null;
-    back?: string[] | null;
+  defaultOverlays?: {
+    leadVocals?: string[] | null;
+    backVocals?: string[] | null;
   } | null;
   members: Record<string, MemberOption[]>;
   musicianDefaults?: Record<string, Partial<MusicianSetupPreset>>;
@@ -91,13 +91,20 @@ export type NewProjectPayload = {
   trashedAt?: string;
   purgeAt?: string;
   lineup?: LineupMap;
+  overlays?: {
+    leadVocals?: Array<{ slot: number; musicianId: string }>;
+    backVocals?: Array<{ slot: number; musicianId: string }>;
+    talkback?: { mode: "none"; ownerId: null } | { mode: "assigned"; ownerId: string };
+  };
   bandLeaderId?: string;
   talkbackOwnerId?: string;
   talkbackOverride?:
     | { mode: "none" }
     | { mode: "assigned"; musicianId: string };
   hasTalkbackOverride?: boolean;
+  /** @deprecated */
   backVocalIds?: string[];
+  /** @deprecated */
   leadVocalistIds?: string[];
 };
 
@@ -127,6 +134,7 @@ export function toPersistableProject(
     trashedAt,
     purgeAt,
     lineup,
+    overlays,
     bandLeaderId,
     talkbackOwnerId,
     hasTalkbackOverride,
@@ -152,6 +160,7 @@ export function toPersistableProject(
     ...(trashedAt ? { trashedAt } : {}),
     ...(purgeAt ? { purgeAt } : {}),
     ...(lineup ? { lineup } : {}),
+    ...(overlays ? { overlays } : {}),
     ...(bandLeaderId ? { bandLeaderId } : {}),
     ...(hasTalkbackOverride
       ? { talkbackOwnerId: talkbackOwnerId ?? "" }
@@ -159,7 +168,7 @@ export function toPersistableProject(
         ? { talkbackOwnerId }
         : {}),
     ...(note ? { note } : {}),
-    ...(Array.isArray(backVocalIds) ? { backVocalIds } : {}),
-    ...(Array.isArray(leadVocalistIds) ? { leadVocalistIds } : {}),
+    ...(overlays ? {} : Array.isArray(backVocalIds) ? { backVocalIds } : {}),
+    ...(overlays ? {} : Array.isArray(leadVocalistIds) ? { leadVocalistIds } : {}),
   };
 }

@@ -104,4 +104,30 @@ describe("normalizeProject", () => {
 
     expect(normalized.leadVocalistIds).toEqual([]);
   });
+
+  it("normalizes canonical overlays and preserves slot order", () => {
+    const normalized = normalizeProject({
+      id: "p-overlay",
+      bandRef: "band-1",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+      overlays: {
+        leadVocals: [
+          { slot: 2, musicianId: "lead-2" },
+          { slot: 1, musicianId: "lead-1" },
+        ],
+        backVocals: [{ slot: 1, musicianId: "back-1" }],
+        talkback: { mode: "none", ownerId: null },
+      },
+    } satisfies ProjectJsonV2);
+
+    expect(normalized.overlays?.leadVocals?.map((slot) => slot.musicianId)).toEqual([
+      "lead-1",
+      "lead-2",
+    ]);
+    expect(normalized.overlays?.backVocals?.map((slot) => slot.musicianId)).toEqual([
+      "back-1",
+    ]);
+    expect(normalized.overlays?.talkback).toEqual({ mode: "none", ownerId: null });
+  });
 });

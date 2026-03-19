@@ -1,6 +1,7 @@
 import type { Project } from "../model/types.js";
 
 type ProjectWithLineup = Project & { lineup?: Record<string, unknown> };
+type ProjectWithOverlays = Project & { overlays?: { backVocals?: Array<{ musicianId?: unknown }>; talkback?: { mode?: unknown; ownerId?: unknown } } };
 
 function normalizeId(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
@@ -48,10 +49,8 @@ export function collectActiveLineupMusicianIds(project: Project): string[] {
 }
 
 export function hasOwnBackVocsOverride(project: Project): boolean {
-  const lineup = (project as ProjectWithLineup).lineup;
-  return Boolean(
-    lineup && Object.prototype.hasOwnProperty.call(lineup, "back_vocs"),
-  );
+  const overlays = (project as ProjectWithOverlays).overlays;
+  return Boolean(overlays && Object.prototype.hasOwnProperty.call(overlays, "backVocals"));
 }
 
 export function resolveProjectBackVocsState(args: {
@@ -62,16 +61,10 @@ export function resolveProjectBackVocsState(args: {
   effectiveBackVocs: string[];
   hasExplicitBackVocsOverride: boolean;
 } {
-  const lineup = ((args.project as ProjectWithLineup).lineup ?? {}) as Record<
-    string,
-    unknown
-  >;
-  const hasExplicitBackVocsOverride = Object.prototype.hasOwnProperty.call(
-    lineup,
-    "back_vocs",
-  );
+  const overlays = ((args.project as ProjectWithOverlays).overlays ?? {}) as Record<string, unknown>;
+  const hasExplicitBackVocsOverride = Object.prototype.hasOwnProperty.call(overlays, "backVocals");
   const explicitBackVocs = hasExplicitBackVocsOverride
-    ? lineupEntries(lineup.back_vocs)
+    ? lineupEntries(overlays.backVocals)
     : undefined;
 
   return {
@@ -83,7 +76,8 @@ export function resolveProjectBackVocsState(args: {
 }
 
 export function hasOwnTalkbackOverride(project: Project): boolean {
-  return Object.prototype.hasOwnProperty.call(project, "talkbackOwnerId");
+  const overlays = (project as ProjectWithOverlays).overlays;
+  return Boolean(overlays && Object.prototype.hasOwnProperty.call(overlays, "talkback"));
 }
 
 function firstAllowed(
@@ -112,9 +106,46 @@ export function resolveProjectTalkbackState(args: {
     args.defaultTalkbackOwnerId.trim(),
   );
 
+  const explicitTalkback = (args.project as ProjectWithOverlays).overlays?.talkback;
+  if (explicitTalkback?.mode === "none") {
+    return {
+      explicitTalkbackOwnerId: "",
+      defaultTalkbackOwnerId: fallback,
+      effectiveTalkbackOwnerId: null,
+      hasExplicitTalkbackOverride: true,
+      isExplicitNone: true,
+    };
+  }
+  if (explicitTalkback?.mode === "assigned" && typeof explicitTalkback.ownerId === "string") {
+    const trimmed = explicitTalkback.ownerId.trim();
+    if (trimmed.length === 0) {
+      return {
+        explicitTalkbackOwnerId: "",
+        defaultTalkbackOwnerId: fallback,
+        effectiveTalkbackOwnerId: null,
+        hasExplicitTalkbackOverride: true,
+        isExplicitNone: true,
+      };
+    }
+    if (selected.length > 0 && !selected.includes(trimmed)) {
+      return {
+        explicitTalkbackOwnerId: trimmed,
+        defaultTalkbackOwnerId: fallback,
+        effectiveTalkbackOwnerId: null,
+        hasExplicitTalkbackOverride: true,
+        isExplicitNone: false,
+      };
+    }
+    return {
+      explicitTalkbackOwnerId: trimmed,
+      defaultTalkbackOwnerId: fallback,
+      effectiveTalkbackOwnerId: trimmed,
+      hasExplicitTalkbackOverride: true,
+      isExplicitNone: false,
+    };
+  }
   if (Object.prototype.hasOwnProperty.call(args.project, "talkbackOwnerId")) {
-    const raw = (args.project as Project & { talkbackOwnerId?: unknown })
-      .talkbackOwnerId;
+    const raw = (args.project as Project & { talkbackOwnerId?: unknown }).talkbackOwnerId;
     if (typeof raw === "string") {
       const trimmed = raw.trim();
       if (trimmed.length === 0) {

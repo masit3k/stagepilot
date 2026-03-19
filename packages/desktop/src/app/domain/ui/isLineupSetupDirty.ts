@@ -35,10 +35,8 @@ export function normalizeLineupForComparison(
     lineup: normalizedLineup,
     bandLeaderId: value.bandLeaderId,
     talkbackOwnerId: value.talkbackOwnerId,
-    leadVocalistIds: [...value.leadVocalistIds].sort((a, b) =>
-      a.localeCompare(b),
-    ),
-    backVocalIds: [...value.backVocalIds].sort((a, b) => a.localeCompare(b)),
+    leadVocalistIds: [...value.leadVocalistIds],
+    backVocalIds: [...value.backVocalIds],
     hasLeadVocalOverride: Boolean(value.hasLeadVocalOverride),
     hasBackVocalOverride: Boolean(value.hasBackVocalOverride),
     hasTalkbackOverride: Boolean(value.hasTalkbackOverride),

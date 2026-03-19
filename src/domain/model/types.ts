@@ -25,6 +25,26 @@ export type StageplanPerson = {
   isBandLeader: boolean;
 };
 
+export type LineupSlot = {
+  slot: number;
+  musicianId: string;
+  presetOverride?: PresetOverridePatch;
+  drumDefinition?: DrumDefinition;
+};
+
+export type OverlaySlot = {
+  slot: number;
+  musicianId: string;
+};
+
+export type ProjectLineup = Partial<Record<Group, LineupSlot[]>> & Record<string, unknown>;
+
+export type ProjectOverlays = {
+  leadVocals?: OverlaySlot[];
+  backVocals?: OverlaySlot[];
+  talkback?: { mode: "none"; ownerId: null } | { mode: "assigned"; ownerId: string };
+};
+
 /**
  * Normalizovaný doménový projekt (po načtení a normalizaci z JSONu).
  * Tohle má používat pipeline.
@@ -53,8 +73,11 @@ export interface Project {
 
   /** Volitelně: volba template/layoutu */
   template?: string;
-  lineup?: Record<string, unknown>;
+  lineup?: ProjectLineup | Record<string, unknown>;
+  overlays?: ProjectOverlays;
+  /** @deprecated legacy read-compat only */
   backVocalIds?: string[];
+  /** @deprecated legacy read-compat only */
   leadVocalistIds?: string[];
   bandLeaderId?: string;
   talkbackOwnerId?: string;
@@ -103,8 +126,11 @@ export interface ProjectJsonV2 {
   /** Legacy read-compat only. */
   title?: string;
   template?: string;
-  lineup?: Record<string, unknown>;
+  lineup?: ProjectLineup | Record<string, unknown>;
+  overlays?: ProjectOverlays;
+  /** @deprecated legacy read-compat only */
   backVocalIds?: string[];
+  /** @deprecated legacy read-compat only */
   leadVocalistIds?: string[];
   bandLeaderId?: string;
   talkbackOwnerId?: string;
@@ -126,13 +152,16 @@ export type ProjectJson = LegacyProjectJson | ProjectJsonV2;
 export type DefaultLineup = Partial<Record<Group, string[]>>;
 
 /** Canonical explicit vocal assignments overlaying default lineup membership. */
-export type DefaultVocals = {
-  lead: string[];
-  back: string[];
+export type DefaultOverlays = {
+  leadVocals?: string[];
+  backVocals?: string[];
+  lead?: string[];
+  back?: string[];
 };
 
 /** Kapela: statická definice (knihovna). */
 export interface Band {
+  type?: "band";
   id: string;
   code?: string;
   name: string;
@@ -142,8 +171,12 @@ export interface Band {
   /** Výchozí obsazení kapely pro generování (group -> musicianId(s)). */
   defaultLineup: DefaultLineup;
 
-  /** Výchozí vokální role nad default lineup membership. */
-  defaultVocals: DefaultVocals;
+  /** Výchozí overlay role nad default lineup membership. */
+  defaultOverlays?: DefaultOverlays;
+  /** @deprecated legacy read-compat only */
+  defaultVocals?: DefaultOverlays;
+  /** @deprecated canonical alias */
+  bandLeaderId?: string;
 
   defaultContactId?: string;
 

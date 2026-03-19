@@ -1,6 +1,6 @@
 import { GROUP_ORDER, type Group } from "../model/groups.js";
 import { createDefaultDrumDefinition, parseDrumDefinition, type DrumDefinition } from "../drums/drumDefinition.js";
-import type { DefaultLineup, PresetOverridePatch, Project } from "../model/types.js";
+import type { OverlaySlot, PresetOverridePatch, Project } from "../model/types.js";
 import { resolveEffectiveTalkbackAssignment } from "../talkback/resolveEffectiveTalkbackAssignment.js";
 
 type LegacyLineupEntry = { musicianId?: unknown; presetOverride?: unknown; drumDefinition?: unknown };
@@ -93,10 +93,11 @@ function normalizeLineupSlots(v: unknown): Array<{ musicianId: string; presetOve
 
 export function resolveEffectiveProjectState(args: {
   project: Project;
-  bandDefaultLineup: DefaultLineup;
+  bandDefaultLineup?: unknown;
   bandLeaderId: string;
 }): {
   effectiveLineup: Record<Group, string[]>;
+  effectiveOverlays: { leadVocals: string[]; backVocals: string[] };
   presetOverrideByMusicianId: Map<string, PresetOverridePatch>;
   effectiveTalkbackOwnerId: string;
   drumDefinitionByMusicianId: Map<string, DrumDefinition>;
@@ -108,8 +109,7 @@ export function resolveEffectiveProjectState(args: {
 
   for (const group of GROUP_ORDER) {
     const projectSlots = normalizeLineupSlots(projectLineup[group]);
-    const fallbackSlots = (args.bandDefaultLineup[group] ?? []).map((musicianId) => ({ musicianId }));
-    const resolvedSlots = projectSlots.length > 0 ? projectSlots : fallbackSlots;
+    const resolvedSlots = projectSlots;
     effectiveLineup[group] = resolvedSlots.map((slot) => slot.musicianId);
 
     for (const slot of resolvedSlots) {
@@ -122,16 +122,33 @@ export function resolveEffectiveProjectState(args: {
     }
   }
 
+  const normalizedOverlayIds = (value: unknown): string[] =>
+    Array.isArray(value)
+      ? value
+          .map((entry) => (entry && typeof entry === "object" ? (entry as OverlaySlot).musicianId : undefined))
+          .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+      : [];
+  const projectOverlays = (args.project as Project & { overlays?: unknown }).overlays;
+  const effectiveOverlays = {
+    leadVocals: normalizedOverlayIds((projectOverlays as { leadVocals?: unknown })?.leadVocals),
+    backVocals: normalizedOverlayIds((projectOverlays as { backVocals?: unknown })?.backVocals),
+  };
   const selectedMusicianIds = GROUP_ORDER.flatMap((group) => effectiveLineup[group] ?? []);
-  const talkback = resolveEffectiveTalkbackAssignment({
-    project: args.project,
-    bandLeaderId: args.bandLeaderId,
-    selectedMusicianIds,
-  });
+  const explicitTalkback = (projectOverlays as { talkback?: { mode?: unknown; ownerId?: unknown } })?.talkback;
+  const talkback = explicitTalkback?.mode === "none"
+    ? { mode: "none" as const, musicianId: undefined }
+    : explicitTalkback?.mode === "assigned" && typeof explicitTalkback.ownerId === "string"
+      ? { mode: "assigned" as const, musicianId: explicitTalkback.ownerId }
+      : resolveEffectiveTalkbackAssignment({
+          project: args.project,
+          bandLeaderId: args.bandLeaderId,
+          selectedMusicianIds,
+        });
   const effectiveTalkbackOwnerId = talkback.mode === "assigned" ? talkback.musicianId ?? "" : "";
 
   return {
     effectiveLineup,
+    effectiveOverlays,
     presetOverrideByMusicianId,
     effectiveTalkbackOwnerId,
     drumDefinitionByMusicianId,

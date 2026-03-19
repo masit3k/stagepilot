@@ -8,6 +8,7 @@ export type DocumentBuildContext = {
   project: Project;
   band: Band;
   lineup: Record<Group, string[]>;
+  overlays: { leadVocals: string[]; backVocals: string[] };
   presetOverrideByMusicianId: Map<string, PresetOverridePatch>;
   talkbackOwnerId: string;
   bandLeaderId: string;
@@ -26,11 +27,10 @@ export function resolveDocumentContext(
   const bandLeaderId =
     typeof rawProjectBandLeader === "string" && rawProjectBandLeader.trim().length > 0
       ? rawProjectBandLeader.trim()
-      : band.bandLeader;
+      : (band.bandLeaderId ?? band.bandLeader);
 
   const effective = resolveEffectiveProjectState({
     project,
-    bandDefaultLineup: band.defaultLineup ?? {},
     bandLeaderId,
   });
 
@@ -52,6 +52,7 @@ export function resolveDocumentContext(
     project,
     band,
     lineup,
+    overlays: effective.effectiveOverlays,
     presetOverrideByMusicianId: effective.presetOverrideByMusicianId,
     talkbackOwnerId: effective.effectiveTalkbackOwnerId,
     bandLeaderId,

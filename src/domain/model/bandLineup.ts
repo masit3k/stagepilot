@@ -1,5 +1,5 @@
 import { GROUP_ORDER, type Group } from "./groups.js";
-import type { Band, DefaultLineup, DefaultVocals } from "./types.js";
+import type { Band, DefaultLineup, DefaultOverlays } from "./types.js";
 
 export function getLineupGroupMemberIds(lineup: DefaultLineup, group: Group): string[] {
   return [...(lineup[group] ?? [])];
@@ -60,45 +60,46 @@ export function validateDefaultLineup(lineup: DefaultLineup): void {
 
 export function validateDefaultVocals(args: {
   lineup: DefaultLineup;
-  vocals: DefaultVocals;
+  vocals: DefaultOverlays;
 }): void {
   const lineupIds = new Set(getAllLineupMemberIds(args.lineup));
-  assertStringArray(args.vocals.lead, "defaultVocals.lead");
-  assertStringArray(args.vocals.back, "defaultVocals.back");
+  const leadVocals = args.vocals.leadVocals ?? args.vocals.lead ?? [];
+  const backVocals = args.vocals.backVocals ?? args.vocals.back ?? [];
+  assertStringArray(leadVocals, "defaultOverlays.leadVocals");
+  assertStringArray(backVocals, "defaultOverlays.backVocals");
 
   const leadSet = new Set<string>();
-  for (const musicianId of args.vocals.lead) {
+  for (const musicianId of leadVocals) {
     if (leadSet.has(musicianId)) {
-      throw new Error(`defaultVocals.lead contains duplicate musician '${musicianId}'.`);
+      throw new Error(`defaultOverlays.leadVocals contains duplicate musician '${musicianId}'.`);
     }
     leadSet.add(musicianId);
     if (!lineupIds.has(musicianId)) {
-      throw new Error(`defaultVocals.lead contains '${musicianId}' not present in defaultLineup.`);
+      throw new Error(`defaultOverlays.leadVocals contains '${musicianId}' not present in defaultLineup.`);
     }
   }
 
   const backSet = new Set<string>();
-  for (const musicianId of args.vocals.back) {
+  for (const musicianId of backVocals) {
     if (backSet.has(musicianId)) {
-      throw new Error(`defaultVocals.back contains duplicate musician '${musicianId}'.`);
+      throw new Error(`defaultOverlays.backVocals contains duplicate musician '${musicianId}'.`);
     }
     if (leadSet.has(musicianId)) {
-      throw new Error(`Musician '${musicianId}' cannot be in both defaultVocals.lead and defaultVocals.back.`);
+      throw new Error(`Musician '${musicianId}' cannot be in both defaultOverlays.leadVocals and defaultOverlays.backVocals.`);
     }
     backSet.add(musicianId);
     if (!lineupIds.has(musicianId)) {
-      throw new Error(`defaultVocals.back contains '${musicianId}' not present in defaultLineup.`);
+      throw new Error(`defaultOverlays.backVocals contains '${musicianId}' not present in defaultLineup.`);
     }
   }
 }
 
 export function validateCanonicalBandModel(band: Band): void {
-  if (!band.defaultVocals) {
-    throw new Error("Band must define defaultVocals with lead/back arrays.");
-  }
+  const defaultOverlays = band.defaultOverlays ?? band.defaultVocals;
+  if (!defaultOverlays) throw new Error("Band must define defaultOverlays with leadVocals/backVocals arrays.");
   validateDefaultLineup(band.defaultLineup ?? {});
   validateDefaultVocals({
     lineup: band.defaultLineup ?? {},
-    vocals: band.defaultVocals,
+    vocals: defaultOverlays,
   });
 }

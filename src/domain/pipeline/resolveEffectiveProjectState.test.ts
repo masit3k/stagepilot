@@ -28,6 +28,24 @@ describe("resolveEffectiveProjectState", () => {
     expect(resolved.effectiveLineup.guitar).toEqual(["guitar-new"]);
   });
 
+  it("does not fallback to band defaults when project lineup role is missing", () => {
+    const project: Project = {
+      id: "p-2",
+      bandRef: "band-1",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+      lineup: {},
+    };
+
+    const resolved = resolveEffectiveProjectState({
+      project,
+      bandDefaultLineup: { drums: ["drummer-default"] },
+      bandLeaderId: "drummer-default",
+    });
+
+    expect(resolved.effectiveLineup.drums).toEqual([]);
+  });
+
   it("captures per-slot preset override from project lineup", () => {
     const project: Project = {
       id: "p-1",
@@ -108,6 +126,29 @@ describe("resolveEffectiveProjectState", () => {
     });
 
     expect(resolved.effectiveTalkbackOwnerId).toBe("bass-1");
+  });
+
+  it("uses canonical overlays for lead/back/talkback state", () => {
+    const project: Project = {
+      id: "p-overlays",
+      bandRef: "band-1",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+      overlays: {
+        leadVocals: [{ slot: 1, musicianId: "lead-1" }, { slot: 2, musicianId: "lead-2" }],
+        backVocals: [{ slot: 1, musicianId: "back-1" }],
+        talkback: { mode: "assigned", ownerId: "talkback-1" },
+      },
+    };
+
+    const resolved = resolveEffectiveProjectState({
+      project,
+      bandLeaderId: "leader-1",
+    });
+
+    expect(resolved.effectiveOverlays.leadVocals).toEqual(["lead-1", "lead-2"]);
+    expect(resolved.effectiveOverlays.backVocals).toEqual(["back-1"]);
+    expect(resolved.effectiveTalkbackOwnerId).toBe("talkback-1");
   });
 
   it("falls back talkback owner to band leader for legacy projects", () => {

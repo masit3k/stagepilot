@@ -514,13 +514,6 @@ export function buildDocument(
     return formatMonitoringLabel(label, extra);
   };
 
-  const hasLeadPreset = (m: Musician | undefined): boolean => {
-    if (!m) return false;
-    return (effectivePresetItemsByMusicianId.get(m.id) ?? m.presets ?? []).some(
-      (p) => p.kind === "preset" && /^vocal_lead/i.test(p.ref),
-    );
-  };
-
   const guitarM = ctx.pickByGroup("guitar");
   const keysM = ctx.pickByGroup("keys");
   const bassM = ctx.pickByGroup("bass");
@@ -530,10 +523,8 @@ export function buildDocument(
   const vocsAll = ctx.lineupMusicians
     .filter((x) => x.group === "vocs")
     .map((x) => x.musician);
-  const explicitLeadVocalistIds = Array.isArray(project.leadVocalistIds)
-    ? project.leadVocalistIds.filter((id): id is string => typeof id === "string")
-    : undefined;
-  const explicitLeadVocalists = explicitLeadVocalistIds
+  const explicitLeadVocalistIds = ctx.overlays.leadVocals;
+  const explicitLeadVocalists = explicitLeadVocalistIds.length > 0
     ? explicitLeadVocalistIds
       .map((musicianId) => ctx.membersById.get(musicianId))
       .filter((musician): musician is Musician => Boolean(musician))
@@ -541,16 +532,7 @@ export function buildDocument(
         allLineupMusicians.some((lineupMusician) => lineupMusician.id === musician.id),
       )
     : [];
-  const leadsByPreset = allLineupMusicians.filter((m) => hasLeadPreset(m));
-  const defaultLeadVocalists = (ctx.band.defaultVocals?.lead ?? [])
-    .map((musicianId) => ctx.membersById.get(musicianId))
-    .filter((musician): musician is Musician => Boolean(musician));
-  const fallbackLeadVocalists = defaultLeadVocalists.length > 0
-    ? defaultLeadVocalists
-    : (leadsByPreset.length > 0 ? leadsByPreset : vocsAll);
-  const leadResolved = explicitLeadVocalistIds
-    ? explicitLeadVocalists
-    : fallbackLeadVocalists;
+  const leadResolved = explicitLeadVocalists.length > 0 ? explicitLeadVocalists : vocsAll;
   const leadVocalStageplanPersons = leadResolved.map((m) => ({
     firstName: m.firstName ?? null,
     isBandLeader: m.id === ctx.bandLeaderId,

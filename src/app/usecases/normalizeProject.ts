@@ -1,4 +1,8 @@
 import type {
+  LineupSlot,
+  OverlaySlot,
+  ProjectLineup,
+  ProjectOverlays,
   Project,
   ProjectJson,
   StagePlanPurpose,
@@ -16,6 +20,45 @@ function normalizeLegacyLineupIds(value: unknown): string[] {
       return "";
     })
     .filter((idValue) => idValue.length > 0);
+}
+
+function normalizeLineupSlots(value: unknown): LineupSlot[] {
+  const entries = Array.isArray(value) ? value : [value];
+  const slots: LineupSlot[] = [];
+  for (const entry of entries) {
+    if (typeof entry === "string" && entry.trim().length > 0) {
+      slots.push({ slot: slots.length + 1, musicianId: entry.trim() });
+      continue;
+    }
+    if (!entry || typeof entry !== "object") continue;
+    const raw = entry as { slot?: unknown; musicianId?: unknown; presetOverride?: unknown; drumDefinition?: unknown };
+    if (typeof raw.musicianId !== "string" || raw.musicianId.trim().length === 0) continue;
+    const slotNumber = typeof raw.slot === "number" && Number.isFinite(raw.slot) && raw.slot > 0
+      ? Math.floor(raw.slot)
+      : slots.length + 1;
+    slots.push({
+      slot: slotNumber,
+      musicianId: raw.musicianId.trim(),
+      ...(raw.presetOverride && typeof raw.presetOverride === "object" ? { presetOverride: raw.presetOverride } : {}),
+      ...(raw.drumDefinition && typeof raw.drumDefinition === "object" ? { drumDefinition: raw.drumDefinition as LineupSlot["drumDefinition"] } : {}),
+    });
+  }
+  return slots.sort((a, b) => a.slot - b.slot);
+}
+
+function normalizeOverlaySlots(value: unknown): OverlaySlot[] {
+  if (!Array.isArray(value)) return [];
+  const slots: OverlaySlot[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    const raw = entry as { slot?: unknown; musicianId?: unknown };
+    if (typeof raw.musicianId !== "string" || raw.musicianId.trim().length === 0) continue;
+    const slotNumber = typeof raw.slot === "number" && Number.isFinite(raw.slot) && raw.slot > 0
+      ? Math.floor(raw.slot)
+      : slots.length + 1;
+    slots.push({ slot: slotNumber, musicianId: raw.musicianId.trim() });
+  }
+  return slots.sort((a, b) => a.slot - b.slot);
 }
 
 function assertString(value: unknown, label: string): string {
@@ -53,7 +96,17 @@ export function normalizeProject(input: ProjectJson): Project {
     input.updatedAt.trim().length > 0
       ? input.updatedAt.trim()
       : undefined;
-  const lineup = "lineup" in input ? input.lineup : undefined;
+  const lineup = (() => {
+    if (!("lineup" in input) || !input.lineup || typeof input.lineup !== "object") return undefined;
+    const raw = input.lineup as Record<string, unknown>;
+    const normalized: ProjectLineup = {};
+    for (const [group, value] of Object.entries(raw)) {
+      if (group === "lead_vocs" || group === "back_vocs") continue;
+      const normalizedSlots = normalizeLineupSlots(value);
+      if (normalizedSlots.length > 0) normalized[group as keyof ProjectLineup] = normalizedSlots;
+    }
+    return normalized;
+  })();
   const bandLeaderId =
     "bandLeaderId" in input &&
     typeof input.bandLeaderId === "string" &&
@@ -97,9 +150,44 @@ export function normalizeProject(input: ProjectJson): Project {
           typeof item === "string" && item.trim().length > 0,
       );
     }
-    const legacyLeadVocs = lineup?.lead_vocs;
+    const legacyLeadVocs = (input as { lineup?: Record<string, unknown> }).lineup?.lead_vocs;
     if (legacyLeadVocs === undefined) return undefined;
     return normalizeLegacyLineupIds(legacyLeadVocs);
+  })();
+  const overlays = (() => {
+    const explicit =
+      "overlays" in input && input.overlays && typeof input.overlays === "object"
+        ? (input.overlays as { leadVocals?: unknown; backVocals?: unknown; talkback?: unknown })
+        : undefined;
+    const leadVocals = explicit?.leadVocals
+      ? normalizeOverlaySlots(explicit.leadVocals)
+      : (leadVocalistIds ?? []).map((musicianId, index) => ({ slot: index + 1, musicianId }));
+    const backVocals = explicit?.backVocals
+      ? normalizeOverlaySlots(explicit.backVocals)
+      : (backVocalIds ?? []).map((musicianId, index) => ({ slot: index + 1, musicianId }));
+    const talkback = (() => {
+      const explicitTalkback = explicit?.talkback;
+      if (explicitTalkback && typeof explicitTalkback === "object") {
+        const mode = (explicitTalkback as { mode?: unknown }).mode;
+        const ownerId = (explicitTalkback as { ownerId?: unknown }).ownerId;
+        if (mode === "none") return { mode: "none" as const, ownerId: null };
+        if (mode === "assigned" && typeof ownerId === "string" && ownerId.trim().length > 0) {
+          return { mode: "assigned" as const, ownerId: ownerId.trim() };
+        }
+      }
+      if (talkbackOverride?.mode === "none") return { mode: "none" as const, ownerId: null };
+      if (talkbackOverride?.mode === "assigned") return { mode: "assigned" as const, ownerId: talkbackOverride.musicianId };
+      if (typeof talkbackOwnerId === "string") {
+        if (talkbackOwnerId.trim().length === 0) return { mode: "none" as const, ownerId: null };
+        return { mode: "assigned" as const, ownerId: talkbackOwnerId.trim() };
+      }
+      return undefined;
+    })();
+    const normalized: ProjectOverlays = {};
+    if (leadVocals.length > 0 || Array.isArray(leadVocalistIds)) normalized.leadVocals = leadVocals;
+    if (backVocals.length > 0 || Array.isArray(backVocalIds)) normalized.backVocals = backVocals;
+    if (talkback) normalized.talkback = talkback;
+    return Object.keys(normalized).length > 0 ? normalized : undefined;
   })();
 
   if ("purpose" in input) {
@@ -123,11 +211,10 @@ export function normalizeProject(input: ProjectJson): Project {
         updatedAt,
         template: input.template?.trim() || undefined,
         lineup,
+        overlays,
         backVocalIds,
         leadVocalistIds,
         bandLeaderId,
-        talkbackOwnerId,
-        talkbackOverride,
         stageplan,
       };
     }
@@ -144,11 +231,10 @@ export function normalizeProject(input: ProjectJson): Project {
       updatedAt,
       template: input.template?.trim() || undefined,
       lineup,
+      overlays,
       backVocalIds,
       leadVocalistIds,
       bandLeaderId,
-      talkbackOwnerId,
-      talkbackOverride,
       stageplan,
     };
   }
@@ -171,11 +257,10 @@ export function normalizeProject(input: ProjectJson): Project {
       createdAt,
       updatedAt,
       lineup,
+      overlays,
       backVocalIds,
       leadVocalistIds,
       bandLeaderId,
-      talkbackOwnerId,
-      talkbackOverride,
       stageplan,
     };
   }
