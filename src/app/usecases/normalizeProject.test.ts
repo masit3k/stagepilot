@@ -54,6 +54,24 @@ describe("normalizeProject", () => {
     expect(normalized.leadVocalistIds).toEqual(["lead-1", "lead-2"]);
   });
 
+  it("preserves incoming lead/back vocal order and explicit empty arrays", () => {
+    const project: ProjectJsonV2 = {
+      id: "e-ordered-vocals",
+      bandRef: "pl",
+      purpose: "event",
+      eventDate: "2026-03-10",
+      eventVenue: "Klub",
+      documentDate: "2026-01-01",
+      leadVocalistIds: ["lead-3", "lead-1", "lead-2"],
+      backVocalIds: [],
+    };
+
+    const normalized = normalizeProject(project);
+
+    expect(normalized.leadVocalistIds).toEqual(["lead-3", "lead-1", "lead-2"]);
+    expect(normalized.backVocalIds).toEqual([]);
+  });
+
   it("derives lead vocalist ids from legacy lineup.lead_vocs when explicit ids are absent", () => {
     const normalized = normalizeProject({
       id: "e-legacy",

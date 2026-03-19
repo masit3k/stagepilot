@@ -52,6 +52,26 @@ describe("resolveEffectiveProjectState", () => {
     expect(resolved.presetOverrideByMusicianId.get("bass-1")?.inputs?.add?.[0]?.key).toBe("bass_pedal");
   });
 
+  it("preserves explicit order in multi-member lineup arrays", () => {
+    const project: Project = {
+      id: "p-ordered",
+      bandRef: "band-1",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+      lineup: {
+        vocs: ["voc-3", "voc-1", "voc-2"],
+      },
+    };
+
+    const resolved = resolveEffectiveProjectState({
+      project,
+      bandDefaultLineup: { vocs: ["voc-default"] },
+      bandLeaderId: "voc-default",
+    });
+
+    expect(resolved.effectiveLineup.vocs).toEqual(["voc-3", "voc-1", "voc-2"]);
+  });
+
 
   it("respects explicit talkback none override", () => {
     const project: Project = {

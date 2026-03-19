@@ -421,7 +421,7 @@ export function ProjectSetupPage({
         : (defaultLeadVocalIdsFromBand.length > 0
             ? defaultLeadVocalIdsFromBand
             : Array.from(initialLeadVocalIdsFromPreset)
-          ).sort((a, b) => a.localeCompare(b));
+          );
       const effectiveBackVocalIds = parsedHasBackVocalOverride
         ? normalizeLineupValue((parsed.lineup ?? {}).back_vocs, 8)
         : Array.from(
@@ -431,9 +431,7 @@ export function ProjectSetupPage({
                 : getBackVocsFromTemplate(initialMusicians),
               new Set(effectiveInitialLeadVocalIds),
             ),
-          )
-            .filter((idValue) => initialTemplateMusicians.includes(idValue))
-            .sort((a, b) => a.localeCompare(b));
+          ).filter((idValue) => initialTemplateMusicians.includes(idValue));
       initialSnapshotRef.current = createLineupDirtyBaseline({
         lineup: initialSerializedLineup,
         bandLeaderId: initialState.bandLeaderId,
@@ -538,8 +536,7 @@ export function ProjectSetupPage({
           ? new Set(setupData.defaultVocals.lead)
           : getLeadVocsFromTemplate(selectedTemplateMusicians),
       )
-        .filter((idValue) => templateMusicianIds.has(idValue))
-        .sort((a, b) => a.localeCompare(b)),
+        .filter((idValue) => templateMusicianIds.has(idValue)),
     [selectedTemplateMusicians, setupData?.defaultVocals?.lead, templateMusicianIds],
   );
   const rawSelectedLeadVocalistIds = useMemo(() => {
@@ -563,8 +560,7 @@ export function ProjectSetupPage({
           ? new Set(setupData.defaultVocals.back)
           : getBackVocsFromTemplate(selectedTemplateMusicians),
       )
-        .filter((idValue) => templateMusicianIds.has(idValue))
-        .sort((a, b) => a.localeCompare(b)),
+        .filter((idValue) => templateMusicianIds.has(idValue)),
     [selectedTemplateMusicians, setupData?.defaultVocals?.back, templateMusicianIds],
   );
   const rawSelectedBackVocalIds = useMemo(() => {
@@ -601,17 +597,21 @@ export function ProjectSetupPage({
     [defaultLeadVocalistIds, lineupVocalCandidates, selectedLeadVocalistIds],
   );
   const leadVocalMembers = useMemo(
-    () =>
-      templateMusicians.filter((item) =>
-        selectedLeadVocalistIds.includes(item.id),
-      ),
+    () => {
+      const membersById = new Map(templateMusicians.map((item) => [item.id, item]));
+      return selectedLeadVocalistIds
+        .map((idValue) => membersById.get(idValue))
+        .filter((item): item is MemberOption => Boolean(item));
+    },
     [selectedLeadVocalistIds, templateMusicians],
   );
   const backVocalMembers = useMemo(
-    () =>
-      templateMusicians.filter((item) =>
-        selectedBackVocalIds.includes(item.id),
-      ),
+    () => {
+      const membersById = new Map(templateMusicians.map((item) => [item.id, item]));
+      return selectedBackVocalIds
+        .map((idValue) => membersById.get(idValue))
+        .filter((item): item is MemberOption => Boolean(item));
+    },
     [selectedBackVocalIds, templateMusicians],
   );
   const hasSelectedBackVocs = selectedBackVocalIds.length > 0;
@@ -666,7 +666,7 @@ export function ProjectSetupPage({
           : getBackVocsFromTemplate(musicians),
         leadIds,
       ),
-    ).sort((a, b) => a.localeCompare(b));
+    );
   }, [setupData]);
 
   const currentSnapshot = JSON.stringify({
@@ -674,11 +674,9 @@ export function ProjectSetupPage({
     bandLeaderId,
     talkbackOwnerId: talkbackCurrentOwnerId,
     hasTalkbackOverride,
-    leadVocalistIds: [...selectedLeadVocalistIds].sort((a, b) =>
-      a.localeCompare(b),
-    ),
+    leadVocalistIds: [...selectedLeadVocalistIds],
     hasLeadVocalOverride,
-    backVocalIds: [...selectedBackVocalIds].sort((a, b) => a.localeCompare(b)),
+    backVocalIds: [...selectedBackVocalIds],
     hasBackVocalOverride,
   });
   const defaultSnapshot = useMemo(() => {
@@ -953,13 +951,7 @@ export function ProjectSetupPage({
     [resolveMusicianDefaultPreset],
   );
 
-  const backVocalMembersSorted = useMemo(
-    () =>
-      [...backVocalMembers].sort(
-        (a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
-      ),
-    [backVocalMembers],
-  );
+  const backVocalMembersSorted = backVocalMembers;
   const backVocsSetupItems = useMemo(
     () =>
       backVocalMembersSorted.map((member) => {
@@ -2180,8 +2172,8 @@ export function ProjectSetupPage({
             otherCandidates={
               leadVocalCandidateSections.otherLeadVocalCandidates
             }
-            initialSelectedIds={new Set(selectedLeadVocalistIds)}
-            disabledSelectedIds={new Set(selectedBackVocalIds)}
+            initialSelectedIds={selectedLeadVocalistIds}
+            disabledSelectedIds={selectedBackVocalIds}
             onCancel={() => setIsLeadVocsModalOpen(false)}
             onSave={(nextSelectedIds) => {
               const normalizedSelection = enforceVocalSelectionInvariant({
@@ -2207,7 +2199,7 @@ export function ProjectSetupPage({
           <ChangeBackVocsModal
             open={isBackVocsModalOpen}
             members={backVocalCandidates}
-            initialSelectedIds={new Set(selectedBackVocalIds)}
+            initialSelectedIds={selectedBackVocalIds}
             onCancel={() => setIsBackVocsModalOpen(false)}
             onSave={(nextSelectedIds) => {
               const normalizedSelection = enforceVocalSelectionInvariant({

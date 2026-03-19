@@ -13,10 +13,10 @@ export type BackVocalCandidate = {
 type ChangeBackVocsModalProps = {
   open: boolean;
   members: BackVocalCandidate[];
-  initialSelectedIds: Set<string>;
+  initialSelectedIds: string[];
   saveDisabled?: boolean;
   onCancel: () => void;
-  onSave: (selectedIds: Set<string>) => void;
+  onSave: (selectedIds: string[]) => void;
 };
 
 const VOCAL_EXCLUSION_NOTE =
@@ -30,15 +30,14 @@ export function ChangeBackVocsModal({
   onCancel,
   onSave,
 }: ChangeBackVocsModalProps) {
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(
-    new Set(initialSelectedIds),
-  );
+  const [selectedIds, setSelectedIds] = useState<string[]>(initialSelectedIds);
   const wasOpenRef = useRef(false);
   const hasCandidates = members.length > 0;
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
   useEffect(() => {
     if (open && !wasOpenRef.current)
-      setSelectedIds(new Set(initialSelectedIds));
+      setSelectedIds([...initialSelectedIds]);
     wasOpenRef.current = open;
   }, [open, initialSelectedIds]);
 
@@ -46,9 +45,9 @@ export function ChangeBackVocsModal({
     () => (candidateId: string) => {
       const candidate = members.find((item) => item.id === candidateId);
       if (candidate?.isDisabled) return;
-      const next = new Set(selectedIds);
-      if (next.has(candidateId)) next.delete(candidateId);
-      else next.add(candidateId);
+      const next = selectedIds.includes(candidateId)
+        ? selectedIds.filter((id) => id !== candidateId)
+        : [...selectedIds, candidateId];
       setSelectedIds(next);
     },
     [members, selectedIds],
@@ -87,7 +86,7 @@ export function ChangeBackVocsModal({
               inputIdPrefix="back-vocs"
               displayName={member.name}
               primaryGroup={member.primaryGroup}
-              selected={selectedIds.has(member.id)}
+              selected={selectedIdSet.has(member.id)}
               disabled={member.isDisabled}
               onToggle={toggleSelection}
               trailingNote={member.isDisabled ? member.disabledReason : undefined}

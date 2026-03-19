@@ -489,6 +489,104 @@ describe("buildDocument setup overrides", () => {
     expect(leadNames).not.toContain("Vocal");
   });
 
+  it("keeps mixed-role lead vocalist order authoritative for stageplan and vocs numbering", () => {
+    const band: Band = {
+      id: "band-lead-order",
+      name: "Band",
+      bandLeader: "keys-1",
+      defaultLineup: { vocs: ["voc-1", "voc-2"], keys: ["keys-1"] },
+      defaultVocals: { lead: [], back: [] },
+    };
+    const voc1: Musician = {
+      id: "voc-1",
+      firstName: "Vocal One",
+      lastName: "Singer",
+      group: "vocs",
+      presets: [{ kind: "preset", ref: "vocal_lead_no_mic" }, { kind: "monitor", ref: "wedge" }],
+    };
+    const voc2: Musician = {
+      id: "voc-2",
+      firstName: "Vocal Two",
+      lastName: "Singer",
+      group: "vocs",
+      presets: [{ kind: "preset", ref: "vocal_lead_no_mic" }, { kind: "monitor", ref: "wedge" }],
+    };
+    const keys: Musician = {
+      id: "keys-1",
+      firstName: "Keys",
+      lastName: "Player",
+      group: "keys",
+      presets: [
+        { kind: "preset", ref: "keys_with_lead" },
+        { kind: "monitor", ref: "wedge" },
+      ],
+    };
+    const project: Project = {
+      id: "p-lead-order",
+      bandRef: "band-lead-order",
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: { vocs: ["voc-1", "voc-2"], keys: ["keys-1"] },
+      leadVocalistIds: ["keys-1", "voc-2", "voc-1"],
+    };
+    const notes: NotesTemplate = { id: "notes_default_cs", lang: "cs", inputs: [], monitors: [] };
+
+    const repo: DataRepository = {
+      getBand: () => band,
+      getMusician: (id: string) =>
+        id === "keys-1" ? keys : id === "voc-2" ? voc2 : voc1,
+      getProject: () => project,
+      getPreset: (id: string) => {
+        if (id === "keys_with_lead") {
+          return {
+            type: "preset",
+            id,
+            label: "Keys + lead",
+            group: "keys",
+            inputs: [
+              { key: "keys_l", label: "Keys L", group: "keys" },
+              { key: "voc_lead", label: "Lead vocal", group: "vocs" },
+            ],
+          };
+        }
+        if (id === "vocal_lead_no_mic") {
+          return {
+            type: "preset",
+            id,
+            label: "Lead vocal",
+            group: "vocs",
+            inputs: [{ key: "voc_lead", label: "Lead vocal", group: "vocs" }],
+          };
+        }
+        if (id === "wedge") return { type: "monitor", id, label: "Wedge" };
+        if (id === "talkback") {
+          return {
+            type: "talkback_type",
+            id,
+            label: "Talkback",
+            group: "talkback",
+            input: { key: "tb_{ownerKey}", label: "Talkback ({ownerLabel})" },
+          };
+        }
+        throw new Error(`unknown preset ${id}`);
+      },
+      getNotesTemplate: () => notes,
+    };
+
+    const vm = buildDocument(project, repo);
+
+    expect(vm.stageplan.leadVocals.map((item) => item.firstName)).toEqual([
+      "Keys",
+      "Vocal Two",
+      "Vocal One",
+    ]);
+    expect(vm.inputRows.filter((row) => row.label.startsWith("Lead vocal")).map((row) => row.label)).toEqual([
+      "Lead vocal (keys)",
+      "Lead vocal 2",
+      "Lead vocal 1",
+    ]);
+  });
+
   it("respects explicit empty leadVocalistIds and does not fallback to defaults", () => {
     const band: Band = {
       id: "band-empty-lead",

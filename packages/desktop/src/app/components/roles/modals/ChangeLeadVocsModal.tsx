@@ -6,10 +6,10 @@ type ChangeLeadVocsModalProps = {
   open: boolean;
   suggestedCandidates: LeadVocalCandidate[];
   otherCandidates: LeadVocalCandidate[];
-  initialSelectedIds: Set<string>;
-  disabledSelectedIds?: Set<string>;
+  initialSelectedIds: string[];
+  disabledSelectedIds?: string[];
   onCancel: () => void;
-  onSave: (selectedIds: Set<string>) => void;
+  onSave: (selectedIds: string[]) => void;
 };
 
 const VOCAL_EXCLUSION_NOTE =
@@ -20,31 +20,31 @@ export function ChangeLeadVocsModal({
   suggestedCandidates,
   otherCandidates,
   initialSelectedIds,
-  disabledSelectedIds = new Set<string>(),
+  disabledSelectedIds = [],
   onCancel,
   onSave,
 }: ChangeLeadVocsModalProps) {
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(
-    new Set(initialSelectedIds),
-  );
+  const [selectedIds, setSelectedIds] = useState<string[]>(initialSelectedIds);
   const wasOpenRef = useRef(false);
+  const disabledIdSet = useMemo(() => new Set(disabledSelectedIds), [disabledSelectedIds]);
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
   useEffect(() => {
     if (open && !wasOpenRef.current) {
-      setSelectedIds(new Set(initialSelectedIds));
+      setSelectedIds([...initialSelectedIds]);
     }
     wasOpenRef.current = open;
   }, [open, initialSelectedIds]);
 
   const toggleSelection = useMemo(
     () => (candidateId: string) => {
-      if (disabledSelectedIds.has(candidateId)) return;
-      const next = new Set(selectedIds);
-      if (next.has(candidateId)) next.delete(candidateId);
-      else next.add(candidateId);
+      if (disabledIdSet.has(candidateId)) return;
+      const next = selectedIds.includes(candidateId)
+        ? selectedIds.filter((id) => id !== candidateId)
+        : [...selectedIds, candidateId];
       setSelectedIds(next);
     },
-    [disabledSelectedIds, selectedIds],
+    [disabledIdSet, selectedIds],
   );
 
   if (!open) return null;
@@ -81,8 +81,8 @@ export function ChangeLeadVocsModal({
               inputIdPrefix="lead-vocs"
               displayName={candidate.displayName}
               primaryGroup={candidate.primaryGroup}
-              selected={selectedIds.has(candidate.musicianId)}
-              disabled={disabledSelectedIds.has(candidate.musicianId)}
+              selected={selectedIdSet.has(candidate.musicianId)}
+              disabled={disabledIdSet.has(candidate.musicianId)}
               onToggle={toggleSelection}
               trailingNote={candidate.hasLeadPreset ? "Lead vocal preset" : undefined}
             />
@@ -100,8 +100,8 @@ export function ChangeLeadVocsModal({
               inputIdPrefix="lead-vocs"
               displayName={candidate.displayName}
               primaryGroup={candidate.primaryGroup}
-              selected={selectedIds.has(candidate.musicianId)}
-              disabled={disabledSelectedIds.has(candidate.musicianId)}
+              selected={selectedIdSet.has(candidate.musicianId)}
+              disabled={disabledIdSet.has(candidate.musicianId)}
               onToggle={toggleSelection}
               trailingNote={candidate.hasLeadPreset ? "Lead vocal preset" : undefined}
             />

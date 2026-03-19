@@ -22,7 +22,7 @@ export function enforceVocalSelectionInvariant({
     .filter((id) => !leadIdSet.has(id));
 
   return {
-    leadIds: normalizedLeadIds.sort((a, b) => a.localeCompare(b)),
-    backIds: normalizedBackIds.sort((a, b) => a.localeCompare(b)),
+    leadIds: normalizedLeadIds,
+    backIds: normalizedBackIds,
   };
 }

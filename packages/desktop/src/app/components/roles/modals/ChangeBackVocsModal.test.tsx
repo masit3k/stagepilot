@@ -11,7 +11,7 @@ describe("ChangeBackVocsModal", () => {
           { id: "m1", name: "One", primaryGroup: "bass", isDisabled: false },
           { id: "m2", name: "Two", primaryGroup: "keys", isDisabled: false },
         ]}
-        initialSelectedIds={new Set(["m2"])}
+        initialSelectedIds={["m2"]}
         onCancel={vi.fn()}
         onSave={vi.fn()}
       />,
@@ -31,7 +31,7 @@ describe("ChangeBackVocsModal", () => {
       <ChangeBackVocsModal
         open
         members={[{ id: "m1", name: "One", primaryGroup: "vocs", isDisabled: false }]}
-        initialSelectedIds={new Set()}
+        initialSelectedIds={[]}
         onCancel={vi.fn()}
         onSave={vi.fn()}
       />,
@@ -45,7 +45,7 @@ describe("ChangeBackVocsModal", () => {
       <ChangeBackVocsModal
         open
         members={[]}
-        initialSelectedIds={new Set()}
+        initialSelectedIds={[]}
         onCancel={vi.fn()}
         onSave={vi.fn()}
       />,

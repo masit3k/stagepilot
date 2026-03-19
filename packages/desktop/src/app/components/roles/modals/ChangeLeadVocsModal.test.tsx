@@ -27,8 +27,8 @@ describe("ChangeLeadVocsModal", () => {
             hasLeadPreset: false,
           },
         ]}
-        initialSelectedIds={new Set(["m1"])}
-        disabledSelectedIds={new Set(["m2"])}
+        initialSelectedIds={["m1"]}
+        disabledSelectedIds={["m2"]}
         onCancel={vi.fn()}
         onSave={vi.fn()}
       />,
@@ -40,7 +40,7 @@ describe("ChangeLeadVocsModal", () => {
     expect(html).toContain("(GUITAR)");
     expect(html).toContain("Lead vocal preset");
     expect(html).toContain("checked");
-    expect(html).toContain("cannot be selected as Back Vocs");
+    expect(html).toContain("cannot be selected as Back Vocal");
     expect(html).toContain('id="lead-vocs-m2"');
     expect(html).toContain("disabled");
   });
