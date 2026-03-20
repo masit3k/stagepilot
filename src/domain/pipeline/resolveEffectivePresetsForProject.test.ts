@@ -25,6 +25,15 @@ const repo = {
         },
       };
     }
+    if (id === "vocal_lead_no_mic") {
+      return {
+        type: "preset",
+        id,
+        label: "Lead vocal no mic",
+        group: "vocs",
+        inputs: [{ key: "voc_lead", label: "Lead vocal", group: "vocs" }],
+      };
+    }
     throw new Error(`Unexpected preset lookup: ${id}`);
   },
 } as const;
@@ -254,5 +263,53 @@ describe("resolveEffectivePresetsForProject", () => {
           item.ref.startsWith("vocal_back_"),
       ),
     ).toBe(false);
+  });
+
+  it("adds lead vocal capability for every explicit lead overlay owner in active lineup", () => {
+    const bassist: Musician = {
+      id: "bass-1",
+      firstName: "Bass",
+      lastName: "Player",
+      group: "bass",
+      presets: [{ kind: "preset", ref: "el_bass_xlr_pedalboard" }],
+    };
+    const drummer: Musician = {
+      id: "drums-1",
+      firstName: "Drums",
+      lastName: "Player",
+      group: "drums",
+      presets: [{ kind: "preset", ref: "drums_basic" }],
+    };
+    const project: Project = {
+      id: "p-6",
+      bandRef: "band-1",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+      lineup: { bass: ["bass-1"], drums: ["drums-1"] },
+      overlays: {
+        leadVocals: [
+          { slot: 1, musicianId: "bass-1" },
+          { slot: 2, musicianId: "drums-1" },
+        ],
+      },
+    };
+
+    const bassistItems = resolveEffectivePresetsForProject({
+      project,
+      band,
+      musician: bassist,
+      group: "bass",
+      repo: repo as never,
+    });
+    const drummerItems = resolveEffectivePresetsForProject({
+      project,
+      band,
+      musician: drummer,
+      group: "drums",
+      repo: repo as never,
+    });
+
+    expect(bassistItems.some((item) => item.kind === "preset" && item.ref === "vocal_lead_no_mic")).toBe(true);
+    expect(drummerItems.some((item) => item.kind === "preset" && item.ref === "vocal_lead_no_mic")).toBe(true);
   });
 });

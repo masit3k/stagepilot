@@ -142,6 +142,43 @@ function resolvePdfMonitorOwners(args: {
   return lineupMusicians.filter(({ musician }) => effectiveSetupByMusicianId.has(musician.id));
 }
 
+function orderPdfMonitorOwners(args: {
+  owners: Array<{ group: Group; musician: Musician }>;
+  leadVocsIndexByMusicianId: Map<string, number>;
+}): Array<{ group: Group; musician: Musician }> {
+  const { owners, leadVocsIndexByMusicianId } = args;
+  const orderRank: Record<Group, number> = {
+    guitar: 1,
+    vocs: 2,
+    keys: 3,
+    bass: 4,
+    drums: 5,
+    talkback: 999,
+  };
+
+  return owners
+    .map((owner, originalIndex) => ({ owner, originalIndex }))
+    .sort((a, b) => {
+      const groupRankDiff = (orderRank[a.owner.group] ?? 999) - (orderRank[b.owner.group] ?? 999);
+      if (groupRankDiff !== 0) return groupRankDiff;
+
+      if (a.owner.group === "vocs" && b.owner.group === "vocs") {
+        const aLeadIndex = leadVocsIndexByMusicianId.get(a.owner.musician.id);
+        const bLeadIndex = leadVocsIndexByMusicianId.get(b.owner.musician.id);
+        if (typeof aLeadIndex === "number" && typeof bLeadIndex === "number") {
+          if (aLeadIndex !== bLeadIndex) return aLeadIndex - bLeadIndex;
+        } else if (typeof aLeadIndex === "number") {
+          return -1;
+        } else if (typeof bLeadIndex === "number") {
+          return 1;
+        }
+      }
+
+      return a.originalIndex - b.originalIndex;
+    })
+    .map(({ owner }) => owner);
+}
+
 function resolveStageplanPersonsBySlot(args: {
   lineupMusicians: Array<{ group: Group; musician: Musician }>;
   leadOverlayMembers: Musician[];
@@ -596,6 +633,10 @@ export function buildDocument(
     lineupMusicians: ctx.lineupMusicians,
     effectiveSetupByMusicianId: effectiveSetup.byMusicianId,
   });
+  const orderedMonitorOwners = orderPdfMonitorOwners({
+    owners: monitorOwners,
+    leadVocsIndexByMusicianId,
+  });
   const pushRow = (owner: { group: Group; musician: Musician }, output: string) => {
     monitorTableRows.push({
       no: String(monitorTableRows.length + 1),
@@ -604,7 +645,7 @@ export function buildDocument(
       ownerRole: owner.group,
     });
   };
-  for (const owner of monitorOwners) {
+  for (const owner of orderedMonitorOwners) {
     pushRow(
       owner,
       formatMonitorOwnerLabel({

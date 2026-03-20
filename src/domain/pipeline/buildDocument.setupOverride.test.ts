@@ -837,8 +837,8 @@ describe("buildDocument setup overrides", () => {
     expect(vm.inputRows.some((row) => row.label === "Back vocal 1 (guitar)")).toBe(true);
     expect(vm.stageplan.monitorOutputs.map((row) => row.output)).toEqual([
       "Guitar",
-      "Keys",
       "Lead vocal 1",
+      "Keys",
     ]);
   });
 
