@@ -14,7 +14,6 @@ export type DocumentBuildContext = {
   bandLeaderId: string;
   membersById: Map<string, Musician>;
   lineupMusicians: Array<{ group: Group; musician: Musician }>;
-  pickByGroup: (group: Group) => Musician | undefined;
 };
 
 export function resolveDocumentContext(
@@ -58,7 +57,5 @@ export function resolveDocumentContext(
     bandLeaderId,
     membersById,
     lineupMusicians,
-    pickByGroup: (group: Group) =>
-      lineupMusicians.find((entry) => entry.group === group)?.musician,
   };
 }

@@ -28,12 +28,12 @@ export function formatLeadVocalPdfLabel(args: {
 
   if (!ownerMusicianId) return fallbackLabel;
 
-  if (ownerRole !== "vocs") {
-    return `Lead vocal (${formatOwnerInstrument(ownerRole)})`;
-  }
-
   const index = leadVocsIndexByMusicianId.get(ownerMusicianId);
-  if (!index) return fallbackLabel;
+  if (!index) {
+    return ownerRole && ownerRole !== "vocs"
+      ? `Lead vocal (${formatOwnerInstrument(ownerRole)})`
+      : fallbackLabel;
+  }
 
   return formatVocalLabel({
     role: "lead",

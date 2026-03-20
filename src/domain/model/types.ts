@@ -460,6 +460,7 @@ export interface DocumentViewModel {
       no: number;
       output: string;
       note: string;
+      ownerRole?: Group;
     }>;
     powerByRole: Partial<
       Record<

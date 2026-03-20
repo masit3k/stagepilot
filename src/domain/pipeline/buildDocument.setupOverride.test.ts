@@ -487,8 +487,7 @@ describe("buildDocument setup overrides", () => {
 
     const vm = buildDocument(project, repo);
     const leadNames = (vm.stageplan.leadVocals ?? []).map((item) => item.firstName);
-    expect(leadNames).toEqual(["Keys"]);
-    expect(leadNames).not.toContain("Vocal");
+    expect(leadNames).toEqual([]);
   });
 
   it("keeps mixed-role lead vocalist order authoritative for stageplan and vocs numbering", () => {
@@ -578,12 +577,11 @@ describe("buildDocument setup overrides", () => {
     const vm = buildDocument(project, repo);
 
     expect(vm.stageplan.leadVocals.map((item) => item.firstName)).toEqual([
-      "Keys",
       "Vocal Two",
       "Vocal One",
     ]);
     expect(vm.inputRows.filter((row) => row.label.startsWith("Lead vocal")).map((row) => row.label)).toEqual([
-      "Lead vocal (keys)",
+      "Lead vocal 1",
       "Lead vocal 3",
       "Lead vocal 2",
     ]);
@@ -727,9 +725,9 @@ describe("buildDocument setup overrides", () => {
     };
 
     const vm = buildDocument(project, repo);
-    expect(vm.stageplan.leadVocals.map((person) => person.firstName)).toEqual(["Bass", "Drum"]);
-    expect(vm.inputRows.some((row) => row.label === "Lead vocal (bass)")).toBe(true);
-    expect(vm.inputRows.some((row) => row.label === "Lead vocal (drums)")).toBe(true);
+    expect(vm.stageplan.leadVocals.map((person) => person.firstName)).toEqual([]);
+    expect(vm.inputRows.some((row) => row.label === "Lead vocal 1")).toBe(true);
+    expect(vm.inputRows.some((row) => row.label === "Lead vocal 2")).toBe(true);
   });
 
   it("formats mixed lead/back vocal PDF labels and de-duplicates monitor rows", () => {
@@ -835,13 +833,12 @@ describe("buildDocument setup overrides", () => {
 
     const vm = buildDocument(project, repo);
     expect(vm.inputRows.some((row) => row.label === "Lead vocal 1")).toBe(true);
-    expect(vm.inputRows.some((row) => row.label === "Lead vocal (keys)")).toBe(true);
+    expect(vm.inputRows.some((row) => row.label.startsWith("Lead vocal 2"))).toBe(true);
     expect(vm.inputRows.some((row) => row.label === "Back vocal (guitar)")).toBe(true);
     expect(vm.stageplan.monitorOutputs.map((row) => row.output)).toEqual([
       "Guitar",
-      "Lead vocal 1",
       "Lead vocal 2",
-      "Keys",
+      "Lead vocal 1",
     ]);
   });
 
@@ -1037,6 +1034,100 @@ it("emits stageplan input ownerRole from current lineup assignment", () => {
   expect(acoustic?.ownerRole).toBe("vocs");
   expect(electric?.ownerRole).toBe("guitar");
 });
+
+  it("keeps monitor rows roster-based while inputs may expand from overlays", () => {
+    const band: Band = {
+      id: "band-roster",
+      name: "Band",
+      bandLeader: "dr-1",
+      defaultLineup: {},
+      defaultVocals: { lead: [], back: [] },
+    };
+    const makeMusician = (id: string, group: Musician["group"], presets: Musician["presets"]): Musician => ({
+      id,
+      firstName: id,
+      lastName: "Player",
+      group,
+      presets,
+    });
+    const musicians: Record<string, Musician> = {
+      "dr-1": makeMusician("dr-1", "drums", [{ kind: "preset", ref: "drum_preset" }, { kind: "monitor", ref: "wedge" }]),
+      "bs-1": makeMusician("bs-1", "bass", [{ kind: "preset", ref: "bass_preset" }, { kind: "monitor", ref: "wedge" }]),
+      "gt-1": makeMusician("gt-1", "guitar", [{ kind: "preset", ref: "gtr_preset" }, { kind: "monitor", ref: "wedge" }]),
+      "ky-1": makeMusician("ky-1", "keys", [{ kind: "preset", ref: "keys_preset" }, { kind: "monitor", ref: "wedge" }]),
+      "vc-1": makeMusician("vc-1", "vocs", [{ kind: "preset", ref: "vocal_lead_no_mic" }, { kind: "monitor", ref: "wedge" }]),
+      "vc-2": makeMusician("vc-2", "vocs", [{ kind: "preset", ref: "vocal_lead_no_mic" }, { kind: "monitor", ref: "wedge" }]),
+    };
+    const project: Project = {
+      id: "p-roster",
+      bandRef: band.id,
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: {
+        drums: ["dr-1"],
+        bass: ["bs-1"],
+        guitar: ["gt-1"],
+        keys: ["ky-1"],
+        vocs: ["vc-1", "vc-2"],
+      },
+      overlays: {
+        leadVocals: [
+          { slot: 1, musicianId: "vc-1" },
+          { slot: 2, musicianId: "gt-1" },
+          { slot: 3, musicianId: "ky-1" },
+          { slot: 4, musicianId: "dr-1" },
+        ],
+      },
+    };
+    const repo: DataRepository = {
+      getBand: () => band,
+      getMusician: (id: string) => musicians[id]!,
+      getProject: () => project,
+      getPreset: (id: string) => {
+        if (id === "wedge") return { type: "monitor", id, label: "Wedge" };
+        if (id === "talkback") return { type: "talkback_type", id, label: "Talkback", group: "talkback", input: { key: "tb_{ownerKey}", label: "Talkback ({ownerLabel})" } };
+        if (id === "vocal_lead_no_mic") return { type: "preset", id, label: "Lead vocal", group: "vocs", inputs: [{ key: "voc_lead", label: "Lead vocal", group: "vocs" }] };
+        return { type: "preset", id, label: id, group: id === "drum_preset" ? "drums" : id === "bass_preset" ? "bass" : id === "gtr_preset" ? "guitar" : "keys", inputs: [{ key: id, label: id, group: id === "drum_preset" ? "drums" : id === "bass_preset" ? "bass" : id === "gtr_preset" ? "guitar" : "keys" }] };
+      },
+      getNotesTemplate: () => ({ id: "notes_default_cs", lang: "cs", inputs: [], monitors: [] }),
+    };
+
+    const vm = buildDocument(project, repo);
+    expect(vm.stageplan.monitorOutputs).toHaveLength(6);
+    expect(vm.inputs.length).toBeGreaterThan(vm.stageplan.monitorOutputs.length);
+  });
+
+  it("does not duplicate stageplan people when overlay lead is already a primary-slot musician", () => {
+    const band: Band = { id: "band-stage", name: "Band", bandLeader: "gt-1", defaultLineup: {}, defaultVocals: { lead: [], back: [] } };
+    const project: Project = {
+      id: "p-stage",
+      bandRef: band.id,
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: { guitar: ["gt-1"], vocs: ["vc-1"] },
+      overlays: { leadVocals: [{ slot: 1, musicianId: "gt-1" }, { slot: 2, musicianId: "vc-1" }] },
+    };
+    const repo: DataRepository = {
+      getBand: () => band,
+      getProject: () => project,
+      getMusician: (id: string) => ({
+        id,
+        firstName: id,
+        lastName: "Player",
+        group: id === "gt-1" ? "guitar" : "vocs",
+        presets: [{ kind: "preset", ref: id === "gt-1" ? "gtr" : "voc" }, { kind: "monitor", ref: "wedge" }],
+      }),
+      getPreset: (id: string) => {
+        if (id === "wedge") return { type: "monitor", id, label: "Wedge" };
+        if (id === "talkback") return { type: "talkback_type", id, label: "Talkback", group: "talkback", input: { key: "tb_{ownerKey}", label: "Talkback ({ownerLabel})" } };
+        return { type: "preset", id, label: id, group: id === "gtr" ? "guitar" : "vocs", inputs: [{ key: id, label: id, group: id === "gtr" ? "guitar" : "vocs" }] };
+      },
+      getNotesTemplate: () => ({ id: "notes_default_cs", lang: "cs", inputs: [], monitors: [] }),
+    };
+
+    const vm = buildDocument(project, repo);
+    expect(vm.stageplan.leadVocals.map((person) => person.firstName)).toEqual(["vc-1"]);
+  });
 
   it("builds document for drummer with canonical persisted drum_setup", () => {
     const band: Band = {

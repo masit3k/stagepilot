@@ -36,17 +36,17 @@ describe("vocalPdfLabels", () => {
     ).toBe("Lead vocal 2 (female)");
   });
 
-  it("formats non-vocs lead vocalist using instrument label", () => {
+  it("formats non-vocs lead vocalist with overlay numbering when assigned", () => {
     expect(
       formatLeadVocalPdfLabel({
         ownerRole: "keys",
         ownerMusicianId: "keys-1",
         leadVocsCount: 2,
-        leadVocsIndexByMusicianId: new Map([["voc-1", 1]]),
-        genderByLeadVocsIndex: ["m"],
+        leadVocsIndexByMusicianId: new Map([["voc-1", 1], ["keys-1", 2]]),
+        genderByLeadVocsIndex: ["m", "f"],
         fallbackLabel: "Lead vocal",
       }),
-    ).toBe("Lead vocal (keys)");
+    ).toBe("Lead vocal 2 (female)");
   });
 
   it("keeps fallback label when vocs owner is not among resolved vocs lead vocalists", () => {

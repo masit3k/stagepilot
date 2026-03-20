@@ -66,13 +66,13 @@ export function resolveStageplanRoleForInput(input: {
     return mapInstrumentMatch(talkbackMatch[1]);
   }
 
-  if (isLeadVocalLabel(label)) {
-    return "Lead vocal";
-  }
-
   const ownerRoleInstrument = mapGroupToStageplanInstrument(input.ownerRole);
   if (ownerRoleInstrument) {
     return ownerRoleInstrument;
+  }
+
+  if (isLeadVocalLabel(label)) {
+    return "Lead vocal";
   }
 
   if (isAcousticGuitarLabelOrKey(input)) {

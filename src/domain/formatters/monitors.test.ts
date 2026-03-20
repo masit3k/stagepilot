@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatMonitoringLabel, formatMonitorLabel } from "./monitors.js";
+import { formatMonitoringLabel, formatMonitorLabel, formatMonitorOwnerLabel } from "./monitors.js";
 
 describe("formatMonitorLabel", () => {
   it("formats monitor ordering labels consistently", () => {
@@ -29,5 +29,33 @@ describe("formatMonitoringLabel", () => {
   it("does not append wedge text when count is not enabled", () => {
     expect(formatMonitoringLabel("IEM STEREO wireless", undefined)).toBe("IEM STEREO wireless");
     expect(formatMonitoringLabel("IEM STEREO wireless", 0)).toBe("IEM STEREO wireless");
+  });
+});
+
+describe("formatMonitorOwnerLabel", () => {
+  it("uses lead numbering from overlay order regardless of primary section", () => {
+    expect(
+      formatMonitorOwnerLabel({
+        ownerRole: "keys",
+        ownerMusicianId: "keys-1",
+        fallbackLabel: "Keys",
+        leadVocsCount: 2,
+        leadVocsIndexByMusicianId: new Map([["voc-1", 1], ["keys-1", 2]]),
+        genderByLeadVocsIndex: ["f", "m"],
+      }),
+    ).toBe("Lead vocal 2 (male)");
+  });
+
+  it("falls back to primary section label for non-lead monitor owners", () => {
+    expect(
+      formatMonitorOwnerLabel({
+        ownerRole: "guitar",
+        ownerMusicianId: "gtr-1",
+        fallbackLabel: "Guitar",
+        leadVocsCount: 1,
+        leadVocsIndexByMusicianId: new Map([["voc-1", 1]]),
+        genderByLeadVocsIndex: ["f"],
+      }),
+    ).toBe("Guitar");
   });
 });

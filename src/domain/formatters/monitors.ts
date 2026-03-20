@@ -1,4 +1,5 @@
 import { formatVocalLabel } from "./vocals.js";
+import type { Group } from "../model/groups.js";
 
 export type MonitorChannel =
   | { kind: "guitar" }
@@ -25,6 +26,46 @@ export function formatMonitorLabel(channel: MonitorChannel, ctx: { leadCount: nu
         leadCount: ctx.leadCount,
       });
   }
+}
+
+function formatInstrumentGroupLabel(group: Group): string {
+  switch (group) {
+    case "guitar":
+      return "Guitar";
+    case "keys":
+      return "Keys";
+    case "bass":
+      return "Bass";
+    case "drums":
+      return "Drums";
+    case "vocs":
+      return "Lead vocal";
+    case "talkback":
+      return "Talkback";
+  }
+}
+
+export function formatMonitorOwnerLabel(args: {
+  ownerRole: Group;
+  ownerMusicianId: string;
+  fallbackLabel: string;
+  leadVocsCount: number;
+  leadVocsIndexByMusicianId: Map<string, number>;
+  genderByLeadVocsIndex: Array<string | undefined>;
+}): string {
+  const { ownerRole, ownerMusicianId, fallbackLabel, leadVocsCount, leadVocsIndexByMusicianId, genderByLeadVocsIndex } = args;
+  const index = leadVocsIndexByMusicianId.get(ownerMusicianId);
+  if (index) {
+    return formatVocalLabel({
+      role: "lead",
+      index,
+      gender: genderByLeadVocsIndex[index - 1],
+      leadCount: leadVocsCount,
+    });
+  }
+  if (ownerRole === "vocs") return "Lead vocal";
+  const mapped = formatInstrumentGroupLabel(ownerRole);
+  return mapped || fallbackLabel;
 }
 
 export function formatMonitoringLabel(baseMonitoringLabel: string, additionalWedgeCount: number | undefined): string {

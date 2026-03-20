@@ -239,8 +239,7 @@ function roleDataForSlot(
 ): { instrument: StageplanInstrument; role: StageplanInstrumentKey; firstName: string | null; isBandLeader: boolean } {
   if (slot === "lead_voc_1" || slot === "lead_voc_2") {
     const leads = vm.leadVocals ?? [];
-    const fallback = vm.lineupByRole.vocs;
-    const lead = slot === "lead_voc_1" ? (leads[0] ?? fallback) : (leads[1] ?? null);
+    const lead = slot === "lead_voc_1" ? (leads[0] ?? null) : (leads[1] ?? null);
     return {
       instrument: "Lead vocal",
       role: "vocs",
@@ -266,7 +265,7 @@ function roleDataForSlot(
 }
 
 export function matchStageplanLayout(vm: DocumentViewModel["stageplan"]): StageplanLayoutDefinition {
-  const leadCount = vm.leadVocals?.length ?? (vm.lineupByRole.vocs?.firstName ? 1 : 0);
+  const leadCount = vm.leadVocals?.length ?? 0;
   if (leadCount >= 2) return STAGEPLAN_LAYOUTS.layout_6_2_vocs;
   return STAGEPLAN_LAYOUTS.layout_5_party;
 }
@@ -304,7 +303,9 @@ function buildStageplanBoxes(
   }
 
   for (const output of vm.monitorOutputs) {
-    const instrument = resolveMonitorInstrument(output.output);
+    const instrument = output.ownerRole
+      ? resolveStageplanRoleForInput({ label: output.output, ownerRole: output.ownerRole })
+      : resolveMonitorInstrument(output.output);
     if (!instrument) continue;
     const bullets = formatMonitorBullets(output.note, output.no);
     if (instrument === "Lead vocal") {
