@@ -169,7 +169,6 @@ export function NewEventProjectPage({
           existingTalkbackOwnerId: existingProject?.talkbackOwnerId,
           defaultBandLeaderId,
         }),
-        note: existingProject?.note,
       };
       await projectsApi.saveProject({
         projectId: id,

@@ -64,4 +64,68 @@ describe("toPersistableProject talkback persistence", () => {
     expect("leadVocalistIds" in persisted).toBe(false);
     expect("backVocalIds" in persisted).toBe(false);
   });
+
+  it("serializes event lineup using canonical arrays and keeps event fields", () => {
+    const persisted = toPersistableProject({
+      id: "p-3",
+      purpose: "event",
+      eventDate: "2026-06-01",
+      eventVenue: "Arena",
+      bandRef: "band-1",
+      documentDate: "2026-06-01",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      lineup: {
+        drums: "drummer-1",
+        bass: "bass-1",
+        guitar: "guitar-1",
+        keys: "keys-1",
+        vocs: "lead-1",
+      },
+      overlays: {
+        leadVocals: [{ slot: 1, musicianId: "lead-1" }],
+        backVocals: [{ slot: 2, musicianId: "voc-2" }],
+        talkback: { mode: "assigned", ownerId: "leader-1" },
+      },
+    });
+
+    expect(persisted.eventDate).toBe("2026-06-01");
+    expect(persisted.eventVenue).toBe("Arena");
+    expect(persisted.lineup).toEqual({
+      drums: ["drummer-1"],
+      bass: ["bass-1"],
+      guitar: ["guitar-1"],
+      keys: ["keys-1"],
+      vocs: ["lead-1"],
+    });
+    expect(persisted.overlays).toEqual({
+      leadVocals: [{ slot: 1, musicianId: "lead-1" }],
+      backVocals: [{ slot: 2, musicianId: "voc-2" }],
+      talkback: { mode: "assigned", ownerId: "leader-1" },
+    });
+  });
+
+  it("keeps generic note immediately after purpose in serialized payload", () => {
+    const persisted = toPersistableProject({
+      id: "p-4",
+      purpose: "generic",
+      note: "Tour 2026",
+      bandRef: "band-1",
+      documentDate: "2026-01-01",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      lineup: {
+        drums: "drummer-1",
+        vocs: "lead-1",
+      },
+    });
+
+    expect(persisted.note).toBe("Tour 2026");
+    const keys = Object.keys(persisted);
+    const purposeIndex = keys.indexOf("purpose");
+    const noteIndex = keys.indexOf("note");
+    expect(noteIndex).toBe(purposeIndex + 1);
+    expect(persisted.lineup).toEqual({
+      drums: ["drummer-1"],
+      vocs: ["lead-1"],
+    });
+  });
 });

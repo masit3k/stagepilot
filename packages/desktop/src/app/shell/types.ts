@@ -1,4 +1,5 @@
 import type { LineupMap } from "../../projectRules";
+import { serializeLineupForProject, CANONICAL_LINEUP_ROLE_ORDER } from "./lineupSerialize";
 import type {
   MusicianSetupPreset,
   Preset,
@@ -142,12 +143,17 @@ export function toPersistableProject(
     backVocalIds,
     leadVocalistIds,
   } = project;
+  const serializedLineup = lineup
+    ? serializeLineupForProject(lineup, [...CANONICAL_LINEUP_ROLE_ORDER])
+    : undefined;
+  const trimmedNote = note?.trim();
 
   return {
     id,
     slug,
     displayName,
     purpose,
+    ...(purpose === "generic" && trimmedNote ? { note: trimmedNote } : {}),
     ...(eventDate ? { eventDate } : {}),
     ...(eventVenue ? { eventVenue } : {}),
     bandRef,
@@ -159,7 +165,7 @@ export function toPersistableProject(
     ...(archivedAt ? { archivedAt } : {}),
     ...(trashedAt ? { trashedAt } : {}),
     ...(purgeAt ? { purgeAt } : {}),
-    ...(lineup ? { lineup } : {}),
+    ...(serializedLineup ? { lineup: serializedLineup } : {}),
     ...(overlays ? { overlays } : {}),
     ...(bandLeaderId ? { bandLeaderId } : {}),
     ...(hasTalkbackOverride
@@ -167,7 +173,6 @@ export function toPersistableProject(
       : typeof talkbackOwnerId === "string"
         ? { talkbackOwnerId }
         : {}),
-    ...(note ? { note } : {}),
     ...(overlays ? {} : Array.isArray(backVocalIds) ? { backVocalIds } : {}),
     ...(overlays ? {} : Array.isArray(leadVocalistIds) ? { leadVocalistIds } : {}),
   };

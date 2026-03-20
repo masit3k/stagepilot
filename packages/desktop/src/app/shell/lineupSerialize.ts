@@ -6,6 +6,8 @@ import {
   getRoleSlotLimit,
 } from "../../projectRules";
 
+export const CANONICAL_LINEUP_ROLE_ORDER = ["drums", "bass", "guitar", "keys", "vocs"] as const;
+
 export function serializeLineupForProject(
   lineup: LineupMap,
   roleOrder: string[],
@@ -24,13 +26,13 @@ export function serializeLineupForProject(
         ...(slot.drumDefinition ? { drumDefinition: slot.drumDefinition } : {}),
       }));
       if (entry.length === 0) continue;
-      serialized[role] = roleSlotLimit <= 1 ? entry[0] : entry;
+      serialized[role] = entry;
       continue;
     }
 
     const ids = normalizeLineupValue(lineup[role], roleSlotLimit);
     if (ids.length === 0) continue;
-    serialized[role] = roleSlotLimit <= 1 ? ids[0] : ids;
+    serialized[role] = ids;
   }
 
   if (lineup.back_vocs !== undefined) {
