@@ -111,20 +111,45 @@ function toStageplanPerson(musician: Musician, bandLeaderId: string): StageplanP
   };
 }
 
-function resolveLeadOverlayMembers(
-  ctx: ReturnType<typeof resolveDocumentContext>,
-): Musician[] {
-  return ctx.overlays.leadVocals
-    .map((musicianId) => ctx.membersById.get(musicianId))
-    .filter((musician): musician is Musician => Boolean(musician));
-}
+function resolveOverlaySlots(args: {
+  ctx: ReturnType<typeof resolveDocumentContext>;
+  role: "leadVocals" | "backVocals";
+}): Array<{ musician: Musician; slot: number }> {
+  const { ctx, role } = args;
+  const allowedIds = new Set(ctx.overlays[role]);
+  const projectOverlays =
+    (ctx.project as Project & { overlays?: { leadVocals?: unknown; backVocals?: unknown } }).overlays;
+  const raw = Array.isArray(projectOverlays?.[role]) ? projectOverlays[role] : [];
+  const slotByMusicianId = new Map<string, number>();
 
-function resolveBackOverlayMembers(
-  ctx: ReturnType<typeof resolveDocumentContext>,
-): Musician[] {
-  return ctx.overlays.backVocals
-    .map((musicianId) => ctx.membersById.get(musicianId))
-    .filter((musician): musician is Musician => Boolean(musician));
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const musicianId = typeof (entry as { musicianId?: unknown }).musicianId === "string"
+      ? (entry as { musicianId: string }).musicianId.trim()
+      : "";
+    const rawSlot = (entry as { slot?: unknown }).slot;
+    const slot = typeof rawSlot === "number" && Number.isFinite(rawSlot) ? rawSlot : undefined;
+    if (!musicianId || !slot || slot <= 0 || !allowedIds.has(musicianId) || slotByMusicianId.has(musicianId)) {
+      continue;
+    }
+    slotByMusicianId.set(musicianId, slot);
+  }
+
+  for (const [index, musicianId] of ctx.overlays[role].entries()) {
+    if (!slotByMusicianId.has(musicianId)) {
+      slotByMusicianId.set(musicianId, index + 1);
+    }
+  }
+
+  const members = Array.from(slotByMusicianId.entries())
+    .map(([musicianId, slot]) => {
+      const musician = ctx.membersById.get(musicianId);
+      if (!musician) return null;
+      return { musician, slot };
+    })
+    .filter((entry): entry is { musician: Musician; slot: number } => Boolean(entry));
+  members.sort((a, b) => a.slot - b.slot);
+  return members;
 }
 
 function normalizeTalkbackLabel(label: string): string {
@@ -445,6 +470,22 @@ function guitarRankByKey(input: BuiltInput): number {
   return 0;
 }
 
+function isLeadVocalInput(input: BuiltInput): boolean {
+  return input.key.startsWith("voc_lead");
+}
+
+function isBackVocalInput(input: BuiltInput): boolean {
+  return input.key.startsWith("voc_back_");
+}
+
+function isVocalInput(input: BuiltInput): boolean {
+  return isLeadVocalInput(input) || isBackVocalInput(input);
+}
+
+function isTalkbackInput(input: BuiltInput): boolean {
+  return input.group === "talkback" || input.key.startsWith("tb_");
+}
+
 /* ============================================================
  * Public API
  * ============================================================ */
@@ -616,18 +657,24 @@ export function buildDocument(
     return formatMonitoringLabel(label, extra);
   };
 
-  const leadResolved = resolveLeadOverlayMembers(ctx);
-  const backResolved = resolveBackOverlayMembers(ctx);
+  const leadResolved = resolveOverlaySlots({ ctx, role: "leadVocals" });
+  const backResolved = resolveOverlaySlots({ ctx, role: "backVocals" });
   const leadVocsIndexByMusicianId = new Map(
-    leadResolved.map((musician, index) => [musician.id, index + 1]),
+    leadResolved.map(({ musician, slot }) => [musician.id, slot]),
   );
   const backVocsIndexByMusicianId = new Map(
-    backResolved.map((musician, index) => [musician.id, index + 1]),
+    backResolved.map(({ musician, slot }) => [musician.id, slot]),
   );
   const leadVocsCount = leadResolved.length;
-  const leadVocsGenderByIndex = leadResolved.map((musician) => musician.gender);
+  const leadVocsGenderByIndex: Array<string | undefined> = [];
+  for (const { musician, slot } of leadResolved) {
+    leadVocsGenderByIndex[slot - 1] = musician.gender;
+  }
   const backVocsCount = backResolved.length;
-  const backVocsGenderByIndex = backResolved.map((musician) => musician.gender);
+  const backVocsGenderByIndex: Array<string | undefined> = [];
+  for (const { musician, slot } of backResolved) {
+    backVocsGenderByIndex[slot - 1] = musician.gender;
+  }
 
   const monitorOwners = resolvePdfMonitorOwners({
     lineupMusicians: ctx.lineupMusicians,
@@ -729,15 +776,49 @@ export function buildDocument(
     return input;
   });
 
+  const nonVocalNonTalkbackInputs = finalizedInputs.filter(
+    (input) => !isVocalInput(input) && !isTalkbackInput(input),
+  );
+  const vocalInputs = finalizedInputs
+    .filter((input) => isVocalInput(input))
+    .sort((a, b) => {
+      const aSlot = isLeadVocalInput(a)
+        ? leadVocsIndexByMusicianId.get(a.ownerMusicianId ?? "")
+        : backVocsIndexByMusicianId.get(a.ownerMusicianId ?? "");
+      const bSlot = isLeadVocalInput(b)
+        ? leadVocsIndexByMusicianId.get(b.ownerMusicianId ?? "")
+        : backVocsIndexByMusicianId.get(b.ownerMusicianId ?? "");
+      const slotDiff = (aSlot ?? 999) - (bSlot ?? 999);
+      if (slotDiff !== 0) return slotDiff;
+
+      const orderByRole: Record<Group, number> = {
+        guitar: 1,
+        vocs: 2,
+        keys: 3,
+        bass: 4,
+        drums: 5,
+        talkback: 999,
+      };
+      const roleDiff = (orderByRole[a.ownerRole] ?? 999) - (orderByRole[b.ownerRole] ?? 999);
+      if (roleDiff !== 0) return roleDiff;
+
+      if (isBackVocalInput(a) && isLeadVocalInput(b)) return -1;
+      if (isLeadVocalInput(a) && isBackVocalInput(b)) return 1;
+
+      return a.label.localeCompare(b.label, "en");
+    });
+  const talkbackInputs = finalizedInputs.filter((input) => isTalkbackInput(input));
+  const orderedInputs = [...nonVocalNonTalkbackInputs, ...vocalInputs, ...talkbackInputs];
+
   const stageplanPersonsBySlot = resolveStageplanPersonsBySlot({
     lineupMusicians: ctx.lineupMusicians,
-    leadOverlayMembers: leadResolved,
+    leadOverlayMembers: leadResolved.map(({ musician }) => musician),
     bandLeaderId: ctx.bandLeaderId,
   });
   const leadVocalStageplanPersons = [stageplanPersonsBySlot.lead_voc_1, stageplanPersonsBySlot.lead_voc_2]
     .filter((person): person is StageplanPerson => Boolean(person));
 
-  const inputsWithCh = assignChannelsWithOddStereoRule(finalizedInputs);
+  const inputsWithCh = assignChannelsWithOddStereoRule(orderedInputs);
   const inputRows = buildInputRows(inputsWithCh);
   const stageplanInputs = inputsWithCh
     .filter(

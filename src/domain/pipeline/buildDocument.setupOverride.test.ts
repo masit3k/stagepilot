@@ -582,8 +582,8 @@ describe("buildDocument setup overrides", () => {
     ]);
     expect(vm.inputRows.filter((row) => row.label.startsWith("Lead vocal")).map((row) => row.label)).toEqual([
       "Lead vocal 1 (keys)",
-      "Lead vocal 3",
       "Lead vocal 2",
+      "Lead vocal 3",
     ]);
   });
 
