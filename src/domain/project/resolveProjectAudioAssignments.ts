@@ -1,4 +1,5 @@
 import type { Project } from "../model/types.js";
+import { isGroup } from "../model/groups.js";
 
 type ProjectWithLineup = Project & { lineup?: Record<string, unknown> };
 type ProjectWithOverlays = Project & { overlays?: { backVocals?: Array<{ musicianId?: unknown }>; talkback?: { mode?: unknown; ownerId?: unknown } } };
@@ -40,7 +41,7 @@ export function collectActiveLineupMusicianIds(project: Project): string[] {
 
   const selected = new Set<string>();
   for (const [role, value] of Object.entries(lineup)) {
-    if (role === "back_vocs") continue;
+    if (!isGroup(role) || role === "talkback") continue;
     for (const musicianId of lineupEntries(value)) {
       selected.add(musicianId);
     }
@@ -144,38 +145,6 @@ export function resolveProjectTalkbackState(args: {
       isExplicitNone: false,
     };
   }
-  if (Object.prototype.hasOwnProperty.call(args.project, "talkbackOwnerId")) {
-    const raw = (args.project as Project & { talkbackOwnerId?: unknown }).talkbackOwnerId;
-    if (typeof raw === "string") {
-      const trimmed = raw.trim();
-      if (trimmed.length === 0) {
-        return {
-          explicitTalkbackOwnerId: "",
-          defaultTalkbackOwnerId: fallback,
-          effectiveTalkbackOwnerId: null,
-          hasExplicitTalkbackOverride: true,
-          isExplicitNone: true,
-        };
-      }
-      if (selected.length > 0 && !selected.includes(trimmed)) {
-        return {
-          explicitTalkbackOwnerId: trimmed,
-          defaultTalkbackOwnerId: fallback,
-          effectiveTalkbackOwnerId: null,
-          hasExplicitTalkbackOverride: true,
-          isExplicitNone: false,
-        };
-      }
-      return {
-        explicitTalkbackOwnerId: trimmed,
-        defaultTalkbackOwnerId: fallback,
-        effectiveTalkbackOwnerId: trimmed,
-        hasExplicitTalkbackOverride: true,
-        isExplicitNone: false,
-      };
-    }
-  }
-
   return {
     explicitTalkbackOwnerId: undefined,
     defaultTalkbackOwnerId: fallback,

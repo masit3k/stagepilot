@@ -16,7 +16,6 @@ export type EffectiveTalkbackAssignment = {
 
 type ProjectWithTalkback = Project & {
   talkbackOverride?: unknown;
-  talkbackOwnerId?: unknown;
 };
 
 function normalizeOverride(raw: unknown): TalkbackOverride | undefined {
@@ -42,30 +41,23 @@ export function resolveEffectiveTalkbackAssignment(args: {
   const selectedMusicianIds =
     args.selectedMusicianIds ?? collectActiveLineupMusicianIds(args.project);
 
-  if (
-    !Object.prototype.hasOwnProperty.call(
-      projectWithTalkback,
-      "talkbackOwnerId",
-    )
-  ) {
-    const explicitOverride = normalizeOverride(
-      projectWithTalkback.talkbackOverride,
-    );
-    if (explicitOverride?.mode === "none") {
-      return { mode: "none", hasExplicitOverride: true };
-    }
-    if (explicitOverride?.mode === "assigned") {
-      const isAllowed =
-        selectedMusicianIds.length === 0 ||
-        selectedMusicianIds.includes(explicitOverride.musicianId);
-      return isAllowed
-        ? {
-            mode: "assigned",
-            musicianId: explicitOverride.musicianId,
-            hasExplicitOverride: true,
-          }
-        : { mode: "none", hasExplicitOverride: true };
-    }
+  const explicitOverride = normalizeOverride(
+    projectWithTalkback.talkbackOverride,
+  );
+  if (explicitOverride?.mode === "none") {
+    return { mode: "none", hasExplicitOverride: true };
+  }
+  if (explicitOverride?.mode === "assigned") {
+    const isAllowed =
+      selectedMusicianIds.length === 0 ||
+      selectedMusicianIds.includes(explicitOverride.musicianId);
+    return isAllowed
+      ? {
+          mode: "assigned",
+          musicianId: explicitOverride.musicianId,
+          hasExplicitOverride: true,
+        }
+      : { mode: "none", hasExplicitOverride: true };
   }
 
   const resolved = resolveProjectTalkbackState({

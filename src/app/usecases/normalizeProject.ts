@@ -7,6 +7,7 @@ import type {
   ProjectJson,
   StagePlanPurpose,
 } from "../../domain/model/types.js";
+import { isGroup } from "../../domain/model/groups.js";
 
 function normalizeLegacyLineupIds(value: unknown): string[] {
   const entries = Array.isArray(value) ? value : [value];
@@ -61,6 +62,20 @@ function normalizeOverlaySlots(value: unknown): OverlaySlot[] {
   return slots.sort((a, b) => a.slot - b.slot);
 }
 
+function dedupeOverlaySlots(slots: OverlaySlot[]): OverlaySlot[] {
+  const seenSlots = new Set<number>();
+  const seenMusicians = new Set<string>();
+  const normalized: OverlaySlot[] = [];
+  for (const slot of slots.slice().sort((a, b) => a.slot - b.slot)) {
+    if (seenSlots.has(slot.slot)) continue;
+    if (seenMusicians.has(slot.musicianId)) continue;
+    seenSlots.add(slot.slot);
+    seenMusicians.add(slot.musicianId);
+    normalized.push(slot);
+  }
+  return normalized;
+}
+
 function assertString(value: unknown, label: string): string {
   if (typeof value !== "string" || value.trim() === "") {
     throw new Error(`Missing or invalid ${label}.`);
@@ -102,8 +117,9 @@ export function normalizeProject(input: ProjectJson): Project {
     const normalized: ProjectLineup = {};
     for (const [group, value] of Object.entries(raw)) {
       if (group === "lead_vocs" || group === "back_vocs") continue;
+      if (!isGroup(group) || group === "talkback") continue;
       const normalizedSlots = normalizeLineupSlots(value);
-      if (normalizedSlots.length > 0) normalized[group as keyof ProjectLineup] = normalizedSlots;
+      normalized[group as keyof ProjectLineup] = normalizedSlots;
     }
     return normalized;
   })();
@@ -137,12 +153,17 @@ export function normalizeProject(input: ProjectJson): Project {
         })(input.talkbackOverride as { mode?: unknown; musicianId?: unknown })
       : undefined;
   const backVocalIds =
-    "backVocalIds" in input && Array.isArray(input.backVocalIds)
-      ? input.backVocalIds.filter(
+    (() => {
+      if ("backVocalIds" in input && Array.isArray(input.backVocalIds)) {
+        return input.backVocalIds.filter(
           (item): item is string =>
             typeof item === "string" && item.trim().length > 0,
-        )
-      : undefined;
+        );
+      }
+      const legacyBackVocs = (input as { lineup?: Record<string, unknown> }).lineup?.back_vocs;
+      if (legacyBackVocs === undefined) return undefined;
+      return normalizeLegacyLineupIds(legacyBackVocs);
+    })();
   const leadVocalistIds = (() => {
     if ("leadVocalistIds" in input && Array.isArray(input.leadVocalistIds)) {
       return input.leadVocalistIds.filter(
@@ -165,12 +186,23 @@ export function normalizeProject(input: ProjectJson): Project {
     const hasExplicitBackVocals = Boolean(
       explicit && Object.prototype.hasOwnProperty.call(explicit, "backVocals"),
     );
+    const lineupMemberIds = new Set(
+      Object.values(lineup ?? {}).flatMap((slots) =>
+        Array.isArray(slots)
+          ? slots.map((slot) => slot.musicianId).filter((musicianId) => typeof musicianId === "string")
+          : [],
+      ),
+    );
     const leadVocals = hasExplicitLeadVocals
       ? normalizeOverlaySlots(explicit?.leadVocals)
       : (leadVocalistIds ?? []).map((musicianId, index) => ({ slot: index + 1, musicianId }));
     const backVocals = hasExplicitBackVocals
       ? normalizeOverlaySlots(explicit?.backVocals)
       : (backVocalIds ?? []).map((musicianId, index) => ({ slot: index + 1, musicianId }));
+    const normalizedLeadVocals = dedupeOverlaySlots(leadVocals)
+      .filter((slot) => lineupMemberIds.size === 0 || lineupMemberIds.has(slot.musicianId));
+    const normalizedBackVocals = dedupeOverlaySlots(backVocals)
+      .filter((slot) => lineupMemberIds.size === 0 || lineupMemberIds.has(slot.musicianId));
     const talkback = (() => {
       const explicitTalkback = explicit?.talkback;
       if (explicitTalkback && typeof explicitTalkback === "object") {
@@ -185,16 +217,19 @@ export function normalizeProject(input: ProjectJson): Project {
       if (talkbackOverride?.mode === "assigned") return { mode: "assigned" as const, ownerId: talkbackOverride.musicianId };
       if (typeof talkbackOwnerId === "string") {
         if (talkbackOwnerId.trim().length === 0) return { mode: "none" as const, ownerId: null };
+        if (lineupMemberIds.size > 0 && !lineupMemberIds.has(talkbackOwnerId.trim())) {
+          return { mode: "none" as const, ownerId: null };
+        }
         return { mode: "assigned" as const, ownerId: talkbackOwnerId.trim() };
       }
       return undefined;
     })();
     const normalized: ProjectOverlays = {};
     if (hasExplicitLeadVocals || leadVocals.length > 0 || Array.isArray(leadVocalistIds)) {
-      normalized.leadVocals = leadVocals;
+      normalized.leadVocals = normalizedLeadVocals;
     }
     if (hasExplicitBackVocals || backVocals.length > 0 || Array.isArray(backVocalIds)) {
-      normalized.backVocals = backVocals;
+      normalized.backVocals = normalizedBackVocals;
     }
     if (talkback) normalized.talkback = talkback;
     return Object.keys(normalized).length > 0 ? normalized : undefined;

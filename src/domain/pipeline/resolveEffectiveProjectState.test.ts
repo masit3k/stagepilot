@@ -134,6 +134,10 @@ describe("resolveEffectiveProjectState", () => {
       bandRef: "band-1",
       purpose: "generic",
       documentDate: "2026-01-01",
+      lineup: {
+        vocs: ["lead-1", "lead-2", "back-1"],
+        guitar: ["talkback-1"],
+      },
       overlays: {
         leadVocals: [{ slot: 1, musicianId: "lead-1" }, { slot: 2, musicianId: "lead-2" }],
         backVocals: [{ slot: 1, musicianId: "back-1" }],
@@ -164,7 +168,6 @@ describe("resolveEffectiveProjectState", () => {
       },
       leadVocalistIds: ["legacy-lead"],
       backVocalIds: ["legacy-back"],
-      talkbackOwnerId: "legacy-talkback",
     };
 
     const resolved = resolveEffectiveProjectState({
@@ -192,6 +195,23 @@ describe("resolveEffectiveProjectState", () => {
     });
 
     expect(resolved.effectiveTalkbackOwnerId).toBe("leader-1");
+  });
+
+  it("uses legacy lineup.back_vocs only when canonical overlays.backVocals are absent", () => {
+    const project: Project = {
+      id: "p-legacy-back-vocs",
+      bandRef: "band-1",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+      lineup: { vocs: ["voc-1", "voc-2"], back_vocs: ["voc-2"] },
+    };
+
+    const resolved = resolveEffectiveProjectState({
+      project,
+      bandLeaderId: "leader-1",
+    });
+
+    expect(resolved.effectiveOverlays.backVocals).toEqual(["voc-2"]);
   });
   it("normalizes malformed persisted drum definition instead of crashing load", () => {
     const project: Project = {

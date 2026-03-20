@@ -9,6 +9,21 @@ type ProjectWithLineup = Project & {
   lineup?: Record<string, unknown>;
 };
 
+function normalizeOverlayIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const entry of value) {
+    const musicianId = entry && typeof entry === "object" ? (entry as OverlaySlot).musicianId : undefined;
+    if (typeof musicianId !== "string" || musicianId.trim().length === 0) continue;
+    const normalized = musicianId.trim();
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    out.push(normalized);
+  }
+  return out;
+}
+
 function normalizeMalformedDrumDefinition(input: unknown): DrumDefinition {
   const fallback = createDefaultDrumDefinition();
   if (!input || typeof input !== "object") return fallback;
@@ -122,16 +137,20 @@ export function resolveEffectiveProjectState(args: {
     }
   }
 
-  const normalizedOverlayIds = (value: unknown): string[] =>
-    Array.isArray(value)
-      ? value
-          .map((entry) => (entry && typeof entry === "object" ? (entry as OverlaySlot).musicianId : undefined))
-          .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
-      : [];
   const projectOverlays = (args.project as Project & { overlays?: unknown }).overlays;
+  const legacyBackVocs = normalizeLineupSlots(projectLineup.back_vocs).map((slot) => slot.musicianId);
+  const hasExplicitBackVocals = Boolean(
+    projectOverlays &&
+      typeof projectOverlays === "object" &&
+      Object.prototype.hasOwnProperty.call(projectOverlays, "backVocals"),
+  );
+  const explicitBackVocals = normalizeOverlayIds((projectOverlays as { backVocals?: unknown })?.backVocals);
+  const explicitLeadVocals = normalizeOverlayIds((projectOverlays as { leadVocals?: unknown })?.leadVocals);
+  const lineupMemberSet = new Set(GROUP_ORDER.flatMap((group) => effectiveLineup[group] ?? []));
   const effectiveOverlays = {
-    leadVocals: normalizedOverlayIds((projectOverlays as { leadVocals?: unknown })?.leadVocals),
-    backVocals: normalizedOverlayIds((projectOverlays as { backVocals?: unknown })?.backVocals),
+    leadVocals: explicitLeadVocals.filter((musicianId) => lineupMemberSet.has(musicianId)),
+    backVocals: (hasExplicitBackVocals ? explicitBackVocals : legacyBackVocs)
+      .filter((musicianId) => lineupMemberSet.has(musicianId)),
   };
   const selectedMusicianIds = GROUP_ORDER.flatMap((group) => effectiveLineup[group] ?? []);
   const explicitTalkback = (projectOverlays as { talkback?: { mode?: unknown; ownerId?: unknown } })?.talkback;

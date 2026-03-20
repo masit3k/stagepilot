@@ -111,6 +111,9 @@ describe("normalizeProject", () => {
       bandRef: "band-1",
       purpose: "generic",
       documentDate: "2026-01-01",
+      lineup: {
+        vocs: ["lead-1", "lead-2", "back-1"],
+      },
       overlays: {
         leadVocals: [
           { slot: 2, musicianId: "lead-2" },
@@ -147,5 +150,21 @@ describe("normalizeProject", () => {
 
     expect(normalized.overlays?.leadVocals).toEqual([]);
     expect(normalized.overlays?.backVocals).toEqual([]);
+  });
+
+  it("derives back vocal ids from legacy lineup.back_vocs when explicit ids are absent", () => {
+    const normalized = normalizeProject({
+      id: "e-legacy-back",
+      bandRef: "pl",
+      purpose: "event",
+      eventDate: "2026-03-10",
+      eventVenue: "Klub",
+      documentDate: "2026-01-01",
+      lineup: {
+        back_vocs: [{ musicianId: "back-1" }, "back-2"],
+      },
+    } satisfies ProjectJsonV2);
+
+    expect(normalized.backVocalIds).toEqual(["back-1", "back-2"]);
   });
 });

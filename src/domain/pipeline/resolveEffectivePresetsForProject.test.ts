@@ -50,7 +50,8 @@ describe("resolveEffectivePresetsForProject", () => {
       bandRef: "band-1",
       purpose: "generic",
       documentDate: "2026-01-01",
-      talkbackOwnerId: "bass-1",
+      lineup: { bass: ["bass-1"], guitar: ["guitar-1"] },
+      overlays: { talkback: { mode: "assigned", ownerId: "bass-1" } },
     };
 
     const ownerItems = resolveEffectivePresetsForProject({
@@ -86,7 +87,7 @@ describe("resolveEffectivePresetsForProject", () => {
       purpose: "generic",
       documentDate: "2026-01-01",
       lineup: { vocs: "leader-1" },
-      talkbackOwnerId: "",
+      overlays: { talkback: { mode: "none", ownerId: null } },
     };
 
     const items = resolveEffectivePresetsForProject({
@@ -142,7 +143,8 @@ describe("resolveEffectivePresetsForProject", () => {
       bandRef: "band-1",
       purpose: "generic",
       documentDate: "2026-01-01",
-      lineup: { vocs: "voc-1", back_vocs: [] },
+      lineup: { vocs: "voc-1" },
+      overlays: { backVocals: [] },
     };
 
     const items = resolveEffectivePresetsForProject({
@@ -163,7 +165,7 @@ describe("resolveEffectivePresetsForProject", () => {
     ).toBe(false);
   });
 
-  it("does not include musician back vocal defaults when project has no explicit back_vocs", () => {
+  it("does not include musician back vocal defaults when project has no explicit overlays.backVocals", () => {
     const musician: Musician = {
       id: "voc-1",
       firstName: "Back",
@@ -197,7 +199,7 @@ describe("resolveEffectivePresetsForProject", () => {
     ).toBe(false);
   });
 
-  it("uses only explicit project back_vocs selection for back vocal presets", () => {
+  it("uses only explicit project overlays.backVocals selection for back vocal presets", () => {
     const selectedBackSinger: Musician = {
       id: "voc-1",
       firstName: "Selected",
@@ -217,7 +219,8 @@ describe("resolveEffectivePresetsForProject", () => {
       bandRef: "band-1",
       purpose: "generic",
       documentDate: "2026-01-01",
-      lineup: { vocs: ["voc-1", "voc-2"], back_vocs: ["voc-1"] },
+      lineup: { vocs: ["voc-1", "voc-2"] },
+      overlays: { backVocals: [{ slot: 1, musicianId: "voc-1" }] },
     };
 
     const selectedItems = resolveEffectivePresetsForProject({

@@ -402,9 +402,15 @@ export function buildDocument(
       });
     }
 
-      for (const item of effectivePresetItems) {
-      if ((group === "bass" && item.kind === "preset") || (group === "drums" && item.kind === "drum_setup")) {
+    for (const item of effectivePresetItems) {
+      if (group === "drums" && item.kind === "drum_setup") {
         continue;
+      }
+      if (group === "bass" && item.kind === "preset") {
+        const entity = repo.getPreset(item.ref);
+        if (entity.type === "preset" && entity.group === "bass") {
+          continue;
+        }
       }
       if (item.kind === "monitor") {
         continue;
@@ -520,9 +526,6 @@ export function buildDocument(
   const drumsM = ctx.pickByGroup("drums");
 
   const allLineupMusicians = ctx.lineupMusicians.map((x) => x.musician);
-  const vocsAll = ctx.lineupMusicians
-    .filter((x) => x.group === "vocs")
-    .map((x) => x.musician);
   const explicitLeadVocalistIds = ctx.overlays.leadVocals;
   const explicitLeadVocalists = explicitLeadVocalistIds.length > 0
     ? explicitLeadVocalistIds
@@ -532,17 +535,16 @@ export function buildDocument(
         allLineupMusicians.some((lineupMusician) => lineupMusician.id === musician.id),
       )
     : [];
-  const leadResolved = explicitLeadVocalists.length > 0 ? explicitLeadVocalists : vocsAll;
+  const leadResolved = explicitLeadVocalists;
   const leadVocalStageplanPersons = leadResolved.map((m) => ({
     firstName: m.firstName ?? null,
     isBandLeader: m.id === ctx.bandLeaderId,
   }));
-  const leadResolvedVocs = leadResolved.filter((musician) => musician.group === "vocs");
   const leadVocsIndexByMusicianId = new Map(
-    leadResolvedVocs.map((musician, index) => [musician.id, index + 1]),
+    leadResolved.map((musician, index) => [musician.id, index + 1]),
   );
-  const leadVocsCount = leadResolvedVocs.length;
-  const leadVocsGenderByIndex = leadResolvedVocs.map((musician) => musician.gender);
+  const leadVocsCount = leadResolved.length;
+  const leadVocsGenderByIndex = leadResolved.map((musician) => musician.gender);
   const pushRow = (output: string, musician?: Musician | undefined) => {
     if (!musician) return;
     monitorTableRows.push({
@@ -558,7 +560,7 @@ export function buildDocument(
     guitarM,
   );
 
-  leadResolvedVocs.forEach((m, index) => {
+  leadResolved.forEach((m, index) => {
     pushRow(
       formatMonitorLabel(
         { kind: "lead", index: index + 1, gender: m.gender },

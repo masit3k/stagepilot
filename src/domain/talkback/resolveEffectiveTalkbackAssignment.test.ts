@@ -24,13 +24,13 @@ describe("resolveEffectiveTalkbackAssignment", () => {
     });
   });
 
-  it("treats explicit empty talkbackOwnerId as no assignment", () => {
+  it("treats explicit overlays talkback none as no assignment", () => {
     const project: Project = {
       id: "p-2",
       bandRef: "band-1",
       purpose: "generic",
       documentDate: "2026-01-01",
-      talkbackOwnerId: "",
+      overlays: { talkback: { mode: "none", ownerId: null } },
     };
 
     const result = resolveEffectiveTalkbackAssignment({
@@ -42,13 +42,13 @@ describe("resolveEffectiveTalkbackAssignment", () => {
     expect(result).toEqual({ mode: "none", hasExplicitOverride: true });
   });
 
-  it("does not fallback when explicit owner is invalid for selected lineup", () => {
+  it("does not fallback when explicit overlays owner is invalid for selected lineup", () => {
     const project: Project = {
       id: "p-3",
       bandRef: "band-1",
       purpose: "generic",
       documentDate: "2026-01-01",
-      talkbackOwnerId: "ghost",
+      overlays: { talkback: { mode: "assigned", ownerId: "ghost" } },
     };
 
     const result = resolveEffectiveTalkbackAssignment({

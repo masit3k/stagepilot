@@ -24,13 +24,14 @@ describe("resolveProjectBackVocsState", () => {
     expect(resolved.effectiveBackVocs).toEqual([]);
   });
 
-  it("respects explicit empty back_vocs override", () => {
+  it("respects explicit empty overlays.backVocals override", () => {
     const project: Project = {
       id: "p-1",
       bandRef: "band-1",
       purpose: "generic",
       documentDate: "2026-01-01",
-      lineup: { vocs: "voc-back", back_vocs: [] },
+      lineup: { vocs: "voc-back" },
+      overlays: { backVocals: [] },
     };
 
     const resolved = resolveProjectBackVocsState({
@@ -61,13 +62,13 @@ describe("resolveProjectTalkbackState", () => {
     expect(resolved.effectiveTalkbackOwnerId).toBe("leader-1");
   });
 
-  it("treats explicit empty talkback owner as none", () => {
+  it("treats explicit overlays talkback none as none", () => {
     const project: Project = {
       id: "p-2",
       bandRef: "band-1",
       purpose: "generic",
       documentDate: "2026-01-01",
-      talkbackOwnerId: "",
+      overlays: { talkback: { mode: "none", ownerId: null } },
     };
 
     const resolved = resolveProjectTalkbackState({
