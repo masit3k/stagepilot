@@ -10,7 +10,7 @@ describe("formatMonitorLabel", () => {
   });
 
   it("formats lead monitor labels via vocal formatter", () => {
-    expect(formatMonitorLabel({ kind: "lead", index: 1, gender: "f" }, { leadCount: 1 })).toBe("Lead vocal");
+    expect(formatMonitorLabel({ kind: "lead", index: 1, gender: "f" }, { leadCount: 1 })).toBe("Lead vocal 1 (female)");
     expect(formatMonitorLabel({ kind: "lead", index: 2, gender: "m" }, { leadCount: 2 })).toBe("Lead vocal 2 (male)");
   });
 });
@@ -33,7 +33,7 @@ describe("formatMonitoringLabel", () => {
 });
 
 describe("formatMonitorOwnerLabel", () => {
-  it("uses lead numbering from overlay order regardless of primary section", () => {
+  it("keeps instrument identity for instrumental owners with vocal overlays", () => {
     expect(
       formatMonitorOwnerLabel({
         ownerRole: "keys",
@@ -42,20 +42,56 @@ describe("formatMonitorOwnerLabel", () => {
         leadVocsCount: 2,
         leadVocsIndexByMusicianId: new Map([["voc-1", 1], ["keys-1", 2]]),
         genderByLeadVocsIndex: ["f", "m"],
+        backVocsCount: 0,
+        backVocsIndexByMusicianId: new Map(),
+        genderByBackVocsIndex: [],
       }),
-    ).toBe("Lead vocal 2 (male)");
+    ).toBe("Keys");
   });
 
-  it("falls back to primary section label for non-lead monitor owners", () => {
+  it("formats lead and back overlays only for vocs primary owners", () => {
     expect(
       formatMonitorOwnerLabel({
-        ownerRole: "guitar",
-        ownerMusicianId: "gtr-1",
-        fallbackLabel: "Guitar",
+        ownerRole: "vocs",
+        ownerMusicianId: "voc-1",
+        fallbackLabel: "Lead vocal",
+        leadVocsCount: 2,
+        leadVocsIndexByMusicianId: new Map([["voc-1", 2]]),
+        genderByLeadVocsIndex: ["m", "f"],
+        backVocsCount: 1,
+        backVocsIndexByMusicianId: new Map([["voc-2", 1]]),
+        genderByBackVocsIndex: ["m"],
+      }),
+    ).toBe("Lead vocal 2 (female)");
+
+    expect(
+      formatMonitorOwnerLabel({
+        ownerRole: "vocs",
+        ownerMusicianId: "voc-2",
+        fallbackLabel: "Lead vocal",
+        leadVocsCount: 0,
+        leadVocsIndexByMusicianId: new Map(),
+        genderByLeadVocsIndex: [],
+        backVocsCount: 2,
+        backVocsIndexByMusicianId: new Map([["voc-2", 1], ["voc-3", 2]]),
+        genderByBackVocsIndex: ["f", "m"],
+      }),
+    ).toBe("Back vocal 1 (female)");
+  });
+
+  it("falls back to generic vocalist label when no overlay exists", () => {
+    expect(
+      formatMonitorOwnerLabel({
+        ownerRole: "vocs",
+        ownerMusicianId: "voc-3",
+        fallbackLabel: "Lead vocal",
         leadVocsCount: 1,
         leadVocsIndexByMusicianId: new Map([["voc-1", 1]]),
         genderByLeadVocsIndex: ["f"],
+        backVocsCount: 1,
+        backVocsIndexByMusicianId: new Map([["voc-2", 1]]),
+        genderByBackVocsIndex: ["m"],
       }),
-    ).toBe("Guitar");
+    ).toBe("Lead vocal");
   });
 });

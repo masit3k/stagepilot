@@ -2,12 +2,7 @@ import { describe, expect, it } from "vitest";
 import { formatBackVocalPdfLabel, formatLeadVocalPdfLabel } from "./vocalPdfLabels.js";
 
 describe("vocalPdfLabels", () => {
-  it("formats back vocal labels with owner instrument in parentheses", () => {
-    expect(formatBackVocalPdfLabel("guitar")).toBe("Back vocal (guitar)");
-    expect(formatBackVocalPdfLabel("keys")).toBe("Back vocal (keys)");
-  });
-
-  it("formats single lead vocalist in vocs without numbering", () => {
+  it("formats lead vocalist in vocs with deterministic index and gender", () => {
     expect(
       formatLeadVocalPdfLabel({
         ownerRole: "vocs",
@@ -17,7 +12,7 @@ describe("vocalPdfLabels", () => {
         genderByLeadVocsIndex: ["f"],
         fallbackLabel: "Lead vocal",
       }),
-    ).toBe("Lead vocal");
+    ).toBe("Lead vocal 1 (female)");
   });
 
   it("formats multiple lead vocalists in vocs with numbering and gender", () => {
@@ -46,19 +41,51 @@ describe("vocalPdfLabels", () => {
         genderByLeadVocsIndex: ["m", "f"],
         fallbackLabel: "Lead vocal",
       }),
-    ).toBe("Lead vocal 2 (female)");
+    ).toBe("Lead vocal 2 (keys)");
   });
 
-  it("keeps fallback label when vocs owner is not among resolved vocs lead vocalists", () => {
+  it("formats back vocal labels with deterministic index and owner-derived suffix", () => {
     expect(
-      formatLeadVocalPdfLabel({
+      formatBackVocalPdfLabel({
+        ownerRole: "guitar",
+        ownerMusicianId: "gtr-1",
+        backVocsCount: 2,
+        backVocsIndexByMusicianId: new Map([
+          ["voc-1", 1],
+          ["gtr-1", 2],
+        ]),
+        genderByBackVocsIndex: ["f", "m"],
+        fallbackLabel: "Back vocal",
+      }),
+    ).toBe("Back vocal 2 (guitar)");
+  });
+
+  it("formats back vocalist in vocs with index and gender", () => {
+    expect(
+      formatBackVocalPdfLabel({
         ownerRole: "vocs",
         ownerMusicianId: "voc-2",
-        leadVocsCount: 1,
-        leadVocsIndexByMusicianId: new Map([["voc-1", 1]]),
-        genderByLeadVocsIndex: ["f"],
-        fallbackLabel: "Lead vocal",
+        backVocsCount: 2,
+        backVocsIndexByMusicianId: new Map([
+          ["voc-1", 1],
+          ["voc-2", 2],
+        ]),
+        genderByBackVocsIndex: ["m", "f"],
+        fallbackLabel: "Back vocal",
       }),
-    ).toBe("Lead vocal");
+    ).toBe("Back vocal 2 (female)");
+  });
+
+  it("keeps fallback when overlay index is unresolved", () => {
+    expect(
+      formatBackVocalPdfLabel({
+        ownerRole: "vocs",
+        ownerMusicianId: "voc-2",
+        backVocsCount: 1,
+        backVocsIndexByMusicianId: new Map([["voc-1", 1]]),
+        genderByBackVocsIndex: ["f"],
+        fallbackLabel: "Back vocal",
+      }),
+    ).toBe("Back vocal");
   });
 });

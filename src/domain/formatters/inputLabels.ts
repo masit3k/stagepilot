@@ -104,6 +104,6 @@ export function formatLeadVocalDisplayLabel(args: {
     role: "lead",
     index,
     gender: args.leadGenderByIndex[index - 1],
-    leadCount: args.leadCount,
+    roleCount: args.leadCount,
   });
 }

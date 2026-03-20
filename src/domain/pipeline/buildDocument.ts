@@ -119,6 +119,21 @@ function resolveLeadOverlayMembers(
     .filter((musician): musician is Musician => Boolean(musician));
 }
 
+function resolveBackOverlayMembers(
+  ctx: ReturnType<typeof resolveDocumentContext>,
+): Musician[] {
+  return ctx.overlays.backVocals
+    .map((musicianId) => ctx.membersById.get(musicianId))
+    .filter((musician): musician is Musician => Boolean(musician));
+}
+
+function normalizeTalkbackLabel(label: string): string {
+  return label.replace(
+    /^Talkback\s*(?:[-–—]|\()\s*([^)]+?)\)?$/i,
+    (_all, owner: string) => `Talkback (${owner.trim()})`,
+  );
+}
+
 function resolvePdfMonitorOwners(args: {
   lineupMusicians: Array<{ group: Group; musician: Musician }>;
   effectiveSetupByMusicianId: Map<string, { monitoring: { monitorRef: string; additionalWedgeCount?: number } }>;
@@ -339,9 +354,11 @@ function expandPresetItem(
       return [
         {
           key: ent.input.key.replace("{ownerKey}", item.ownerKey),
-          label: ent.input.label
+          label: normalizeTalkbackLabel(
+            ent.input.label
             .replace("{ownerKey}", item.ownerKey)
             .replace("{ownerLabel}", item.ownerLabel ?? item.ownerKey),
+          ),
           group: ent.group,
           note: ent.input.note
             ? ent.input.note
@@ -563,11 +580,17 @@ export function buildDocument(
   };
 
   const leadResolved = resolveLeadOverlayMembers(ctx);
+  const backResolved = resolveBackOverlayMembers(ctx);
   const leadVocsIndexByMusicianId = new Map(
     leadResolved.map((musician, index) => [musician.id, index + 1]),
   );
+  const backVocsIndexByMusicianId = new Map(
+    backResolved.map((musician, index) => [musician.id, index + 1]),
+  );
   const leadVocsCount = leadResolved.length;
   const leadVocsGenderByIndex = leadResolved.map((musician) => musician.gender);
+  const backVocsCount = backResolved.length;
+  const backVocsGenderByIndex = backResolved.map((musician) => musician.gender);
 
   const monitorOwners = resolvePdfMonitorOwners({
     lineupMusicians: ctx.lineupMusicians,
@@ -591,6 +614,9 @@ export function buildDocument(
         leadVocsCount,
         leadVocsIndexByMusicianId,
         genderByLeadVocsIndex: leadVocsGenderByIndex,
+        backVocsCount,
+        backVocsIndexByMusicianId,
+        genderByBackVocsIndex: backVocsGenderByIndex,
       }),
     );
   }
@@ -636,7 +662,14 @@ export function buildDocument(
     if (input.key.startsWith("voc_back_")) {
       return {
         ...input,
-        label: formatBackVocalPdfLabel(input.ownerRole),
+        label: formatBackVocalPdfLabel({
+          ownerRole: input.ownerRole,
+          ownerMusicianId: input.ownerMusicianId,
+          backVocsCount,
+          backVocsIndexByMusicianId,
+          genderByBackVocsIndex: backVocsGenderByIndex,
+          fallbackLabel: input.label,
+        }),
       };
     }
     if (input.key.startsWith("voc_lead")) {

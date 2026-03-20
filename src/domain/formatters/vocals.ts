@@ -1,8 +1,8 @@
 export type FormatVocalLabelArgs = {
-  role: "lead";
+  role: "lead" | "back";
   index: number;
   gender?: string;
-  leadCount: number;
+  roleCount: number;
   genderMode?: "include" | "omit";
 };
 
@@ -16,16 +16,15 @@ export function formatVocalLabel({
   role,
   index,
   gender,
-  leadCount,
+  roleCount,
   genderMode = "include",
 }: FormatVocalLabelArgs): string {
-  const base = role === "lead" ? "Lead vocal" : "Vocal";
-
-  if (role === "lead" && leadCount <= 1) {
-    return base;
-  }
+  const base = role === "lead" ? "Lead vocal" : "Back vocal";
 
   const showGender = genderMode === "include" && gender && gender !== "x";
   const genderSuffix = showGender ? ` (${normalizeGenderLabel(gender)})` : "";
-  return `${base} ${index}${genderSuffix}`;
+  const safeIndex = Number.isFinite(index) && index > 0 ? index : 1;
+
+  if (roleCount <= 0) return `${base} ${safeIndex}${genderSuffix}`;
+  return `${base} ${safeIndex}${genderSuffix}`;
 }

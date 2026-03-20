@@ -581,7 +581,7 @@ describe("buildDocument setup overrides", () => {
       "Vocal One",
     ]);
     expect(vm.inputRows.filter((row) => row.label.startsWith("Lead vocal")).map((row) => row.label)).toEqual([
-      "Lead vocal 1",
+      "Lead vocal 1 (keys)",
       "Lead vocal 3",
       "Lead vocal 2",
     ]);
@@ -726,8 +726,8 @@ describe("buildDocument setup overrides", () => {
 
     const vm = buildDocument(project, repo);
     expect(vm.stageplan.leadVocals.map((person) => person.firstName)).toEqual([]);
-    expect(vm.inputRows.some((row) => row.label === "Lead vocal 1")).toBe(true);
-    expect(vm.inputRows.some((row) => row.label === "Lead vocal 2")).toBe(true);
+    expect(vm.inputRows.some((row) => row.label.startsWith("Lead vocal 1"))).toBe(true);
+    expect(vm.inputRows.some((row) => row.label.startsWith("Lead vocal 2"))).toBe(true);
   });
 
   it("formats mixed lead/back vocal PDF labels and de-duplicates monitor rows", () => {
@@ -832,12 +832,12 @@ describe("buildDocument setup overrides", () => {
     };
 
     const vm = buildDocument(project, repo);
-    expect(vm.inputRows.some((row) => row.label === "Lead vocal 1")).toBe(true);
+    expect(vm.inputRows.some((row) => row.label.startsWith("Lead vocal 1"))).toBe(true);
     expect(vm.inputRows.some((row) => row.label.startsWith("Lead vocal 2"))).toBe(true);
-    expect(vm.inputRows.some((row) => row.label === "Back vocal (guitar)")).toBe(true);
+    expect(vm.inputRows.some((row) => row.label === "Back vocal 1 (guitar)")).toBe(true);
     expect(vm.stageplan.monitorOutputs.map((row) => row.output)).toEqual([
       "Guitar",
-      "Lead vocal 2",
+      "Keys",
       "Lead vocal 1",
     ]);
   });

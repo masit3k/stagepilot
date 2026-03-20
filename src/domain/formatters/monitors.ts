@@ -23,7 +23,7 @@ export function formatMonitorLabel(channel: MonitorChannel, ctx: { leadCount: nu
         role: "lead",
         index: channel.index,
         gender: channel.gender,
-        leadCount: ctx.leadCount,
+        roleCount: ctx.leadCount,
       });
   }
 }
@@ -52,20 +52,47 @@ export function formatMonitorOwnerLabel(args: {
   leadVocsCount: number;
   leadVocsIndexByMusicianId: Map<string, number>;
   genderByLeadVocsIndex: Array<string | undefined>;
+  backVocsCount: number;
+  backVocsIndexByMusicianId: Map<string, number>;
+  genderByBackVocsIndex: Array<string | undefined>;
 }): string {
-  const { ownerRole, ownerMusicianId, fallbackLabel, leadVocsCount, leadVocsIndexByMusicianId, genderByLeadVocsIndex } = args;
-  const index = leadVocsIndexByMusicianId.get(ownerMusicianId);
-  if (index) {
+  const {
+    ownerRole,
+    ownerMusicianId,
+    fallbackLabel,
+    leadVocsCount,
+    leadVocsIndexByMusicianId,
+    genderByLeadVocsIndex,
+    backVocsCount,
+    backVocsIndexByMusicianId,
+    genderByBackVocsIndex,
+  } = args;
+  if (ownerRole !== "vocs") {
+    const mapped = formatInstrumentGroupLabel(ownerRole);
+    return mapped || fallbackLabel;
+  }
+
+  const leadIndex = leadVocsIndexByMusicianId.get(ownerMusicianId);
+  if (leadIndex) {
     return formatVocalLabel({
       role: "lead",
-      index,
-      gender: genderByLeadVocsIndex[index - 1],
-      leadCount: leadVocsCount,
+      index: leadIndex,
+      gender: genderByLeadVocsIndex[leadIndex - 1],
+      roleCount: leadVocsCount,
     });
   }
-  if (ownerRole === "vocs") return "Lead vocal";
-  const mapped = formatInstrumentGroupLabel(ownerRole);
-  return mapped || fallbackLabel;
+
+  const backIndex = backVocsIndexByMusicianId.get(ownerMusicianId);
+  if (backIndex) {
+    return formatVocalLabel({
+      role: "back",
+      index: backIndex,
+      gender: genderByBackVocsIndex[backIndex - 1],
+      roleCount: backVocsCount,
+    });
+  }
+
+  return "Lead vocal";
 }
 
 export function formatMonitoringLabel(baseMonitoringLabel: string, additionalWedgeCount: number | undefined): string {
