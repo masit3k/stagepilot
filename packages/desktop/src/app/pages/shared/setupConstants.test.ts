@@ -44,12 +44,12 @@ describe("resolveMusicianDefaultSetupForRole", () => {
       setupGroup: "electric_bass",
       inputs: [{ key: "el_bass_xlr_pedalboard", label: "Bass" }],
     },
-    vocal_lead_wireless: {
+    vocal_wireless: {
       type: "preset",
-      id: "vocal_lead_wireless",
+      id: "vocal_wireless",
       label: "Wireless lead vocal",
       group: "vocs",
-      inputs: [{ key: "voc_lead", label: "Lead vocal" }],
+      inputs: [{ key: "voc_input", label: "Vocal" }],
     },
     iem_stereo_wireless: {
       type: "monitor",
@@ -94,15 +94,15 @@ describe("resolveMusicianDefaultSetupForRole", () => {
   it("resolves vocal defaults from musician presets", () => {
     const resolved = resolveMusicianDefaultSetupForRole({
       role: "vocs",
-      presetItems: [{ kind: "preset", ref: "vocal_lead_wireless" }],
+      presetItems: [{ kind: "preset", ref: "vocal_wireless" }],
       presetCatalog: catalog,
       bandDefaults: {
-        inputs: [{ key: "voc_lead", label: "Lead vocal" }],
+        inputs: [{ key: "voc_input", label: "Vocal" }],
         monitoring: { monitorRef: "wedge" },
       },
     });
 
-    expect(resolved.inputs.map((item) => item.key)).toContain("voc_lead");
+    expect(resolved.inputs.map((item) => item.key)).toContain("voc_input");
   });
 
   it("prefers explicit monitoring override defaults and falls back when no preset refs exist", () => {
@@ -153,7 +153,7 @@ describe("buildVisibleLineupSections", () => {
         musicianId === "lukas-holoubek"
           ? [
               { key: "ac_guitar", label: "Acoustic guitar" },
-              { key: "vocal_lead_no_mic", label: "Lead vocal no mic" },
+              { key: "vocal_no_mic", label: "Vocal no mic" },
               { key: "wedge", label: "Wedge" },
             ]
           : [],

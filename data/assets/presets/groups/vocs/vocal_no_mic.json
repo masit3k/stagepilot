@@ -1,12 +1,12 @@
 {
   "type": "preset",
-  "id": "vocal_lead_no_mic",
-  "label": "Lead vocal (no mic)",
+  "id": "vocal_no_mic",
+  "label": "Vocal (no mic)",
   "group": "vocs",
   "inputs": [
     {
-      "key": "voc_lead",
-      "label": "Lead vocal",
+      "key": "voc_input",
+      "label": "Vocal",
       "note": "BETA 58A, SE V7, SM58 – boom mic stand (provided by FOH)"
     }
   ]

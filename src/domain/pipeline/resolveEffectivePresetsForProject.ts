@@ -17,7 +17,7 @@ function presetRef(item: PresetItem): string | undefined {
 }
 
 function isBackVocalRef(ref: string): boolean {
-  return ref.startsWith("vocal_back_");
+  return ref.startsWith("vocal_back_") || ref === "vocal_no_mic" || ref === "vocal_wired" || ref === "vocal_wireless";
 }
 
 function isLeadVocalRef(ref: string): boolean {
@@ -55,10 +55,13 @@ function resolveBackVocalRef(
   if (existingRefs.includes("vocal_back_no_mic")) {
     return "vocal_back_no_mic";
   }
+  if (existingRefs.includes("vocal_no_mic")) {
+    return "vocal_no_mic";
+  }
 
   try {
-    const preferred = repo.getPreset("vocal_back_no_mic");
-    if (preferred.type === "vocal_type") {
+    const preferred = repo.getPreset("vocal_no_mic");
+    if (preferred.type === "preset") {
       return preferred.id;
     }
   } catch {
@@ -84,19 +87,11 @@ function collectLeadOverlayMusicianIds(project: Project, selectedMusicianSet: Se
 }
 
 function resolveLeadVocalItem(group: Group, repo: DataRepository): PresetItem | undefined {
-  for (const ref of ["vocal_lead_no_mic", "vocal_lead"]) {
+  for (const ref of ["vocal_no_mic", "vocal_lead_no_mic", "vocal_lead"]) {
     try {
       const preset = repo.getPreset(ref);
       if (preset.type === "preset") {
         return { kind: "preset", ref: preset.id };
-      }
-      if (preset.type === "vocal_type") {
-        return {
-          kind: "vocal",
-          ref: preset.id,
-          ownerKey: group,
-          ownerLabel: group,
-        };
       }
     } catch {
       // Not available in this repository.
@@ -113,7 +108,7 @@ function hasLeadVocalCapability(presets: PresetItem[], repo: DataRepository): bo
       const preset = repo.getPreset(item.ref);
       if (
         preset.type === "preset" &&
-        preset.inputs.some((input) => typeof input.key === "string" && input.key.startsWith("voc_lead"))
+        preset.inputs.some((input) => typeof input.key === "string" && input.key.startsWith("voc_"))
       ) {
         return true;
       }

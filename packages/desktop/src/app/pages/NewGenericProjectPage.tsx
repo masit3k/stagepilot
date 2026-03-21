@@ -16,6 +16,7 @@ import {
 } from "../shell/setupDirty";
 import type { BandSetupData, NewProjectPayload } from "../shell/types";
 import { toPersistableProject } from "../shell/types";
+import { buildCanonicalOverlaysFromDefaults } from "../shell/canonicalProject";
 import type { NewProjectPageProps } from "./shared/pageTypes";
 import { resolvePersistedTalkbackOwnerId } from "./shared/talkbackPersistence";
 
@@ -102,6 +103,7 @@ export function NewGenericProjectPage({
       const nowIso = new Date().toISOString();
       let defaultLineup: LineupMap | undefined = existingProject?.lineup;
       let defaultBandLeaderId = existingProject?.bandLeaderId ?? "";
+      let defaultOverlays = existingProject?.overlays;
       if (!editingProjectId) {
         try {
           const setupDefaults = await invoke<BandSetupData>(
@@ -120,6 +122,16 @@ export function NewGenericProjectPage({
             );
           }
           defaultBandLeaderId = setupDefaults.bandLeader ?? "";
+          const resolvedTalkbackOwnerId = resolvePersistedTalkbackOwnerId({
+            existingTalkbackOwnerId: existingProject?.talkbackOwnerId,
+            defaultBandLeaderId,
+          });
+          defaultOverlays = buildCanonicalOverlaysFromDefaults({
+            setupDefaults,
+            lineup: defaultLineup,
+            roleOrder: ["drums", "bass", "guitar", "keys", "vocs"],
+            talkbackOwnerId: resolvedTalkbackOwnerId,
+          });
         } catch (error) {
           console.error(
             "Failed to load setup defaults for new generic project",
@@ -129,8 +141,13 @@ export function NewGenericProjectPage({
             },
           );
           defaultLineup = {};
+          defaultOverlays = undefined;
         }
       }
+      const resolvedTalkbackOwnerId = resolvePersistedTalkbackOwnerId({
+        existingTalkbackOwnerId: existingProject?.talkbackOwnerId,
+        defaultBandLeaderId,
+      });
       const payload: NewProjectPayload = {
         id,
         slug: formatProjectSlug(
@@ -150,11 +167,9 @@ export function NewGenericProjectPage({
         createdAt: existingProject?.createdAt ?? nowIso,
         updatedAt: nowIso,
         lineup: defaultLineup,
+        overlays: defaultOverlays,
         bandLeaderId: defaultBandLeaderId || undefined,
-        talkbackOwnerId: resolvePersistedTalkbackOwnerId({
-          existingTalkbackOwnerId: existingProject?.talkbackOwnerId,
-          defaultBandLeaderId,
-        }),
+        talkbackOwnerId: resolvedTalkbackOwnerId,
       };
       await projectsApi.saveProject({
         projectId: id,

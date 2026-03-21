@@ -8,8 +8,8 @@ describe("BackVocsSetupModal", () => {
       <BackVocsSetupModal
         open
         items={[
-          { musicianId: "a", name: "Anna", value: "vocal_back_no_mic", isModified: false },
-          { musicianId: "b", name: "Boris", value: "vocal_back_wired", isModified: true },
+          { musicianId: "a", name: "Anna", value: "vocal_no_mic", isModified: false },
+          { musicianId: "b", name: "Boris", value: "vocal_wired", isModified: true },
         ]}
         onBack={vi.fn()}
         onReset={vi.fn()}

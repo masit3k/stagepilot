@@ -2,19 +2,19 @@ import type { Preset } from "../../../../../../../../src/domain/model/types";
 import { withInputsTarget, type EventSetupEditState } from "../../adapters/eventSetupAdapter";
 import type { DropdownFieldDef, SchemaNode } from "../../schema/types";
 
-type LeadPreset = Preset & { id: "vocal_lead_wireless" | "vocal_lead_wired" | "vocal_lead_no_mic" };
+type LeadPreset = Preset & { id: "vocal_wireless" | "vocal_wired" | "vocal_no_mic" };
 
 const ORDER: Array<{ id: LeadPreset["id"]; label: string }> = [
-  { id: "vocal_lead_wireless", label: "Own wireless mic" },
-  { id: "vocal_lead_wired", label: "Own wired mic" },
-  { id: "vocal_lead_no_mic", label: "No own mic" },
+  { id: "vocal_wireless", label: "Own wireless mic" },
+  { id: "vocal_wired", label: "Own wired mic" },
+  { id: "vocal_no_mic", label: "No own mic" },
 ];
 
 function readCurrent(state: EventSetupEditState, presets: Record<string, LeadPreset | undefined>): string {
-  const leadInput = state.effectivePreset.inputs.find((item) => item.key === "voc_lead");
+  const leadInput = state.effectivePreset.inputs.find((item) => item.key.startsWith("voc_"));
   if (!leadInput) return ORDER[0].id;
   for (const entry of ORDER) {
-    const presetLead = presets[entry.id]?.inputs.find((item) => item.key === "voc_lead");
+    const presetLead = presets[entry.id]?.inputs.find((item) => item.key.startsWith("voc_"));
     if (!presetLead) continue;
     if ((presetLead.note ?? "") === (leadInput.note ?? "")) return entry.id;
   }
@@ -22,10 +22,10 @@ function readCurrent(state: EventSetupEditState, presets: Record<string, LeadPre
 }
 
 function readDefault(state: EventSetupEditState, presets: Record<string, LeadPreset | undefined>): string {
-  const leadInput = state.defaultPreset.inputs.find((item) => item.key === "voc_lead");
+  const leadInput = state.defaultPreset.inputs.find((item) => item.key.startsWith("voc_"));
   if (!leadInput) return ORDER[0].id;
   for (const entry of ORDER) {
-    const presetLead = presets[entry.id]?.inputs.find((item) => item.key === "voc_lead");
+    const presetLead = presets[entry.id]?.inputs.find((item) => item.key.startsWith("voc_"));
     if (!presetLead) continue;
     if ((presetLead.note ?? "") === (leadInput.note ?? "")) return entry.id;
   }

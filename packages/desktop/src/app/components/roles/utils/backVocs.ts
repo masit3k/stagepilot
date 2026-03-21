@@ -3,11 +3,15 @@ import type { Musician, PresetEntity } from "../../../../../../../src/domain/mod
 export type MusicianId = Musician["id"];
 
 export function isBackVocalRef(ref: string): boolean {
-  return ref.startsWith("vocal_back_");
+  return ref.startsWith("vocal_back_") || ref === "vocal_no_mic" || ref === "vocal_wired" || ref === "vocal_wireless";
 }
 
 function isLeadVocalRef(ref: string): boolean {
   return ref.startsWith("vocal_lead_");
+}
+
+function isGenericVocalRef(ref: string): boolean {
+  return ref === "vocal_no_mic" || ref === "vocal_wired" || ref === "vocal_wireless";
 }
 
 function isTalkbackRef(ref: string): boolean {
@@ -33,13 +37,13 @@ function hasRefMatching(preset: Musician["presets"][number], predicate: (ref: st
 }
 
 export function isBackVocalPreset(preset: PresetWithRef): boolean {
-  return (preset.kind === "vocal" || preset.kind === "vocal_type") && isBackVocalRef(preset.ref);
+  return (preset.kind === "vocal" || preset.kind === "vocal_type" || preset.kind === "preset") && isBackVocalRef(preset.ref);
 }
 
 export function getBackVocsFromTemplate(musicians: Musician[]): Set<MusicianId> {
   return new Set(
     musicians
-      .filter((musician) => musician.presets.some((preset) => hasRefMatching(preset, isBackVocalRef)))
+      .filter((musician) => musician.presets.some((preset) => hasRefMatching(preset, (ref) => ref.startsWith("vocal_back_"))))
       .map((musician) => musician.id),
   );
 }
@@ -112,7 +116,7 @@ export function applyBackVocsSelection(
 
     return {
       ...musician,
-      presets: musician.presets.filter((preset) => !hasRefMatching(preset, isBackVocalRef)),
+      presets: musician.presets.filter((preset) => !hasRefMatching(preset, (ref) => ref.startsWith("vocal_back_") || isGenericVocalRef(ref))),
     };
   });
 }
@@ -149,6 +153,7 @@ export function resolveDefaultBackVocalRef(presetsRegistry: PresetEntity[]): str
     .filter(isBackVocalRef)
     .sort((a, b) => a.localeCompare(b));
 
+  if (refs.includes("vocal_no_mic")) return "vocal_no_mic";
   if (refs.includes("vocal_back_no_mic")) return "vocal_back_no_mic";
   return refs[0] ?? "";
 }

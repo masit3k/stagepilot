@@ -119,11 +119,11 @@ describe("loadRepository split sources", () => {
       "presets",
       "groups",
       "vocs",
-      "vocal_lead_no_mic.json",
+      "vocal_no_mic.json",
     );
     await fs.mkdir(path.dirname(stalePresetPath), { recursive: true });
     const stalePreset = {
-      id: "vocal_lead_no_mic",
+      id: "vocal_no_mic",
       type: "group",
       group: "vocs",
       inputs: [{ key: "voc_lead", note: "STALE_FROM_APPDATA" }],
@@ -131,7 +131,7 @@ describe("loadRepository split sources", () => {
     await fs.writeFile(stalePresetPath, `${JSON.stringify(stalePreset, null, 2)}\n`, "utf8");
 
     const repo = await loadRepository({ userDataRoot });
-    const preset = repo.getPreset("vocal_lead_no_mic") as {
+    const preset = repo.getPreset("vocal_no_mic") as {
       inputs?: Array<{ note?: string }>;
     };
 

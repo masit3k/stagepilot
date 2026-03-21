@@ -75,6 +75,7 @@ import type {
 } from "../shell/types";
 import { toPersistableProject } from "../shell/types";
 import { serializeLineupForProject } from "../shell/lineupSerialize";
+import { buildCanonicalProjectFromSetupState } from "../shell/canonicalProject";
 import type { ProjectRouteProps } from "./shared/pageTypes";
 import { resolveTalkbackSummaryLabel } from "./shared/talkbackSummary";
 import {
@@ -118,13 +119,6 @@ function normalizeOverlayIds(value: unknown): string[] {
       return typeof musicianId === "string" ? musicianId.trim() : "";
     })
     .filter((musicianId) => musicianId.length > 0);
-}
-
-function toOverlaySlots(musicianIds: string[]) {
-  return musicianIds.map((musicianId, index) => ({
-    slot: index + 1,
-    musicianId,
-  }));
 }
 
 export function ProjectSetupPage({
@@ -528,7 +522,7 @@ export function ProjectSetupPage({
   }, [selectedMusicianIds, setupData]);
   const backVocalPresetRefs = useMemo(
     () =>
-      ["vocal_back_no_mic", "vocal_back_wired", "vocal_back_wireless"]
+      ["vocal_no_mic", "vocal_wired", "vocal_wireless"]
         .map((ref) => presetCatalog[ref])
         .filter((preset): preset is PresetEntity => Boolean(preset))
         .filter(
@@ -820,36 +814,38 @@ export function ProjectSetupPage({
     snapshotHydratedRef.current = true;
   }, [currentDirtyState, project, setupData]);
 
-  async function persistProject(next?: Partial<NewProjectPayload>) {
-    if (!project) return;
-    const persistedOverlays: NonNullable<NewProjectPayload["overlays"]> = {
-      ...(hasLeadVocalOverride
-        ? { leadVocals: toOverlaySlots([...selectedLeadVocalistIds]) }
-        : {}),
-      ...(hasBackVocalOverride
-        ? { backVocals: toOverlaySlots([...selectedBackVocalIds]) }
-        : {}),
-      ...(hasTalkbackOverride
-        ? {
-            talkback:
-              talkbackCurrentOwnerId.trim().length > 0
-                ? { mode: "assigned" as const, ownerId: talkbackCurrentOwnerId }
-                : { mode: "none" as const, ownerId: null },
-          }
-        : {}),
-    };
-    const nextOverlays =
-      Object.keys(persistedOverlays).length > 0 ? persistedOverlays : undefined;
-    const payload: NewProjectPayload = {
-      ...project,
-      lineup: { ...serializedLineup },
-      overlays: nextOverlays,
+  const canonicalProjectDraft = useMemo(
+    () =>
+      project
+        ? buildCanonicalProjectFromSetupState({
+            project,
+            roleOrder: ROLE_ORDER,
+            lineup,
+            bandLeaderId,
+            talkbackOwnerId: talkbackCurrentOwnerId,
+            hasTalkbackOverride,
+            leadVocalistIds: [...selectedLeadVocalistIds],
+            hasLeadVocalOverride,
+            backVocalIds: [...selectedBackVocalIds],
+            hasBackVocalOverride,
+          })
+        : null,
+    [
       bandLeaderId,
-      talkbackOwnerId: hasTalkbackOverride ? talkbackCurrentOwnerId : undefined,
-      leadVocalistIds: undefined,
-      backVocalIds: undefined,
-      ...next,
-    };
+      hasBackVocalOverride,
+      hasLeadVocalOverride,
+      hasTalkbackOverride,
+      lineup,
+      project,
+      selectedBackVocalIds,
+      selectedLeadVocalistIds,
+      talkbackCurrentOwnerId,
+    ],
+  );
+
+  async function persistProject(next?: Partial<NewProjectPayload>) {
+    if (!canonicalProjectDraft) return;
+    const payload: NewProjectPayload = { ...canonicalProjectDraft, ...next };
     await projectsApi.saveProject({
       projectId: id,
       json: JSON.stringify(toPersistableProject(payload), null, 2),
@@ -1057,13 +1053,15 @@ export function ProjectSetupPage({
           member.id,
           patch,
         );
-        const value = effective.inputs.some(
-          (input) => input.key === "voc_back_wired",
-        )
-          ? "vocal_back_wired"
-          : effective.inputs.some((input) => input.key === "voc_back_wireless")
-            ? "vocal_back_wireless"
-            : "vocal_back_no_mic";
+        const resolvedMicByNote = (() => {
+          const note = effective.inputs.find((input) => input.key.startsWith("voc_"))?.note;
+          if (!note) return "vocal_no_mic";
+          const normalizedNote = note.toLowerCase();
+          if (normalizedNote.includes("wireless")) return "vocal_wireless";
+          if (normalizedNote.includes("wired")) return "vocal_wired";
+          return "vocal_no_mic";
+        })();
+        const value = resolvedMicByNote;
         const isModified = resolved.diffMeta.inputs.some((item) =>
           isDiffOriginOverridden(item.origin),
         );

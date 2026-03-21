@@ -18,9 +18,9 @@ type BackVocsSetupModalProps = {
 };
 
 const OPTIONS = [
-  { value: "vocal_back_no_mic", label: "No own mic" },
-  { value: "vocal_back_wired", label: "Own wired mic" },
-  { value: "vocal_back_wireless", label: "Own wireless mic" },
+  { value: "vocal_no_mic", label: "No own mic" },
+  { value: "vocal_wired", label: "Own wired mic" },
+  { value: "vocal_wireless", label: "Own wireless mic" },
 ];
 
 export function BackVocsSetupModal({ open, items, onBack, onReset, onSave, onChange }: BackVocsSetupModalProps) {

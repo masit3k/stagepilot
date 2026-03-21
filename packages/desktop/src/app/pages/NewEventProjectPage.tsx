@@ -21,6 +21,7 @@ import {
 } from "../shell/setupDirty";
 import type { BandSetupData, NewProjectPayload } from "../shell/types";
 import { toPersistableProject } from "../shell/types";
+import { buildCanonicalOverlaysFromDefaults } from "../shell/canonicalProject";
 import { EventDateInput } from "./components/EventDateInput";
 import type { NewProjectPageProps } from "./shared/pageTypes";
 import { resolvePersistedTalkbackOwnerId } from "./shared/talkbackPersistence";
@@ -123,6 +124,7 @@ export function NewEventProjectPage({
       const nowIso = new Date().toISOString();
       let defaultLineup = existingProject?.lineup;
       let defaultBandLeaderId = existingProject?.bandLeaderId;
+      let defaultOverlays = existingProject?.overlays;
       if (!editingProjectId) {
         try {
           const setupDefaults = await invoke<BandSetupData>(
@@ -141,6 +143,16 @@ export function NewEventProjectPage({
             );
           }
           defaultBandLeaderId = setupDefaults.bandLeader ?? "";
+          const resolvedTalkbackOwnerId = resolvePersistedTalkbackOwnerId({
+            existingTalkbackOwnerId: existingProject?.talkbackOwnerId,
+            defaultBandLeaderId,
+          });
+          defaultOverlays = buildCanonicalOverlaysFromDefaults({
+            setupDefaults,
+            lineup: defaultLineup,
+            roleOrder: ["drums", "bass", "guitar", "keys", "vocs"],
+            talkbackOwnerId: resolvedTalkbackOwnerId,
+          });
         } catch (error) {
           console.error("Failed to load setup defaults for new event project", {
             bandRef: selectedBand.id,
@@ -148,8 +160,13 @@ export function NewEventProjectPage({
           });
           defaultLineup = {};
           defaultBandLeaderId = "";
+          defaultOverlays = undefined;
         }
       }
+      const resolvedTalkbackOwnerId = resolvePersistedTalkbackOwnerId({
+        existingTalkbackOwnerId: existingProject?.talkbackOwnerId,
+        defaultBandLeaderId,
+      });
       const payload: NewProjectPayload = {
         id,
         slug,
@@ -164,11 +181,9 @@ export function NewEventProjectPage({
         createdAt: existingProject?.createdAt ?? nowIso,
         updatedAt: nowIso,
         lineup: defaultLineup,
+        overlays: defaultOverlays,
         bandLeaderId: defaultBandLeaderId || undefined,
-        talkbackOwnerId: resolvePersistedTalkbackOwnerId({
-          existingTalkbackOwnerId: existingProject?.talkbackOwnerId,
-          defaultBandLeaderId,
-        }),
+        talkbackOwnerId: resolvedTalkbackOwnerId,
       };
       await projectsApi.saveProject({
         projectId: id,

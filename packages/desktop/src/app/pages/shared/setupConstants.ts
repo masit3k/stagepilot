@@ -82,7 +82,7 @@ const PRESET_REFS = {
     "ac_guitar",
   ],
   keys: ["keys", "synth", "synth_mono"],
-  vocs: ["vocal_lead_wireless", "vocal_lead_wired", "vocal_lead_no_mic"],
+  vocs: ["vocal_wireless", "vocal_wired", "vocal_no_mic"],
 } as const;
 
 export function buildSetupFieldCatalog(

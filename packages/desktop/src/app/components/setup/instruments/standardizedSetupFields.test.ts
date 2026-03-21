@@ -8,9 +8,9 @@ import elGuitarMicPreset from "../../../../../../../data/assets/presets/groups/g
 import elGuitarXlrMonoPreset from "../../../../../../../data/assets/presets/groups/guitar/el_guitar_xlr_mono.json";
 import elGuitarXlrStereoPreset from "../../../../../../../data/assets/presets/groups/guitar/el_guitar_xlr_stereo.json";
 import acGuitarPreset from "../../../../../../../data/assets/presets/groups/guitar/ac_guitar.json";
-import vocalLeadWirelessPreset from "../../../../../../../data/assets/presets/groups/vocs/vocal_lead_wireless.json";
-import vocalLeadWiredPreset from "../../../../../../../data/assets/presets/groups/vocs/vocal_lead_wired.json";
-import vocalLeadNoMicPreset from "../../../../../../../data/assets/presets/groups/vocs/vocal_lead_no_mic.json";
+import vocalWirelessPreset from "../../../../../../../data/assets/presets/groups/vocs/vocal_wireless.json";
+import vocalWiredPreset from "../../../../../../../data/assets/presets/groups/vocs/vocal_wired.json";
+import vocalNoMicPreset from "../../../../../../../data/assets/presets/groups/vocs/vocal_no_mic.json";
 import keysPreset from "../../../../../../../data/assets/presets/groups/keys/keys.json";
 import synthPreset from "../../../../../../../data/assets/presets/groups/keys/synth.json";
 import synthMonoPreset from "../../../../../../../data/assets/presets/groups/keys/synth_mono.json";
@@ -31,19 +31,19 @@ describe("standardized setup fields", () => {
   });
 
   it("updates lead vocal mode by patching lead input metadata", () => {
-    const fields = buildLeadVocsFields([vocalLeadWirelessPreset, vocalLeadWiredPreset, vocalLeadNoMicPreset] as Preset[]);
+    const fields = buildLeadVocsFields([vocalWirelessPreset, vocalWiredPreset, vocalNoMicPreset] as Preset[]);
     const micField = fields.find((field) => field.kind === "dropdown");
     if (!micField || micField.kind !== "dropdown") throw new Error("missing lead voc field");
 
     const defaultPreset: MusicianSetupPreset = {
-      inputs: [{ key: "voc_lead", label: "Lead vocal", note: "Own wireless mic – boom mic stand", group: "vocs" }],
+      inputs: [{ key: "voc_input", label: "Vocal", note: "Own wireless mic – boom mic stand", group: "vocs" }],
       monitoring: { monitorRef: "wedge" },
     };
-    const patch = micField.setValue({ defaultPreset, effectivePreset: defaultPreset }, "vocal_lead_wired");
-    expect(patch?.inputs?.update?.[0]?.key).toBe("voc_lead");
+    const patch = micField.setValue({ defaultPreset, effectivePreset: defaultPreset }, "vocal_wired");
+    expect(patch?.inputs?.update?.[0]?.key).toBe("voc_input");
 
     const effective = applyPresetOverride(defaultPreset, patch);
-    expect(micField.getValue({ defaultPreset, effectivePreset: effective, patch })).toBe("vocal_lead_wired");
+    expect(micField.getValue({ defaultPreset, effectivePreset: effective, patch })).toBe("vocal_wired");
   });
 
   it("never allows zero manuals for keys row", () => {

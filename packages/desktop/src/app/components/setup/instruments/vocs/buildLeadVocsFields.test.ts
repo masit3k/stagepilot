@@ -3,9 +3,9 @@ import type { Preset } from "../../../../../../../../src/domain/model/types";
 import { buildLeadVocsFields } from "./buildLeadVocsFields";
 
 const presets = [
-  { type: "preset", id: "vocal_lead_wireless", label: "Wireless", group: "vocs", inputs: [{ key: "voc_lead_wireless", label: "Lead" }] },
-  { type: "preset", id: "vocal_lead_wired", label: "Wired", group: "vocs", inputs: [{ key: "voc_lead_wired", label: "Lead" }] },
-  { type: "preset", id: "vocal_lead_no_mic", label: "No mic", group: "vocs", inputs: [{ key: "voc_lead_no_mic", label: "Lead" }] },
+  { type: "preset", id: "vocal_wireless", label: "Wireless", group: "vocs", inputs: [{ key: "voc_input", label: "Vocal" }] },
+  { type: "preset", id: "vocal_wired", label: "Wired", group: "vocs", inputs: [{ key: "voc_input", label: "Vocal" }] },
+  { type: "preset", id: "vocal_no_mic", label: "No mic", group: "vocs", inputs: [{ key: "voc_input", label: "Vocal" }] },
 ] as Preset[];
 
 describe("buildLeadVocsFields", () => {

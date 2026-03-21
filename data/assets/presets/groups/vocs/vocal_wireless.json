@@ -1,12 +1,12 @@
 {
   "type": "preset",
-  "id": "vocal_lead_wireless",
-  "label": "Lead vocal (wireless)",
+  "id": "vocal_wireless",
+  "label": "Vocal (wireless)",
   "group": "vocs",
   "inputs": [
     {
-      "key": "voc_lead",
-      "label": "Lead vocal",
+      "key": "voc_input",
+      "label": "Vocal",
       "note": "Own wireless mic – boom mic stand"
     }
   ]
