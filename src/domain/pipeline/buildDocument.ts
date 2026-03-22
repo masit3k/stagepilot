@@ -90,6 +90,9 @@ type BuiltInput = {
   ownerGender?: "m" | "f" | "x";
   ownerRole: Group;
   ownerMusicianId?: string;
+  vocalRole?: "lead" | "back";
+  vocalSlot?: number;
+  vocalOrderRank?: number;
 };
 
 type BuiltInputWithCh = BuiltInput & { ch: number };
@@ -151,6 +154,49 @@ function resolveOverlaySlots(args: {
     .filter((entry): entry is { musician: Musician; slot: number } => Boolean(entry));
   members.sort((a, b) => a.slot - b.slot);
   return members;
+}
+
+const VOCAL_OWNER_ORDER_RANK: Record<Group, number> = {
+  guitar: 1,
+  vocs: 2,
+  keys: 3,
+  bass: 4,
+  drums: 5,
+  talkback: 999,
+};
+
+function resolveOverlayDrivenVocalRows(args: {
+  role: "lead" | "back";
+  members: Array<{ musician: Musician; slot: number }>;
+  capabilityByMusicianId: Map<string, BuiltInput[]>;
+  ownerGroupByMusicianId: Map<string, Group>;
+}): BuiltInput[] {
+  const { role, members, capabilityByMusicianId, ownerGroupByMusicianId } = args;
+  const rows: BuiltInput[] = [];
+
+  for (const { musician, slot } of members) {
+    const capabilityInputs = capabilityByMusicianId.get(musician.id) ?? [];
+    if (capabilityInputs.length === 0) continue;
+    const ownerRole = ownerGroupByMusicianId.get(musician.id) ?? musician.group;
+    const orderRank = VOCAL_OWNER_ORDER_RANK[ownerRole] ?? 999;
+
+    for (const capability of capabilityInputs) {
+      rows.push({
+        ...capability,
+        key: role === "lead" ? `voc_lead_${slot}` : `voc_back_${ownerRole}_${slot}`,
+        label: role === "lead" ? "Lead vocal" : "Back vocal",
+        group: "vocs",
+        ownerRole,
+        ownerMusicianId: musician.id,
+        ownerGender: musician.gender,
+        vocalRole: role,
+        vocalSlot: slot,
+        vocalOrderRank: orderRank,
+      });
+    }
+  }
+
+  return rows;
 }
 
 function normalizeTalkbackLabel(label: string): string {
@@ -447,11 +493,11 @@ function guitarRankByKey(input: BuiltInput): number {
 }
 
 function isLeadVocalInput(input: BuiltInput): boolean {
-  return input.key.startsWith("voc_lead");
+  return input.vocalRole === "lead" || input.key.startsWith("voc_lead");
 }
 
 function isBackVocalInput(input: BuiltInput): boolean {
-  return input.key.startsWith("voc_back_");
+  return input.vocalRole === "back" || input.key.startsWith("voc_back_");
 }
 
 function isVocalInput(input: BuiltInput): boolean {
@@ -481,6 +527,7 @@ export function buildDocument(
   }
 
   const inputs: BuiltInput[] = [];
+  const vocalCapabilityByMusicianId = new Map<string, BuiltInput[]>();
   const monitors: DocumentViewModel["monitors"] = [];
 
   const monitorTableRows: MonitorTableRow[] = [];
@@ -525,6 +572,7 @@ export function buildDocument(
     }
 
     for (const item of effectivePresetItems) {
+      const runtimeKind = (item as { kind?: unknown }).kind;
       if (group === "drums" && item.kind === "drum_setup") {
         continue;
       }
@@ -537,14 +585,29 @@ export function buildDocument(
       if (item.kind === "monitor") {
         continue;
       }
-
-      const expanded = expandPresetItem(item, group, repo);
-      if (item.kind === "preset" && /^vocal_lead/i.test(item.ref)) {
-        for (const input of expanded) {
-          input.ownerGender = musician.gender;
-          input.ownerMusicianId = musician.id;
+      if (runtimeKind === "preset" || runtimeKind === "vocal") {
+        const ref = (item as { ref?: unknown }).ref;
+        if (typeof ref !== "string" || ref.trim().length === 0) continue;
+        const entity = repo.getPreset(ref);
+        if (entity.type === "preset" && entity.group === "vocs") {
+          const capabilityRows = entity.inputs.map((input) => ({
+            key: input.key,
+            label: input.label,
+            group: "vocs" as const,
+            note: input.note,
+            ownerRole: group,
+            ownerMusicianId: musician.id,
+            ownerGender: musician.gender,
+          }));
+          vocalCapabilityByMusicianId.set(musician.id, capabilityRows);
+          continue;
         }
       }
+      if (runtimeKind !== "preset" && runtimeKind !== "drum_setup" && runtimeKind !== "talkback") {
+        continue;
+      }
+
+      const expanded = expandPresetItem(item, group, repo);
       for (const input of expanded) {
         if (!input.ownerMusicianId) input.ownerMusicianId = musician.id;
       }
@@ -635,6 +698,24 @@ export function buildDocument(
 
   const leadResolved = resolveOverlaySlots({ ctx, role: "leadVocals" });
   const backResolved = resolveOverlaySlots({ ctx, role: "backVocals" });
+  const ownerGroupByMusicianId = new Map(
+    ctx.lineupMusicians.map(({ group, musician }) => [musician.id, group] as const),
+  );
+  const vocalRows = [
+    ...resolveOverlayDrivenVocalRows({
+      role: "lead",
+      members: leadResolved,
+      capabilityByMusicianId: vocalCapabilityByMusicianId,
+      ownerGroupByMusicianId,
+    }),
+    ...resolveOverlayDrivenVocalRows({
+      role: "back",
+      members: backResolved,
+      capabilityByMusicianId: vocalCapabilityByMusicianId,
+      ownerGroupByMusicianId,
+    }),
+  ];
+  inputs.push(...vocalRows);
   const leadVocsSlotByMusicianId = new Map(
     leadResolved.map(({ musician, slot }) => [musician.id, slot]),
   );
@@ -724,7 +805,7 @@ export function buildDocument(
     if (input.group === "drums") {
       return { ...input, label: formatDrumInputDisplayLabel(input, drumFamilyState) };
     }
-    if (input.key.startsWith("voc_back_")) {
+    if (input.vocalRole === "back" || input.key.startsWith("voc_back_")) {
       return {
         ...input,
         label: formatBackVocalPdfLabel({
@@ -737,7 +818,7 @@ export function buildDocument(
         }),
       };
     }
-    if (input.key.startsWith("voc_lead")) {
+    if (input.vocalRole === "lead" || input.key.startsWith("voc_lead")) {
       return {
         ...input,
         label: formatLeadVocalPdfLabel({
@@ -759,28 +840,20 @@ export function buildDocument(
   const vocalInputs = finalizedInputs
     .filter((input) => isVocalInput(input))
     .sort((a, b) => {
-      const aSlot = isLeadVocalInput(a)
+      const roleDiff = (a.vocalOrderRank ?? 999) - (b.vocalOrderRank ?? 999);
+      if (roleDiff !== 0) return roleDiff;
+
+      const aSlot = a.vocalSlot ?? (isLeadVocalInput(a)
         ? leadVocsSlotByMusicianId.get(a.ownerMusicianId ?? "")
-        : backVocsSlotByMusicianId.get(a.ownerMusicianId ?? "");
-      const bSlot = isLeadVocalInput(b)
+        : backVocsSlotByMusicianId.get(a.ownerMusicianId ?? ""));
+      const bSlot = b.vocalSlot ?? (isLeadVocalInput(b)
         ? leadVocsSlotByMusicianId.get(b.ownerMusicianId ?? "")
-        : backVocsSlotByMusicianId.get(b.ownerMusicianId ?? "");
+        : backVocsSlotByMusicianId.get(b.ownerMusicianId ?? ""));
       const slotDiff = (aSlot ?? 999) - (bSlot ?? 999);
       if (slotDiff !== 0) return slotDiff;
 
-      const orderByRole: Record<Group, number> = {
-        guitar: 1,
-        vocs: 2,
-        keys: 3,
-        bass: 4,
-        drums: 5,
-        talkback: 999,
-      };
-      const roleDiff = (orderByRole[a.ownerRole] ?? 999) - (orderByRole[b.ownerRole] ?? 999);
-      if (roleDiff !== 0) return roleDiff;
-
-      if (isBackVocalInput(a) && isLeadVocalInput(b)) return -1;
-      if (isLeadVocalInput(a) && isBackVocalInput(b)) return 1;
+      if (isLeadVocalInput(a) && isBackVocalInput(b)) return -1;
+      if (isBackVocalInput(a) && isLeadVocalInput(b)) return 1;
 
       return a.label.localeCompare(b.label, "en");
     });

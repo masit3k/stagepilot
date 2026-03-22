@@ -94,9 +94,10 @@ export function formatLeadVocalDisplayLabel(args: {
   fallbackLabel: string;
   leadCount: number;
   leadGenderByIndex: Array<string | undefined>;
+  slot?: number;
 }): string {
   const indexMatch = /voc_lead_(\d+)/i.exec(args.key);
-  const index = indexMatch ? Number(indexMatch[1]) : 1;
+  const index = args.slot ?? (indexMatch ? Number(indexMatch[1]) : 1);
 
   if (!args.key.startsWith("voc_lead")) return args.fallbackLabel;
 

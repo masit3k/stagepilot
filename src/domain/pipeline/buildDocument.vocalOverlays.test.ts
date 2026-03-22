@@ -65,7 +65,7 @@ describe("buildDocument vocal overlay composition", () => {
         group: "bass",
         presets: [
           { kind: "preset", ref: "el_bass_xlr_pedalboard" },
-          { kind: "vocal", ref: "vocal_lead_no_mic", ownerKey: "bass", ownerLabel: "bass" },
+          { kind: "preset", ref: "vocal_lead_no_mic" },
           { kind: "monitor", ref: "iem_stereo_wireless" },
         ],
       },
@@ -84,7 +84,7 @@ describe("buildDocument vocal overlay composition", () => {
         gender: "f",
         group: "vocs",
         presets: [
-          { kind: "vocal", ref: "vocal_lead_no_mic", ownerKey: "vocs", ownerLabel: "vocs" },
+          { kind: "preset", ref: "vocal_lead_no_mic" },
           { kind: "monitor", ref: "wedge" },
         ],
       },
@@ -126,18 +126,18 @@ describe("buildDocument vocal overlay composition", () => {
         inputs: [{ key: "dr_oh_l", label: "OH L", group: "drums" }],
       },
       vocal_lead_no_mic: {
-        type: "vocal_type",
+        type: "preset",
         id: "vocal_lead_no_mic",
         label: "Lead vocal no mic",
         group: "vocs",
-        input: { key: "voc_lead_1", label: "Lead vocal" },
+        inputs: [{ key: "voc_cap_no_mic", label: "Lead vocal capability", group: "vocs" }],
       },
       vocal_back_no_mic: {
-        type: "vocal_type",
+        type: "preset",
         id: "vocal_back_no_mic",
         label: "Back vocal no mic",
         group: "vocs",
-        input: { key: "voc_back_{ownerKey}", label: "Back vocal ({ownerLabel})" },
+        inputs: [{ key: "voc_back", label: "Back vocal", group: "vocs" }],
       },
       talkback: {
         type: "talkback_type",
@@ -190,7 +190,7 @@ describe("buildDocument vocal overlay composition", () => {
         lastName: "Player",
         gender: "m",
         group: "drums",
-        presets: [{ kind: "preset", ref: "drums_basic" }, { kind: "monitor", ref: "iem_stereo_wireless" }],
+        presets: [{ kind: "preset", ref: "drums_basic" }, { kind: "preset", ref: "vocal_wired" }, { kind: "monitor", ref: "iem_stereo_wireless" }],
       },
       "bass-1": {
         id: "bass-1",
@@ -198,7 +198,7 @@ describe("buildDocument vocal overlay composition", () => {
         lastName: "Player",
         gender: "m",
         group: "bass",
-        presets: [{ kind: "preset", ref: "el_bass_xlr_pedalboard" }, { kind: "monitor", ref: "iem_stereo_wireless" }],
+        presets: [{ kind: "preset", ref: "el_bass_xlr_pedalboard" }, { kind: "preset", ref: "vocal_wired" }, { kind: "monitor", ref: "iem_stereo_wireless" }],
       },
       "gtr-1": {
         id: "gtr-1",
@@ -230,7 +230,7 @@ describe("buildDocument vocal overlay composition", () => {
         lastName: "Singer",
         gender: "m",
         group: "vocs",
-        presets: [{ kind: "monitor", ref: "wedge" }],
+        presets: [{ kind: "preset", ref: "vocal_wired" }, { kind: "monitor", ref: "wedge" }],
       },
     };
 
@@ -290,12 +290,19 @@ describe("buildDocument vocal overlay composition", () => {
         group: "vocs",
         inputs: [{ key: "voc_lead", label: "Lead vocal", group: "vocs" }],
       },
+      vocal_wired: {
+        type: "preset",
+        id: "vocal_wired",
+        label: "Wired vocal",
+        group: "vocs",
+        inputs: [{ key: "voc_cap_wired", label: "Wired vocal", group: "vocs" }],
+      },
       vocal_back_no_mic: {
-        type: "vocal_type",
+        type: "preset",
         id: "vocal_back_no_mic",
         label: "Back vocal no mic",
         group: "vocs",
-        input: { key: "voc_back_{ownerKey}", label: "Back vocal ({ownerLabel})" },
+        inputs: [{ key: "voc_back", label: "Back vocal", group: "vocs" }],
       },
       talkback: {
         type: "talkback_type",
@@ -371,7 +378,7 @@ describe("buildDocument vocal overlay composition", () => {
         lastName: "Player",
         gender: "m",
         group: "bass",
-        presets: [{ kind: "preset", ref: "el_bass_xlr_pedalboard" }, { kind: "monitor", ref: "iem_stereo_wireless" }],
+        presets: [{ kind: "preset", ref: "el_bass_xlr_pedalboard" }, { kind: "preset", ref: "vocal_wired" }, { kind: "monitor", ref: "iem_stereo_wireless" }],
       },
       "drm-1": {
         id: "drm-1",
@@ -379,7 +386,7 @@ describe("buildDocument vocal overlay composition", () => {
         lastName: "Player",
         gender: "m",
         group: "drums",
-        presets: [{ kind: "preset", ref: "drums_basic" }, { kind: "monitor", ref: "iem_stereo_wireless" }],
+        presets: [{ kind: "preset", ref: "drums_basic" }, { kind: "preset", ref: "vocal_wired" }, { kind: "monitor", ref: "iem_stereo_wireless" }],
       },
       "voc-m": {
         id: "voc-m",
@@ -454,12 +461,13 @@ describe("buildDocument vocal overlay composition", () => {
         inputs: [{ key: "voc_lead", label: "Lead vocal", group: "vocs" }],
       },
       vocal_back_no_mic: {
-        type: "vocal_type",
+        type: "preset",
         id: "vocal_back_no_mic",
         label: "Back vocal no mic",
         group: "vocs",
-        input: { key: "voc_back_{ownerKey}", label: "Back vocal ({ownerLabel})" },
+        inputs: [{ key: "voc_cap_back_no_mic", label: "Back vocal capability", group: "vocs" }],
       },
+      vocal_wired: { type: "preset", id: "vocal_wired", label: "Wired vocal", group: "vocs", inputs: [{ key: "voc_cap_wired", label: "Wired vocal", group: "vocs" }] },
       talkback: {
         type: "talkback_type",
         id: "talkback",
@@ -520,8 +528,8 @@ describe("buildDocument vocal overlay composition", () => {
       "gtr-1": { id: "gtr-1", firstName: "Gtr", lastName: "One", gender: "m", group: "guitar", presets: [{ kind: "preset", ref: "el_guitar" }, { kind: "monitor", ref: "iem_stereo_wireless" }] },
       "bass-1": { id: "bass-1", firstName: "Bass", lastName: "One", gender: "m", group: "bass", presets: [{ kind: "preset", ref: "el_bass_xlr_pedalboard" }, { kind: "monitor", ref: "iem_stereo_wireless" }] },
       "drm-1": { id: "drm-1", firstName: "Dr", lastName: "One", gender: "m", group: "drums", presets: [{ kind: "preset", ref: "drums_basic" }, { kind: "monitor", ref: "iem_stereo_wireless" }] },
-      "voc-1": { id: "voc-1", firstName: "Eliska", lastName: "Singer", gender: "f", group: "vocs", presets: [{ kind: "vocal", ref: "vocal_wireless", ownerKey: "vocs", ownerLabel: "vocs" }, { kind: "monitor", ref: "wedge" }] },
-      "voc-2": { id: "voc-2", firstName: "Lukas", lastName: "Singer", gender: "m", group: "vocs", presets: [{ kind: "vocal", ref: "vocal_wired", ownerKey: "vocs", ownerLabel: "vocs" }, { kind: "monitor", ref: "wedge" }] },
+      "voc-1": { id: "voc-1", firstName: "Eliska", lastName: "Singer", gender: "f", group: "vocs", presets: [{ kind: "preset", ref: "vocal_wireless" }, { kind: "monitor", ref: "wedge" }] },
+      "voc-2": { id: "voc-2", firstName: "Lukas", lastName: "Singer", gender: "m", group: "vocs", presets: [{ kind: "preset", ref: "vocal_wired" }, { kind: "monitor", ref: "wedge" }] },
     };
 
     const project: Project = {
@@ -542,8 +550,8 @@ describe("buildDocument vocal overlay composition", () => {
       drums_basic: { type: "preset", id: "drums_basic", label: "Drums", group: "drums", inputs: [{ key: "dr_kick_in", label: "Kick IN", group: "drums" }] },
       el_bass_xlr_pedalboard: { type: "preset", id: "el_bass_xlr_pedalboard", label: "Bass", group: "bass", inputs: [{ key: "el_bass_xlr_pedalboard", label: "Bass", group: "bass" }] },
       el_guitar: { type: "preset", id: "el_guitar", label: "Guitar", group: "guitar", inputs: [{ key: "el_guitar", label: "Guitar", group: "guitar" }] },
-      vocal_wireless: { type: "vocal_type", id: "vocal_wireless", label: "Wireless vocal", group: "vocs", input: { key: "voc_lead_{ownerKey}", label: "Lead vocal" } },
-      vocal_wired: { type: "vocal_type", id: "vocal_wired", label: "Wired vocal", group: "vocs", input: { key: "voc_lead_{ownerKey}", label: "Lead vocal" } },
+      vocal_wireless: { type: "preset", id: "vocal_wireless", label: "Wireless vocal", group: "vocs", inputs: [{ key: "voc_cap_wireless", label: "Wireless vocal", group: "vocs" }] },
+      vocal_wired: { type: "preset", id: "vocal_wired", label: "Wired vocal", group: "vocs", inputs: [{ key: "voc_cap_wired", label: "Wired vocal", group: "vocs" }] },
       talkback: { type: "talkback_type", id: "talkback", label: "Talkback", group: "talkback", input: { key: "tb_{ownerKey}", label: "Talkback - {ownerLabel}" } },
       wedge: { type: "monitor", id: "wedge", label: "Wedge monitor" },
       iem_stereo_wireless: { type: "monitor", id: "iem_stereo_wireless", label: "IEM STEREO wireless" },
@@ -579,8 +587,8 @@ describe("buildDocument vocal overlay composition", () => {
       "gtr-1": { id: "gtr-1", firstName: "Gtr", lastName: "One", gender: "m", group: "guitar", presets: [{ kind: "preset", ref: "el_guitar" }, { kind: "monitor", ref: "iem_stereo_wireless" }] },
       "bass-1": { id: "bass-1", firstName: "Bass", lastName: "One", gender: "m", group: "bass", presets: [{ kind: "preset", ref: "el_bass_xlr_pedalboard" }, { kind: "monitor", ref: "iem_stereo_wireless" }] },
       "drm-1": { id: "drm-1", firstName: "Dr", lastName: "One", gender: "m", group: "drums", presets: [{ kind: "preset", ref: "drums_basic" }, { kind: "monitor", ref: "iem_stereo_wireless" }] },
-      "voc-1": { id: "voc-1", firstName: "Eliska", lastName: "Singer", gender: "f", group: "vocs", presets: [{ kind: "vocal", ref: "vocal_wireless", ownerKey: "vocs", ownerLabel: "vocs" }, { kind: "monitor", ref: "wedge" }] },
-      "voc-2": { id: "voc-2", firstName: "Lukas", lastName: "Singer", gender: "m", group: "vocs", presets: [{ kind: "vocal", ref: "vocal_wired", ownerKey: "vocs", ownerLabel: "vocs" }, { kind: "monitor", ref: "wedge" }] },
+      "voc-1": { id: "voc-1", firstName: "Eliska", lastName: "Singer", gender: "f", group: "vocs", presets: [{ kind: "preset", ref: "vocal_wireless" }, { kind: "monitor", ref: "wedge" }] },
+      "voc-2": { id: "voc-2", firstName: "Lukas", lastName: "Singer", gender: "m", group: "vocs", presets: [{ kind: "preset", ref: "vocal_wired" }, { kind: "monitor", ref: "wedge" }] },
     };
     const project: Project = {
       id: "project-cardinality",
@@ -599,8 +607,8 @@ describe("buildDocument vocal overlay composition", () => {
       drums_basic: { type: "preset", id: "drums_basic", label: "Drums", group: "drums", inputs: [{ key: "dr_kick_in", label: "Kick IN", group: "drums" }] },
       el_bass_xlr_pedalboard: { type: "preset", id: "el_bass_xlr_pedalboard", label: "Bass", group: "bass", inputs: [{ key: "el_bass_xlr_pedalboard", label: "Bass", group: "bass" }] },
       el_guitar: { type: "preset", id: "el_guitar", label: "Guitar", group: "guitar", inputs: [{ key: "el_guitar", label: "Guitar", group: "guitar" }] },
-      vocal_wireless: { type: "vocal_type", id: "vocal_wireless", label: "Wireless vocal", group: "vocs", input: { key: "voc_lead_{ownerKey}", label: "Lead vocal" } },
-      vocal_wired: { type: "vocal_type", id: "vocal_wired", label: "Wired vocal", group: "vocs", input: { key: "voc_lead_{ownerKey}", label: "Lead vocal" } },
+      vocal_wireless: { type: "preset", id: "vocal_wireless", label: "Wireless vocal", group: "vocs", inputs: [{ key: "voc_cap_wireless", label: "Wireless vocal", group: "vocs" }] },
+      vocal_wired: { type: "preset", id: "vocal_wired", label: "Wired vocal", group: "vocs", inputs: [{ key: "voc_cap_wired", label: "Wired vocal", group: "vocs" }] },
       talkback: { type: "talkback_type", id: "talkback", label: "Talkback", group: "talkback", input: { key: "tb_{ownerKey}", label: "Talkback - {ownerLabel}" } },
       wedge: { type: "monitor", id: "wedge", label: "Wedge monitor" },
       iem_stereo_wireless: { type: "monitor", id: "iem_stereo_wireless", label: "IEM STEREO wireless" },
