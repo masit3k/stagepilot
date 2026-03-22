@@ -17,7 +17,7 @@ function presetRef(item: PresetItem): string | undefined {
 }
 
 function isBackVocalRef(ref: string): boolean {
-  return ref.startsWith("vocal_back_") || ref === "vocal_no_mic" || ref === "vocal_wired" || ref === "vocal_wireless";
+  return ref.startsWith("vocal_back_");
 }
 
 function isLeadVocalRef(ref: string): boolean {

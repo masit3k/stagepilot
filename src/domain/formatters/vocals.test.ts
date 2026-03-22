@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { formatVocalLabel } from "./vocals.js";
 
 describe("formatVocalLabel", () => {
-  it("keeps numbering for lead vocals", () => {
-    expect(formatVocalLabel({ role: "lead", index: 1, gender: "f", roleCount: 1 })).toBe("Lead vocal 1 (female)");
+  it("renders single lead without numbering", () => {
+    expect(formatVocalLabel({ role: "lead", index: 1, gender: "f", roleCount: 1 })).toBe("Lead vocal");
   });
 
   it("includes numbering and gender for multiple leads", () => {
@@ -14,18 +14,11 @@ describe("formatVocalLabel", () => {
     expect(formatVocalLabel({ role: "lead", index: 2, gender: "x", roleCount: 2 })).toBe("Lead vocal 2");
   });
 
-  it("formats back vocals with separate role text", () => {
-    expect(formatVocalLabel({ role: "back", index: 2, gender: "m", roleCount: 2 })).toBe("Back vocal 2 (male)");
+  it("renders single back vocal without numbering", () => {
+    expect(formatVocalLabel({ role: "back", index: 1, gender: "m", roleCount: 1 })).toBe("Back vocal (male)");
   });
 
-  it("formats multi-lead label with parentheses and lowercase gender", () => {
-    expect(
-      formatVocalLabel({
-        role: "lead",
-        index: 1,
-        gender: "m",
-        roleCount: 2,
-        }),
-    ).toBe("Lead vocal 1 (male)");
+  it("formats multi-back label with numbering", () => {
+    expect(formatVocalLabel({ role: "back", index: 2, gender: "m", roleCount: 2 })).toBe("Back vocal 2 (male)");
   });
 });

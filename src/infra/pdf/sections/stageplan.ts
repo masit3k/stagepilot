@@ -227,8 +227,17 @@ function resolveMonitorInstrument(output: string): StageplanInstrument | null {
   return null;
 }
 
-function resolveLeadVocalSlotLabel(label: string): "lead_voc_1" | "lead_voc_2" {
-  const normalized = label.toLowerCase();
+function resolveLeadVocalSlotLabel(args: {
+  label: string;
+  ownerMusicianId?: string;
+  leadSlotByMusicianId: Map<string, "lead_voc_1" | "lead_voc_2">;
+}): "lead_voc_1" | "lead_voc_2" {
+  const byMusician = args.ownerMusicianId
+    ? args.leadSlotByMusicianId.get(args.ownerMusicianId)
+    : undefined;
+  if (byMusician) return byMusician;
+
+  const normalized = args.label.toLowerCase();
   if (/\b2\b/.test(normalized)) return "lead_voc_2";
   return "lead_voc_1";
 }
@@ -284,12 +293,21 @@ function buildStageplanBoxes(
     inputBySlot.set(slot, []);
     monitorBySlot.set(slot, []);
   }
+  const leadSlotByMusicianId = new Map<string, "lead_voc_1" | "lead_voc_2">();
+  const leads = vm.leadVocals ?? [];
+  if (leads[0]?.musicianId) leadSlotByMusicianId.set(leads[0].musicianId, "lead_voc_1");
+  if (leads[1]?.musicianId) leadSlotByMusicianId.set(leads[1].musicianId, "lead_voc_2");
+
 
   for (const input of vm.inputs) {
     const instrument = resolveStageplanRoleForInput(input);
     if (!instrument) continue;
     if (instrument === "Lead vocal") {
-      const slot = resolveLeadVocalSlotLabel(input.label);
+      const slot = resolveLeadVocalSlotLabel({
+        label: input.label,
+        ownerMusicianId: input.ownerMusicianId,
+        leadSlotByMusicianId,
+      });
       inputBySlot.get(slot)?.push({ channelNo: input.channelNo, label: input.label, group: input.group });
       continue;
     }
@@ -309,7 +327,11 @@ function buildStageplanBoxes(
     if (!instrument) continue;
     const bullets = formatMonitorBullets(output.note, output.no);
     if (instrument === "Lead vocal") {
-      const slot = resolveLeadVocalSlotLabel(output.output);
+      const slot = resolveLeadVocalSlotLabel({
+        label: output.output,
+        ownerMusicianId: output.ownerMusicianId,
+        leadSlotByMusicianId,
+      });
       for (const bullet of bullets) monitorBySlot.get(slot)?.push({ no: output.no, label: bullet });
       continue;
     }

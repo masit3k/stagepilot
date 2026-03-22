@@ -159,13 +159,11 @@ describe("buildDocument vocal overlay composition", () => {
     const stageplanPersonCount =
       ["drums", "bass", "guitar", "keys"]
         .map((role) => vm.stageplan.lineupByRole[role as "drums" | "bass" | "guitar" | "keys"])
-        .filter(Boolean).length + vm.stageplan.leadVocals.length;
+        .filter(Boolean).length + (vm.stageplan.leadVocals?.length ?? 0);
     expect(stageplanPersonCount).toBe(4);
 
     expect(vm.inputs.some((input) => input.label === "Lead vocal 1 (bass)")).toBe(true);
     expect(vm.inputs.some((input) => input.label === "Lead vocal 2 (female)")).toBe(true);
-    expect(vm.inputs.some((input) => input.label === "Back vocal 1 (guitar)")).toBe(true);
-    expect(vm.inputs.some((input) => input.label === "Back vocal 2 (female)")).toBe(true);
     expect(vm.inputs.some((input) => input.label === "Talkback (bass)")).toBe(true);
     expect(vm.inputs.some((input) => input.label === "Talkback - bass")).toBe(false);
   });
@@ -331,7 +329,7 @@ describe("buildDocument vocal overlay composition", () => {
     const stageplanPersonCount =
       ["drums", "bass", "guitar", "keys"]
         .map((role) => vm.stageplan.lineupByRole[role as "drums" | "bass" | "guitar" | "keys"])
-        .filter(Boolean).length + vm.stageplan.leadVocals.length;
+        .filter(Boolean).length + (vm.stageplan.leadVocals?.length ?? 0);
     expect(stageplanPersonCount).toBe(6);
   });
 
@@ -477,7 +475,6 @@ describe("buildDocument vocal overlay composition", () => {
     const labels = vm.inputRows.map((row) => row.label);
     const vocals = labels.filter((label) => label.includes("vocal"));
     expect(vocals).toEqual([
-      "Back vocal 1 (guitar)",
       "Lead vocal 1 (male)",
       "Lead vocal 2 (female)",
       "Lead vocal 3 (bass)",
@@ -500,8 +497,122 @@ describe("buildDocument vocal overlay composition", () => {
     const stageplanPersonCount =
       ["drums", "bass", "guitar", "keys"]
         .map((role) => vm.stageplan.lineupByRole[role as "drums" | "bass" | "guitar" | "keys"])
-        .filter(Boolean).length + vm.stageplan.leadVocals.length;
+        .filter(Boolean).length + (vm.stageplan.leadVocals?.length ?? 0);
     expect(stageplanPersonCount).toBe(6);
     expect(vm.stageplan.monitorOutputs).toHaveLength(6);
   });
+
+  it("binds lead vocal capability and stageplan inputs by musicianId when overlay order differs", () => {
+    const band: Band = {
+      id: "band-musician-binding",
+      name: "Band",
+      bandLeader: "voc-1",
+      defaultLineup: {
+        guitar: ["gtr-1"],
+        bass: ["bass-1"],
+        drums: ["drm-1"],
+        vocs: ["voc-1", "voc-2"],
+      },
+      defaultVocals: { lead: [], back: [] },
+    };
+
+    const musicians: Record<string, Musician> = {
+      "gtr-1": { id: "gtr-1", firstName: "Gtr", lastName: "One", gender: "m", group: "guitar", presets: [{ kind: "preset", ref: "el_guitar" }, { kind: "monitor", ref: "iem_stereo_wireless" }] },
+      "bass-1": { id: "bass-1", firstName: "Bass", lastName: "One", gender: "m", group: "bass", presets: [{ kind: "preset", ref: "el_bass_xlr_pedalboard" }, { kind: "monitor", ref: "iem_stereo_wireless" }] },
+      "drm-1": { id: "drm-1", firstName: "Dr", lastName: "One", gender: "m", group: "drums", presets: [{ kind: "preset", ref: "drums_basic" }, { kind: "monitor", ref: "iem_stereo_wireless" }] },
+      "voc-1": { id: "voc-1", firstName: "Eliska", lastName: "Singer", gender: "f", group: "vocs", presets: [{ kind: "vocal", ref: "vocal_wireless", ownerKey: "vocs", ownerLabel: "vocs" }, { kind: "monitor", ref: "wedge" }] },
+      "voc-2": { id: "voc-2", firstName: "Lukas", lastName: "Singer", gender: "m", group: "vocs", presets: [{ kind: "vocal", ref: "vocal_wired", ownerKey: "vocs", ownerLabel: "vocs" }, { kind: "monitor", ref: "wedge" }] },
+    };
+
+    const project: Project = {
+      id: "project-musician-binding",
+      bandRef: "band-musician-binding",
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: band.defaultLineup,
+      overlays: {
+        leadVocals: [
+          { slot: 1, musicianId: "voc-2" },
+          { slot: 2, musicianId: "voc-1" },
+        ],
+      },
+    };
+
+    const presets: Record<string, PresetEntity> = {
+      drums_basic: { type: "preset", id: "drums_basic", label: "Drums", group: "drums", inputs: [{ key: "dr_kick_in", label: "Kick IN", group: "drums" }] },
+      el_bass_xlr_pedalboard: { type: "preset", id: "el_bass_xlr_pedalboard", label: "Bass", group: "bass", inputs: [{ key: "el_bass_xlr_pedalboard", label: "Bass", group: "bass" }] },
+      el_guitar: { type: "preset", id: "el_guitar", label: "Guitar", group: "guitar", inputs: [{ key: "el_guitar", label: "Guitar", group: "guitar" }] },
+      vocal_wireless: { type: "vocal_type", id: "vocal_wireless", label: "Wireless vocal", group: "vocs", input: { key: "voc_lead_{ownerKey}", label: "Lead vocal" } },
+      vocal_wired: { type: "vocal_type", id: "vocal_wired", label: "Wired vocal", group: "vocs", input: { key: "voc_lead_{ownerKey}", label: "Lead vocal" } },
+      talkback: { type: "talkback_type", id: "talkback", label: "Talkback", group: "talkback", input: { key: "tb_{ownerKey}", label: "Talkback - {ownerLabel}" } },
+      wedge: { type: "monitor", id: "wedge", label: "Wedge monitor" },
+      iem_stereo_wireless: { type: "monitor", id: "iem_stereo_wireless", label: "IEM STEREO wireless" },
+    };
+
+    const vm = buildDocument(project, createRepo({ band, musicians, presets, project }));
+    const vocalInputs = vm.stageplan.inputs.filter((input) => input.label.startsWith("Lead vocal"));
+
+    expect(vocalInputs).toHaveLength(2);
+    expect(vocalInputs.some((input) => input.ownerMusicianId === "voc-2" && input.label === "Lead vocal 1 (male)")).toBe(true);
+    expect(vocalInputs.some((input) => input.ownerMusicianId === "voc-1" && input.label === "Lead vocal 2 (female)")).toBe(true);
+
+    const monitorOutputs = vm.stageplan.monitorOutputs.filter((output) => output.output.startsWith("Lead vocal"));
+    expect(monitorOutputs).toHaveLength(2);
+    expect(monitorOutputs.some((output) => output.ownerMusicianId === "voc-2" && output.output === "Lead vocal 1 (male)")).toBe(true);
+    expect(monitorOutputs.some((output) => output.ownerMusicianId === "voc-1" && output.output === "Lead vocal 2 (female)")).toBe(true);
+  });
+
+  it("keeps stageplan and monitor cardinality lineup-based after vocalist slot remapping", () => {
+    const band: Band = {
+      id: "band-cardinality",
+      name: "Band",
+      bandLeader: "voc-1",
+      defaultLineup: {
+        guitar: ["gtr-1"],
+        bass: ["bass-1"],
+        drums: ["drm-1"],
+        vocs: ["voc-1", "voc-2"],
+      },
+      defaultVocals: { lead: [], back: [] },
+    };
+    const musicians: Record<string, Musician> = {
+      "gtr-1": { id: "gtr-1", firstName: "Gtr", lastName: "One", gender: "m", group: "guitar", presets: [{ kind: "preset", ref: "el_guitar" }, { kind: "monitor", ref: "iem_stereo_wireless" }] },
+      "bass-1": { id: "bass-1", firstName: "Bass", lastName: "One", gender: "m", group: "bass", presets: [{ kind: "preset", ref: "el_bass_xlr_pedalboard" }, { kind: "monitor", ref: "iem_stereo_wireless" }] },
+      "drm-1": { id: "drm-1", firstName: "Dr", lastName: "One", gender: "m", group: "drums", presets: [{ kind: "preset", ref: "drums_basic" }, { kind: "monitor", ref: "iem_stereo_wireless" }] },
+      "voc-1": { id: "voc-1", firstName: "Eliska", lastName: "Singer", gender: "f", group: "vocs", presets: [{ kind: "vocal", ref: "vocal_wireless", ownerKey: "vocs", ownerLabel: "vocs" }, { kind: "monitor", ref: "wedge" }] },
+      "voc-2": { id: "voc-2", firstName: "Lukas", lastName: "Singer", gender: "m", group: "vocs", presets: [{ kind: "vocal", ref: "vocal_wired", ownerKey: "vocs", ownerLabel: "vocs" }, { kind: "monitor", ref: "wedge" }] },
+    };
+    const project: Project = {
+      id: "project-cardinality",
+      bandRef: "band-cardinality",
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: band.defaultLineup,
+      overlays: {
+        leadVocals: [
+          { slot: 2, musicianId: "voc-1" },
+          { slot: 1, musicianId: "voc-2" },
+        ],
+      },
+    };
+    const presets: Record<string, PresetEntity> = {
+      drums_basic: { type: "preset", id: "drums_basic", label: "Drums", group: "drums", inputs: [{ key: "dr_kick_in", label: "Kick IN", group: "drums" }] },
+      el_bass_xlr_pedalboard: { type: "preset", id: "el_bass_xlr_pedalboard", label: "Bass", group: "bass", inputs: [{ key: "el_bass_xlr_pedalboard", label: "Bass", group: "bass" }] },
+      el_guitar: { type: "preset", id: "el_guitar", label: "Guitar", group: "guitar", inputs: [{ key: "el_guitar", label: "Guitar", group: "guitar" }] },
+      vocal_wireless: { type: "vocal_type", id: "vocal_wireless", label: "Wireless vocal", group: "vocs", input: { key: "voc_lead_{ownerKey}", label: "Lead vocal" } },
+      vocal_wired: { type: "vocal_type", id: "vocal_wired", label: "Wired vocal", group: "vocs", input: { key: "voc_lead_{ownerKey}", label: "Lead vocal" } },
+      talkback: { type: "talkback_type", id: "talkback", label: "Talkback", group: "talkback", input: { key: "tb_{ownerKey}", label: "Talkback - {ownerLabel}" } },
+      wedge: { type: "monitor", id: "wedge", label: "Wedge monitor" },
+      iem_stereo_wireless: { type: "monitor", id: "iem_stereo_wireless", label: "IEM STEREO wireless" },
+    };
+
+    const vm = buildDocument(project, createRepo({ band, musicians, presets, project }));
+    const personCount = ["drums", "bass", "guitar", "keys"]
+      .map((role) => vm.stageplan.lineupByRole[role as "drums" | "bass" | "guitar" | "keys"])
+      .filter(Boolean).length + (vm.stageplan.leadVocals?.length ?? 0);
+
+    expect(personCount).toBe(5);
+    expect(vm.stageplan.monitorOutputs).toHaveLength(5);
+  });
+
 });

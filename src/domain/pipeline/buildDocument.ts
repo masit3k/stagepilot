@@ -100,12 +100,13 @@ type DisplayRow = {
   note?: string;
 };
 
-type MonitorTableRow = { no: string; output: string; note: string; ownerRole: Group };
+type MonitorTableRow = { no: string; output: string; note: string; ownerRole: Group; ownerMusicianId: string };
 
 type StageplanSlot = "drums" | "bass" | "guitar" | "keys" | "lead_voc_1" | "lead_voc_2";
 
 function toStageplanPerson(musician: Musician, bandLeaderId: string): StageplanPerson {
   return {
+    musicianId: musician.id,
     firstName: musician.firstName ?? null,
     isBandLeader: musician.id === bandLeaderId,
   };
@@ -169,9 +170,9 @@ function resolvePdfMonitorOwners(args: {
 
 function orderPdfMonitorOwners(args: {
   owners: Array<{ group: Group; musician: Musician }>;
-  leadVocsIndexByMusicianId: Map<string, number>;
+  leadVocsSlotByMusicianId: Map<string, number>;
 }): Array<{ group: Group; musician: Musician }> {
-  const { owners, leadVocsIndexByMusicianId } = args;
+  const { owners, leadVocsSlotByMusicianId } = args;
   const orderRank: Record<Group, number> = {
     guitar: 1,
     vocs: 2,
@@ -188,8 +189,8 @@ function orderPdfMonitorOwners(args: {
       if (groupRankDiff !== 0) return groupRankDiff;
 
       if (a.owner.group === "vocs" && b.owner.group === "vocs") {
-        const aLeadIndex = leadVocsIndexByMusicianId.get(a.owner.musician.id);
-        const bLeadIndex = leadVocsIndexByMusicianId.get(b.owner.musician.id);
+        const aLeadIndex = leadVocsSlotByMusicianId.get(a.owner.musician.id);
+        const bLeadIndex = leadVocsSlotByMusicianId.get(b.owner.musician.id);
         if (typeof aLeadIndex === "number" && typeof bLeadIndex === "number") {
           if (aLeadIndex !== bLeadIndex) return aLeadIndex - bLeadIndex;
         } else if (typeof aLeadIndex === "number") {
@@ -659,21 +660,21 @@ export function buildDocument(
 
   const leadResolved = resolveOverlaySlots({ ctx, role: "leadVocals" });
   const backResolved = resolveOverlaySlots({ ctx, role: "backVocals" });
-  const leadVocsIndexByMusicianId = new Map(
+  const leadVocsSlotByMusicianId = new Map(
     leadResolved.map(({ musician, slot }) => [musician.id, slot]),
   );
-  const backVocsIndexByMusicianId = new Map(
+  const backVocsSlotByMusicianId = new Map(
     backResolved.map(({ musician, slot }) => [musician.id, slot]),
   );
   const leadVocsCount = leadResolved.length;
-  const leadVocsGenderByIndex: Array<string | undefined> = [];
+  const leadVocsGenderBySlot: Array<string | undefined> = [];
   for (const { musician, slot } of leadResolved) {
-    leadVocsGenderByIndex[slot - 1] = musician.gender;
+    leadVocsGenderBySlot[slot - 1] = musician.gender;
   }
   const backVocsCount = backResolved.length;
-  const backVocsGenderByIndex: Array<string | undefined> = [];
+  const backVocsGenderBySlot: Array<string | undefined> = [];
   for (const { musician, slot } of backResolved) {
-    backVocsGenderByIndex[slot - 1] = musician.gender;
+    backVocsGenderBySlot[slot - 1] = musician.gender;
   }
 
   const monitorOwners = resolvePdfMonitorOwners({
@@ -682,7 +683,7 @@ export function buildDocument(
   });
   const orderedMonitorOwners = orderPdfMonitorOwners({
     owners: monitorOwners,
-    leadVocsIndexByMusicianId,
+    leadVocsSlotByMusicianId,
   });
   const pushRow = (owner: { group: Group; musician: Musician }, output: string) => {
     monitorTableRows.push({
@@ -690,6 +691,7 @@ export function buildDocument(
       output,
       note: firstMonitorLabel(owner.musician),
       ownerRole: owner.group,
+      ownerMusicianId: owner.musician.id,
     });
   };
   for (const owner of orderedMonitorOwners) {
@@ -700,11 +702,11 @@ export function buildDocument(
         ownerMusicianId: owner.musician.id,
         fallbackLabel: owner.musician.group === "vocs" ? "Lead vocal" : owner.musician.group,
         leadVocsCount,
-        leadVocsIndexByMusicianId,
-        genderByLeadVocsIndex: leadVocsGenderByIndex,
+        leadVocsIndexByMusicianId: leadVocsSlotByMusicianId,
+        genderByLeadVocsIndex: leadVocsGenderBySlot,
         backVocsCount,
-        backVocsIndexByMusicianId,
-        genderByBackVocsIndex: backVocsGenderByIndex,
+        backVocsIndexByMusicianId: backVocsSlotByMusicianId,
+        genderByBackVocsIndex: backVocsGenderBySlot,
       }),
     );
   }
@@ -754,8 +756,8 @@ export function buildDocument(
           ownerRole: input.ownerRole,
           ownerMusicianId: input.ownerMusicianId,
           backVocsCount,
-          backVocsIndexByMusicianId,
-          genderByBackVocsIndex: backVocsGenderByIndex,
+          backVocsSlotByMusicianId,
+          genderByBackVocsSlot: backVocsGenderBySlot,
           fallbackLabel: input.label,
         }),
       };
@@ -768,8 +770,8 @@ export function buildDocument(
           ownerMusicianId: input.ownerMusicianId,
           fallbackLabel: input.label,
           leadVocsCount,
-          leadVocsIndexByMusicianId,
-          genderByLeadVocsIndex: leadVocsGenderByIndex,
+          leadVocsSlotByMusicianId,
+          genderByLeadVocsSlot: leadVocsGenderBySlot,
         }),
       };
     }
@@ -783,11 +785,11 @@ export function buildDocument(
     .filter((input) => isVocalInput(input))
     .sort((a, b) => {
       const aSlot = isLeadVocalInput(a)
-        ? leadVocsIndexByMusicianId.get(a.ownerMusicianId ?? "")
-        : backVocsIndexByMusicianId.get(a.ownerMusicianId ?? "");
+        ? leadVocsSlotByMusicianId.get(a.ownerMusicianId ?? "")
+        : backVocsSlotByMusicianId.get(a.ownerMusicianId ?? "");
       const bSlot = isLeadVocalInput(b)
-        ? leadVocsIndexByMusicianId.get(b.ownerMusicianId ?? "")
-        : backVocsIndexByMusicianId.get(b.ownerMusicianId ?? "");
+        ? leadVocsSlotByMusicianId.get(b.ownerMusicianId ?? "")
+        : backVocsSlotByMusicianId.get(b.ownerMusicianId ?? "");
       const slotDiff = (aSlot ?? 999) - (bSlot ?? 999);
       if (slotDiff !== 0) return slotDiff;
 
@@ -832,6 +834,7 @@ export function buildDocument(
       label: input.label,
       group: input.group,
       ownerRole: input.ownerRole,
+      ownerMusicianId: input.ownerMusicianId,
     }));
 
   // Notes template resolution
@@ -882,6 +885,7 @@ export function buildDocument(
         output: row.output,
         note: row.note,
         ownerRole: row.ownerRole,
+        ownerMusicianId: row.ownerMusicianId,
       })),
       powerByRole,
     },

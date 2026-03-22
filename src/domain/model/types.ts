@@ -21,6 +21,7 @@ export type StageplanInstrument = "Drums" | "Bass" | "Guitar" | "Keys" | "Lead v
 export type StageplanInstrumentKey = "drums" | "bass" | "guitar" | "vocs" | "keys";
 
 export type StageplanPerson = {
+  musicianId?: string;
   firstName: string | null;
   isBandLeader: boolean;
 };
@@ -454,12 +455,14 @@ export interface DocumentViewModel {
       label: string;
       group: Group;
       ownerRole?: Group;
+      ownerMusicianId?: string;
     }>;
     monitorOutputs: Array<{
       no: number;
       output: string;
       note: string;
       ownerRole?: Group;
+      ownerMusicianId?: string;
     }>;
     powerByRole: Partial<
       Record<

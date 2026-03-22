@@ -25,6 +25,9 @@ export function formatVocalLabel({
   const genderSuffix = showGender ? ` (${normalizeGenderLabel(gender)})` : "";
   const safeIndex = Number.isFinite(index) && index > 0 ? index : 1;
 
+  if (role === "lead" && roleCount === 1) return base;
+  if (role === "back" && roleCount === 1) return `${base}${genderSuffix}`;
   if (roleCount <= 0) return `${base} ${safeIndex}${genderSuffix}`;
+
   return `${base} ${safeIndex}${genderSuffix}`;
 }

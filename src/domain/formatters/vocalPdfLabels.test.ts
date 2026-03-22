@@ -2,88 +2,99 @@ import { describe, expect, it } from "vitest";
 import { formatBackVocalPdfLabel, formatLeadVocalPdfLabel } from "./vocalPdfLabels.js";
 
 describe("vocalPdfLabels", () => {
-  it("formats lead vocalist in vocs with deterministic index and gender", () => {
+  it("formats single lead as unnumbered label", () => {
     expect(
       formatLeadVocalPdfLabel({
         ownerRole: "vocs",
         ownerMusicianId: "voc-1",
         leadVocsCount: 1,
-        leadVocsIndexByMusicianId: new Map([["voc-1", 1]]),
-        genderByLeadVocsIndex: ["f"],
+        leadVocsSlotByMusicianId: new Map([["voc-1", 1]]),
+        genderByLeadVocsSlot: ["f"],
         fallbackLabel: "Lead vocal",
       }),
-    ).toBe("Lead vocal 1 (female)");
+    ).toBe("Lead vocal");
   });
 
-  it("formats multiple lead vocalists in vocs with numbering and gender", () => {
+  it("formats multiple lead vocalists in vocs with slot numbering and gender", () => {
     expect(
       formatLeadVocalPdfLabel({
         ownerRole: "vocs",
         ownerMusicianId: "voc-2",
         leadVocsCount: 2,
-        leadVocsIndexByMusicianId: new Map([
+        leadVocsSlotByMusicianId: new Map([
           ["voc-1", 1],
           ["voc-2", 2],
         ]),
-        genderByLeadVocsIndex: ["m", "f"],
+        genderByLeadVocsSlot: ["m", "f"],
         fallbackLabel: "Lead vocal",
       }),
     ).toBe("Lead vocal 2 (female)");
   });
 
-  it("formats non-vocs lead vocalist with overlay numbering when assigned", () => {
+  it("formats instrumental lead vocalist with authoritative overlay slot", () => {
     expect(
       formatLeadVocalPdfLabel({
         ownerRole: "keys",
         ownerMusicianId: "keys-1",
-        leadVocsCount: 2,
-        leadVocsIndexByMusicianId: new Map([["voc-1", 1], ["keys-1", 2]]),
-        genderByLeadVocsIndex: ["m", "f"],
+        leadVocsCount: 4,
+        leadVocsSlotByMusicianId: new Map([["voc-1", 1], ["voc-2", 2], ["keys-1", 4]]),
+        genderByLeadVocsSlot: ["m", "f", undefined, "f"],
         fallbackLabel: "Lead vocal",
       }),
-    ).toBe("Lead vocal 2 (keys)");
+    ).toBe("Lead vocal 4 (keys)");
   });
 
-  it("formats back vocal labels with deterministic index and owner-derived suffix", () => {
+  it("formats single back vocal for instrumental owner without numbering", () => {
     expect(
       formatBackVocalPdfLabel({
         ownerRole: "guitar",
         ownerMusicianId: "gtr-1",
-        backVocsCount: 2,
-        backVocsIndexByMusicianId: new Map([
-          ["voc-1", 1],
-          ["gtr-1", 2],
-        ]),
-        genderByBackVocsIndex: ["f", "m"],
+        backVocsCount: 1,
+        backVocsSlotByMusicianId: new Map([["gtr-1", 1]]),
+        genderByBackVocsSlot: ["m"],
         fallbackLabel: "Back vocal",
       }),
-    ).toBe("Back vocal 2 (guitar)");
+    ).toBe("Back vocal (guitar)");
   });
 
-  it("formats back vocalist in vocs with index and gender", () => {
-    expect(
-      formatBackVocalPdfLabel({
-        ownerRole: "vocs",
-        ownerMusicianId: "voc-2",
-        backVocsCount: 2,
-        backVocsIndexByMusicianId: new Map([
-          ["voc-1", 1],
-          ["voc-2", 2],
-        ]),
-        genderByBackVocsIndex: ["m", "f"],
-        fallbackLabel: "Back vocal",
-      }),
-    ).toBe("Back vocal 2 (female)");
-  });
-
-  it("keeps fallback when overlay index is unresolved", () => {
+  it("formats single back vocal in vocs with gender", () => {
     expect(
       formatBackVocalPdfLabel({
         ownerRole: "vocs",
         ownerMusicianId: "voc-2",
         backVocsCount: 1,
-        backVocsIndexByMusicianId: new Map([["voc-1", 1]]),
-        genderByBackVocsIndex: ["f"],
+        backVocsSlotByMusicianId: new Map([["voc-2", 1]]),
+        genderByBackVocsSlot: ["f"],
+        fallbackLabel: "Back vocal",
+      }),
+    ).toBe("Back vocal (female)");
+  });
+
+  it("formats multiple back vocals with overlay-slot numbering", () => {
+    expect(
+      formatBackVocalPdfLabel({
+        ownerRole: "drums",
+        ownerMusicianId: "drm-1",
+        backVocsCount: 3,
+        backVocsSlotByMusicianId: new Map([
+          ["voc-1", 1],
+          ["gtr-1", 2],
+          ["drm-1", 3],
+        ]),
+        genderByBackVocsSlot: ["f", "m", "m"],
+        fallbackLabel: "Back vocal",
+      }),
+    ).toBe("Back vocal 3 (drums)");
+  });
+
+  it("keeps fallback when overlay slot is unresolved", () => {
+    expect(
+      formatBackVocalPdfLabel({
+        ownerRole: "vocs",
+        ownerMusicianId: "voc-2",
+        backVocsCount: 1,
+        backVocsSlotByMusicianId: new Map([["voc-1", 1]]),
+        genderByBackVocsSlot: ["f"],
         fallbackLabel: "Back vocal",
       }),
     ).toBe("Back vocal");
