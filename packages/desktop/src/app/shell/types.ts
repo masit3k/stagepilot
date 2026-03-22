@@ -61,17 +61,29 @@ export type BandSetupData = {
   id: string;
   name: string;
   bandLeader?: string | null;
+  bandLeaderId?: string | null;
+  defaultTalkbackOwnerId?: string | null;
   defaultContactId?: string | null;
   defaultLineup?: LineupMap | null;
   defaultOverlays?: {
-    leadVocals?: string[] | null;
-    backVocals?: string[] | null;
+    leadVocals?:
+      | Array<{ slot: number; musicianId: string }>
+      | string[]
+      | null;
+    backVocals?:
+      | Array<{ slot: number; musicianId: string }>
+      | string[]
+      | null;
   } | null;
   members: Record<string, MemberOption[]>;
   musicianDefaults?: Record<string, Partial<MusicianSetupPreset>>;
   musicianPresetsById?: Record<string, PresetItem[]>;
   loadWarnings?: string[];
   presetCatalog?: Record<string, Preset>;
+  defaultVocals?: {
+    lead?: string[] | null;
+    back?: string[] | null;
+  } | null;
 };
 
 export type NewProjectPayload = {

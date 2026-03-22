@@ -33,7 +33,7 @@ export type LineupSlot = {
 };
 
 export type OverlaySlot = {
-  slot: number;
+  slot?: number;
   musicianId: string;
 };
 
@@ -153,8 +153,8 @@ export type DefaultLineup = Partial<Record<Group, string[]>>;
 
 /** Canonical explicit vocal assignments overlaying default lineup membership. */
 export type DefaultOverlays = {
-  leadVocals?: string[];
-  backVocals?: string[];
+  leadVocals?: OverlaySlot[];
+  backVocals?: OverlaySlot[];
   lead?: string[];
   back?: string[];
 };
@@ -174,9 +174,10 @@ export interface Band {
   /** Výchozí overlay role nad default lineup membership. */
   defaultOverlays?: DefaultOverlays;
   /** @deprecated legacy read-compat only */
-  defaultVocals?: DefaultOverlays;
+  defaultVocals?: DefaultOverlays | { lead?: string[]; back?: string[] };
   /** @deprecated canonical alias */
   bandLeaderId?: string;
+  defaultTalkbackOwnerId?: string;
 
   defaultContactId?: string;
 

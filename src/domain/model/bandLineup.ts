@@ -1,5 +1,5 @@
 import { GROUP_ORDER, type Group } from "./groups.js";
-import type { Band, DefaultLineup, DefaultOverlays } from "./types.js";
+import type { Band, DefaultLineup, DefaultOverlays, OverlaySlot } from "./types.js";
 
 export function getLineupGroupMemberIds(lineup: DefaultLineup, group: Group): string[] {
   return [...(lineup[group] ?? [])];
@@ -58,18 +58,45 @@ export function validateDefaultLineup(lineup: DefaultLineup): void {
   }
 }
 
+function normalizeOverlaySlots(value: unknown, path: string): OverlaySlot[] {
+  if (!Array.isArray(value)) throw new Error(`${path} must be an array.`);
+  return value.map((entry, index) => {
+    if (typeof entry === "string") {
+      const musicianId = entry.trim();
+      if (!musicianId) throw new Error(`${path}[${index}] must be a non-empty musician id string.`);
+      return { slot: index + 1, musicianId };
+    }
+    if (!entry || typeof entry !== "object") {
+      throw new Error(`${path}[${index}] must be a slot object or musician id string.`);
+    }
+    const slot = (entry as { slot?: unknown }).slot;
+    const musicianId = (entry as { musicianId?: unknown }).musicianId;
+    if (!Number.isInteger(slot) || Number(slot) <= 0) {
+      throw new Error(`${path}[${index}].slot must be a positive integer.`);
+    }
+    if (typeof musicianId !== "string" || musicianId.trim().length === 0) {
+      throw new Error(`${path}[${index}].musicianId must be a non-empty musician id string.`);
+    }
+    return { slot: Number(slot), musicianId: musicianId.trim() };
+  });
+}
+
 export function validateDefaultVocals(args: {
   lineup: DefaultLineup;
   vocals: DefaultOverlays;
 }): void {
   const lineupIds = new Set(getAllLineupMemberIds(args.lineup));
-  const leadVocals = args.vocals.leadVocals ?? args.vocals.lead ?? [];
-  const backVocals = args.vocals.backVocals ?? args.vocals.back ?? [];
-  assertStringArray(leadVocals, "defaultOverlays.leadVocals");
-  assertStringArray(backVocals, "defaultOverlays.backVocals");
+  const leadVocals = normalizeOverlaySlots(
+    args.vocals.leadVocals ?? args.vocals.lead ?? [],
+    "defaultOverlays.leadVocals",
+  );
+  const backVocals = normalizeOverlaySlots(
+    args.vocals.backVocals ?? args.vocals.back ?? [],
+    "defaultOverlays.backVocals",
+  );
 
   const leadSet = new Set<string>();
-  for (const musicianId of leadVocals) {
+  for (const { musicianId } of leadVocals) {
     if (leadSet.has(musicianId)) {
       throw new Error(`defaultOverlays.leadVocals contains duplicate musician '${musicianId}'.`);
     }
@@ -80,7 +107,7 @@ export function validateDefaultVocals(args: {
   }
 
   const backSet = new Set<string>();
-  for (const musicianId of backVocals) {
+  for (const { musicianId } of backVocals) {
     if (backSet.has(musicianId)) {
       throw new Error(`defaultOverlays.backVocals contains duplicate musician '${musicianId}'.`);
     }
@@ -92,6 +119,30 @@ export function validateDefaultVocals(args: {
       throw new Error(`defaultOverlays.backVocals contains '${musicianId}' not present in defaultLineup.`);
     }
   }
+}
+
+export function normalizeBandToCanonicalShape(band: Band): Band {
+  const defaultOverlays = (band.defaultOverlays ?? band.defaultVocals ?? {}) as DefaultOverlays;
+  const leadVocals = normalizeOverlaySlots(
+    defaultOverlays.leadVocals ?? defaultOverlays.lead ?? [],
+    "defaultOverlays.leadVocals",
+  );
+  const backVocals = normalizeOverlaySlots(
+    defaultOverlays.backVocals ?? defaultOverlays.back ?? [],
+    "defaultOverlays.backVocals",
+  );
+  const primaryBandLeader =
+    typeof band.bandLeader === "string" ? band.bandLeader.trim() : "";
+  const fallbackBandLeader =
+    typeof band.bandLeaderId === "string" ? band.bandLeaderId.trim() : "";
+  const bandLeader = primaryBandLeader || fallbackBandLeader;
+  return {
+    ...band,
+    bandLeader,
+    bandLeaderId: bandLeader,
+    defaultTalkbackOwnerId: (band.defaultTalkbackOwnerId ?? bandLeader).trim(),
+    defaultOverlays: { leadVocals, backVocals },
+  };
 }
 
 export function validateCanonicalBandModel(band: Band): void {

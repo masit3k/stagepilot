@@ -21,10 +21,9 @@ import {
 } from "../shell/setupDirty";
 import type { BandSetupData, NewProjectPayload } from "../shell/types";
 import { toPersistableProject } from "../shell/types";
-import { buildCanonicalOverlaysFromDefaults } from "../shell/canonicalProject";
+import { buildCanonicalProjectBaseFromBandDefaults } from "../shell/canonicalProject";
 import { EventDateInput } from "./components/EventDateInput";
 import type { NewProjectPageProps } from "./shared/pageTypes";
-import { resolvePersistedTalkbackOwnerId } from "./shared/talkbackPersistence";
 
 export function NewEventProjectPage({
   navigate,
@@ -122,52 +121,7 @@ export function NewEventProjectPage({
       const displayName = formatProjectDisplayName(namingSource, selectedBand);
       const id = targetId ?? editingProjectId ?? generateUuidV7();
       const nowIso = new Date().toISOString();
-      let defaultLineup = existingProject?.lineup;
-      let defaultBandLeaderId = existingProject?.bandLeaderId;
-      let defaultOverlays = existingProject?.overlays;
-      if (!editingProjectId) {
-        try {
-          const setupDefaults = await invoke<BandSetupData>(
-            "get_band_setup_data",
-            {
-              bandId: selectedBand.id,
-            },
-          );
-          defaultLineup = { ...(setupDefaults.defaultLineup ?? {}) };
-          if (!Object.keys(defaultLineup).length) {
-            console.error(
-              "Band default lineup is empty during event project creation",
-              {
-                bandRef: selectedBand.id,
-              },
-            );
-          }
-          defaultBandLeaderId = setupDefaults.bandLeader ?? "";
-          const resolvedTalkbackOwnerId = resolvePersistedTalkbackOwnerId({
-            existingTalkbackOwnerId: existingProject?.talkbackOwnerId,
-            defaultBandLeaderId,
-          });
-          defaultOverlays = buildCanonicalOverlaysFromDefaults({
-            setupDefaults,
-            lineup: defaultLineup,
-            roleOrder: ["drums", "bass", "guitar", "keys", "vocs"],
-            talkbackOwnerId: resolvedTalkbackOwnerId,
-          });
-        } catch (error) {
-          console.error("Failed to load setup defaults for new event project", {
-            bandRef: selectedBand.id,
-            error,
-          });
-          defaultLineup = {};
-          defaultBandLeaderId = "";
-          defaultOverlays = undefined;
-        }
-      }
-      const resolvedTalkbackOwnerId = resolvePersistedTalkbackOwnerId({
-        existingTalkbackOwnerId: existingProject?.talkbackOwnerId,
-        defaultBandLeaderId,
-      });
-      const payload: NewProjectPayload = {
+      let payload: NewProjectPayload = {
         id,
         slug,
         displayName,
@@ -180,11 +134,50 @@ export function NewEventProjectPage({
         documentDate: todayIso,
         createdAt: existingProject?.createdAt ?? nowIso,
         updatedAt: nowIso,
-        lineup: defaultLineup,
-        overlays: defaultOverlays,
-        bandLeaderId: defaultBandLeaderId || undefined,
-        talkbackOwnerId: resolvedTalkbackOwnerId,
+        lineup: existingProject?.lineup,
+        overlays: existingProject?.overlays,
+        bandLeaderId: existingProject?.bandLeaderId,
+        talkbackOwnerId: existingProject?.talkbackOwnerId ?? "",
       };
+      if (!editingProjectId) {
+        try {
+          const setupDefaults = await invoke<BandSetupData>(
+            "get_band_setup_data",
+            {
+              bandId: selectedBand.id,
+            },
+          );
+          if (!Object.keys(setupDefaults.defaultLineup ?? {}).length) {
+            console.error(
+              "Band default lineup is empty during event project creation",
+              {
+                bandRef: selectedBand.id,
+              },
+            );
+          }
+          payload = buildCanonicalProjectBaseFromBandDefaults({
+            project: payload,
+            setupDefaults,
+            roleOrder: ["drums", "bass", "guitar", "keys", "vocs"],
+            existingTalkbackOwnerId: existingProject?.talkbackOwnerId,
+          });
+        } catch (error) {
+          console.error("Failed to load setup defaults for new event project", {
+            bandRef: selectedBand.id,
+            error,
+          });
+          payload = {
+            ...payload,
+            lineup: {},
+            bandLeaderId: undefined,
+            talkbackOwnerId: "",
+            overlays: {
+              leadVocals: [],
+              backVocals: [],
+            },
+          };
+        }
+      }
       await projectsApi.saveProject({
         projectId: id,
         json: JSON.stringify(toPersistableProject(payload), null, 2),

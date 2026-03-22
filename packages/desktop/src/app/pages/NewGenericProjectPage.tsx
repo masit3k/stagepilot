@@ -2,7 +2,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { generateUuidV7 } from "../../../../../src/domain/projectNaming";
 import {
-  type LineupMap,
   formatProjectDisplayName,
   formatProjectSlug,
 } from "../../projectRules";
@@ -16,9 +15,8 @@ import {
 } from "../shell/setupDirty";
 import type { BandSetupData, NewProjectPayload } from "../shell/types";
 import { toPersistableProject } from "../shell/types";
-import { buildCanonicalOverlaysFromDefaults } from "../shell/canonicalProject";
+import { buildCanonicalProjectBaseFromBandDefaults } from "../shell/canonicalProject";
 import type { NewProjectPageProps } from "./shared/pageTypes";
-import { resolvePersistedTalkbackOwnerId } from "./shared/talkbackPersistence";
 
 export function NewGenericProjectPage({
   navigate,
@@ -101,54 +99,7 @@ export function NewGenericProjectPage({
       if (!selectedBand) return;
       const id = targetId ?? editingProjectId ?? generateUuidV7();
       const nowIso = new Date().toISOString();
-      let defaultLineup: LineupMap | undefined = existingProject?.lineup;
-      let defaultBandLeaderId = existingProject?.bandLeaderId ?? "";
-      let defaultOverlays = existingProject?.overlays;
-      if (!editingProjectId) {
-        try {
-          const setupDefaults = await invoke<BandSetupData>(
-            "get_band_setup_data",
-            {
-              bandId: selectedBand.id,
-            },
-          );
-          defaultLineup = { ...(setupDefaults.defaultLineup ?? {}) };
-          if (!Object.keys(defaultLineup).length) {
-            console.error(
-              "Band default lineup is empty during generic project creation",
-              {
-                bandRef: selectedBand.id,
-              },
-            );
-          }
-          defaultBandLeaderId = setupDefaults.bandLeader ?? "";
-          const resolvedTalkbackOwnerId = resolvePersistedTalkbackOwnerId({
-            existingTalkbackOwnerId: existingProject?.talkbackOwnerId,
-            defaultBandLeaderId,
-          });
-          defaultOverlays = buildCanonicalOverlaysFromDefaults({
-            setupDefaults,
-            lineup: defaultLineup,
-            roleOrder: ["drums", "bass", "guitar", "keys", "vocs"],
-            talkbackOwnerId: resolvedTalkbackOwnerId,
-          });
-        } catch (error) {
-          console.error(
-            "Failed to load setup defaults for new generic project",
-            {
-              bandRef: selectedBand.id,
-              error,
-            },
-          );
-          defaultLineup = {};
-          defaultOverlays = undefined;
-        }
-      }
-      const resolvedTalkbackOwnerId = resolvePersistedTalkbackOwnerId({
-        existingTalkbackOwnerId: existingProject?.talkbackOwnerId,
-        defaultBandLeaderId,
-      });
-      const payload: NewProjectPayload = {
+      let payload: NewProjectPayload = {
         id,
         slug: formatProjectSlug(
           { purpose: "generic", documentDate: `${validityYear}-01-01`, note },
@@ -166,11 +117,53 @@ export function NewGenericProjectPage({
         ...(note.trim() ? { note: note.trim() } : {}),
         createdAt: existingProject?.createdAt ?? nowIso,
         updatedAt: nowIso,
-        lineup: defaultLineup,
-        overlays: defaultOverlays,
-        bandLeaderId: defaultBandLeaderId || undefined,
-        talkbackOwnerId: resolvedTalkbackOwnerId,
+        lineup: existingProject?.lineup,
+        overlays: existingProject?.overlays,
+        bandLeaderId: existingProject?.bandLeaderId,
+        talkbackOwnerId: existingProject?.talkbackOwnerId ?? "",
       };
+      if (!editingProjectId) {
+        try {
+          const setupDefaults = await invoke<BandSetupData>(
+            "get_band_setup_data",
+            {
+              bandId: selectedBand.id,
+            },
+          );
+          if (!Object.keys(setupDefaults.defaultLineup ?? {}).length) {
+            console.error(
+              "Band default lineup is empty during generic project creation",
+              {
+                bandRef: selectedBand.id,
+              },
+            );
+          }
+          payload = buildCanonicalProjectBaseFromBandDefaults({
+            project: payload,
+            setupDefaults,
+            roleOrder: ["drums", "bass", "guitar", "keys", "vocs"],
+            existingTalkbackOwnerId: existingProject?.talkbackOwnerId,
+          });
+        } catch (error) {
+          console.error(
+            "Failed to load setup defaults for new generic project",
+            {
+              bandRef: selectedBand.id,
+              error,
+            },
+          );
+          payload = {
+            ...payload,
+            lineup: {},
+            bandLeaderId: undefined,
+            talkbackOwnerId: "",
+            overlays: {
+              leadVocals: [],
+              backVocals: [],
+            },
+          };
+        }
+      }
       await projectsApi.saveProject({
         projectId: id,
         json: JSON.stringify(toPersistableProject(payload), null, 2),

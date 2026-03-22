@@ -29,6 +29,16 @@ describe("resolvePersistedTalkbackOwnerId", () => {
     ).toBe("leader-1");
   });
 
+  it("prefers default talkback owner from band template before band leader fallback", () => {
+    expect(
+      resolvePersistedTalkbackOwnerId({
+        existingTalkbackOwnerId: undefined,
+        defaultTalkbackOwnerId: "talkback-1",
+        defaultBandLeaderId: "leader-1",
+      }),
+    ).toBe("talkback-1");
+  });
+
   it("returns explicit empty value when no explicit override or band leader exists", () => {
     expect(
       resolvePersistedTalkbackOwnerId({

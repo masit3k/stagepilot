@@ -2,7 +2,7 @@ import path from "node:path";
 import type { Band, Group, Musician, NotesTemplate, PresetEntity, Project } from "../../domain/model/types.js";
 import { resolvePresetIdAlias } from "../../domain/model/presetAliases.js";
 import { parsePersistedDrumDefinition } from "../../domain/drums/drumDefinition.js";
-import { validateCanonicalBandModel } from "../../domain/model/bandLineup.js";
+import { normalizeBandToCanonicalShape, validateCanonicalBandModel } from "../../domain/model/bandLineup.js";
 import { loadJsonFile } from "../fs/loadJson.js";
 import { listJsonFiles } from "../fs/loadTree.js";
 import { getAllGroupPresetsDir, getMonitorPresetsDir } from "../fs/assetsPaths.js";
@@ -89,18 +89,8 @@ async function loadMusiciansMap(absDir: string): Promise<Map<string, Musician>> 
 async function loadBandsMap(absDir: string): Promise<Map<string, Band>> {
   const map = await loadMap<Band>(absDir);
   for (const [id, band] of map.entries()) {
-    const bandWithCompat = band as Band & {
-      defaultOverlays?: unknown;
-      defaultVocals?: unknown;
-      bandLeaderId?: unknown;
-    };
-    if (!bandWithCompat.bandLeader && typeof bandWithCompat.bandLeaderId === "string") {
-      bandWithCompat.bandLeader = bandWithCompat.bandLeaderId;
-    }
-    if (!bandWithCompat.defaultOverlays && bandWithCompat.defaultVocals) {
-      bandWithCompat.defaultOverlays = bandWithCompat.defaultVocals;
-    }
-    if (!band.defaultLineup || typeof band.defaultLineup !== "object") {
+    const bandWithCompat = normalizeBandToCanonicalShape(band);
+    if (!bandWithCompat.defaultLineup || typeof bandWithCompat.defaultLineup !== "object") {
       throw new Error(`Band '${id}' must define defaultLineup as an object.`);
     }
     if (!bandWithCompat.defaultOverlays || typeof bandWithCompat.defaultOverlays !== "object") {

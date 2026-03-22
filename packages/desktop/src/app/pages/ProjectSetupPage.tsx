@@ -120,6 +120,17 @@ function normalizeOverlayIds(value: unknown): string[] {
     .filter((musicianId) => musicianId.length > 0);
 }
 
+function extractOverlayMusicianIds(
+  value: Array<string | { musicianId: string }> | null | undefined,
+): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) =>
+      typeof entry === "string" ? entry.trim() : entry.musicianId.trim(),
+    )
+    .filter((musicianId) => musicianId.length > 0);
+}
+
 export function ProjectSetupPage({
   id,
   navigate,
@@ -442,17 +453,12 @@ export function ProjectSetupPage({
         presets: (data.musicianPresetsById?.[musicianId] ?? []) as PresetItem[],
       }));
       const initialLeadVocalIdsFromPreset = getLeadVocsFromTemplate(initialMusicians);
-      const defaultLeadVocalIdsFromBand = Array.isArray(
+      const defaultLeadVocalIdsFromBand = extractOverlayMusicianIds(
         data.defaultOverlays?.leadVocals,
       )
-        ? data.defaultOverlays.leadVocals.filter((idValue) =>
-            initialTemplateMusicians.includes(idValue),
-          )
-        : Array.isArray(data.defaultVocals?.lead)
-          ? data.defaultVocals.lead.filter((idValue) =>
-              initialTemplateMusicians.includes(idValue),
-            )
-          : [];
+        .concat(extractOverlayMusicianIds(data.defaultVocals?.lead))
+        .filter((idValue, index, arr) => arr.indexOf(idValue) === index)
+        .filter((idValue) => initialTemplateMusicians.includes(idValue));
       const effectiveInitialLeadVocalIds = parsedHasLeadVocalOverride
         ? persistedLeadVocalistIds.filter((idValue) =>
             initialTemplateMusicians.includes(idValue),
@@ -461,11 +467,15 @@ export function ProjectSetupPage({
             ? defaultLeadVocalIdsFromBand
             : Array.from(initialLeadVocalIdsFromPreset)
           );
-      const defaultBackVocalSource = Array.isArray(data.defaultOverlays?.backVocals)
-        ? new Set(data.defaultOverlays.backVocals)
-        : Array.isArray(data.defaultVocals?.back)
-          ? new Set(data.defaultVocals.back)
-          : getBackVocsFromTemplate(initialMusicians);
+      const defaultBackOverlayIds = extractOverlayMusicianIds(
+        data.defaultOverlays?.backVocals,
+      );
+      const defaultBackVocalSource =
+        defaultBackOverlayIds.length > 0
+          ? new Set(defaultBackOverlayIds)
+          : Array.isArray(data.defaultVocals?.back)
+            ? new Set(data.defaultVocals.back)
+            : getBackVocsFromTemplate(initialMusicians);
       const effectiveBackVocalIds = parsedHasBackVocalOverride
         ? persistedBackVocalIds
         : Array.from(
@@ -566,13 +576,17 @@ export function ProjectSetupPage({
     : bandLeaderId;
   const defaultLeadVocalistIds = useMemo(
     () =>
-      Array.from(
-        Array.isArray(setupData?.defaultOverlays?.leadVocals)
-          ? new Set(setupData.defaultOverlays.leadVocals)
-          : Array.isArray(setupData?.defaultVocals?.lead)
-            ? new Set(setupData.defaultVocals.lead)
-          : getLeadVocsFromTemplate(selectedTemplateMusicians),
-      )
+      Array.from(new Set(extractOverlayMusicianIds(setupData?.defaultOverlays?.leadVocals)))
+        .concat(setupData?.defaultVocals?.lead ?? [])
+        .filter((idValue, index, arr) => arr.indexOf(idValue) === index)
+        .concat(
+          Array.from(
+            setupData?.defaultOverlays?.leadVocals ||
+              setupData?.defaultVocals?.lead
+              ? []
+              : getLeadVocsFromTemplate(selectedTemplateMusicians),
+          ),
+        )
         .filter((idValue) => templateMusicianIds.has(idValue)),
     [
       selectedTemplateMusicians,
@@ -597,13 +611,16 @@ export function ProjectSetupPage({
   );
   const defaultBackVocalIds = useMemo(
     () =>
-      Array.from(
-        Array.isArray(setupData?.defaultOverlays?.backVocals)
-          ? new Set(setupData.defaultOverlays.backVocals)
-          : Array.isArray(setupData?.defaultVocals?.back)
-            ? new Set(setupData.defaultVocals.back)
-          : getBackVocsFromTemplate(selectedTemplateMusicians),
-      )
+      Array.from(new Set(extractOverlayMusicianIds(setupData?.defaultOverlays?.backVocals)))
+        .concat(setupData?.defaultVocals?.back ?? [])
+        .filter((idValue, index, arr) => arr.indexOf(idValue) === index)
+        .concat(
+          Array.from(
+            setupData?.defaultOverlays?.backVocals || setupData?.defaultVocals?.back
+              ? []
+              : getBackVocsFromTemplate(selectedTemplateMusicians),
+          ),
+        )
         .filter((idValue) => templateMusicianIds.has(idValue)),
     [
       selectedTemplateMusicians,
@@ -705,18 +722,27 @@ export function ProjectSetupPage({
       presets: (setupData.musicianPresetsById?.[musicianId] ??
         []) as PresetItem[],
     }));
-    const leadIds = Array.isArray(setupData.defaultOverlays?.leadVocals)
-      ? new Set(setupData.defaultOverlays.leadVocals)
-      : Array.isArray(setupData.defaultVocals?.lead)
-        ? new Set(setupData.defaultVocals.lead)
-        : getLeadVocsFromTemplate(musicians);
+    const leadOverlayIds = extractOverlayMusicianIds(
+      setupData.defaultOverlays?.leadVocals,
+    );
+    const leadIds =
+      leadOverlayIds.length > 0
+        ? new Set(leadOverlayIds)
+        : Array.isArray(setupData.defaultVocals?.lead)
+          ? new Set(setupData.defaultVocals.lead)
+          : getLeadVocsFromTemplate(musicians);
     return Array.from(
       sanitizeBackVocsSelection(
-        Array.isArray(setupData.defaultOverlays?.backVocals)
-          ? new Set(setupData.defaultOverlays.backVocals)
-          : Array.isArray(setupData.defaultVocals?.back)
-            ? new Set(setupData.defaultVocals.back)
-          : getBackVocsFromTemplate(musicians),
+        (() => {
+          const backOverlayIds = extractOverlayMusicianIds(
+            setupData.defaultOverlays?.backVocals,
+          );
+          if (backOverlayIds.length > 0) return new Set(backOverlayIds);
+          if (Array.isArray(setupData.defaultVocals?.back)) {
+            return new Set(setupData.defaultVocals.back);
+          }
+          return getBackVocsFromTemplate(musicians);
+        })(),
         leadIds,
       ),
     );

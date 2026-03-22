@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getAllLineupMemberIds,
   getLineupMembersByGroup,
+  normalizeBandToCanonicalShape,
   validateCanonicalBandModel,
 } from "./bandLineup";
 import type { Band } from "./types";
@@ -19,9 +20,9 @@ function createBand(overrides?: Partial<Band>): Band {
       keys: ["k-1"],
       vocs: ["v-1"],
     },
-    defaultVocals: {
-      lead: ["v-1"],
-      back: ["k-1"],
+    defaultOverlays: {
+      leadVocals: [{ slot: 1, musicianId: "v-1" }],
+      backVocals: [{ slot: 1, musicianId: "k-1" }],
     },
     ...overrides,
   };
@@ -43,10 +44,10 @@ describe("band lineup canonical model", () => {
 
   it("fails when vocalist assignment points outside lineup", () => {
     const invalid = createBand({
-      defaultVocals: { lead: ["missing-id"], back: [] },
+      defaultOverlays: { leadVocals: [{ slot: 1, musicianId: "missing-id" }], backVocals: [] },
     });
     expect(() => validateCanonicalBandModel(invalid)).toThrow(
-      "defaultVocals.lead contains 'missing-id' not present in defaultLineup.",
+      "defaultOverlays.leadVocals contains 'missing-id' not present in defaultLineup.",
     );
   });
 
@@ -56,7 +57,7 @@ describe("band lineup canonical model", () => {
         drums: ["shared-id"],
         bass: ["shared-id"],
       },
-      defaultVocals: { lead: ["shared-id"], back: [] },
+      defaultOverlays: { leadVocals: [{ slot: 1, musicianId: "shared-id" }], backVocals: [] },
     });
     expect(() => validateCanonicalBandModel(invalid)).toThrow(
       "assigned to multiple lineup groups",
@@ -65,11 +66,36 @@ describe("band lineup canonical model", () => {
 
   it("fails when one musician appears in both lead and back vocals", () => {
     const invalid = createBand({
-      defaultVocals: { lead: ["v-1"], back: ["v-1"] },
+      defaultOverlays: {
+        leadVocals: [{ slot: 1, musicianId: "v-1" }],
+        backVocals: [{ slot: 1, musicianId: "v-1" }],
+      },
     });
     expect(() => validateCanonicalBandModel(invalid)).toThrow(
       "cannot be in both",
     );
+  });
+
+  it("normalizes legacy string overlay arrays and talkback fallback", () => {
+    const normalized = normalizeBandToCanonicalShape(
+      createBand({
+        bandLeader: "",
+        bandLeaderId: "dr-1",
+        defaultTalkbackOwnerId: undefined,
+        defaultOverlays: undefined,
+        defaultVocals: {
+          lead: ["v-1"],
+          back: ["k-1"],
+        },
+      }),
+    );
+
+    expect(normalized.defaultOverlays).toEqual({
+      leadVocals: [{ slot: 1, musicianId: "v-1" }],
+      backVocals: [{ slot: 1, musicianId: "k-1" }],
+    });
+    expect(normalized.bandLeader).toBe("dr-1");
+    expect(normalized.defaultTalkbackOwnerId).toBe("dr-1");
   });
 });
 
@@ -96,4 +122,3 @@ describe("getAllLineupMemberIds", () => {
     expect(grouped.vocs).toEqual([]);
   });
 });
-
