@@ -214,12 +214,6 @@ export type PresetItem =
       setup: DrumDefinition;
     }
   | {
-      kind: "vocal";
-      ref: string;
-      ownerKey: string;
-      ownerLabel?: string;
-    }
-  | {
       kind: "talkback";
       ref: string;
       ownerKey: string;
@@ -292,19 +286,6 @@ export type PowerRequirement = {
   sockets: number;
 };
 
-/** Vocal "typ" – šablona, ze které se generuje jeden input. */
-export interface VocalType {
-  type: "vocal_type";
-  id: string;
-  label: string;
-  group: Group; // typicky "vocs"
-  input: {
-    key: string; // např. "voc_{vocalKey}"
-    label: string; // "{vocalLabel}"
-    note?: string; // "{vocalNote}"
-  };
-}
-
 /** Talkback "typ" – šablona pro talkback input. */
 export interface TalkbackType {
   type: "talkback_type";
@@ -328,7 +309,7 @@ export interface Monitor {
 }
 
 /** Union všech entit v data/assets/presets */
-export type PresetEntity = Preset | VocalType | TalkbackType | Monitor;
+export type PresetEntity = Preset | TalkbackType | Monitor;
 
 /* ============================================================
  * Notes (pod tabulkami)

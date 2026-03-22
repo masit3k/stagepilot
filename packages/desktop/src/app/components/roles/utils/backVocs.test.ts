@@ -1,166 +1,61 @@
 import { describe, expect, it } from "vitest";
 import type { Musician, PresetEntity } from "../../../../../../../src/domain/model/types";
-import { applyBackVocsSelection, detectBackVocalPresetKind, filterBackVocalCandidates, getBackVocalCandidatesFromTemplate, getBackVocsFromTemplate, getLeadVocsFromTemplate, getTalkbackOwnersFromTemplate, isBackVocalPreset, resolveDefaultBackVocalRef, sanitizeBackVocsSelection } from "./backVocs";
+import {
+  applyBackVocsSelection,
+  detectBackVocalPresetKind,
+  filterBackVocalCandidates,
+  getBackVocalCandidatesFromTemplate,
+  getBackVocsFromTemplate,
+  getLeadVocsFromTemplate,
+  getTalkbackOwnersFromTemplate,
+  isBackVocalPreset,
+  resolveDefaultBackVocalRef,
+  sanitizeBackVocsSelection,
+} from "./backVocs";
 
 const musicians: Musician[] = [
-  {
-    id: "m1",
-    firstName: "A",
-    lastName: "One",
-    group: "vocs",
-    presets: [{ kind: "vocal", ref: "vocal_back_no_mic", ownerKey: "vocs", ownerLabel: "vocs" }],
-  },
-  {
-    id: "m2",
-    firstName: "B",
-    lastName: "Two",
-    group: "guitar",
-    presets: [{ kind: "vocal", ref: "vocal_back_wired", ownerKey: "guitar", ownerLabel: "guitar" }],
-  },
-  {
-    id: "m3",
-    firstName: "C",
-    lastName: "Three",
-    group: "keys",
-    presets: [{ kind: "monitor", ref: "wedge" }],
-  },
+  { id: "m1", firstName: "A", lastName: "One", group: "vocs", presets: [{ kind: "preset", ref: "vocal_no_mic" }] },
+  { id: "m2", firstName: "B", lastName: "Two", group: "guitar", presets: [{ kind: "preset", ref: "vocal_wired" }] },
+  { id: "m3", firstName: "C", lastName: "Three", group: "bass", presets: [{ kind: "preset", ref: "el_bass_xlr_amp" }] },
 ];
 
 describe("backVocs utils", () => {
-  it("detects back vocal assignments from vocal_back refs", () => {
+  it("detects vocal capability from generic vocal presets", () => {
     expect(Array.from(getBackVocsFromTemplate(musicians)).sort()).toEqual(["m1", "m2"]);
+    expect(Array.from(getLeadVocsFromTemplate(musicians)).sort()).toEqual(["m1", "m2"]);
   });
 
-
-  it("supports vocal and vocal_type back vocal presets", () => {
-    expect(isBackVocalPreset({ kind: "vocal", ref: "vocal_back_no_mic" })).toBe(true);
-    expect(isBackVocalPreset({ kind: "vocal_type", ref: "vocal_back_wired" })).toBe(true);
-    expect(isBackVocalPreset({ kind: "vocal_type", ref: "vocal_lead_no_mic" })).toBe(false);
-  });
-
-
-
-  it("detects lead vocal assignments from vocal_lead refs", () => {
-    const withLead: Musician[] = [
-      ...musicians,
-      {
-        id: "m4",
-        firstName: "D",
-        lastName: "Four",
-        group: "vocs",
-        presets: [{ kind: "vocal", ref: "vocal_lead_no_mic", ownerKey: "vocs", ownerLabel: "vocs" }],
-      },
-    ];
-
-    expect(Array.from(getLeadVocsFromTemplate(withLead))).toEqual(["m4"]);
-  });
-
-
-  it("detects lead vocal assignments from preset refs", () => {
-    const withLeadPreset: Musician[] = [
-      ...musicians,
-      {
-        id: "m5",
-        firstName: "E",
-        lastName: "Five",
-        group: "vocs",
-        presets: [{ kind: "preset", ref: "vocal_lead_wireless" }],
-      },
-    ];
-
-    expect(Array.from(getLeadVocsFromTemplate(withLeadPreset))).toContain("m5");
-  });
-
-  
-  it("detects talkback assignments from musician presets", () => {
+  it("detects talkback owners", () => {
     const withTalkback: Musician[] = [
       ...musicians,
-      {
-        id: "m5",
-        firstName: "E",
-        lastName: "Five",
-        group: "keys",
-        presets: [{ kind: "talkback", ref: "talkback", ownerKey: "keys", ownerLabel: "Keys" }],
-      },
+      { id: "m4", firstName: "D", lastName: "Four", group: "keys", presets: [{ kind: "talkback", ref: "talkback", ownerKey: "keys", ownerLabel: "Keys" }] },
     ];
-
-    expect(Array.from(getTalkbackOwnersFromTemplate(withTalkback))).toContain("m5");
+    expect(Array.from(getTalkbackOwnersFromTemplate(withTalkback))).toContain("m4");
   });
-it("excludes lead vocalists from back vocal candidates", () => {
-    const withLead: Musician[] = [
-      {
-        id: "m1",
-        firstName: "A",
-        lastName: "One",
-        group: "vocs",
-        presets: [{ kind: "vocal", ref: "vocal_lead_no_mic", ownerKey: "vocs", ownerLabel: "vocs" }],
-      },
-      {
-        id: "m2",
-        firstName: "B",
-        lastName: "Two",
-        group: "vocs",
-        presets: [{ kind: "vocal", ref: "vocal_back_no_mic", ownerKey: "vocs", ownerLabel: "vocs" }],
-      },
+
+  it("filters candidates and selections", () => {
+    expect(filterBackVocalCandidates({ lineupCandidates: [{ id: "m1" }, { id: "m2" }], selectedLeadVocalistIds: ["m1"] })).toEqual(["m2"]);
+    expect(Array.from(sanitizeBackVocsSelection(new Set(["m1", "m2"]), new Set(["m2"])))).toEqual(["m1"]);
+  });
+
+  it("applies back vocal selection using generic preset refs", () => {
+    const updated = applyBackVocsSelection(musicians, new Set(["m3"]), "vocal_no_mic");
+    const m3 = updated.find((m) => m.id === "m3");
+    expect(m3?.presets.some((preset) => preset.kind === "preset" && preset.ref === "vocal_no_mic")).toBe(true);
+  });
+
+  it("resolves deterministic default ref", () => {
+    const registry: PresetEntity[] = [
+      { type: "preset", id: "vocal_wired", label: "Wired", group: "vocs", inputs: [{ key: "voc_input", label: "Vocal" }] },
+      { type: "preset", id: "vocal_no_mic", label: "No mic", group: "vocs", inputs: [{ key: "voc_input", label: "Vocal" }] },
     ];
-
-    expect(getBackVocalCandidatesFromTemplate(withLead).map((musician) => musician.id)).toEqual(["m2"]);
+    expect(resolveDefaultBackVocalRef(registry)).toBe("vocal_no_mic");
   });
 
-  it("sanitizes selected ids by removing lead vocal ids", () => {
-    const selected = new Set(["m1", "m2", "m3"]);
-    const lead = new Set(["m2"]);
-
-    expect(Array.from(sanitizeBackVocsSelection(selected, lead)).sort()).toEqual(["m1", "m3"]);
-  });
-  it("filters out selected lead vocalists from lineup candidates", () => {
-    expect(
-      filterBackVocalCandidates({
-        lineupCandidates: [{ id: "m1" }, { id: "m2" }, { id: "m3" }],
-        selectedLeadVocalistIds: ["m2", "m4"],
-      }),
-    ).toEqual(["m1", "m3"]);
-  });
-  it("adds default ref for newly selected and preserves existing refs", () => {
-    const updated = applyBackVocsSelection(musicians, new Set(["m2", "m3"]), "vocal_back_no_mic");
-    const m2 = updated.find((item) => item.id === "m2");
-    const m3 = updated.find((item) => item.id === "m3");
-    expect(m2?.presets.find((preset) => preset.kind === "vocal" && preset.ref.startsWith("vocal_back_"))).toEqual({ kind: "vocal", ref: "vocal_back_wired", ownerKey: "guitar", ownerLabel: "guitar" });
-    expect(m3?.presets.some((preset) => preset.kind === "vocal" && preset.ref === "vocal_back_no_mic")).toBe(true);
-  });
-
-  it("removes all vocal_back refs for deselected musicians", () => {
-    const updated = applyBackVocsSelection(musicians, new Set(["m3"]), "vocal_back_no_mic");
-    const m1 = updated.find((item) => item.id === "m1");
-    const m2 = updated.find((item) => item.id === "m2");
-    expect(m1?.presets.some((preset) => preset.kind === "vocal" && preset.ref.startsWith("vocal_back_"))).toBe(false);
-    expect(m2?.presets.some((preset) => preset.kind === "vocal" && preset.ref.startsWith("vocal_back_"))).toBe(false);
-  });
-
-
-
-  it("detects preset kind from existing back vocal presets", () => {
-    const withVocalType = [
-      ...musicians,
-      {
-        id: "m4",
-        firstName: "D",
-        lastName: "Four",
-        group: "vocs",
-        presets: [{ kind: "vocal_type", ref: "vocal_back_no_mic" }],
-      } as unknown as Musician,
-    ];
-
-    expect(detectBackVocalPresetKind(musicians)).toBe("vocal");
-    expect(detectBackVocalPresetKind(withVocalType)).toBe("vocal_type");
-  });
-
-  it("prefers vocal_back_no_mic as deterministic default", () => {
-    const registry = [
-      { type: "vocal_type", id: "vocal_back_wired", label: "Back vocal (wired)", group: "vocs", input: { key: "voc_back_{ownerKey}", label: "Back vocal – {ownerLabel}" } },
-      { type: "vocal_type", id: "vocal_back_no_mic", label: "Back vocal (no mic)", group: "vocs", input: { key: "voc_back_{ownerKey}", label: "Back vocal – {ownerLabel}" } },
-    ] as PresetEntity[];
-
-    expect(resolveDefaultBackVocalRef(registry)).toBe("vocal_back_no_mic");
+  it("marks back vocal preset shape", () => {
+    expect(isBackVocalPreset({ kind: "preset", ref: "vocal_wireless" })).toBe(true);
+    expect(isBackVocalPreset({ kind: "preset", ref: "el_bass_xlr_amp" })).toBe(false);
+    expect(detectBackVocalPresetKind(musicians)).toBe("preset");
+    expect(getBackVocalCandidatesFromTemplate(musicians).map((m) => m.id)).toEqual(["m3"]);
   });
 });

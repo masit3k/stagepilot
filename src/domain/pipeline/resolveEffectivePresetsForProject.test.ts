@@ -13,25 +13,13 @@ const band: Band = {
 
 const repo = {
   getPreset: (id: string): PresetEntity => {
-    if (id === "vocal_back_no_mic") {
-      return {
-        type: "vocal_type",
-        id,
-        label: "Back vocal no mic",
-        group: "vocs",
-        input: {
-          key: "voc_back_{ownerKey}",
-          label: "Back vocal - {ownerLabel}",
-        },
-      };
-    }
-    if (id === "vocal_lead_no_mic") {
+    if (id === "vocal_no_mic") {
       return {
         type: "preset",
         id,
-        label: "Lead vocal no mic",
+        label: "Vocal no mic",
         group: "vocs",
-        inputs: [{ key: "voc_lead", label: "Lead vocal", group: "vocs" }],
+        inputs: [{ key: "voc_input", label: "Vocal", group: "vocs" }],
       };
     }
     throw new Error(`Unexpected preset lookup: ${id}`);
@@ -88,7 +76,7 @@ describe("resolveEffectivePresetsForProject", () => {
       firstName: "Lead",
       lastName: "Singer",
       group: "vocs",
-      presets: [{ kind: "preset", ref: "vocal_lead" }],
+      presets: [{ kind: "preset", ref: "vocal_no_mic" }],
     };
     const project: Project = {
       id: "p-2",
@@ -107,45 +95,16 @@ describe("resolveEffectivePresetsForProject", () => {
       repo: repo as never,
     });
 
-    expect(items.some((item) => item.kind === "talkback")).toBe(false);
+    expect(items.some((item) => item.kind === "talkback")).toBe(true);
   });
 
-  it("removes legacy talkback presets from musician defaults", () => {
-    const musician: Musician = {
-      id: "leader-1",
-      firstName: "Lead",
-      lastName: "Singer",
-      group: "vocs",
-      presets: [
-        { kind: "preset", ref: "vocal_lead" },
-        { kind: "talkback", ref: "talkback", ownerKey: "vocs" },
-      ],
-    };
-    const project: Project = {
-      id: "p-1",
-      bandRef: "band-1",
-      purpose: "generic",
-      documentDate: "2026-01-01",
-    };
-
-    const items = resolveEffectivePresetsForProject({
-      project,
-      band,
-      musician,
-      group: "vocs",
-      repo: repo as never,
-    });
-
-    expect(items.filter((item) => item.kind === "talkback")).toHaveLength(1);
-  });
-
-  it("does not rehydrate default back vocals when explicit empty override is present", () => {
+  it("keeps musician vocal capability untouched and does not synthesize role-specific vocal presets", () => {
     const musician: Musician = {
       id: "voc-1",
       firstName: "Back",
       lastName: "Singer",
       group: "vocs",
-      presets: [{ kind: "vocal", ref: "vocal_back_no_mic", ownerKey: "vocs" }],
+      presets: [{ kind: "preset", ref: "vocal_no_mic" }],
     };
     const project: Project = {
       id: "p-3",
@@ -153,163 +112,21 @@ describe("resolveEffectivePresetsForProject", () => {
       purpose: "generic",
       documentDate: "2026-01-01",
       lineup: { vocs: "voc-1" },
-      overlays: { backVocals: [] },
-    };
-
-    const items = resolveEffectivePresetsForProject({
-      project,
-      band,
-      musician,
-      group: "vocs",
-      repo: repo as never,
-    });
-
-    expect(
-      items.some(
-        (item) =>
-          item.kind === "vocal" &&
-          "ref" in item &&
-          item.ref.startsWith("vocal_back_"),
-      ),
-    ).toBe(false);
-  });
-
-  it("does not include musician back vocal defaults when project has no explicit overlays.backVocals", () => {
-    const musician: Musician = {
-      id: "voc-1",
-      firstName: "Back",
-      lastName: "Singer",
-      group: "vocs",
-      presets: [{ kind: "vocal", ref: "vocal_back_no_mic", ownerKey: "vocs" }],
-    };
-    const project: Project = {
-      id: "p-4",
-      bandRef: "band-1",
-      purpose: "generic",
-      documentDate: "2026-01-01",
-      lineup: { vocs: "voc-1" },
-    };
-
-    const items = resolveEffectivePresetsForProject({
-      project,
-      band,
-      musician,
-      group: "vocs",
-      repo: repo as never,
-    });
-
-    expect(
-      items.some(
-        (item) =>
-          item.kind === "vocal" &&
-          "ref" in item &&
-          item.ref.startsWith("vocal_back_"),
-      ),
-    ).toBe(false);
-  });
-
-  it("uses only explicit project overlays.backVocals selection for back vocal presets", () => {
-    const selectedBackSinger: Musician = {
-      id: "voc-1",
-      firstName: "Selected",
-      lastName: "Back",
-      group: "vocs",
-      presets: [{ kind: "vocal", ref: "vocal_back_no_mic", ownerKey: "vocs" }],
-    };
-    const nonSelectedBackSinger: Musician = {
-      id: "voc-2",
-      firstName: "NonSelected",
-      lastName: "Back",
-      group: "vocs",
-      presets: [{ kind: "vocal", ref: "vocal_back_no_mic", ownerKey: "vocs" }],
-    };
-    const project: Project = {
-      id: "p-5",
-      bandRef: "band-1",
-      purpose: "generic",
-      documentDate: "2026-01-01",
-      lineup: { vocs: ["voc-1", "voc-2"] },
-      overlays: { backVocals: [{ slot: 1, musicianId: "voc-1" }] },
-    };
-
-    const selectedItems = resolveEffectivePresetsForProject({
-      project,
-      band,
-      musician: selectedBackSinger,
-      group: "vocs",
-      repo: repo as never,
-    });
-    const nonSelectedItems = resolveEffectivePresetsForProject({
-      project,
-      band,
-      musician: nonSelectedBackSinger,
-      group: "vocs",
-      repo: repo as never,
-    });
-
-    expect(
-      selectedItems.some(
-        (item) =>
-          item.kind === "vocal" &&
-          "ref" in item &&
-          item.ref.startsWith("vocal_back_"),
-      ),
-    ).toBe(true);
-    expect(
-      nonSelectedItems.some(
-        (item) =>
-          item.kind === "vocal" &&
-          "ref" in item &&
-          item.ref.startsWith("vocal_back_"),
-      ),
-    ).toBe(false);
-  });
-
-  it("adds lead vocal capability for every explicit lead overlay owner in active lineup", () => {
-    const bassist: Musician = {
-      id: "bass-1",
-      firstName: "Bass",
-      lastName: "Player",
-      group: "bass",
-      presets: [{ kind: "preset", ref: "el_bass_xlr_pedalboard" }],
-    };
-    const drummer: Musician = {
-      id: "drums-1",
-      firstName: "Drums",
-      lastName: "Player",
-      group: "drums",
-      presets: [{ kind: "preset", ref: "drums_basic" }],
-    };
-    const project: Project = {
-      id: "p-6",
-      bandRef: "band-1",
-      purpose: "generic",
-      documentDate: "2026-01-01",
-      lineup: { bass: ["bass-1"], drums: ["drums-1"] },
       overlays: {
-        leadVocals: [
-          { slot: 1, musicianId: "bass-1" },
-          { slot: 2, musicianId: "drums-1" },
-        ],
+        leadVocals: [{ slot: 1, musicianId: "voc-1" }],
+        backVocals: [{ slot: 1, musicianId: "voc-1" }],
       },
     };
 
-    const bassistItems = resolveEffectivePresetsForProject({
+    const items = resolveEffectivePresetsForProject({
       project,
       band,
-      musician: bassist,
-      group: "bass",
-      repo: repo as never,
-    });
-    const drummerItems = resolveEffectivePresetsForProject({
-      project,
-      band,
-      musician: drummer,
-      group: "drums",
+      musician,
+      group: "vocs",
       repo: repo as never,
     });
 
-    expect(bassistItems.some((item) => item.kind === "preset" && item.ref === "vocal_lead_no_mic")).toBe(true);
-    expect(drummerItems.some((item) => item.kind === "preset" && item.ref === "vocal_lead_no_mic")).toBe(true);
+    expect(items.some((item) => item.kind === "preset" && item.ref === "vocal_no_mic")).toBe(true);
+    expect(items.some((item) => item.kind === "talkback")).toBe(true);
   });
 });

@@ -10,14 +10,14 @@ describe("resolveLineupVocalCandidates", () => {
           firstName: "Vocal",
           lastName: "Only",
           group: "vocs",
-          presets: [{ kind: "preset", ref: "vocal_lead_no_mic" }],
+          presets: [{ kind: "preset", ref: "vocal_no_mic" }],
         },
         {
           id: "keys-1",
           firstName: "Keys",
           lastName: "Player",
           group: "keys",
-          presets: [{ kind: "preset", ref: "vocal_back_wireless" }],
+          presets: [{ kind: "preset", ref: "vocal_wireless" }],
         },
       ],
       lineupMembers: [
@@ -31,7 +31,7 @@ describe("resolveLineupVocalCandidates", () => {
         id: "keys-1",
         name: "Keys Player",
         primaryGroup: "keys",
-        hasLeadVocalPreset: false,
+        hasLeadVocalPreset: true,
         hasBackVocalPreset: true,
       },
       {
@@ -39,7 +39,7 @@ describe("resolveLineupVocalCandidates", () => {
         name: "Vocal Only",
         primaryGroup: "vocs",
         hasLeadVocalPreset: true,
-        hasBackVocalPreset: false,
+        hasBackVocalPreset: true,
       },
     ]);
   });

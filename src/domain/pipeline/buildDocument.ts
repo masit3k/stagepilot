@@ -381,31 +381,6 @@ function expandPresetItem(
       }));
     }
 
-    case "vocal": {
-      const ent: PresetEntity = repo.getPreset(item.ref);
-      if (ent.type !== "vocal_type") {
-        throw new Error(
-          `PresetItem(kind=vocal) ref="${item.ref}" points to type="${ent.type}"`,
-        );
-      }
-
-      return [
-        {
-          key: ent.input.key.replace("{ownerKey}", item.ownerKey),
-          label: ent.input.label
-            .replace("{ownerKey}", item.ownerKey)
-            .replace("{ownerLabel}", item.ownerLabel ?? item.ownerKey),
-          group: ent.group,
-          note: ent.input.note
-            ? ent.input.note
-                .replace("{ownerKey}", item.ownerKey)
-                .replace("{ownerLabel}", item.ownerLabel ?? item.ownerKey)
-            : undefined,
-          ownerRole: lineupGroup,
-        },
-      ];
-    }
-
     case "talkback": {
       const ent: PresetEntity = repo.getPreset(item.ref);
       if (ent.type !== "talkback_type") {

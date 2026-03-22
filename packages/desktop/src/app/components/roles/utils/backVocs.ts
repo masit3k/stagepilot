@@ -2,16 +2,10 @@ import type { Musician, PresetEntity } from "../../../../../../../src/domain/mod
 
 export type MusicianId = Musician["id"];
 
-export function isBackVocalRef(ref: string): boolean {
-  return ref.startsWith("vocal_back_") || ref === "vocal_no_mic" || ref === "vocal_wired" || ref === "vocal_wireless";
-}
-
-function isLeadVocalRef(ref: string): boolean {
-  return ref.startsWith("vocal_lead_");
-}
+const GENERIC_VOCAL_REFS = new Set(["vocal_no_mic", "vocal_wired", "vocal_wireless"]);
 
 function isGenericVocalRef(ref: string): boolean {
-  return ref === "vocal_no_mic" || ref === "vocal_wired" || ref === "vocal_wireless";
+  return GENERIC_VOCAL_REFS.has(ref);
 }
 
 function isTalkbackRef(ref: string): boolean {
@@ -19,7 +13,6 @@ function isTalkbackRef(ref: string): boolean {
 }
 
 type PresetWithRef = { kind: string; ref: string };
-type BackVocalPresetKind = "vocal" | "vocal_type";
 
 function asPresetWithRef(preset: unknown): PresetWithRef | null {
   if (!preset || typeof preset !== "object") return null;
@@ -33,17 +26,21 @@ function asPresetWithRef(preset: unknown): PresetWithRef | null {
 function hasRefMatching(preset: Musician["presets"][number], predicate: (ref: string) => boolean): boolean {
   const withRef = asPresetWithRef(preset);
   if (!withRef) return false;
-  return (withRef.kind === "vocal" || withRef.kind === "vocal_type" || withRef.kind === "preset") && predicate(withRef.ref);
+  return (withRef.kind === "preset" || withRef.kind === "talkback") && predicate(withRef.ref);
+}
+
+export function isBackVocalRef(ref: string): boolean {
+  return isGenericVocalRef(ref);
 }
 
 export function isBackVocalPreset(preset: PresetWithRef): boolean {
-  return (preset.kind === "vocal" || preset.kind === "vocal_type" || preset.kind === "preset") && isBackVocalRef(preset.ref);
+  return preset.kind === "preset" && isBackVocalRef(preset.ref);
 }
 
 export function getBackVocsFromTemplate(musicians: Musician[]): Set<MusicianId> {
   return new Set(
     musicians
-      .filter((musician) => musician.presets.some((preset) => hasRefMatching(preset, (ref) => ref.startsWith("vocal_back_"))))
+      .filter((musician) => musician.presets.some((preset) => hasRefMatching(preset, isGenericVocalRef)))
       .map((musician) => musician.id),
   );
 }
@@ -51,11 +48,10 @@ export function getBackVocsFromTemplate(musicians: Musician[]): Set<MusicianId> 
 export function getLeadVocsFromTemplate(musicians: Musician[]): Set<MusicianId> {
   return new Set(
     musicians
-      .filter((musician) => musician.presets.some((preset) => hasRefMatching(preset, isLeadVocalRef)))
+      .filter((musician) => musician.presets.some((preset) => hasRefMatching(preset, isGenericVocalRef)))
       .map((musician) => musician.id),
   );
 }
-
 
 export function getTalkbackOwnersFromTemplate(musicians: Musician[]): Set<MusicianId> {
   return new Set(
@@ -64,7 +60,7 @@ export function getTalkbackOwnersFromTemplate(musicians: Musician[]): Set<Musici
         musician.presets.some((preset) => {
           const withRef = asPresetWithRef(preset);
           if (!withRef) return false;
-          return withRef.kind === "talkback" || ((withRef.kind === "preset" || withRef.kind === "vocal" || withRef.kind === "vocal_type") && isTalkbackRef(withRef.ref));
+          return withRef.kind === "talkback" || (withRef.kind === "preset" && isTalkbackRef(withRef.ref));
         }),
       )
       .map((musician) => musician.id),
@@ -95,65 +91,45 @@ export function applyBackVocsSelection(
   selectedIds: Set<MusicianId>,
   defaultBackVocalRef: string,
 ): Musician[] {
-  const presetKind = detectBackVocalPresetKind(musicians);
+  if (!isGenericVocalRef(defaultBackVocalRef)) {
+    return musicians;
+  }
 
   return musicians.map((musician) => {
-    const hasBackVocal = musician.presets.some((preset) => hasRefMatching(preset, isBackVocalRef));
+    const hasVocalCapability = musician.presets.some((preset) => hasRefMatching(preset, isGenericVocalRef));
     const shouldBeSelected = selectedIds.has(musician.id);
 
-    if (shouldBeSelected && hasBackVocal) return musician;
-    if (!shouldBeSelected && !hasBackVocal) return musician;
+    if (shouldBeSelected && hasVocalCapability) return musician;
+    if (!shouldBeSelected && !hasVocalCapability) return musician;
 
     if (shouldBeSelected) {
       return {
         ...musician,
         presets: [
           ...musician.presets,
-          createBackVocalPreset(presetKind, defaultBackVocalRef, musician),
+          { kind: "preset", ref: defaultBackVocalRef },
         ],
       };
     }
 
     return {
       ...musician,
-      presets: musician.presets.filter((preset) => !hasRefMatching(preset, (ref) => ref.startsWith("vocal_back_") || isGenericVocalRef(ref))),
+      presets: musician.presets.filter((preset) => !hasRefMatching(preset, isGenericVocalRef)),
     };
   });
 }
 
-export function detectBackVocalPresetKind(musicians: Musician[]): BackVocalPresetKind {
-  const existingKinds = musicians
-    .flatMap((musician) => musician.presets)
-    .map((preset) => asPresetWithRef(preset))
-    .filter((preset): preset is PresetWithRef => Boolean(preset))
-    .filter((preset) => isBackVocalRef(preset.ref))
-    .map((preset) => preset.kind);
-
-  if (existingKinds.includes("vocal_type")) return "vocal_type";
-  if (existingKinds.includes("vocal")) return "vocal";
-  return "vocal_type";
-}
-
-function createBackVocalPreset(kind: BackVocalPresetKind, ref: string, musician: Musician): Musician["presets"][number] {
-  if (kind === "vocal_type") {
-    return { kind, ref } as unknown as Musician["presets"][number];
-  }
-  return {
-    kind,
-    ref,
-    ownerKey: musician.group,
-    ownerLabel: musician.group,
-  };
+export function detectBackVocalPresetKind(_musicians: Musician[]): "preset" {
+  return "preset";
 }
 
 export function resolveDefaultBackVocalRef(presetsRegistry: PresetEntity[]): string {
   const refs = presetsRegistry
     .filter((item): item is PresetEntity & { id: string } => "id" in item && typeof item.id === "string")
     .map((item) => item.id)
-    .filter(isBackVocalRef)
+    .filter(isGenericVocalRef)
     .sort((a, b) => a.localeCompare(b));
 
   if (refs.includes("vocal_no_mic")) return "vocal_no_mic";
-  if (refs.includes("vocal_back_no_mic")) return "vocal_back_no_mic";
   return refs[0] ?? "";
 }
