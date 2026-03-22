@@ -149,7 +149,6 @@ export function toPersistableProject(
     lineup,
     overlays,
     bandLeaderId,
-    talkbackOwnerId,
     hasTalkbackOverride,
     note,
     backVocalIds,
@@ -180,7 +179,6 @@ export function toPersistableProject(
     ...(serializedLineup ? { lineup: serializedLineup } : {}),
     ...(overlays ? { overlays } : {}),
     ...(bandLeaderId ? { bandLeaderId } : {}),
-    talkbackOwnerId: typeof talkbackOwnerId === "string" ? talkbackOwnerId : "",
     ...(overlays ? {} : Array.isArray(backVocalIds) ? { backVocalIds } : {}),
     ...(overlays ? {} : Array.isArray(leadVocalistIds) ? { leadVocalistIds } : {}),
   };

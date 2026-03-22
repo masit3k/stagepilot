@@ -152,15 +152,15 @@ describe("normalizeProject", () => {
     expect(normalized.overlays?.backVocals).toEqual([]);
   });
 
-  it("normalizes and preserves canonical root talkback owner id from both spellings", () => {
+  it("maps legacy root talkback owner id to canonical overlays talkback", () => {
     const canonical = normalizeProject({
       id: "p-talkback-canonical",
       bandRef: "band-1",
       purpose: "generic",
       documentDate: "2026-01-01",
-      talkbackOwnerId: "  leader-1 ",
-    } satisfies ProjectJsonV2);
-    expect(canonical.talkbackOwnerId).toBe("leader-1");
+      ...( { talkbackOwnerId: "  leader-1 " } as { talkbackOwnerId: string } ),
+    } as ProjectJsonV2 & { talkbackOwnerId: string });
+    expect(canonical.overlays?.talkback).toEqual({ mode: "assigned", ownerId: "leader-1" });
 
     const legacySpelling = normalizeProject({
       id: "p-talkback-legacy-spelling",
@@ -169,7 +169,7 @@ describe("normalizeProject", () => {
       documentDate: "2026-01-01",
       ...( { talkBackOwnerId: "  bassist-1  " } as { talkBackOwnerId: string } ),
     } as ProjectJsonV2 & { talkBackOwnerId: string });
-    expect(legacySpelling.talkbackOwnerId).toBe("bassist-1");
+    expect(legacySpelling.overlays?.talkback).toEqual({ mode: "assigned", ownerId: "bassist-1" });
   });
 
   it("derives back vocal ids from legacy lineup.back_vocs when explicit ids are absent", () => {

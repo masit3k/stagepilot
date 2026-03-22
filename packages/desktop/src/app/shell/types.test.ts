@@ -2,29 +2,17 @@ import { describe, expect, it } from "vitest";
 import { toPersistableProject } from "./types";
 
 describe("toPersistableProject talkback persistence", () => {
-  it("preserves explicit empty talkbackOwnerId when present", () => {
+  it("does not serialize legacy root talkbackOwnerId", () => {
     const persisted = toPersistableProject({
       id: "p-1",
       purpose: "generic",
       bandRef: "band-1",
       documentDate: "2026-01-01",
       createdAt: "2026-01-01T00:00:00.000Z",
-      talkbackOwnerId: "",
+      ...( { talkbackOwnerId: "" } as { talkbackOwnerId: string } ),
     });
 
-    expect(persisted).toHaveProperty("talkbackOwnerId", "");
-  });
-
-  it("serializes empty talkbackOwnerId when not provided", () => {
-    const persisted = toPersistableProject({
-      id: "p-1",
-      purpose: "event",
-      bandRef: "band-1",
-      documentDate: "2026-01-01",
-      createdAt: "2026-01-01T00:00:00.000Z",
-    });
-
-    expect(persisted).toHaveProperty("talkbackOwnerId", "");
+    expect("talkbackOwnerId" in persisted).toBe(false);
   });
 
   it("preserves explicit empty lineup.back_vocs selection", () => {

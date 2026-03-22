@@ -44,7 +44,7 @@ function normalizeLineupSlots(value: unknown): LineupSlot[] {
       ...(raw.drumDefinition && typeof raw.drumDefinition === "object" ? { drumDefinition: raw.drumDefinition as LineupSlot["drumDefinition"] } : {}),
     });
   }
-  return slots.sort((a, b) => a.slot - b.slot);
+  return slots.sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0));
 }
 
 function normalizeOverlaySlots(value: unknown): OverlaySlot[] {
@@ -59,14 +59,15 @@ function normalizeOverlaySlots(value: unknown): OverlaySlot[] {
       : slots.length + 1;
     slots.push({ slot: slotNumber, musicianId: raw.musicianId.trim() });
   }
-  return slots.sort((a, b) => a.slot - b.slot);
+  return slots.sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0));
 }
 
 function dedupeOverlaySlots(slots: OverlaySlot[]): OverlaySlot[] {
   const seenSlots = new Set<number>();
   const seenMusicians = new Set<string>();
   const normalized: OverlaySlot[] = [];
-  for (const slot of slots.slice().sort((a, b) => a.slot - b.slot)) {
+  for (const slot of slots.slice().sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0))) {
+    if (slot.slot === undefined) continue;
     if (seenSlots.has(slot.slot)) continue;
     if (seenMusicians.has(slot.musicianId)) continue;
     seenSlots.add(slot.slot);
@@ -129,7 +130,7 @@ export function normalizeProject(input: ProjectJson): Project {
     input.bandLeaderId.trim().length > 0
       ? input.bandLeaderId.trim()
       : undefined;
-  const talkbackOwnerId =
+  const legacyTalkbackOwnerId =
     "talkbackOwnerId" in input && typeof input.talkbackOwnerId === "string"
       ? input.talkbackOwnerId.trim()
       : "talkBackOwnerId" in input &&
@@ -223,12 +224,13 @@ export function normalizeProject(input: ProjectJson): Project {
       }
       if (talkbackOverride?.mode === "none") return { mode: "none" as const, ownerId: null };
       if (talkbackOverride?.mode === "assigned") return { mode: "assigned" as const, ownerId: talkbackOverride.musicianId };
-      if (typeof talkbackOwnerId === "string") {
-        if (talkbackOwnerId.trim().length === 0) return { mode: "none" as const, ownerId: null };
-        if (lineupMemberIds.size > 0 && !lineupMemberIds.has(talkbackOwnerId.trim())) {
+      if (typeof legacyTalkbackOwnerId === "string") {
+        const normalizedLegacyOwnerId = legacyTalkbackOwnerId.trim();
+        if (normalizedLegacyOwnerId.length === 0) return { mode: "none" as const, ownerId: null };
+        if (lineupMemberIds.size > 0 && !lineupMemberIds.has(normalizedLegacyOwnerId)) {
           return { mode: "none" as const, ownerId: null };
         }
-        return { mode: "assigned" as const, ownerId: talkbackOwnerId.trim() };
+        return { mode: "assigned" as const, ownerId: normalizedLegacyOwnerId };
       }
       return undefined;
     })();
@@ -268,7 +270,6 @@ export function normalizeProject(input: ProjectJson): Project {
         backVocalIds,
         leadVocalistIds,
         bandLeaderId,
-        talkbackOwnerId,
         stageplan,
       };
     }
@@ -289,7 +290,6 @@ export function normalizeProject(input: ProjectJson): Project {
       backVocalIds,
       leadVocalistIds,
       bandLeaderId,
-      talkbackOwnerId,
       stageplan,
     };
   }
@@ -316,7 +316,6 @@ export function normalizeProject(input: ProjectJson): Project {
       backVocalIds,
       leadVocalistIds,
       bandLeaderId,
-      talkbackOwnerId,
       stageplan,
     };
   }

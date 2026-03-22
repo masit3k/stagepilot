@@ -79,6 +79,6 @@ describe("resolveProjectTalkbackState", () => {
 
     expect(resolved.hasExplicitTalkbackOverride).toBe(true);
     expect(resolved.isExplicitNone).toBe(true);
-    expect(resolved.effectiveTalkbackOwnerId).toBeNull();
+    expect(resolved.effectiveTalkbackOwnerId).toBe("leader-1");
   });
 });

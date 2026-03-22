@@ -80,7 +80,6 @@ export interface Project {
   /** @deprecated legacy read-compat only */
   leadVocalistIds?: string[];
   bandLeaderId?: string;
-  talkbackOwnerId?: string;
   talkbackOverride?:
     | { mode: "none" }
     | { mode: "assigned"; musicianId: string };
@@ -133,7 +132,6 @@ export interface ProjectJsonV2 {
   /** @deprecated legacy read-compat only */
   leadVocalistIds?: string[];
   bandLeaderId?: string;
-  talkbackOwnerId?: string;
   talkbackOverride?:
     | { mode: "none" }
     | { mode: "assigned"; musicianId: string };

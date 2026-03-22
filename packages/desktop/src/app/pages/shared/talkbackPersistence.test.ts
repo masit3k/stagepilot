@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolvePersistedTalkbackOwnerId } from "./talkbackPersistence";
+import { resolvePersistedTalkbackOwnerId, resolveProjectTalkbackOwnerId } from "./talkbackPersistence";
 
 describe("resolvePersistedTalkbackOwnerId", () => {
   it("preserves explicit empty-string override for generic edit saves", () => {
@@ -46,5 +46,25 @@ describe("resolvePersistedTalkbackOwnerId", () => {
         defaultBandLeaderId: "",
       }),
     ).toBe("");
+  });
+});
+
+
+describe("resolveProjectTalkbackOwnerId", () => {
+  it("prefers overlays talkback assigned owner", () => {
+    expect(
+      resolveProjectTalkbackOwnerId({
+        overlays: { talkback: { mode: "assigned", ownerId: "voc-1" } },
+        talkbackOwnerId: "legacy-1",
+      }),
+    ).toBe("voc-1");
+  });
+
+  it("falls back to legacy root talkback owner for read compatibility", () => {
+    expect(
+      resolveProjectTalkbackOwnerId({
+        talkbackOwnerId: "legacy-1",
+      }),
+    ).toBe("legacy-1");
   });
 });

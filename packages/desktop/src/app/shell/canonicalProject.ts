@@ -114,7 +114,6 @@ export function buildCanonicalProjectBaseFromBandDefaults(args: {
   return {
     ...args.project,
     bandLeaderId: bandLeaderId || undefined,
-    talkbackOwnerId,
     lineup,
     overlays: buildCanonicalOverlaysFromDefaults({
       setupDefaults: args.setupDefaults,
@@ -162,7 +161,6 @@ export function buildCanonicalProjectFromSetupState(args: {
     lineup: serializeLineupForProject(args.lineup, args.roleOrder),
     overlays,
     bandLeaderId: args.bandLeaderId || undefined,
-    talkbackOwnerId: normalizedTalkbackOwnerId,
     leadVocalistIds: undefined,
     backVocalIds: undefined,
   };

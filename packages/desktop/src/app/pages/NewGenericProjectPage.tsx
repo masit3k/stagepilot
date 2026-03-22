@@ -120,7 +120,6 @@ export function NewGenericProjectPage({
         lineup: existingProject?.lineup,
         overlays: existingProject?.overlays,
         bandLeaderId: existingProject?.bandLeaderId,
-        talkbackOwnerId: existingProject?.talkbackOwnerId ?? "",
       };
       if (!editingProjectId) {
         try {
@@ -142,7 +141,7 @@ export function NewGenericProjectPage({
             project: payload,
             setupDefaults,
             roleOrder: ["drums", "bass", "guitar", "keys", "vocs"],
-            existingTalkbackOwnerId: existingProject?.talkbackOwnerId,
+            existingTalkbackOwnerId: existingProject ? resolveProjectTalkbackOwnerId(existingProject as Record<string, unknown> & { overlays?: { talkback?: { mode?: unknown; ownerId?: unknown } } }) : undefined,
           });
         } catch (error) {
           console.error(
@@ -156,7 +155,6 @@ export function NewGenericProjectPage({
             ...payload,
             lineup: {},
             bandLeaderId: undefined,
-            talkbackOwnerId: "",
             overlays: {
               leadVocals: [],
               backVocals: [],

@@ -112,7 +112,7 @@ export function resolveProjectTalkbackState(args: {
     return {
       explicitTalkbackOwnerId: "",
       defaultTalkbackOwnerId: fallback,
-      effectiveTalkbackOwnerId: null,
+      effectiveTalkbackOwnerId: fallback,
       hasExplicitTalkbackOverride: true,
       isExplicitNone: true,
     };
@@ -123,7 +123,7 @@ export function resolveProjectTalkbackState(args: {
       return {
         explicitTalkbackOwnerId: "",
         defaultTalkbackOwnerId: fallback,
-        effectiveTalkbackOwnerId: null,
+        effectiveTalkbackOwnerId: fallback,
         hasExplicitTalkbackOverride: true,
         isExplicitNone: true,
       };
@@ -132,7 +132,7 @@ export function resolveProjectTalkbackState(args: {
       return {
         explicitTalkbackOwnerId: trimmed,
         defaultTalkbackOwnerId: fallback,
-        effectiveTalkbackOwnerId: null,
+        effectiveTalkbackOwnerId: fallback,
         hasExplicitTalkbackOverride: true,
         isExplicitNone: false,
       };

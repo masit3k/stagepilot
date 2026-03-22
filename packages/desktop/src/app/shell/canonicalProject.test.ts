@@ -59,7 +59,6 @@ describe("buildCanonicalProjectBaseFromBandDefaults", () => {
     });
 
     expect(payload.bandLeaderId).toBe("leader-1");
-    expect(payload.talkbackOwnerId).toBe("tb-1");
     expect(payload.lineup).toEqual({ drums: ["dr-1"], vocs: ["voc-1"] });
     expect(payload.overlays).toEqual({
       leadVocals: [{ slot: 1, musicianId: "voc-1" }],
@@ -70,7 +69,7 @@ describe("buildCanonicalProjectBaseFromBandDefaults", () => {
 });
 
 describe("buildCanonicalProjectFromSetupState", () => {
-  it("keeps default talkback owner at root when no explicit talkback override exists", () => {
+  it("keeps talkback implicit when no explicit talkback override exists", () => {
     const project = buildCanonicalProjectFromSetupState({
       project: {
         id: "proj-default-talkback",
@@ -93,7 +92,6 @@ describe("buildCanonicalProjectFromSetupState", () => {
       hasBackVocalOverride: false,
     });
 
-    expect(project.talkbackOwnerId).toBe("dr-1");
     expect(project.overlays?.talkback).toBeUndefined();
   });
 
@@ -135,6 +133,5 @@ describe("buildCanonicalProjectFromSetupState", () => {
       backVocals: [],
       talkback: { mode: "none", ownerId: null },
     });
-    expect(project.talkbackOwnerId).toBe("");
   });
 });

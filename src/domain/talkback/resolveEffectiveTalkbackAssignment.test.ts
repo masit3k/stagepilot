@@ -39,10 +39,10 @@ describe("resolveEffectiveTalkbackAssignment", () => {
       selectedMusicianIds: ["leader-1", "bass-1"],
     });
 
-    expect(result).toEqual({ mode: "none", hasExplicitOverride: true });
+    expect(result).toEqual({ mode: "assigned", musicianId: "leader-1", hasExplicitOverride: true });
   });
 
-  it("does not fallback when explicit overlays owner is invalid for selected lineup", () => {
+  it("falls back when explicit overlays owner is invalid for selected lineup", () => {
     const project: Project = {
       id: "p-3",
       bandRef: "band-1",
@@ -57,6 +57,6 @@ describe("resolveEffectiveTalkbackAssignment", () => {
       selectedMusicianIds: ["leader-1", "bass-1"],
     });
 
-    expect(result).toEqual({ mode: "none", hasExplicitOverride: true });
+    expect(result).toEqual({ mode: "assigned", musicianId: "leader-1", hasExplicitOverride: true });
   });
 });
