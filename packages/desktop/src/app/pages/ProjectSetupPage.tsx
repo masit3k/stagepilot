@@ -60,7 +60,6 @@ import { BackVocsSetupModal } from "../components/roles/modals/BackVocsSetupModa
 import {
   getBackVocsFromTemplate,
   getLeadVocsFromTemplate,
-  getTalkbackOwnersFromTemplate,
   sanitizeBackVocsSelection,
 } from "../components/roles/utils/backVocs";
 import { resolveLeadVocalCandidates } from "../domain/roles/resolveLeadVocalCandidates";
@@ -285,16 +284,11 @@ export function ProjectSetupPage({
       const parsedHasLegacyBackOverride = Array.isArray(
         (parsed.lineup ?? {}).back_vocs,
       );
-      const parsedHasLegacyTalkbackOverride = Object.prototype.hasOwnProperty.call(
-        parsedRaw,
-        "talkbackOwnerId",
-      );
       const parsedHasLeadVocalOverride =
         parsedHasLeadOverlay || parsedHasLegacyLeadOverride;
       const parsedHasBackVocalOverride =
         parsedHasBackOverlay || parsedHasLegacyBackOverride;
-      const parsedHasTalkbackOverride =
-        parsedHasTalkbackOverlay || parsedHasLegacyTalkbackOverride;
+      const parsedHasTalkbackOverride = parsedHasTalkbackOverlay;
       const parsedTalkbackOwnerIdFromOverlay = (() => {
         if (!parsedHasTalkbackOverlay) return undefined;
         const talkback = rawOverlays?.talkback;
@@ -308,7 +302,10 @@ export function ProjectSetupPage({
         parsedTalkbackOwnerIdFromOverlay ??
         (typeof parsed.talkbackOwnerId === "string"
           ? parsed.talkbackOwnerId.trim()
-          : "");
+          : typeof (parsedRaw as { talkBackOwnerId?: unknown }).talkBackOwnerId ===
+              "string"
+            ? (parsedRaw as { talkBackOwnerId: string }).talkBackOwnerId.trim()
+            : "");
       setProject(parsed);
       const persistedBackVocalIds = parsedHasBackOverlay
         ? normalizeOverlayIds(rawOverlays?.backVocals)
@@ -325,9 +322,7 @@ export function ProjectSetupPage({
       setHasBackVocalOverride(parsedHasBackVocalOverride);
       setHasLeadVocalOverride(parsedHasLeadVocalOverride);
       setHasTalkbackOverride(parsedHasTalkbackOverride);
-      setTalkbackOwnerId(
-        parsedHasTalkbackOverride ? parsedTalkbackOwnerId : "",
-      );
+      setTalkbackOwnerId(parsedTalkbackOwnerId);
       let data: BandSetupData;
       try {
         data = await invoke<BandSetupData>("get_band_setup_data", {
@@ -383,7 +378,7 @@ export function ProjectSetupPage({
         initialLineup,
         data,
         parsed.bandLeaderId,
-        parsedHasTalkbackOverride ? parsedTalkbackOwnerId : undefined,
+        parsedTalkbackOwnerId,
       );
       console.info("[project-open] initial-setup-snapshot", {
         projectId: id,
@@ -409,9 +404,7 @@ export function ProjectSetupPage({
               : {}),
           },
           bandLeaderId: initialState.bandLeaderId || undefined,
-          ...(parsedHasTalkbackOverride
-            ? { talkbackOwnerId: parsedTalkbackOwnerId }
-            : {}),
+          talkbackOwnerId: parsedTalkbackOwnerId,
           updatedAt: new Date().toISOString(),
         };
         await projectsApi.saveProject({
@@ -486,7 +479,7 @@ export function ProjectSetupPage({
         bandLeaderId: initialState.bandLeaderId,
         talkbackOwnerId: parsedHasTalkbackOverride
           ? parsedTalkbackOwnerId
-          : (initialState.talkbackOwnerId ?? ""),
+          : parsedTalkbackOwnerId,
         leadVocalistIds: effectiveInitialLeadVocalIds,
         hasLeadVocalOverride: parsedHasLeadVocalOverride,
         backVocalIds: effectiveBackVocalIds,
@@ -568,16 +561,9 @@ export function ProjectSetupPage({
         []) as PresetItem[],
     }));
   }, [lineup, selectedMusicianIds, setupData]);
-  const defaultTalkbackOwnerIds = useMemo(
-    () =>
-      Array.from(
-        getTalkbackOwnersFromTemplate(selectedTemplateMusicians),
-      ).filter((idValue) => templateMusicianIds.has(idValue)),
-    [selectedTemplateMusicians, templateMusicianIds],
-  );
   const talkbackCurrentOwnerId = hasTalkbackOverride
     ? talkbackOwnerId
-    : (defaultTalkbackOwnerIds[0] ?? bandLeaderId);
+    : bandLeaderId;
   const defaultLeadVocalistIds = useMemo(
     () =>
       Array.from(
@@ -854,9 +840,7 @@ export function ProjectSetupPage({
     initialSnapshotRef.current = createLineupDirtyBaseline({
       lineup: serializeLineupForProject(payload.lineup ?? {}, ROLE_ORDER),
       bandLeaderId: payload.bandLeaderId ?? "",
-      talkbackOwnerId: hasTalkbackOverride
-        ? (payload.talkbackOwnerId ?? "")
-        : (payload.bandLeaderId ?? ""),
+      talkbackOwnerId: payload.talkbackOwnerId ?? "",
       leadVocalistIds: [...selectedLeadVocalistIds],
       hasLeadVocalOverride,
       hasTalkbackOverride,

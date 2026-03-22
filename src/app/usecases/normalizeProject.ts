@@ -132,6 +132,14 @@ export function normalizeProject(input: ProjectJson): Project {
   const talkbackOwnerId =
     "talkbackOwnerId" in input && typeof input.talkbackOwnerId === "string"
       ? input.talkbackOwnerId.trim()
+      : "talkBackOwnerId" in input &&
+          typeof (input as { talkBackOwnerId?: unknown }).talkBackOwnerId ===
+            "string"
+        ? (
+            input as {
+              talkBackOwnerId: string;
+            }
+          ).talkBackOwnerId.trim()
       : undefined;
   const talkbackOverride =
     "talkbackOverride" in input &&
@@ -260,6 +268,7 @@ export function normalizeProject(input: ProjectJson): Project {
         backVocalIds,
         leadVocalistIds,
         bandLeaderId,
+        talkbackOwnerId,
         stageplan,
       };
     }
@@ -280,6 +289,7 @@ export function normalizeProject(input: ProjectJson): Project {
       backVocalIds,
       leadVocalistIds,
       bandLeaderId,
+      talkbackOwnerId,
       stageplan,
     };
   }
@@ -306,6 +316,7 @@ export function normalizeProject(input: ProjectJson): Project {
       backVocalIds,
       leadVocalistIds,
       bandLeaderId,
+      talkbackOwnerId,
       stageplan,
     };
   }

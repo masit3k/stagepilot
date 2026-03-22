@@ -168,11 +168,7 @@ export function toPersistableProject(
     ...(serializedLineup ? { lineup: serializedLineup } : {}),
     ...(overlays ? { overlays } : {}),
     ...(bandLeaderId ? { bandLeaderId } : {}),
-    ...(hasTalkbackOverride
-      ? { talkbackOwnerId: talkbackOwnerId ?? "" }
-      : typeof talkbackOwnerId === "string"
-        ? { talkbackOwnerId }
-        : {}),
+    talkbackOwnerId: typeof talkbackOwnerId === "string" ? talkbackOwnerId : "",
     ...(overlays ? {} : Array.isArray(backVocalIds) ? { backVocalIds } : {}),
     ...(overlays ? {} : Array.isArray(leadVocalistIds) ? { leadVocalistIds } : {}),
   };

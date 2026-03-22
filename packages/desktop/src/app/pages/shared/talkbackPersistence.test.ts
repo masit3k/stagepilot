@@ -29,12 +29,12 @@ describe("resolvePersistedTalkbackOwnerId", () => {
     ).toBe("leader-1");
   });
 
-  it("keeps property absent semantics when no explicit override or band leader exists", () => {
+  it("returns explicit empty value when no explicit override or band leader exists", () => {
     expect(
       resolvePersistedTalkbackOwnerId({
         existingTalkbackOwnerId: undefined,
         defaultBandLeaderId: "",
       }),
-    ).toBeUndefined();
+    ).toBe("");
   });
 });

@@ -1,7 +1,7 @@
 export function resolvePersistedTalkbackOwnerId(options: {
   existingTalkbackOwnerId?: string;
   defaultBandLeaderId?: string;
-}): string | undefined {
+}): string {
   const { existingTalkbackOwnerId, defaultBandLeaderId } = options;
 
   if (typeof existingTalkbackOwnerId === "string") {
@@ -15,5 +15,5 @@ export function resolvePersistedTalkbackOwnerId(options: {
     return defaultBandLeaderId;
   }
 
-  return undefined;
+  return "";
 }

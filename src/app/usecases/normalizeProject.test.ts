@@ -152,6 +152,26 @@ describe("normalizeProject", () => {
     expect(normalized.overlays?.backVocals).toEqual([]);
   });
 
+  it("normalizes and preserves canonical root talkback owner id from both spellings", () => {
+    const canonical = normalizeProject({
+      id: "p-talkback-canonical",
+      bandRef: "band-1",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+      talkbackOwnerId: "  leader-1 ",
+    } satisfies ProjectJsonV2);
+    expect(canonical.talkbackOwnerId).toBe("leader-1");
+
+    const legacySpelling = normalizeProject({
+      id: "p-talkback-legacy-spelling",
+      bandRef: "band-1",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+      ...( { talkBackOwnerId: "  bassist-1  " } as { talkBackOwnerId: string } ),
+    } as ProjectJsonV2 & { talkBackOwnerId: string });
+    expect(legacySpelling.talkbackOwnerId).toBe("bassist-1");
+  });
+
   it("derives back vocal ids from legacy lineup.back_vocs when explicit ids are absent", () => {
     const normalized = normalizeProject({
       id: "e-legacy-back",

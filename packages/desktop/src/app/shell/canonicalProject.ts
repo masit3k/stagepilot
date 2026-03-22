@@ -68,6 +68,7 @@ export function buildCanonicalProjectFromSetupState(args: {
   backVocalIds: string[];
   hasBackVocalOverride: boolean;
 }): NewProjectPayload {
+  const normalizedTalkbackOwnerId = args.talkbackOwnerId.trim();
   const persistedOverlays: NonNullable<NewProjectPayload["overlays"]> = {
     ...(args.hasLeadVocalOverride
       ? { leadVocals: toOverlaySlots([...args.leadVocalistIds]) }
@@ -78,8 +79,8 @@ export function buildCanonicalProjectFromSetupState(args: {
     ...(args.hasTalkbackOverride
       ? {
           talkback:
-            args.talkbackOwnerId.trim().length > 0
-              ? { mode: "assigned" as const, ownerId: args.talkbackOwnerId }
+            normalizedTalkbackOwnerId.length > 0
+              ? { mode: "assigned" as const, ownerId: normalizedTalkbackOwnerId }
               : { mode: "none" as const, ownerId: null },
         }
       : {}),
@@ -92,7 +93,7 @@ export function buildCanonicalProjectFromSetupState(args: {
     lineup: serializeLineupForProject(args.lineup, args.roleOrder),
     overlays,
     bandLeaderId: args.bandLeaderId || undefined,
-    talkbackOwnerId: args.hasTalkbackOverride ? args.talkbackOwnerId : undefined,
+    talkbackOwnerId: normalizedTalkbackOwnerId,
     leadVocalistIds: undefined,
     backVocalIds: undefined,
   };

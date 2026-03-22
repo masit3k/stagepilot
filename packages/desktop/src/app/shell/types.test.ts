@@ -15,7 +15,7 @@ describe("toPersistableProject talkback persistence", () => {
     expect(persisted).toHaveProperty("talkbackOwnerId", "");
   });
 
-  it("keeps talkbackOwnerId absent when not provided", () => {
+  it("serializes empty talkbackOwnerId when not provided", () => {
     const persisted = toPersistableProject({
       id: "p-1",
       purpose: "event",
@@ -24,7 +24,7 @@ describe("toPersistableProject talkback persistence", () => {
       createdAt: "2026-01-01T00:00:00.000Z",
     });
 
-    expect("talkbackOwnerId" in persisted).toBe(false);
+    expect(persisted).toHaveProperty("talkbackOwnerId", "");
   });
 
   it("preserves explicit empty lineup.back_vocs selection", () => {

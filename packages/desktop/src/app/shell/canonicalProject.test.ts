@@ -30,6 +30,33 @@ describe("buildCanonicalOverlaysFromDefaults", () => {
 });
 
 describe("buildCanonicalProjectFromSetupState", () => {
+  it("keeps default talkback owner at root when no explicit talkback override exists", () => {
+    const project = buildCanonicalProjectFromSetupState({
+      project: {
+        id: "proj-default-talkback",
+        purpose: "generic",
+        bandRef: "band-1",
+        documentDate: "2026-03-21",
+        createdAt: "2026-03-21T00:00:00.000Z",
+      },
+      roleOrder: ["drums", "bass", "guitar", "keys", "vocs"],
+      lineup: {
+        drums: "dr-1",
+        vocs: ["vc-1"],
+      },
+      bandLeaderId: "dr-1",
+      talkbackOwnerId: "dr-1",
+      hasTalkbackOverride: false,
+      leadVocalistIds: [],
+      hasLeadVocalOverride: false,
+      backVocalIds: [],
+      hasBackVocalOverride: false,
+    });
+
+    expect(project.talkbackOwnerId).toBe("dr-1");
+    expect(project.overlays?.talkback).toBeUndefined();
+  });
+
   it("stores lineup as canonical arrays and explicit talkback none overlay", () => {
     const project = buildCanonicalProjectFromSetupState({
       project: {
