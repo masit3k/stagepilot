@@ -97,6 +97,7 @@ describe("resolveEffectiveProjectSetup", () => {
       bandRef: "band",
       purpose: "event",
       documentDate: "2026-01-01",
+      lineup: { drums: ["dr-1"] },
     };
 
     const resolved = resolveEffectiveProjectSetup({

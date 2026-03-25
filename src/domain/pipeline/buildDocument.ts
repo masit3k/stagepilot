@@ -20,6 +20,7 @@ import { formatKeysInputInstances } from "./formatKeysInputs.js";
 import { reorderAcousticGuitars } from "./reorderAcousticGuitars.js";
 import { resolveDocumentContext } from "./resolveDocumentContext.js";
 import { resolveEffectivePresetsForProject } from "./resolveEffectivePresetsForProject.js";
+import { resolveCanonicalOverlayAssignments } from "../project/resolveProjectAudioAssignments.js";
 import { compareInputsForRole } from "../setup/orderInputsForRole.js";
 import { resolveEffectiveProjectSetup } from "../setup/resolveEffectiveProjectSetup.js";
 import { resolvePowerForStageplan } from "../stageplan/resolvePowerForStageplan.js";
@@ -120,36 +121,15 @@ function resolveOverlaySlots(args: {
   role: "leadVocals" | "backVocals";
 }): Array<{ musician: Musician; slot: number }> {
   const { ctx, role } = args;
-  const allowedIds = new Set(ctx.overlays[role]);
-  const projectOverlays =
-    (ctx.project as Project & { overlays?: { leadVocals?: unknown; backVocals?: unknown } }).overlays;
-  const raw = Array.isArray(projectOverlays?.[role]) ? projectOverlays[role] : [];
-  const slotByMusicianId = new Map<string, number>();
-
-  for (const entry of raw) {
-    if (!entry || typeof entry !== "object") continue;
-    const musicianId = typeof (entry as { musicianId?: unknown }).musicianId === "string"
-      ? (entry as { musicianId: string }).musicianId.trim()
-      : "";
-    const rawSlot = (entry as { slot?: unknown }).slot;
-    const slot = typeof rawSlot === "number" && Number.isFinite(rawSlot) ? rawSlot : undefined;
-    if (!musicianId || !slot || slot <= 0 || !allowedIds.has(musicianId) || slotByMusicianId.has(musicianId)) {
-      continue;
-    }
-    slotByMusicianId.set(musicianId, slot);
-  }
-
-  for (const [index, musicianId] of ctx.overlays[role].entries()) {
-    if (!slotByMusicianId.has(musicianId)) {
-      slotByMusicianId.set(musicianId, index + 1);
-    }
-  }
-
-  const members = Array.from(slotByMusicianId.entries())
-    .map(([musicianId, slot]) => {
+  const members = resolveCanonicalOverlayAssignments({
+    project: ctx.project,
+    role,
+    activeMusicianIds: ctx.lineupMusicians.map(({ musician }) => musician.id),
+  })
+    .map(({ musicianId, slot }) => {
+      if (!slot) return null;
       const musician = ctx.membersById.get(musicianId);
-      if (!musician) return null;
-      return { musician, slot };
+      return musician ? { musician, slot } : null;
     })
     .filter((entry): entry is { musician: Musician; slot: number } => Boolean(entry));
   members.sort((a, b) => a.slot - b.slot);
@@ -175,10 +155,16 @@ function resolveOverlayDrivenVocalRows(args: {
   const rows: BuiltInput[] = [];
 
   for (const { musician, slot } of members) {
-    const capabilityInputs = capabilityByMusicianId.get(musician.id) ?? [];
-    if (capabilityInputs.length === 0) continue;
     const ownerRole = ownerGroupByMusicianId.get(musician.id) ?? musician.group;
     const orderRank = VOCAL_OWNER_ORDER_RANK[ownerRole] ?? 999;
+    const capabilityInputs = capabilityByMusicianId.get(musician.id) ?? [{
+      key: role === "lead" ? `voc_lead_${slot}` : `voc_back_${ownerRole}_${slot}`,
+      label: role === "lead" ? "Lead vocal" : "Back vocal",
+      group: "vocs" as const,
+      ownerRole,
+      ownerMusicianId: musician.id,
+      ownerGender: musician.gender,
+    }];
 
     for (const capability of capabilityInputs) {
       rows.push({
@@ -585,7 +571,7 @@ export function buildDocument(
       if (item.kind === "monitor") {
         continue;
       }
-      if (runtimeKind === "preset" || runtimeKind === "vocal") {
+      if (runtimeKind === "preset") {
         const ref = (item as { ref?: unknown }).ref;
         if (typeof ref !== "string" || ref.trim().length === 0) continue;
         const entity = repo.getPreset(ref);
@@ -603,7 +589,7 @@ export function buildDocument(
           continue;
         }
       }
-      if (runtimeKind !== "preset" && runtimeKind !== "drum_setup" && runtimeKind !== "talkback") {
+      if (runtimeKind !== "preset" && runtimeKind !== "drum_setup") {
         continue;
       }
 
@@ -716,6 +702,27 @@ export function buildDocument(
     }),
   ];
   inputs.push(...vocalRows);
+  if (ctx.talkbackOwnerId) {
+    const talkbackOwner = ctx.membersById.get(ctx.talkbackOwnerId);
+    const talkbackOwnerGroup = ownerGroupByMusicianId.get(ctx.talkbackOwnerId);
+    if (talkbackOwner && talkbackOwnerGroup) {
+      const talkbackRows = expandPresetItem(
+        {
+          kind: "talkback",
+          ref: "talkback",
+          ownerKey: talkbackOwnerGroup,
+          ownerLabel: talkbackOwnerGroup,
+        },
+        talkbackOwnerGroup,
+        repo,
+      ).map((input) => ({
+        ...input,
+        ownerRole: talkbackOwnerGroup,
+        ownerMusicianId: talkbackOwner.id,
+      }));
+      inputs.push(...talkbackRows);
+    }
+  }
   const leadVocsSlotByMusicianId = new Map(
     leadResolved.map(({ musician, slot }) => [musician.id, slot]),
   );

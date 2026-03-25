@@ -1,50 +1,31 @@
 import { describe, expect, it } from "vitest";
 import type { Project } from "../model/types.js";
 import {
-  resolveProjectBackVocsState,
+  resolveCanonicalOverlayAssignments,
   resolveProjectTalkbackState,
 } from "./resolveProjectAudioAssignments.js";
 
-describe("resolveProjectBackVocsState", () => {
-  it("does not compute back vocals from defaults when explicit value is missing", () => {
+describe("resolveCanonicalOverlayAssignments", () => {
+  it("returns only lineup-member canonical overlay slots", () => {
     const project: Project = {
       id: "p-1",
       bandRef: "band-1",
       purpose: "generic",
       documentDate: "2026-01-01",
-      lineup: { vocs: "voc-back" },
+      lineup: { vocs: ["voc-1"], guitar: ["gtr-1"] },
+      overlays: {
+        leadVocals: [{ slot: 1, musicianId: "voc-1" }, { slot: 2, musicianId: "ghost" }],
+      },
     };
 
-    const resolved = resolveProjectBackVocsState({
-      project,
-    });
-
-    expect(resolved.hasExplicitBackVocsOverride).toBe(false);
-    expect(resolved.defaultBackVocs).toEqual([]);
-    expect(resolved.effectiveBackVocs).toEqual([]);
-  });
-
-  it("respects explicit empty overlays.backVocals override", () => {
-    const project: Project = {
-      id: "p-1",
-      bandRef: "band-1",
-      purpose: "generic",
-      documentDate: "2026-01-01",
-      lineup: { vocs: "voc-back" },
-      overlays: { backVocals: [] },
-    };
-
-    const resolved = resolveProjectBackVocsState({
-      project,
-    });
-
-    expect(resolved.hasExplicitBackVocsOverride).toBe(true);
-    expect(resolved.effectiveBackVocs).toEqual([]);
+    expect(resolveCanonicalOverlayAssignments({ project, role: "leadVocals" })).toEqual([
+      { slot: 1, musicianId: "voc-1" },
+    ]);
   });
 });
 
 describe("resolveProjectTalkbackState", () => {
-  it("uses default talkback when override missing", () => {
+  it("fails closed when talkback overlay is missing", () => {
     const project: Project = {
       id: "p-2",
       bandRef: "band-1",
@@ -55,16 +36,15 @@ describe("resolveProjectTalkbackState", () => {
     const resolved = resolveProjectTalkbackState({
       project,
       activeMusicianIds: ["leader-1"],
-      defaultTalkbackOwnerId: "leader-1",
     });
 
+    expect(resolved.effectiveTalkbackOwnerId).toBeNull();
     expect(resolved.hasExplicitTalkbackOverride).toBe(false);
-    expect(resolved.effectiveTalkbackOwnerId).toBe("leader-1");
   });
 
-  it("treats explicit overlays talkback none as none", () => {
+  it("treats explicit overlays talkback none as terminal none", () => {
     const project: Project = {
-      id: "p-2",
+      id: "p-3",
       bandRef: "band-1",
       purpose: "generic",
       documentDate: "2026-01-01",
@@ -74,11 +54,9 @@ describe("resolveProjectTalkbackState", () => {
     const resolved = resolveProjectTalkbackState({
       project,
       activeMusicianIds: ["leader-1"],
-      defaultTalkbackOwnerId: "leader-1",
     });
 
-    expect(resolved.hasExplicitTalkbackOverride).toBe(true);
     expect(resolved.isExplicitNone).toBe(true);
-    expect(resolved.effectiveTalkbackOwnerId).toBe("leader-1");
+    expect(resolved.effectiveTalkbackOwnerId).toBeNull();
   });
 });

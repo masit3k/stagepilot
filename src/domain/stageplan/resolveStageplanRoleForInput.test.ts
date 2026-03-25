@@ -1,57 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { resolveStageplanRoleForInput } from "./resolveStageplanRoleForInput";
+import { resolveStageplanRoleForInput } from "./resolveStageplanRoleForInput.js";
 
 describe("resolveStageplanRoleForInput", () => {
-  it("maps acoustic guitar to Guitar even when group differs", () => {
-    expect(
-      resolveStageplanRoleForInput({
-        key: "ac_guitar",
-        label: "Acoustic guitar",
-        group: "vocs",
-      }),
-    ).toBe("Guitar");
+  it("uses ownerRole as primary stageplan instrument mapping", () => {
+    expect(resolveStageplanRoleForInput({ label: "Anything", ownerRole: "drums" })).toBe("Drums");
+    expect(resolveStageplanRoleForInput({ label: "Anything", ownerRole: "keys" })).toBe("Keys");
   });
 
-  it("prefers lineup owner role over preset group for non-special inputs", () => {
-    expect(
-      resolveStageplanRoleForInput({
-        key: "ac_guitar",
-        label: "Acoustic guitar",
-        group: "guitar",
-        ownerRole: "vocs",
-      }),
-    ).toBe("Lead vocal");
-  });
-
-  it("keeps back-vocal ownership mapping", () => {
-    expect(
-      resolveStageplanRoleForInput({
-        key: "voc_back_drums",
-        label: "Back vocal - drums",
-        group: "vocs",
-        ownerRole: "vocs",
-      }),
-    ).toBe("Drums");
-  });
-
-  it("maps back-vocal ownership mapping with parenthesis label format", () => {
-    expect(
-      resolveStageplanRoleForInput({
-        key: "voc_back_keys",
-        label: "Back vocal (keys)",
-        group: "vocs",
-        ownerRole: "vocs",
-      }),
-    ).toBe("Keys");
-  });
-
-  it("keeps lead vocal mapping", () => {
-    expect(
-      resolveStageplanRoleForInput({
-        key: "voc_lead",
-        label: "Lead vocal",
-        group: "vocs",
-      }),
-    ).toBe("Lead vocal");
+  it("falls back to group and acoustic guitar key mapping", () => {
+    expect(resolveStageplanRoleForInput({ label: "Acoustic Guitar", key: "ac_guitar_sm", group: "vocs" })).toBe("Guitar");
+    expect(resolveStageplanRoleForInput({ label: "Bass DI", group: "bass" })).toBe("Bass");
   });
 });

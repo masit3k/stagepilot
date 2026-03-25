@@ -483,6 +483,7 @@ describe("buildDocument vocal overlay composition", () => {
     const labels = vm.inputRows.map((row) => row.label);
     const vocals = labels.filter((label) => label.includes("vocal"));
     expect(vocals).toEqual([
+      "Back vocal (guitar)",
       "Lead vocal 1 (male)",
       "Lead vocal 2 (female)",
       "Lead vocal 3 (bass)",

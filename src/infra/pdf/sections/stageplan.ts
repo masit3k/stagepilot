@@ -232,13 +232,11 @@ function resolveLeadVocalSlotLabel(args: {
   ownerMusicianId?: string;
   leadSlotByMusicianId: Map<string, "lead_voc_1" | "lead_voc_2">;
 }): "lead_voc_1" | "lead_voc_2" {
+  void args.label;
   const byMusician = args.ownerMusicianId
     ? args.leadSlotByMusicianId.get(args.ownerMusicianId)
     : undefined;
   if (byMusician) return byMusician;
-
-  const normalized = args.label.toLowerCase();
-  if (/\b2\b/.test(normalized)) return "lead_voc_2";
   return "lead_voc_1";
 }
 

@@ -12,7 +12,6 @@ export type EffectiveTalkbackAssignment = {
 
 export function resolveEffectiveTalkbackAssignment(args: {
   project: Project;
-  bandLeaderId: string;
   selectedMusicianIds?: string[];
 }): EffectiveTalkbackAssignment {
   const selectedMusicianIds =
@@ -21,7 +20,6 @@ export function resolveEffectiveTalkbackAssignment(args: {
   const resolved = resolveProjectTalkbackState({
     project: args.project,
     activeMusicianIds: selectedMusicianIds,
-    defaultTalkbackOwnerId: args.bandLeaderId,
   });
 
   if (!resolved.effectiveTalkbackOwnerId) {

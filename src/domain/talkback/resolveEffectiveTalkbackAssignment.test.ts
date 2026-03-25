@@ -3,60 +3,51 @@ import type { Project } from "../model/types.js";
 import { resolveEffectiveTalkbackAssignment } from "./resolveEffectiveTalkbackAssignment.js";
 
 describe("resolveEffectiveTalkbackAssignment", () => {
-  it("falls back to band leader when no override exists", () => {
+  it("returns none when no canonical talkback overlay exists", () => {
     const project: Project = {
       id: "p-1",
       bandRef: "band-1",
       purpose: "generic",
       documentDate: "2026-01-01",
+      lineup: { bass: ["bass-1"] },
     };
 
-    const result = resolveEffectiveTalkbackAssignment({
-      project,
-      bandLeaderId: "leader-1",
-      selectedMusicianIds: ["leader-1", "bass-1"],
-    });
-
-    expect(result).toEqual({
-      mode: "assigned",
-      musicianId: "leader-1",
+    expect(resolveEffectiveTalkbackAssignment({ project })).toEqual({
+      mode: "none",
       hasExplicitOverride: false,
     });
   });
 
-  it("treats explicit overlays talkback none as no assignment", () => {
+  it("returns assigned talkback only for explicit valid overlay owner", () => {
     const project: Project = {
       id: "p-2",
       bandRef: "band-1",
       purpose: "generic",
       documentDate: "2026-01-01",
-      overlays: { talkback: { mode: "none", ownerId: null } },
+      lineup: { bass: ["bass-1"] },
+      overlays: { talkback: { mode: "assigned", ownerId: "bass-1" } },
     };
 
-    const result = resolveEffectiveTalkbackAssignment({
-      project,
-      bandLeaderId: "leader-1",
-      selectedMusicianIds: ["leader-1", "bass-1"],
+    expect(resolveEffectiveTalkbackAssignment({ project })).toEqual({
+      mode: "assigned",
+      musicianId: "bass-1",
+      hasExplicitOverride: true,
     });
-
-    expect(result).toEqual({ mode: "assigned", musicianId: "leader-1", hasExplicitOverride: true });
   });
 
-  it("falls back when explicit overlays owner is invalid for selected lineup", () => {
+  it("fails closed for invalid assigned owner", () => {
     const project: Project = {
       id: "p-3",
       bandRef: "band-1",
       purpose: "generic",
       documentDate: "2026-01-01",
+      lineup: { bass: ["bass-1"] },
       overlays: { talkback: { mode: "assigned", ownerId: "ghost" } },
     };
 
-    const result = resolveEffectiveTalkbackAssignment({
-      project,
-      bandLeaderId: "leader-1",
-      selectedMusicianIds: ["leader-1", "bass-1"],
+    expect(resolveEffectiveTalkbackAssignment({ project })).toEqual({
+      mode: "none",
+      hasExplicitOverride: true,
     });
-
-    expect(result).toEqual({ mode: "assigned", musicianId: "leader-1", hasExplicitOverride: true });
   });
 });

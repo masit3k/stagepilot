@@ -1,8 +1,14 @@
-import type { Project } from "../model/types.js";
+import type { Group, OverlaySlot, Project } from "../model/types.js";
 import { isGroup } from "../model/groups.js";
 
 type ProjectWithLineup = Project & { lineup?: Record<string, unknown> };
-type ProjectWithOverlays = Project & { overlays?: { backVocals?: Array<{ musicianId?: unknown }>; talkback?: { mode?: unknown; ownerId?: unknown } } };
+type ProjectWithOverlays = Project & {
+  overlays?: {
+    leadVocals?: Array<{ slot?: unknown; musicianId?: unknown }>;
+    backVocals?: Array<{ slot?: unknown; musicianId?: unknown }>;
+    talkback?: { mode?: unknown; ownerId?: unknown };
+  };
+};
 
 function normalizeId(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
@@ -15,8 +21,9 @@ function lineupEntries(value: unknown): string[] {
     return value
       .map((entry) => {
         if (typeof entry === "string") return normalizeId(entry);
-        if (entry && typeof entry === "object")
+        if (entry && typeof entry === "object") {
           return normalizeId((entry as { musicianId?: unknown }).musicianId);
+        }
         return undefined;
       })
       .filter((entry): entry is string => Boolean(entry));
@@ -35,6 +42,33 @@ function lineupEntries(value: unknown): string[] {
   return [];
 }
 
+function normalizeOverlaySlots(value: unknown): OverlaySlot[] {
+  if (!Array.isArray(value)) return [];
+  const out: OverlaySlot[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    const musicianId = normalizeId((entry as { musicianId?: unknown }).musicianId);
+    if (!musicianId) continue;
+    const rawSlot = (entry as { slot?: unknown }).slot;
+    const slot = typeof rawSlot === "number" && Number.isFinite(rawSlot) && rawSlot > 0
+      ? Math.floor(rawSlot)
+      : out.length + 1;
+    out.push({ slot, musicianId });
+  }
+
+  const seenSlots = new Set<number>();
+  const seenMusicians = new Set<string>();
+  return out
+    .sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0))
+    .filter((entry) => {
+      if (entry.slot === undefined) return false;
+      if (seenSlots.has(entry.slot) || seenMusicians.has(entry.musicianId)) return false;
+      seenSlots.add(entry.slot);
+      seenMusicians.add(entry.musicianId);
+      return true;
+    });
+}
+
 export function collectActiveLineupMusicianIds(project: Project): string[] {
   const lineup = (project as ProjectWithLineup).lineup;
   if (!lineup) return [];
@@ -49,23 +83,88 @@ export function collectActiveLineupMusicianIds(project: Project): string[] {
   return Array.from(selected);
 }
 
+export function resolveCanonicalOverlayAssignments(args: {
+  project: Project;
+  role: "leadVocals" | "backVocals";
+  activeMusicianIds?: string[];
+}): OverlaySlot[] {
+  const overlays = (args.project as ProjectWithOverlays).overlays;
+  const lineupSet = new Set(args.activeMusicianIds ?? collectActiveLineupMusicianIds(args.project));
+  const raw = normalizeOverlaySlots(overlays?.[args.role]);
+  return raw.filter((entry) => lineupSet.has(entry.musicianId));
+}
+
+export function resolveProjectTalkbackState(args: {
+  project: Project;
+  activeMusicianIds: string[];
+}): {
+  explicitTalkbackOwnerId: string | undefined;
+  effectiveTalkbackOwnerId: string | null;
+  hasExplicitTalkbackOverride: boolean;
+  isExplicitNone: boolean;
+} {
+  const selected = new Set(args.activeMusicianIds.map((id) => id.trim()).filter(Boolean));
+  const explicitTalkback = (args.project as ProjectWithOverlays).overlays?.talkback;
+
+  if (!explicitTalkback || typeof explicitTalkback !== "object") {
+    return {
+      explicitTalkbackOwnerId: undefined,
+      effectiveTalkbackOwnerId: null,
+      hasExplicitTalkbackOverride: false,
+      isExplicitNone: false,
+    };
+  }
+
+  if (explicitTalkback.mode === "none") {
+    return {
+      explicitTalkbackOwnerId: "",
+      effectiveTalkbackOwnerId: null,
+      hasExplicitTalkbackOverride: true,
+      isExplicitNone: true,
+    };
+  }
+
+  if (explicitTalkback.mode !== "assigned") {
+    return {
+      explicitTalkbackOwnerId: undefined,
+      effectiveTalkbackOwnerId: null,
+      hasExplicitTalkbackOverride: true,
+      isExplicitNone: false,
+    };
+  }
+
+  const ownerId = normalizeId(explicitTalkback.ownerId);
+  if (!ownerId || !selected.has(ownerId)) {
+    return {
+      explicitTalkbackOwnerId: ownerId,
+      effectiveTalkbackOwnerId: null,
+      hasExplicitTalkbackOverride: true,
+      isExplicitNone: false,
+    };
+  }
+
+  return {
+    explicitTalkbackOwnerId: ownerId,
+    effectiveTalkbackOwnerId: ownerId,
+    hasExplicitTalkbackOverride: true,
+    isExplicitNone: false,
+  };
+}
+
 export function hasOwnBackVocsOverride(project: Project): boolean {
   const overlays = (project as ProjectWithOverlays).overlays;
   return Boolean(overlays && Object.prototype.hasOwnProperty.call(overlays, "backVocals"));
 }
 
-export function resolveProjectBackVocsState(args: {
-  project: Project;
-}): {
+export function resolveProjectBackVocsState(args: { project: Project }): {
   explicitBackVocs: string[] | undefined;
   defaultBackVocs: string[];
   effectiveBackVocs: string[];
   hasExplicitBackVocsOverride: boolean;
 } {
-  const overlays = ((args.project as ProjectWithOverlays).overlays ?? {}) as Record<string, unknown>;
-  const hasExplicitBackVocsOverride = Object.prototype.hasOwnProperty.call(overlays, "backVocals");
+  const hasExplicitBackVocsOverride = hasOwnBackVocsOverride(args.project);
   const explicitBackVocs = hasExplicitBackVocsOverride
-    ? lineupEntries(overlays.backVocals)
+    ? resolveCanonicalOverlayAssignments({ project: args.project, role: "backVocals" }).map((slot) => slot.musicianId)
     : undefined;
 
   return {
@@ -81,75 +180,16 @@ export function hasOwnTalkbackOverride(project: Project): boolean {
   return Boolean(overlays && Object.prototype.hasOwnProperty.call(overlays, "talkback"));
 }
 
-function firstAllowed(
-  allowed: string[] | undefined,
-  preferred: string,
-): string | null {
-  if (!preferred) return allowed?.[0] ?? null;
-  if (!allowed || allowed.length === 0) return preferred;
-  return allowed.includes(preferred) ? preferred : (allowed[0] ?? null);
-}
+export function resolveOwnerGroupByMusicianId(project: Project): Map<string, Group> {
+  const lineup = (project as ProjectWithLineup).lineup ?? {};
+  const byMusicianId = new Map<string, Group>();
 
-export function resolveProjectTalkbackState(args: {
-  project: Project;
-  activeMusicianIds: string[];
-  defaultTalkbackOwnerId: string;
-}): {
-  explicitTalkbackOwnerId: string | undefined;
-  defaultTalkbackOwnerId: string | null;
-  effectiveTalkbackOwnerId: string | null;
-  hasExplicitTalkbackOverride: boolean;
-  isExplicitNone: boolean;
-} {
-  const selected = args.activeMusicianIds.filter((id) => id.trim().length > 0);
-  const fallback = firstAllowed(
-    selected.length > 0 ? selected : undefined,
-    args.defaultTalkbackOwnerId.trim(),
-  );
+  for (const [group, value] of Object.entries(lineup)) {
+    if (!isGroup(group) || group === "talkback") continue;
+    for (const musicianId of lineupEntries(value)) {
+      if (!byMusicianId.has(musicianId)) byMusicianId.set(musicianId, group);
+    }
+  }
 
-  const explicitTalkback = (args.project as ProjectWithOverlays).overlays?.talkback;
-  if (explicitTalkback?.mode === "none") {
-    return {
-      explicitTalkbackOwnerId: "",
-      defaultTalkbackOwnerId: fallback,
-      effectiveTalkbackOwnerId: fallback,
-      hasExplicitTalkbackOverride: true,
-      isExplicitNone: true,
-    };
-  }
-  if (explicitTalkback?.mode === "assigned" && typeof explicitTalkback.ownerId === "string") {
-    const trimmed = explicitTalkback.ownerId.trim();
-    if (trimmed.length === 0) {
-      return {
-        explicitTalkbackOwnerId: "",
-        defaultTalkbackOwnerId: fallback,
-        effectiveTalkbackOwnerId: fallback,
-        hasExplicitTalkbackOverride: true,
-        isExplicitNone: true,
-      };
-    }
-    if (selected.length > 0 && !selected.includes(trimmed)) {
-      return {
-        explicitTalkbackOwnerId: trimmed,
-        defaultTalkbackOwnerId: fallback,
-        effectiveTalkbackOwnerId: fallback,
-        hasExplicitTalkbackOverride: true,
-        isExplicitNone: false,
-      };
-    }
-    return {
-      explicitTalkbackOwnerId: trimmed,
-      defaultTalkbackOwnerId: fallback,
-      effectiveTalkbackOwnerId: trimmed,
-      hasExplicitTalkbackOverride: true,
-      isExplicitNone: false,
-    };
-  }
-  return {
-    explicitTalkbackOwnerId: undefined,
-    defaultTalkbackOwnerId: fallback,
-    effectiveTalkbackOwnerId: fallback,
-    hasExplicitTalkbackOverride: false,
-    isExplicitNone: false,
-  };
+  return byMusicianId;
 }

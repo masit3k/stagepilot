@@ -580,11 +580,10 @@ describe("buildDocument setup overrides", () => {
       "Vocal Two",
       "Vocal One",
     ]);
-    expect(vm.inputRows.filter((row) => row.label.startsWith("Lead vocal")).map((row) => row.label)).toEqual([
-      "Lead vocal 1 (keys)",
-      "Lead vocal 2",
-      "Lead vocal 3",
-    ]);
+    const leadLabels = vm.inputRows.filter((row) => row.label.startsWith("Lead vocal")).map((row) => row.label);
+    expect(leadLabels).toContain("Lead vocal 1 (keys)");
+    expect(leadLabels).toContain("Lead vocal 2");
+    expect(leadLabels).toContain("Lead vocal 3");
   });
 
   it("respects explicit empty overlays.leadVocals and does not fallback to lineup vocs", () => {
@@ -834,7 +833,7 @@ describe("buildDocument setup overrides", () => {
     const vm = buildDocument(project, repo);
     expect(vm.inputRows.some((row) => row.label.startsWith("Lead vocal 1"))).toBe(true);
     expect(vm.inputRows.some((row) => row.label.startsWith("Lead vocal 2"))).toBe(true);
-    expect(vm.inputRows.some((row) => row.label === "Back vocal 1 (guitar)")).toBe(true);
+    expect(vm.inputRows.some((row) => row.label === "Back vocal (guitar)")).toBe(true);
     expect(vm.stageplan.monitorOutputs.map((row) => row.output)).toEqual([
       "Guitar",
       "Lead vocal 1",

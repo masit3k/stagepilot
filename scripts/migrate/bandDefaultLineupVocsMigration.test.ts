@@ -53,7 +53,7 @@ describe("migrateBandsDefaultLineupVocs", () => {
     expect(byId.get("band-a")?.issues).toEqual([]);
     expect(byId.get("band-b")?.isValidCanonicalModel).toBe(false);
     expect(byId.get("band-b")?.issues[0]).toContain(
-      "Band must define defaultVocals",
+      "Band must define defaultOverlays",
     );
   });
 
