@@ -136,7 +136,7 @@ function resolveOverlaySlots(args: {
   return members;
 }
 
-const VOCAL_OWNER_ORDER_RANK: Record<Group, number> = {
+const GROUP_MONITOR_ORDER: Record<Group, number> = {
   guitar: 1,
   vocs: 2,
   keys: 3,
@@ -156,7 +156,7 @@ function resolveOverlayDrivenVocalRows(args: {
 
   for (const { musician, slot } of members) {
     const ownerRole = ownerGroupByMusicianId.get(musician.id) ?? musician.group;
-    const orderRank = VOCAL_OWNER_ORDER_RANK[ownerRole] ?? 999;
+    const orderRank = GROUP_MONITOR_ORDER[ownerRole] ?? 999;
     const capabilityInputs = capabilityByMusicianId.get(musician.id) ?? [{
       key: role === "lead" ? `voc_lead_${slot}` : `voc_back_${ownerRole}_${slot}`,
       label: role === "lead" ? "Lead vocal" : "Back vocal",
@@ -205,19 +205,11 @@ function orderPdfMonitorOwners(args: {
   leadVocsSlotByMusicianId: Map<string, number>;
 }): Array<{ group: Group; musician: Musician }> {
   const { owners, leadVocsSlotByMusicianId } = args;
-  const orderRank: Record<Group, number> = {
-    guitar: 1,
-    vocs: 2,
-    keys: 3,
-    bass: 4,
-    drums: 5,
-    talkback: 999,
-  };
 
   return owners
     .map((owner, originalIndex) => ({ owner, originalIndex }))
     .sort((a, b) => {
-      const groupRankDiff = (orderRank[a.owner.group] ?? 999) - (orderRank[b.owner.group] ?? 999);
+      const groupRankDiff = (GROUP_MONITOR_ORDER[a.owner.group] ?? 999) - (GROUP_MONITOR_ORDER[b.owner.group] ?? 999);
       if (groupRankDiff !== 0) return groupRankDiff;
 
       if (a.owner.group === "vocs" && b.owner.group === "vocs") {
@@ -286,6 +278,74 @@ function applyInputOverridePatch(
     note: input.note,
     ownerRole: source[0]?.ownerRole ?? "vocs",
   }));
+}
+
+/* ============================================================
+ * Per-musician input collection
+ * ============================================================ */
+
+function buildMusicianInstrumentInputs(args: {
+  musician: Musician;
+  group: Group;
+  effectivePresetItems: PresetItem[];
+  effectiveMusicianSetup: { inputs: InputChannel[]; monitoring: { monitorRef: string; additionalWedgeCount?: number } } | undefined;
+  repo: DataRepository;
+}): { inputs: BuiltInput[]; vocalCapability: BuiltInput[] | null } {
+  const { musician, group, effectivePresetItems, effectiveMusicianSetup, repo } = args;
+  let vocalCapability: BuiltInput[] | null = null;
+  const result: BuiltInput[] = [];
+
+  for (const item of effectivePresetItems) {
+    const runtimeKind = (item as { kind?: unknown }).kind;
+
+    if (group === "drums" && item.kind === "drum_setup") continue;
+    if (group === "bass" && item.kind === "preset") {
+      const entity = repo.getPreset(item.ref);
+      if (entity.type === "preset" && entity.group === "bass") continue;
+    }
+    if (item.kind === "monitor") continue;
+
+    if (runtimeKind === "preset") {
+      const ref = (item as { ref?: unknown }).ref;
+      if (typeof ref !== "string" || ref.trim().length === 0) continue;
+      const entity = repo.getPreset(ref);
+      if (entity.type === "preset" && entity.group === "vocs") {
+        vocalCapability = entity.inputs.map((input) => ({
+          key: input.key,
+          label: input.label,
+          group: "vocs" as const,
+          note: input.note,
+          ownerRole: group,
+          ownerMusicianId: musician.id,
+          ownerGender: musician.gender,
+        }));
+        continue;
+      }
+    }
+
+    if (runtimeKind !== "preset" && runtimeKind !== "drum_setup") continue;
+
+    const expanded = expandPresetItem(item, group, repo);
+    for (const input of expanded) {
+      if (!input.ownerMusicianId) input.ownerMusicianId = musician.id;
+    }
+    result.push(...expanded);
+  }
+
+  if ((group === "bass" || group === "drums") && effectiveMusicianSetup) {
+    result.push(
+      ...effectiveMusicianSetup.inputs.map((input) => ({
+        key: input.key,
+        label: input.label,
+        group,
+        note: input.note,
+        ownerRole: group,
+        ownerMusicianId: musician.id,
+      })),
+    );
+  }
+
+  return { inputs: result, vocalCapability };
 }
 
 /* ============================================================
@@ -557,61 +617,15 @@ export function buildDocument(
       });
     }
 
-    for (const item of effectivePresetItems) {
-      const runtimeKind = (item as { kind?: unknown }).kind;
-      if (group === "drums" && item.kind === "drum_setup") {
-        continue;
-      }
-      if (group === "bass" && item.kind === "preset") {
-        const entity = repo.getPreset(item.ref);
-        if (entity.type === "preset" && entity.group === "bass") {
-          continue;
-        }
-      }
-      if (item.kind === "monitor") {
-        continue;
-      }
-      if (runtimeKind === "preset") {
-        const ref = (item as { ref?: unknown }).ref;
-        if (typeof ref !== "string" || ref.trim().length === 0) continue;
-        const entity = repo.getPreset(ref);
-        if (entity.type === "preset" && entity.group === "vocs") {
-          const capabilityRows = entity.inputs.map((input) => ({
-            key: input.key,
-            label: input.label,
-            group: "vocs" as const,
-            note: input.note,
-            ownerRole: group,
-            ownerMusicianId: musician.id,
-            ownerGender: musician.gender,
-          }));
-          vocalCapabilityByMusicianId.set(musician.id, capabilityRows);
-          continue;
-        }
-      }
-      if (runtimeKind !== "preset" && runtimeKind !== "drum_setup") {
-        continue;
-      }
-
-      const expanded = expandPresetItem(item, group, repo);
-      for (const input of expanded) {
-        if (!input.ownerMusicianId) input.ownerMusicianId = musician.id;
-      }
-      inputs.push(...expanded);
-    }
-
-    if ((group === "bass" || group === "drums") && effectiveMusicianSetup) {
-      inputs.push(
-        ...effectiveMusicianSetup.inputs.map((input) => ({
-          key: input.key,
-          label: input.label,
-          group,
-          note: input.note,
-          ownerRole: group,
-          ownerMusicianId: musician.id,
-        })),
-      );
-    }
+    const { inputs: musicianInputs, vocalCapability } = buildMusicianInstrumentInputs({
+      musician,
+      group,
+      effectivePresetItems,
+      effectiveMusicianSetup,
+      repo,
+    });
+    if (vocalCapability) vocalCapabilityByMusicianId.set(musician.id, vocalCapability);
+    inputs.push(...musicianInputs);
 
     const eventOverride = group === "bass" || group === "drums" ? undefined : ctx.presetOverrideByMusicianId.get(musician.id);
     if (eventOverride) {
@@ -922,9 +936,7 @@ export function buildDocument(
 
     monitors,
 
-    // extra field for rendering the monitor table in PDF
-    // (keeps backward compatible VM contract)
-    ...({ monitorTableRows } as any),
+    monitorTableRows,
 
     notes: {
       inputs: tpl.inputs ?? [],

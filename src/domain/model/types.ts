@@ -428,6 +428,14 @@ export interface DocumentViewModel {
     monitors: NoteLine[];
   };
 
+  monitorTableRows: Array<{
+    no: string;
+    output: string;
+    note: string;
+    ownerRole: Group;
+    ownerMusicianId: string;
+  }>;
+
   stageplan: {
     lineupByRole: Partial<Record<StageplanInstrumentKey, StageplanPerson>>;
     leadVocals?: StageplanPerson[];

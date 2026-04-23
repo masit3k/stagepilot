@@ -1,0 +1,12 @@
+{
+  "env": {
+    "OTEL_RESOURCE_ATTRIBUTES": "repository.url=github.com/masit3k/stagepilot"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(git stash *)",
+      "Bash(npx vitest *)"
+    ]
+  }
+}

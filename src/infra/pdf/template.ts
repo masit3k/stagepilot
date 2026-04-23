@@ -83,10 +83,8 @@ function renderInputTable(vm: DocumentViewModel): string {
 }
 
 function renderMonitorTable(vm: DocumentViewModel): string {
-  const rowsSrc: Array<{ no: string; output: string; note: string }> =
-    (vm as any).monitorTableRows ?? [];
+  const rowsSrc = vm.monitorTableRows;
 
-  // pokud monitorTableRows není přítomné, netiskni tabulku
   if (!rowsSrc || rowsSrc.length === 0) return "";
 
   const rows = rowsSrc
