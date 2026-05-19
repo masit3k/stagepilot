@@ -81,7 +81,7 @@ const PRESET_REFS = {
     "el_guitar_xlr_stereo",
     "ac_guitar",
   ],
-  keys: ["keys", "synth", "synth_mono"],
+  keys: ["keys_jack", "keys_xlr", "synth", "synth_mono"],
   vocs: ["vocal_wireless", "vocal_wired", "vocal_no_mic"],
 } as const;
 

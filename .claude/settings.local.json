@@ -6,7 +6,8 @@
     "allow": [
       "Bash(npm run *)",
       "Bash(git stash *)",
-      "Bash(npx vitest *)"
+      "Bash(npx vitest *)",
+      "Bash(npx tsc *)"
     ]
   }
 }

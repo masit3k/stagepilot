@@ -3,7 +3,7 @@ import type { Preset } from "../../../../../../../../src/domain/model/types";
 import { buildKeysFields } from "./buildKeysFields";
 
 const presets: Preset[] = [
-  { type: "preset", id: "keys", label: "Keys", group: "keys", inputs: [{ key: "keys_l", label: "L" }, { key: "keys_r", label: "R" }] },
+  { type: "preset", id: "keys_jack", label: "Keys", group: "keys", inputs: [{ key: "keys_l", label: "L" }, { key: "keys_r", label: "R" }] },
   { type: "preset", id: "synth", label: "Synth", group: "keys", inputs: [{ key: "synth_l", label: "L" }, { key: "synth_r", label: "R" }] },
   { type: "preset", id: "synth_mono", label: "Synth mono", group: "keys", inputs: [{ key: "synth_mono", label: "Mono" }] },
 ];

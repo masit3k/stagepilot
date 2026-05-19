@@ -1,18 +1,18 @@
 {
     "type": "preset",
-    "id": "keys",
+    "id": "keys_xlr",
     "label": "Keys",
     "group": "keys",
     "inputs": [
         {
             "key": "keys_l",
             "label": "Keys L",
-            "note": "TS jack 6.3mm – DI box"
+            "note": "XLR out from rack"
         },
         {
             "key": "keys_r",
             "label": "Keys R",
-            "note": "TS jack 6.3mm – DI box"
+            "note": "XLR out from rack"
         }
     ]
 }

@@ -11,7 +11,7 @@ import acGuitarPreset from "../../../../../../../data/assets/presets/groups/guit
 import vocalWirelessPreset from "../../../../../../../data/assets/presets/groups/vocs/vocal_wireless.json";
 import vocalWiredPreset from "../../../../../../../data/assets/presets/groups/vocs/vocal_wired.json";
 import vocalNoMicPreset from "../../../../../../../data/assets/presets/groups/vocs/vocal_no_mic.json";
-import keysPreset from "../../../../../../../data/assets/presets/groups/keys/keys.json";
+import keysPreset from "../../../../../../../data/assets/presets/groups/keys/keys_jack.json";
 import synthPreset from "../../../../../../../data/assets/presets/groups/keys/synth.json";
 import synthMonoPreset from "../../../../../../../data/assets/presets/groups/keys/synth_mono.json";
 

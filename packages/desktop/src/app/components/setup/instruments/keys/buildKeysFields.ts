@@ -3,7 +3,7 @@ import { withInputsTarget, type EventSetupEditState } from "../../adapters/event
 import type { SchemaNode, ToggleWithStepperFieldDef } from "../../schema/types";
 import { buildMonoInstanceInputs, buildStereoInstanceInputs, clampKeysCount, MIN_KEYS_COUNT } from "./keysInstanceInputs";
 
-type KeysPreset = Preset & { id: "keys" | "synth" | "synth_mono" };
+type KeysPreset = Preset & { id: "keys_jack" | "keys_xlr" | "synth" | "synth_mono" };
 
 type Counts = { keys?: number; synth?: number; synthMono?: number };
 
@@ -28,9 +28,21 @@ function readCounts(inputs: InputChannel[]): Counts {
   return counts;
 }
 
+function resolveKeysTemplate(
+  effectiveInputs: InputChannel[],
+  defaultInputs: InputChannel[],
+  byId: Record<string, KeysPreset | undefined>,
+): KeysPreset | undefined {
+  const search = [...effectiveInputs, ...defaultInputs];
+  const keysInput = search.find((i) => i.key === "keys_l" || /^keys_\d+_l$/.test(i.key));
+  if (keysInput?.note === "XLR out from rack") return byId.keys_xlr ?? byId.keys_jack;
+  return byId.keys_jack ?? byId.keys_xlr;
+}
+
 function rebuildInputs(state: EventSetupEditState, presets: Record<string, KeysPreset | undefined>, next: Required<Counts>): InputChannel[] {
   const keep = state.effectivePreset.inputs.filter((item) => !["keys", "synth", "synth_mono"].some((prefix) => hasPrefix(item, prefix)));
-  const keysInputs = presets.keys && next.keys > 0 ? buildStereoInstanceInputs(presets.keys.inputs, "keys", next.keys) : [];
+  const keysPreset = resolveKeysTemplate(state.effectivePreset.inputs, state.defaultPreset.inputs, presets);
+  const keysInputs = keysPreset && next.keys > 0 ? buildStereoInstanceInputs(keysPreset.inputs, "keys", next.keys) : [];
   const synthInputs = presets.synth && next.synth > 0 ? buildStereoInstanceInputs(presets.synth.inputs, "synth", next.synth) : [];
   const synthMonoInputs = presets.synth_mono?.inputs[0] && next.synthMono > 0 ? buildMonoInstanceInputs(presets.synth_mono.inputs[0], "synth_mono", next.synthMono) : [];
   return [...keep, ...keysInputs, ...synthInputs, ...synthMonoInputs];
@@ -89,7 +101,7 @@ function createField(args: {
 export function buildKeysFields(presets: Preset[]): SchemaNode[] {
   const byId = Object.fromEntries(
     presets
-      .filter((preset): preset is KeysPreset => preset.type === "preset" && preset.group === "keys" && ["keys", "synth", "synth_mono"].includes(preset.id))
+      .filter((preset): preset is KeysPreset => preset.type === "preset" && preset.group === "keys" && ["keys_jack", "keys_xlr", "synth", "synth_mono"].includes(preset.id))
       .map((preset) => [preset.id, preset]),
   ) as Record<string, KeysPreset | undefined>;
 
