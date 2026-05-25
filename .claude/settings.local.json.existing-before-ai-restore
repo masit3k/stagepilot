@@ -10,19 +10,7 @@
       "Bash(npx tsc *)",
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\mkrecmer\\\\dev\\\\stagepilot\" -Recurse -Directory -ErrorAction SilentlyContinue)",
       "Bash(Select-Object -ExpandProperty FullName)",
-      "Bash(grep -E \"\\\\.\\(css|scss|html\\)$\")",
-      "Bash(npm test *)",
-      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\mkrecmer\\\\dev\\\\stagepilot\" -Directory)",
-      "Bash(Select-Object Name)"
+      "Bash(grep -E \"\\\\.\\(css|scss|html\\)$\")"
     ]
-  },
-  "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": [
-    "github"
-  ],
-  "enabledPlugins": {
-    "base@mibcon-market": true,
-    "architecture@mibcon-market": true,
-    "browser@mibcon-market": true
   }
 }
