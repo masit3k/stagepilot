@@ -17,12 +17,18 @@ describe("keysInstanceInputs", () => {
       {
         key: "keys_l",
         label: "Keys L",
+        baseLabel: "Keys",
+        compactGroupKey: "keys_stereo_xlr",
+        channel: "L",
         group: "keys",
         note: "XLR out from rack",
       },
       {
         key: "keys_r",
         label: "Keys R",
+        baseLabel: "Keys",
+        compactGroupKey: "keys_stereo_xlr",
+        channel: "R",
         group: "keys",
         note: "XLR out from rack",
       },

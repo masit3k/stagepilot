@@ -5,10 +5,9 @@ import {
   resolveDrumInputs,
 } from "../drums/resolveDrumInputs.js";
 import {
+  compactStereoInputChannelsForPdf,
   formatBackVocalPdfLabel,
   formatDrumInputDisplayLabel,
-  formatInputListLabel,
-  formatInputListNote,
   formatLeadVocalPdfLabel,
   formatMonitorOwnerLabel,
   formatMonitoringLabel,
@@ -89,6 +88,9 @@ function filterNotesMonitors(notes: NoteLine[], hasWedge: boolean): NoteLine[] {
 type BuiltInput = {
   key: string;
   label: string;
+  baseLabel?: string;
+  compactGroupKey?: string;
+  channel?: "L" | "R";
   group: Group;
   note?: string;
   ownerGender?: "m" | "f" | "x";
@@ -100,12 +102,6 @@ type BuiltInput = {
 };
 
 type BuiltInputWithCh = BuiltInput & { ch: number };
-
-type DisplayRow = {
-  no: string;
-  label: string;
-  note?: string;
-};
 
 type MonitorTableRow = {
   no: string;
@@ -303,6 +299,9 @@ function applyInputOverridePatch(
     inputs: source.map((item) => ({
       key: item.key,
       label: item.label,
+      baseLabel: item.baseLabel,
+      compactGroupKey: item.compactGroupKey,
+      channel: item.channel,
       group: item.group,
       note: item.note,
     })),
@@ -312,6 +311,9 @@ function applyInputOverridePatch(
   return patched.map((input) => ({
     key: input.key,
     label: input.label,
+    baseLabel: input.baseLabel,
+    compactGroupKey: input.compactGroupKey,
+    channel: input.channel,
     group: input.group ?? source[0]?.group ?? "vocs",
     note: input.note,
     ownerRole: source[0]?.ownerRole ?? "vocs",
@@ -362,6 +364,9 @@ function buildMusicianInstrumentInputs(args: {
         vocalCapability = entity.inputs.map((input) => ({
           key: input.key,
           label: input.label,
+          baseLabel: input.baseLabel,
+          compactGroupKey: input.compactGroupKey,
+          channel: input.channel,
           group: "vocs" as const,
           note: input.note,
           ownerRole: group,
@@ -386,6 +391,9 @@ function buildMusicianInstrumentInputs(args: {
       ...effectiveMusicianSetup.inputs.map((input) => ({
         key: input.key,
         label: input.label,
+        baseLabel: input.baseLabel,
+        compactGroupKey: input.compactGroupKey,
+        channel: input.channel,
         group,
         note: input.note,
         ownerRole: group,
@@ -447,40 +455,11 @@ function assignChannelsWithOddStereoRule(
 }
 
 /* ============================================================
- * 2) Build display rows (merge stereo except overheads)
+ * 2) Build display rows (compact explicit stereo groups for PDF)
  * ============================================================ */
 
-function buildInputRows(inputsWithCh: BuiltInputWithCh[]): DisplayRow[] {
-  const sorted = inputsWithCh.slice().sort((a, b) => a.ch - b.ch);
-  const rows: DisplayRow[] = [];
-
-  for (let i = 0; i < sorted.length; i++) {
-    const a = sorted[i];
-    const b = sorted[i + 1];
-
-    const stereo = b && b.ch === a.ch + 1 ? resolveStereoPair(a, b) : null;
-
-    if (stereo && stereo.shouldCollapse) {
-      const leftLabel = stereo.aSide === "L" ? a.label : b.label;
-      const rightLabel = stereo.aSide === "L" ? b.label : a.label;
-
-      rows.push({
-        no: `${a.ch}+${b.ch}`,
-        label: formatInputListLabel(leftLabel, rightLabel),
-        note: formatInputListNote(a.note, a.group === "keys" ? 1 : 2),
-      });
-      i++;
-      continue;
-    }
-
-    rows.push({
-      no: String(a.ch),
-      label: a.label,
-      note: a.note,
-    });
-  }
-
-  return rows;
+function buildInputRows(inputsWithCh: BuiltInputWithCh[]) {
+  return compactStereoInputChannelsForPdf(inputsWithCh);
 }
 
 /* ============================================================
@@ -501,6 +480,9 @@ function expandPresetItem(
       return resolveDrumInputs(definition).map((ch) => ({
         key: ch.key,
         label: ch.label,
+        baseLabel: ch.baseLabel,
+        compactGroupKey: ch.compactGroupKey,
+        channel: ch.channel,
         group: ch.group ?? lineupGroup,
         note: ch.note,
         ownerRole: lineupGroup,
@@ -519,6 +501,9 @@ function expandPresetItem(
       return ent.inputs.map((ch: InputChannel) => ({
         key: ch.key,
         label: ch.label,
+        baseLabel: ch.baseLabel,
+        compactGroupKey: ch.compactGroupKey,
+        channel: ch.channel,
         group: ch.group ?? lineupGroup,
         note: ch.note,
         ownerRole: lineupGroup,

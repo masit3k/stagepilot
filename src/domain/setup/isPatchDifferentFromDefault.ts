@@ -1,9 +1,23 @@
-import type { MusicianSetupPreset, PresetOverridePatch } from "../model/types.js";
-import { applyPresetOverride, normalizeSetupOverridePatch } from "../rules/presetOverride.js";
+import type {
+  MusicianSetupPreset,
+  PresetOverridePatch,
+} from "../model/types.js";
+import {
+  applyPresetOverride,
+  normalizeSetupOverridePatch,
+} from "../rules/presetOverride.js";
 
 type ComparablePreset = {
   monitoring: { monitorRef: string; additionalWedgeCount?: number };
-  inputs: Array<{ key: string; label: string; note?: string; group: string }>;
+  inputs: Array<{
+    key: string;
+    label: string;
+    baseLabel?: string;
+    compactGroupKey?: string;
+    channel?: "L" | "R";
+    note?: string;
+    group?: string;
+  }>;
 };
 
 function normalizePreset(preset: MusicianSetupPreset): ComparablePreset {
@@ -15,7 +29,15 @@ function normalizePreset(preset: MusicianSetupPreset): ComparablePreset {
         : {}),
     },
     inputs: [...preset.inputs]
-      .map((item) => ({ key: item.key, label: item.label, note: item.note, group: item.group }))
+      .map((item) => ({
+        key: item.key,
+        label: item.label,
+        baseLabel: item.baseLabel,
+        compactGroupKey: item.compactGroupKey,
+        channel: item.channel,
+        note: item.note,
+        group: item.group,
+      }))
       .sort((a, b) => a.key.localeCompare(b.key)),
   };
 }

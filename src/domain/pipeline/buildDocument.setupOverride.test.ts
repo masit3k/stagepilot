@@ -1383,6 +1383,18 @@ describe("buildDocument setup overrides", () => {
     expect(
       vm.inputs.filter((item) => item.key.startsWith("dr_tracks_l")).length,
     ).toBe(1);
+    expect(vm.inputRows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: "PAD",
+          note: "2x TS jack 6.3mm – DI box",
+        }),
+        expect.objectContaining({
+          label: "Tracks",
+          note: "2x TS jack 6.3mm – DI box",
+        }),
+      ]),
+    );
     const stageplanLabels = vm.stageplan.inputs.map((item) => item.label);
     expect(stageplanLabels).toContain("Backing track L");
     expect(stageplanLabels).toContain("Backing track R");
@@ -1667,12 +1679,18 @@ describe("buildDocument setup overrides", () => {
         {
           key: "keys_l",
           label: "Keys L",
+          baseLabel: "Keys",
+          compactGroupKey: "keys_stereo_xlr",
+          channel: "L",
           group: "keys",
           note: "XLR out from rack",
         },
         {
           key: "keys_r",
           label: "Keys R",
+          baseLabel: "Keys",
+          compactGroupKey: "keys_stereo_xlr",
+          channel: "R",
           group: "keys",
           note: "XLR out from rack",
         },
@@ -1692,7 +1710,7 @@ describe("buildDocument setup overrides", () => {
 
     const vm = buildDocument(project, repo);
     expect(vm.inputRows.map((row) => [row.label, row.note])).toEqual([
-      ["Keys 1", "XLR out from rack"],
+      ["Keys 1", "2x XLR out from rack"],
       ["Keys 2", "TS jack 6.3mm – DI box"],
     ]);
   });

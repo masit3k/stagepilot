@@ -19,6 +19,9 @@ export type DrumInputCatalogItem = {
   /** @see DRUM_INPUT_KEY_ROLE */
   key: string;
   label: string;
+  baseLabel?: string;
+  compactGroupKey?: string;
+  channel?: "L" | "R";
   note: string;
   order: number;
   /** @see DRUM_INPUT_SLOT_ROLE */

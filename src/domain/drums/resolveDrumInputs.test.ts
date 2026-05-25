@@ -92,4 +92,24 @@ describe("resolveDrumDefinitionInputs", () => {
     expect(keysWithTracks).toContain("dr_tracks_l");
     expect(keysWithTracks).toContain("dr_tracks_r");
   });
+
+  it("adds compact metadata to active generated stereo sources", () => {
+    const definition = createDefaultDrumDefinition();
+    definition.pad = { enabled: true, mode: "sfx", channels: "stereo" };
+    definition.tracks = { enabled: true };
+
+    const inputs = resolveDrumDefinitionInputs(definition);
+    expect(inputs.find((item) => item.key === "dr_pad_stereo_sfx_l")).toMatchObject({
+      baseLabel: "PAD",
+      compactGroupKey: "dr_pad_stereo_sfx",
+      channel: "L",
+      note: "TS jack 6.3mm – DI box",
+    });
+    expect(inputs.find((item) => item.key === "dr_tracks_r")).toMatchObject({
+      baseLabel: "Tracks",
+      compactGroupKey: "dr_tracks",
+      channel: "R",
+      note: "TS jack 6.3mm – DI box",
+    });
+  });
 });

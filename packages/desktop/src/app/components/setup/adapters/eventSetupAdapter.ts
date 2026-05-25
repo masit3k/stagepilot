@@ -1,5 +1,5 @@
-import { applyPresetOverride, createDefaultMusicianPreset } from "../../../../../../../src/domain/rules/presetOverride";
 import type { InputChannel, MusicianSetupPreset, PresetOverridePatch } from "../../../../../../../src/domain/model/types";
+import { applyPresetOverride, createDefaultMusicianPreset } from "../../../../../../../src/domain/rules/presetOverride";
 
 export type EventSetupEditState = {
   defaultPreset: MusicianSetupPreset;
@@ -78,6 +78,9 @@ function normalizeInput(input: InputChannel): InputChannel {
   return {
     key: input.key,
     label: input.label,
+    ...(input.baseLabel ? { baseLabel: input.baseLabel } : {}),
+    ...(input.compactGroupKey ? { compactGroupKey: input.compactGroupKey } : {}),
+    ...(input.channel ? { channel: input.channel } : {}),
     ...(input.note ? { note: input.note } : {}),
     ...(input.group ? { group: input.group } : {}),
   };
@@ -127,9 +130,22 @@ export function withInputsTarget(defaultInputs: InputChannel[], currentPatch: Pr
     .filter((item) => {
       const source = defaultByKey.get(item.key);
       if (!source) return false;
-      return source.label !== item.label || source.note !== item.note || source.group !== item.group;
+      return source.label !== item.label
+        || source.baseLabel !== item.baseLabel
+        || source.compactGroupKey !== item.compactGroupKey
+        || source.channel !== item.channel
+        || source.note !== item.note
+        || source.group !== item.group;
     })
-    .map((item) => ({ key: item.key, label: item.label, note: item.note, group: item.group }));
+    .map((item) => ({
+      key: item.key,
+      label: item.label,
+      baseLabel: item.baseLabel,
+      compactGroupKey: item.compactGroupKey,
+      channel: item.channel,
+      note: item.note,
+      group: item.group,
+    }));
   return cleanupPatch({
     ...currentPatch,
     inputs: {

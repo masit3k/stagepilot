@@ -2,12 +2,103 @@ function normalizeWs(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
 
+type StereoChannel = "L" | "R";
+
+export type PdfInputChannelForCompaction = {
+  ch: number;
+  key: string;
+  label: string;
+  note?: string;
+  baseLabel?: string;
+  compactGroupKey?: string;
+  channel?: string;
+  ownerRole?: string;
+  ownerMusicianId?: string;
+};
+
+export type PdfInputRow = {
+  no: string;
+  label: string;
+  note?: string;
+};
+
 export function formatInputListNote(note?: string, duplicateCount = 1): string | undefined {
   const normalized = normalizeWs(note ?? "");
   if (normalized === "") return undefined;
   if (duplicateCount <= 1) return normalized;
   if (/^\d+x\s+/i.test(normalized)) return normalized;
   return `${duplicateCount}x ${normalized}`;
+}
+
+function isStereoChannel(value: string | undefined): value is StereoChannel {
+  return value === "L" || value === "R";
+}
+
+function compactContextKey(input: PdfInputChannelForCompaction): string {
+  return [
+    input.ownerRole ?? "",
+    input.ownerMusicianId ?? "",
+    input.compactGroupKey ?? "",
+  ].join("\u0000");
+}
+
+function countCompactContexts(
+  inputs: PdfInputChannelForCompaction[],
+): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const input of inputs) {
+    if (!input.compactGroupKey) continue;
+    const key = compactContextKey(input);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function isValidStereoPair(
+  a: PdfInputChannelForCompaction,
+  b: PdfInputChannelForCompaction,
+  contextCounts: Map<string, number>,
+): boolean {
+  if (!a.compactGroupKey || !b.compactGroupKey) return false;
+  if (a.compactGroupKey !== b.compactGroupKey) return false;
+  if (compactContextKey(a) !== compactContextKey(b)) return false;
+  if (contextCounts.get(compactContextKey(a)) !== 2) return false;
+  if (!a.baseLabel || !b.baseLabel || a.baseLabel !== b.baseLabel) return false;
+  if (normalizeWs(a.note ?? "") !== normalizeWs(b.note ?? "")) return false;
+  if (!isStereoChannel(a.channel) || !isStereoChannel(b.channel)) return false;
+  return a.channel !== b.channel;
+}
+
+export function compactStereoInputChannelsForPdf(
+  inputs: PdfInputChannelForCompaction[],
+): PdfInputRow[] {
+  const sorted = inputs.slice().sort((a, b) => a.ch - b.ch);
+  const contextCounts = countCompactContexts(sorted);
+  const rows: PdfInputRow[] = [];
+
+  for (let i = 0; i < sorted.length; i++) {
+    const a = sorted[i];
+    const b = sorted[i + 1];
+    const compactLabel = a.baseLabel;
+
+    if (compactLabel && b && b.ch === a.ch + 1 && isValidStereoPair(a, b, contextCounts)) {
+      rows.push({
+        no: `${a.ch}+${b.ch}`,
+        label: compactLabel,
+        note: formatInputListNote(a.note, 2),
+      });
+      i++;
+      continue;
+    }
+
+    rows.push({
+      no: String(a.ch),
+      label: a.label,
+      note: a.note,
+    });
+  }
+
+  return rows;
 }
 
 function parseStereoLabel(label: string): { base: string; side: "L" | "R" } | null {
@@ -73,20 +164,3 @@ export function resolveStereoPair(
   return null;
 }
 
-export function formatInputListLabel(leftLabel: string, rightLabel: string): string {
-  const clean = (s: string): string => {
-    let x = normalizeWs(s);
-    x = x.replace(/\s+(L|R)\s*$/i, "").trim();
-    x = x.replace(/\(([^()]*)\b(L|R)\b([^()]*)\)\s*$/i, "($1$3)");
-    x = x.replace(/\s+\)/g, ")");
-    x = normalizeWs(x);
-    x = x.replace(/\s+(L|R)\s*\(/i, " (");
-    return normalizeWs(x);
-  };
-
-  const l = clean(leftLabel);
-  const r = clean(rightLabel);
-
-  if (l !== "" && l === r) return l;
-  return l || normalizeWs(leftLabel);
-}

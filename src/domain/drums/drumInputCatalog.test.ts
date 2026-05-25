@@ -17,7 +17,19 @@ describe("drum input catalog asset", () => {
   it("includes lightweight metadata for resolver and formatting", () => {
     const filePath = resolve(process.cwd(), "data/assets/catalog/inputs/drums.json");
     const catalog = JSON.parse(readFileSync(filePath, "utf-8")) as {
-      items: Array<{ key: string; category?: string; index?: number; position?: string; side?: string; mode?: string; channels?: string }>;
+      items: Array<{
+        key: string;
+        category?: string;
+        index?: number;
+        position?: string;
+        side?: string;
+        mode?: string;
+        channels?: string;
+        baseLabel?: string;
+        compactGroupKey?: string;
+        channel?: string;
+        note?: string;
+      }>;
     };
 
     const kick = catalog.items.find((item) => item.key === "dr_kick_1_out");
@@ -27,8 +39,25 @@ describe("drum input catalog asset", () => {
 
     expect(kick).toMatchObject({ category: "kick", index: 1, position: "out" });
     expect(overhead).toMatchObject({ category: "overhead", side: "l" });
-    expect(pad).toMatchObject({ category: "pad", mode: "sfx", channels: "stereo", side: "l" });
-    expect(tracks).toMatchObject({ category: "tracks", channels: "stereo", side: "l" });
+    expect(pad).toMatchObject({
+      category: "pad",
+      mode: "sfx",
+      channels: "stereo",
+      side: "l",
+      baseLabel: "PAD",
+      compactGroupKey: "dr_pad_stereo_sfx",
+      channel: "L",
+      note: "TS jack 6.3mm – DI box",
+    });
+    expect(tracks).toMatchObject({
+      category: "tracks",
+      channels: "stereo",
+      side: "l",
+      baseLabel: "Tracks",
+      compactGroupKey: "dr_tracks",
+      channel: "L",
+      note: "TS jack 6.3mm – DI box",
+    });
   });
 
   it("uses key and slot identity without redundant item id", () => {

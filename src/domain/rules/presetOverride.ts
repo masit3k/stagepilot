@@ -85,6 +85,9 @@ function presetsEqual(a: MusicianSetupPreset, b: MusicianSetupPreset): boolean {
     const other = b.inputs[index];
     return input.key === other?.key
       && input.label === other?.label
+      && input.baseLabel === other?.baseLabel
+      && input.compactGroupKey === other?.compactGroupKey
+      && input.channel === other?.channel
       && input.note === other?.note
       && input.group === other?.group;
   });
@@ -145,6 +148,9 @@ export function applyPresetOverride(
         ? {
           ...input,
           ...(update.label !== undefined ? { label: update.label } : {}),
+          ...(update.baseLabel !== undefined ? { baseLabel: update.baseLabel } : {}),
+          ...(update.compactGroupKey !== undefined ? { compactGroupKey: update.compactGroupKey } : {}),
+          ...(update.channel !== undefined ? { channel: update.channel } : {}),
           ...(update.note !== undefined ? { note: update.note } : {}),
           ...(update.group !== undefined ? { group: update.group } : {}),
         }

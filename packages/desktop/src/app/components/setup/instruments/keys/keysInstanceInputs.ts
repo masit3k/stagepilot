@@ -59,6 +59,11 @@ function labelForUnit(
   return suffix ? `${base} ${suffix}` : base;
 }
 
+function compactGroupKeyForUnit(unitIndex: number, variant: KeysVariant): string {
+  const unit = unitIndex + 1;
+  return unitIndex === 0 ? `keys_${variant}` : `keys_${unit}_${variant}`;
+}
+
 export function buildStereoInstanceInputs(
   base: InputChannel[],
   baseId: string,
@@ -89,24 +94,38 @@ export function buildMonoInstanceInputs(
 }
 
 function cloneWithKey(input: InputChannel, key: string): InputChannel {
-  return { ...input, key };
+  const channel = key.endsWith("_l") ? "L" : key.endsWith("_r") ? "R" : input.channel;
+  return {
+    ...input,
+    key,
+    ...(input.compactGroupKey ? { compactGroupKey: key.replace(/_[lr]$/i, "") } : {}),
+    ...(channel ? { channel } : {}),
+  };
 }
 
 export function buildKeysUnitInputs(units: KeysUnit[]): InputChannel[] {
   const normalized = normalizeKeysUnits(units);
   return normalized.flatMap((unit, index) => {
     const note = keysNoteForVariant(unit.variant);
+    const baseLabel = labelForUnit(index, normalized.length);
     if (isStereoVariant(unit.variant)) {
+      const compactGroupKey = compactGroupKeyForUnit(index, unit.variant);
       return [
         {
           key: keyForUnit(index, "l"),
           label: labelForUnit(index, normalized.length, "L"),
+          baseLabel,
+          compactGroupKey,
+          channel: "L" as const,
           group: "keys" as const,
           note,
         },
         {
           key: keyForUnit(index, "r"),
           label: labelForUnit(index, normalized.length, "R"),
+          baseLabel,
+          compactGroupKey,
+          channel: "R" as const,
           group: "keys" as const,
           note,
         },

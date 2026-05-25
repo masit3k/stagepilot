@@ -1,6 +1,13 @@
 import type { Group } from "../model/groups.js";
 
-type InputLike = { key: string; label: string; group: Group; note?: string };
+type InputLike = {
+  key: string;
+  label: string;
+  group: Group;
+  note?: string;
+  baseLabel?: string;
+  compactGroupKey?: string;
+};
 
 function parseKeysIndex(key: string): number | null {
   if (key === "keys" || key === "keys_l" || key === "keys_r") return 1;
@@ -27,6 +34,11 @@ export function formatKeysInputInstances<T extends InputLike>(
     if (input.group !== "keys") return input;
     const index = parseKeysIndex(input.key);
     if (!index) return input;
-    return { ...input, label: buildLabel(index, total) };
+    const label = buildLabel(index, total);
+    return {
+      ...input,
+      label,
+      ...(input.compactGroupKey ? { baseLabel: label } : {}),
+    };
   });
 }

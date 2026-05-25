@@ -2,8 +2,8 @@
 // Co? Typové definice doménových entit a výstupního view modelu.
 // Proč? Musí odpovídat reálným JSONům, jinak se rozbije pipeline i TS kontrola.
 
-import type { Group } from "./groups.js";
 import type { DrumDefinition } from "../drums/drumDefinition.js";
+import type { Group } from "./groups.js";
 export type { Group } from "./groups.js";
 
 /* ============================================================
@@ -229,6 +229,9 @@ export interface InputChannel {
   id?: string;
   key: string;
   label: string;
+  baseLabel?: string;
+  compactGroupKey?: string;
+  channel?: "L" | "R";
   group?: Group; // když chybí, doplní se podle lineup group
   note?: string;
   createdAt?: string;
@@ -255,6 +258,9 @@ export type MonitoringPreset = {
 export type PartialInputUpdate = {
   key: string;
   label?: string;
+  baseLabel?: string;
+  compactGroupKey?: string;
+  channel?: "L" | "R";
   note?: string;
   group?: Group;
 };
@@ -394,6 +400,9 @@ export interface DocumentViewModel {
     ch: number;
     key: string;
     label: string;
+    baseLabel?: string;
+    compactGroupKey?: string;
+    channel?: "L" | "R";
     group: Group;
     note?: string;
   createdAt?: string;

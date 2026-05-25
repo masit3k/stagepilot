@@ -7,11 +7,17 @@
         {
             "key": "el_guitar_xlr_l",
             "label": "Electric guitar L",
+            "baseLabel": "Electric guitar",
+            "compactGroupKey": "el_guitar_xlr_stereo",
+            "channel": "L",
             "note": "XLR out from pedalboard"
         },
         {
             "key": "el_guitar_xlr_r",
             "label": "Electric guitar R",
+            "baseLabel": "Electric guitar",
+            "compactGroupKey": "el_guitar_xlr_stereo",
+            "channel": "R",
             "note": "XLR out from pedalboard"
         }
     ]

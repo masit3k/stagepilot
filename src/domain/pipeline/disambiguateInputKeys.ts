@@ -1,6 +1,8 @@
 type InputLike = {
   key: string;
   label: string;
+  baseLabel?: string;
+  compactGroupKey?: string;
 };
 
 type StereoSide = "L" | "R";
@@ -102,6 +104,16 @@ export function disambiguateInputKeys<T extends InputLike>(inputs: T[]): T[] {
 
     const key = `${input.key}_${assignment.instanceIndex}`;
     const label = ensureNumberBeforeSide(input.label, assignment.instanceIndex);
-    return { ...input, key, label };
+    return {
+      ...input,
+      key,
+      label,
+      ...(input.baseLabel
+        ? { baseLabel: ensureNumberSuffix(input.baseLabel, assignment.instanceIndex) }
+        : {}),
+      ...(input.compactGroupKey
+        ? { compactGroupKey: `${input.compactGroupKey}_${assignment.instanceIndex}` }
+        : {}),
+    };
   });
 }

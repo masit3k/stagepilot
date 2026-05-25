@@ -1,7 +1,7 @@
 import type { InputChannel } from "../model/types.js";
 import type { DrumDefinition } from "./drumDefinition.js";
 import { normalizeDrumDefinition, resolveBackingTrackInput } from "./drumDefinition.js";
-import { loadDrumCatalog, type DrumInputCatalogItem } from "./drumInputCatalog.js";
+import { type DrumInputCatalogItem, loadDrumCatalog } from "./drumInputCatalog.js";
 import { validateDrumDefinition } from "./validateDrumDefinition.js";
 
 export function resolveDrumTrackSlots(definition: DrumDefinition): string[] {
@@ -93,6 +93,9 @@ export function resolveDrumDefinitionInputs(definition: DrumDefinition): InputCh
   return orderResolvedDrumInputs(catalog.items.filter((item) => activeSlots.has(item.slot))).map((item) => ({
     key: item.key,
     label: item.label,
+    baseLabel: item.baseLabel,
+    compactGroupKey: item.compactGroupKey,
+    channel: item.channel,
     note: item.note,
     group: "drums",
   }));
