@@ -1,22 +1,31 @@
+import {
+  formatMonitorBullets,
+  formatStageplanBoxHeader,
+} from "../../../domain/formatters/index.js";
 import type {
   Group,
   StageplanInstrument,
   StageplanInstrumentKey,
 } from "../../../domain/model/types.js";
 import type { DocumentViewModel } from "../../../domain/model/types.js";
-import { formatMonitorBullets, formatStageplanBoxHeader } from "../../../domain/formatters/index.js";
+import { resolveStageplanRoleForInput } from "../../../domain/stageplan/resolveStageplanRoleForInput.js";
 import type { StageplanLine } from "../../../domain/stageplan/stereoCollapse.js";
 import { collapseStereoForStageplan } from "../../../domain/stageplan/stereoCollapse.js";
-import { resolveStageplanRoleForInput } from "../../../domain/stageplan/resolveStageplanRoleForInput.js";
 import { pdfLayout } from "../layout.js";
 import {
-  resolveStageplanRenderOptions,
   type StageplanRenderOptions,
+  resolveStageplanRenderOptions,
 } from "../stageplanRenderOptions.js";
 
 const MM_TO_PT = 72 / 25.4;
 
-type StageplanRoleSlot = "drums" | "bass" | "guitar" | "keys" | "lead_voc_1" | "lead_voc_2";
+type StageplanRoleSlot =
+  | "drums"
+  | "bass"
+  | "guitar"
+  | "keys"
+  | "lead_voc_1"
+  | "lead_voc_2";
 type StageplanLayoutId = "layout_5_party" | "layout_6_2_vocs";
 
 type StageplanLayoutDefinition = {
@@ -84,42 +93,43 @@ const stageplanLayout = {
   powerCellColor: "#F7E65A",
 } as const;
 
-const STAGEPLAN_LAYOUTS: Record<StageplanLayoutId, StageplanLayoutDefinition> = {
-  layout_5_party: {
-    id: "layout_5_party",
-    topRow: [
-      { slot: "drums", column: 1 },
-      { slot: "bass", column: 2 },
-    ],
-    bottomRow: {
-      columns: 3,
-      slots: ["guitar", "lead_voc_1", "keys"],
-      typography: {
-        fontSizeDeltaPt: 0,
-        lineHeightDelta: 0,
-        bulletSpacingPx: 6,
+const STAGEPLAN_LAYOUTS: Record<StageplanLayoutId, StageplanLayoutDefinition> =
+  {
+    layout_5_party: {
+      id: "layout_5_party",
+      topRow: [
+        { slot: "drums", column: 1 },
+        { slot: "bass", column: 2 },
+      ],
+      bottomRow: {
+        columns: 3,
+        slots: ["guitar", "lead_voc_1", "keys"],
+        typography: {
+          fontSizeDeltaPt: 0,
+          lineHeightDelta: 0,
+          bulletSpacingPx: 6,
+        },
       },
     },
-  },
-  layout_6_2_vocs: {
-    id: "layout_6_2_vocs",
-    topRow: [
-      { slot: "drums", column: 1 },
-      { slot: "bass", column: 2 },
-    ],
-    bottomRow: {
-      columns: 4,
-      gutterXmm: 4.5,
-      sideInsetXmm: 2,
-      slots: ["guitar", "lead_voc_1", "lead_voc_2", "keys"],
-      typography: {
-        fontSizeDeltaPt: -1,
-        lineHeightDelta: -0.05,
-        bulletSpacingPx: 4,
+    layout_6_2_vocs: {
+      id: "layout_6_2_vocs",
+      topRow: [
+        { slot: "drums", column: 1 },
+        { slot: "bass", column: 2 },
+      ],
+      bottomRow: {
+        columns: 4,
+        gutterXmm: 4.5,
+        sideInsetXmm: 2,
+        slots: ["guitar", "lead_voc_1", "lead_voc_2", "keys"],
+        typography: {
+          fontSizeDeltaPt: -1,
+          lineHeightDelta: -0.05,
+          bulletSpacingPx: 4,
+        },
       },
     },
-  },
-};
+  };
 
 type StageplanBoxPlan = {
   slot: StageplanRoleSlot;
@@ -144,7 +154,12 @@ type StageplanBoxPlan = {
 
 type StageplanBoxContent = Omit<StageplanBoxPlan, "position">;
 
-type StageplanBoxPosition = { xMm: number; yMm: number; widthMm: number; heightMm: number };
+type StageplanBoxPosition = {
+  xMm: number;
+  yMm: number;
+  widthMm: number;
+  heightMm: number;
+};
 
 type BottomRowGeometryDebug = {
   layoutId: StageplanLayoutId;
@@ -162,10 +177,19 @@ function computeTopRowGeometry(args: {
   topHeightMm: number;
 }): Map<StageplanRoleSlot, StageplanBoxPosition> {
   const { layout, topRow, topRowYMm, topHeightMm } = args;
-  const topX = [0, layout.boxWidthMm + layout.gapXmm, 2 * (layout.boxWidthMm + layout.gapXmm)] as const;
+  const topX = [
+    0,
+    layout.boxWidthMm + layout.gapXmm,
+    2 * (layout.boxWidthMm + layout.gapXmm),
+  ] as const;
   const positions = new Map<StageplanRoleSlot, StageplanBoxPosition>();
   for (const item of topRow) {
-    positions.set(item.slot, { xMm: topX[item.column], yMm: topRowYMm, widthMm: layout.boxWidthMm, heightMm: topHeightMm });
+    positions.set(item.slot, {
+      xMm: topX[item.column],
+      yMm: topRowYMm,
+      widthMm: layout.boxWidthMm,
+      heightMm: topHeightMm,
+    });
   }
   return positions;
 }
@@ -178,8 +202,19 @@ function computeBottomRowGeometry(args: {
   stageAreaWidthMm: number;
   bottomRowYMm: number;
   bottomHeightMm: number;
-}): { positions: Map<StageplanRoleSlot, StageplanBoxPosition>; debug: BottomRowGeometryDebug } {
-  const { layoutId, defaults, bottomRow, stageAreaLeftMm, stageAreaWidthMm, bottomRowYMm, bottomHeightMm } = args;
+}): {
+  positions: Map<StageplanRoleSlot, StageplanBoxPosition>;
+  debug: BottomRowGeometryDebug;
+} {
+  const {
+    layoutId,
+    defaults,
+    bottomRow,
+    stageAreaLeftMm,
+    stageAreaWidthMm,
+    bottomRowYMm,
+    bottomHeightMm,
+  } = args;
   const cols = bottomRow.columns;
   const gutterMm = bottomRow.gutterXmm ?? defaults.gapXmm;
   const insetMm = bottomRow.sideInsetXmm ?? defaults.sideInsetXmm;
@@ -212,7 +247,10 @@ function computeBottomRowGeometry(args: {
 export type StageplanPlan = {
   heading: { text: string; fontSize: string; fontWeight: number };
   textStyle: { fontSize: string; lineHeight: number };
-  layout: typeof stageplanLayout & { areaHeightMm: number; layoutId: StageplanLayoutId };
+  layout: typeof stageplanLayout & {
+    areaHeightMm: number;
+    layoutId: StageplanLayoutId;
+  };
   boxes: StageplanBoxPlan[];
 };
 
@@ -242,11 +280,17 @@ function resolveLeadVocalSlotLabel(args: {
 
 function roleDataForSlot(
   vm: DocumentViewModel["stageplan"],
-  slot: StageplanRoleSlot
-): { instrument: StageplanInstrument; role: StageplanInstrumentKey; firstName: string | null; isBandLeader: boolean } {
+  slot: StageplanRoleSlot,
+): {
+  instrument: StageplanInstrument;
+  role: StageplanInstrumentKey;
+  firstName: string | null;
+  isBandLeader: boolean;
+} {
   if (slot === "lead_voc_1" || slot === "lead_voc_2") {
     const leads = vm.leadVocals ?? [];
-    const lead = slot === "lead_voc_1" ? (leads[0] ?? null) : (leads[1] ?? null);
+    const lead =
+      slot === "lead_voc_1" ? (leads[0] ?? null) : (leads[1] ?? null);
     return {
       instrument: "Lead vocal",
       role: "vocs",
@@ -255,7 +299,10 @@ function roleDataForSlot(
     };
   }
 
-  const bySlot: Record<Exclude<StageplanRoleSlot, "lead_voc_1" | "lead_voc_2">, { instrument: StageplanInstrument; role: StageplanInstrumentKey }> = {
+  const bySlot: Record<
+    Exclude<StageplanRoleSlot, "lead_voc_1" | "lead_voc_2">,
+    { instrument: StageplanInstrument; role: StageplanInstrumentKey }
+  > = {
     drums: { instrument: "Drums", role: "drums" },
     bass: { instrument: "Bass", role: "bass" },
     guitar: { instrument: "Guitar", role: "guitar" },
@@ -271,7 +318,9 @@ function roleDataForSlot(
   };
 }
 
-export function matchStageplanLayout(vm: DocumentViewModel["stageplan"]): StageplanLayoutDefinition {
+export function matchStageplanLayout(
+  vm: DocumentViewModel["stageplan"],
+): StageplanLayoutDefinition {
   const leadCount = vm.leadVocals?.length ?? 0;
   if (leadCount >= 2) return STAGEPLAN_LAYOUTS.layout_6_2_vocs;
   return STAGEPLAN_LAYOUTS.layout_5_party;
@@ -280,22 +329,36 @@ export function matchStageplanLayout(vm: DocumentViewModel["stageplan"]): Stagep
 function buildStageplanBoxes(
   vm: DocumentViewModel["stageplan"],
   options?: Partial<StageplanRenderOptions>,
-): { layout: StageplanLayoutDefinition; boxes: StageplanBoxPlan[]; areaHeightMm: number } {
+): {
+  layout: StageplanLayoutDefinition;
+  boxes: StageplanBoxPlan[];
+  areaHeightMm: number;
+} {
   const resolvedOptions = resolveStageplanRenderOptions(options);
   const selectedLayout = matchStageplanLayout(vm);
-  const allSlots = [...selectedLayout.topRow.map((item) => item.slot), ...selectedLayout.bottomRow.slots];
+  const allSlots = [
+    ...selectedLayout.topRow.map((item) => item.slot),
+    ...selectedLayout.bottomRow.slots,
+  ];
 
-  const inputBySlot = new Map<StageplanRoleSlot, Array<{ channelNo: number; label: string; group?: Group }>>();
-  const monitorBySlot = new Map<StageplanRoleSlot, Array<{ no: number; label: string }>>();
+  const inputBySlot = new Map<
+    StageplanRoleSlot,
+    Array<{ channelNo: number; label: string; group?: Group }>
+  >();
+  const monitorBySlot = new Map<
+    StageplanRoleSlot,
+    Array<{ no: number; label: string }>
+  >();
   for (const slot of allSlots) {
     inputBySlot.set(slot, []);
     monitorBySlot.set(slot, []);
   }
   const leadSlotByMusicianId = new Map<string, "lead_voc_1" | "lead_voc_2">();
   const leads = vm.leadVocals ?? [];
-  if (leads[0]?.musicianId) leadSlotByMusicianId.set(leads[0].musicianId, "lead_voc_1");
-  if (leads[1]?.musicianId) leadSlotByMusicianId.set(leads[1].musicianId, "lead_voc_2");
-
+  if (leads[0]?.musicianId)
+    leadSlotByMusicianId.set(leads[0].musicianId, "lead_voc_1");
+  if (leads[1]?.musicianId)
+    leadSlotByMusicianId.set(leads[1].musicianId, "lead_voc_2");
 
   for (const input of vm.inputs) {
     const instrument = resolveStageplanRoleForInput(input);
@@ -306,21 +369,39 @@ function buildStageplanBoxes(
         ownerMusicianId: input.ownerMusicianId,
         leadSlotByMusicianId,
       });
-      inputBySlot.get(slot)?.push({ channelNo: input.channelNo, label: input.label, group: input.group });
+      inputBySlot
+        .get(slot)
+        ?.push({
+          channelNo: input.channelNo,
+          label: input.label,
+          group: input.group,
+        });
       continue;
     }
-    const slotByInstrument: Record<Exclude<StageplanInstrument, "Lead vocal">, StageplanRoleSlot> = {
+    const slotByInstrument: Record<
+      Exclude<StageplanInstrument, "Lead vocal">,
+      StageplanRoleSlot
+    > = {
       Drums: "drums",
       Bass: "bass",
       Guitar: "guitar",
       Keys: "keys",
     };
-    inputBySlot.get(slotByInstrument[instrument])?.push({ channelNo: input.channelNo, label: input.label, group: input.group });
+    inputBySlot
+      .get(slotByInstrument[instrument])
+      ?.push({
+        channelNo: input.channelNo,
+        label: input.label,
+        group: input.group,
+      });
   }
 
   for (const output of vm.monitorOutputs) {
     const instrument = output.ownerRole
-      ? resolveStageplanRoleForInput({ label: output.output, ownerRole: output.ownerRole })
+      ? resolveStageplanRoleForInput({
+          label: output.output,
+          ownerRole: output.ownerRole,
+        })
       : resolveMonitorInstrument(output.output);
     if (!instrument) continue;
     const bullets = formatMonitorBullets(output.note, output.no);
@@ -330,19 +411,28 @@ function buildStageplanBoxes(
         ownerMusicianId: output.ownerMusicianId,
         leadSlotByMusicianId,
       });
-      for (const bullet of bullets) monitorBySlot.get(slot)?.push({ no: output.no, label: bullet });
+      for (const bullet of bullets)
+        monitorBySlot.get(slot)?.push({ no: output.no, label: bullet });
       continue;
     }
-    const slotByInstrument: Record<Exclude<StageplanInstrument, "Lead vocal">, StageplanRoleSlot> = {
+    const slotByInstrument: Record<
+      Exclude<StageplanInstrument, "Lead vocal">,
+      StageplanRoleSlot
+    > = {
       Drums: "drums",
       Bass: "bass",
       Guitar: "guitar",
       Keys: "keys",
     };
-    for (const bullet of bullets) monitorBySlot.get(slotByInstrument[instrument])?.push({ no: output.no, label: bullet });
+    for (const bullet of bullets)
+      monitorBySlot
+        .get(slotByInstrument[instrument])
+        ?.push({ no: output.no, label: bullet });
   }
 
-  const buildInputLines = (items: Array<{ channelNo: number; label: string; group?: Group }>): StageplanLine[] =>
+  const buildInputLines = (
+    items: Array<{ channelNo: number; label: string; group?: Group }>,
+  ): StageplanLine[] =>
     items.map((item) => ({
       kind: "input",
       label: item.label,
@@ -353,16 +443,19 @@ function buildStageplanBoxes(
   const rankKeysStageplanInput = (label: string): number => {
     const normalized = label.trim().toLowerCase();
     if (normalized.startsWith("keys")) return 0;
-    if (normalized.startsWith("synth (mono)") || normalized.startsWith("synth mono")) return 2;
-    if (normalized.startsWith("synth")) return 1;
-    return 3;
+    return 1;
   };
 
   const isPadInput = (label: string): boolean => /pad/i.test(label);
-  const isBackingTrackInput = (label: string): boolean => /backing\s*track/i.test(label);
+  const isBackingTrackInput = (label: string): boolean =>
+    /backing\s*track/i.test(label);
   const isDummyInput = (label: string): boolean => /dummy/i.test(label);
-  const isBackVocalDrums = (label: string): boolean => /back vocal\s*(?:[-–—]|\()\s*drums\)?/i.test(label);
-  const formatRange = (label: string, items: Array<{ channelNo: number }>): string | null => {
+  const isBackVocalDrums = (label: string): boolean =>
+    /back vocal\s*(?:[-–—]|\()\s*drums\)?/i.test(label);
+  const formatRange = (
+    label: string,
+    items: Array<{ channelNo: number }>,
+  ): string | null => {
     if (items.length === 0) return null;
     const numbers = items.map((item) => item.channelNo);
     const min = Math.min(...numbers);
@@ -380,13 +473,20 @@ function buildStageplanBoxes(
     powerBadgeSpacerHeightPt: parsePt(stageplanLayout.powerBadgeSpacerHeight),
   };
   const bottomTypography = {
-    fontSizePt: topTypography.fontSizePt + selectedLayout.bottomRow.typography.fontSizeDeltaPt,
-    lineHeight: topTypography.lineHeight + selectedLayout.bottomRow.typography.lineHeightDelta,
+    fontSizePt:
+      topTypography.fontSizePt +
+      selectedLayout.bottomRow.typography.fontSizeDeltaPt,
+    lineHeight:
+      topTypography.lineHeight +
+      selectedLayout.bottomRow.typography.lineHeightDelta,
     bulletSpacingPx: selectedLayout.bottomRow.typography.bulletSpacingPx,
     titleGapPt: topTypography.titleGapPt,
     boxPaddingBottomPt: topTypography.boxPaddingBottomPt,
-    powerBadgeSpacerHeightPt: parsePt(stageplanLayout.powerBadgeSpacerHeight) +
-      selectedLayout.bottomRow.typography.fontSizeDeltaPt * (topTypography.lineHeight + selectedLayout.bottomRow.typography.lineHeightDelta),
+    powerBadgeSpacerHeightPt:
+      parsePt(stageplanLayout.powerBadgeSpacerHeight) +
+      selectedLayout.bottomRow.typography.fontSizeDeltaPt *
+        (topTypography.lineHeight +
+          selectedLayout.bottomRow.typography.lineHeightDelta),
   };
 
   const boxContents: StageplanBoxContent[] = allSlots.map((slot) => {
@@ -402,7 +502,8 @@ function buildStageplanBoxes(
 
     const inputs = (inputBySlot.get(slot) ?? []).slice().sort((a, b) => {
       if (slot === "keys") {
-        const rank = rankKeysStageplanInput(a.label) - rankKeysStageplanInput(b.label);
+        const rank =
+          rankKeysStageplanInput(a.label) - rankKeysStageplanInput(b.label);
         if (rank !== 0) return rank;
       }
       return a.channelNo - b.channelNo;
@@ -410,28 +511,43 @@ function buildStageplanBoxes(
     const inputBullets =
       slot === "drums"
         ? (() => {
-            const padInputs = inputs.filter((item) => isPadInput(item.label) && !isDummyInput(item.label));
-            const backingTrackInputs = inputs.filter((item) => isBackingTrackInput(item.label) && !isDummyInput(item.label));
-            const backVocalInputs = inputs.filter((item) => isBackVocalDrums(item.label));
+            const padInputs = inputs.filter(
+              (item) => isPadInput(item.label) && !isDummyInput(item.label),
+            );
+            const backingTrackInputs = inputs.filter(
+              (item) =>
+                isBackingTrackInput(item.label) && !isDummyInput(item.label),
+            );
+            const backVocalInputs = inputs.filter((item) =>
+              isBackVocalDrums(item.label),
+            );
             const drumInputs = inputs.filter(
               (item) =>
                 item.group === "drums" &&
                 !isPadInput(item.label) &&
                 !isBackingTrackInput(item.label) &&
                 !isDummyInput(item.label) &&
-                !isBackVocalDrums(item.label)
+                !isBackVocalDrums(item.label),
             );
             const bullets: string[] = [];
             const drumRange = formatRange("Drums", drumInputs);
             const padRange = formatRange("PAD", padInputs);
-            const backingTrackRange = formatRange("Backing track", backingTrackInputs);
+            const backingTrackRange = formatRange(
+              "Backing track",
+              backingTrackInputs,
+            );
             const padLines = buildInputLines(padInputs);
             const collapsedPadLines = collapseStereoForStageplan(padLines);
-            const padStereoLine = padInputs.length === 2 && collapsedPadLines.length === 1 ? (collapsedPadLines[0]?.text ?? null) : null;
+            const padStereoLine =
+              padInputs.length === 2 && collapsedPadLines.length === 1
+                ? (collapsedPadLines[0]?.text ?? null)
+                : null;
             const backingTrackLines = buildInputLines(backingTrackInputs);
-            const collapsedBackingTrackLines = collapseStereoForStageplan(backingTrackLines);
+            const collapsedBackingTrackLines =
+              collapseStereoForStageplan(backingTrackLines);
             const backingTrackStereoLine =
-              backingTrackInputs.length === 2 && collapsedBackingTrackLines.length === 1
+              backingTrackInputs.length === 2 &&
+              collapsedBackingTrackLines.length === 1
                 ? (collapsedBackingTrackLines[0]?.text ?? null)
                 : null;
             if (drumRange) bullets.push(drumRange);
@@ -450,9 +566,14 @@ function buildStageplanBoxes(
             }
             return bullets;
           })()
-        : collapseStereoForStageplan(buildInputLines(inputs)).map((line) => line.text);
+        : collapseStereoForStageplan(buildInputLines(inputs)).map(
+            (line) => line.text,
+          );
 
-    const monitors = (monitorBySlot.get(slot) ?? []).slice().sort((a, b) => a.no - b.no).map((item) => item.label);
+    const monitors = (monitorBySlot.get(slot) ?? [])
+      .slice()
+      .sort((a, b) => a.no - b.no)
+      .map((item) => item.label);
     const extraBullets: string[] = slot === "drums" ? ["Drum riser 3x2"] : [];
 
     return {
@@ -480,18 +601,31 @@ function buildStageplanBoxes(
   };
 
   const calculateRequiredHeightPt = (box: StageplanBoxContent): number => {
-    const hasBody = box.inputBullets.length > 0 || box.monitorBullets.length > 0 || box.extraBullets.length > 0;
+    const hasBody =
+      box.inputBullets.length > 0 ||
+      box.monitorBullets.length > 0 ||
+      box.extraBullets.length > 0;
     const lines = countRenderedLines(box);
     const lineHeightPt = box.typography.fontSizePt * box.typography.lineHeight;
-    const baseHeight = box.typography.titleGapPt + lineHeightPt + (hasBody ? box.typography.titleGapPt : 0) + lines * lineHeightPt;
-    const bottomPart = box.hasPowerBadge ? box.typography.powerBadgeSpacerHeightPt : box.typography.boxPaddingBottomPt;
+    const baseHeight =
+      box.typography.titleGapPt +
+      lineHeightPt +
+      (hasBody ? box.typography.titleGapPt : 0) +
+      lines * lineHeightPt;
+    const bottomPart = box.hasPowerBadge
+      ? box.typography.powerBadgeSpacerHeightPt
+      : box.typography.boxPaddingBottomPt;
     return baseHeight + bottomPart;
   };
 
   const topBoxes = boxContents.filter((box) => box.row === "top");
   const bottomBoxes = boxContents.filter((box) => box.row === "bottom");
-  const topHeightMm = Math.max(...topBoxes.map((box) => calculateRequiredHeightPt(box))) / MM_TO_PT;
-  const bottomHeightMm = Math.max(...bottomBoxes.map((box) => calculateRequiredHeightPt(box))) / MM_TO_PT;
+  const topHeightMm =
+    Math.max(...topBoxes.map((box) => calculateRequiredHeightPt(box))) /
+    MM_TO_PT;
+  const bottomHeightMm =
+    Math.max(...bottomBoxes.map((box) => calculateRequiredHeightPt(box))) /
+    MM_TO_PT;
 
   const topRowY = 0;
   const bottomRowY = topHeightMm + stageplanLayout.gapYmm;
@@ -513,13 +647,18 @@ function buildStageplanBoxes(
     bottomRowYMm: bottomRowY,
     bottomHeightMm,
   });
-  for (const [slot, position] of topPositions) positionBySlot.set(slot, position);
-  for (const [slot, position] of bottomGeometry.positions) positionBySlot.set(slot, position);
+  for (const [slot, position] of topPositions)
+    positionBySlot.set(slot, position);
+  for (const [slot, position] of bottomGeometry.positions)
+    positionBySlot.set(slot, position);
 
   return {
     layout: selectedLayout,
     areaHeightMm: topHeightMm + stageplanLayout.gapYmm + bottomHeightMm,
-    boxes: boxContents.map((box) => ({ ...box, position: positionBySlot.get(box.slot)! })),
+    boxes: boxContents.map((box) => ({
+      ...box,
+      position: positionBySlot.get(box.slot)!,
+    })),
   };
 }
 
@@ -533,15 +672,21 @@ export function buildStageplanPlan(
   const marginTopMm = parseMm(pdfLayout.page.margins.top);
   const marginBottomMm = parseMm(pdfLayout.page.margins.bottom);
   const headingHeightMm = (parsePt(stageplanLayout.headingSize) / MM_TO_PT) * 1;
-  const containerMarginTopMm = parsePt(stageplanLayout.containerMarginTop) / MM_TO_PT;
+  const containerMarginTopMm =
+    parsePt(stageplanLayout.containerMarginTop) / MM_TO_PT;
   const containerPadMm = (parsePt(stageplanLayout.containerPad) / MM_TO_PT) * 2;
-  const sectionMarginTopMm = parsePt(stageplanLayout.sectionMarginTop) / MM_TO_PT;
+  const sectionMarginTopMm =
+    parsePt(stageplanLayout.sectionMarginTop) / MM_TO_PT;
   const totalHeightMm =
-    sectionMarginTopMm + headingHeightMm + containerMarginTopMm + containerPadMm + areaHeightMm;
+    sectionMarginTopMm +
+    headingHeightMm +
+    containerMarginTopMm +
+    containerPadMm +
+    areaHeightMm;
   const availableHeightMm = pageHeightMm - marginTopMm - marginBottomMm;
   if (totalHeightMm > availableHeightMm) {
     throw new Error(
-      `Stageplan layout overflow: required ${totalHeightMm.toFixed(2)}mm exceeds available ${availableHeightMm.toFixed(2)}mm.`
+      `Stageplan layout overflow: required ${totalHeightMm.toFixed(2)}mm exceeds available ${availableHeightMm.toFixed(2)}mm.`,
     );
   }
   return {
@@ -575,15 +720,20 @@ export function renderStageplanSection(
       const lines: string[] = [];
       lines.push(`<div class="stageplanBoxHeader">${box.header}</div>`);
 
-      const hasBody = box.inputBullets.length > 0 || box.monitorBullets.length > 0 || box.extraBullets.length > 0;
+      const hasBody =
+        box.inputBullets.length > 0 ||
+        box.monitorBullets.length > 0 ||
+        box.extraBullets.length > 0;
       if (hasBody) {
-        lines.push(`<div class="stageplanTitleGap" style="height:${box.typography.titleGapPt}pt;"></div>`);
+        lines.push(
+          `<div class="stageplanTitleGap" style="height:${box.typography.titleGapPt}pt;"></div>`,
+        );
       }
 
       const addBullets = (bullets: string[]) => {
         for (const bullet of bullets) {
           lines.push(
-            `<div class="stageplanBoxLine"><span class="bullet" style="margin-right:${box.typography.bulletSpacingPx}px;">•</span><span class="text">${bullet}</span></div>`
+            `<div class="stageplanBoxLine"><span class="bullet" style="margin-right:${box.typography.bulletSpacingPx}px;">•</span><span class="text">${bullet}</span></div>`,
           );
         }
       };
@@ -591,21 +741,29 @@ export function renderStageplanSection(
       addBullets(box.inputBullets);
       if (box.monitorBullets.length > 0) {
         if (box.inputBullets.length > 0) {
-          lines.push(`<div class="stageplanGap" style="height:calc(1em * ${box.typography.lineHeight});"></div>`);
+          lines.push(
+            `<div class="stageplanGap" style="height:calc(1em * ${box.typography.lineHeight});"></div>`,
+          );
         }
         addBullets(box.monitorBullets);
       }
       if (box.extraBullets.length > 0) {
         if (box.monitorBullets.length > 0 || box.inputBullets.length > 0) {
-          lines.push(`<div class="stageplanGap" style="height:calc(1em * ${box.typography.lineHeight});"></div>`);
+          lines.push(
+            `<div class="stageplanGap" style="height:calc(1em * ${box.typography.lineHeight});"></div>`,
+          );
         }
         addBullets(box.extraBullets);
       }
 
-      const powerHtml = box.hasPowerBadge ? `<div class="stageplanPower">${box.powerBadgeText}</div>` : "";
+      const powerHtml = box.hasPowerBadge
+        ? `<div class="stageplanPower">${box.powerBadgeText}</div>`
+        : "";
 
       if (box.hasPowerBadge) {
-        lines.push(`<div class="stageplanPowerGap" style="height:${box.typography.powerBadgeSpacerHeightPt}pt;"></div>`);
+        lines.push(
+          `<div class="stageplanPowerGap" style="height:${box.typography.powerBadgeSpacerHeightPt}pt;"></div>`,
+        );
       }
 
       const powerClass = box.hasPowerBadge ? " stageplanBox--withPower" : "";

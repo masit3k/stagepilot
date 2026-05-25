@@ -1,0 +1,18 @@
+{
+  "type": "preset",
+  "id": "keys_stereo_xlr",
+  "label": "Keys stereo XLR",
+  "group": "keys",
+  "inputs": [
+    {
+      "key": "keys_l",
+      "label": "Keys L",
+      "note": "XLR out from rack"
+    },
+    {
+      "key": "keys_r",
+      "label": "Keys R",
+      "note": "XLR out from rack"
+    }
+  ]
+}

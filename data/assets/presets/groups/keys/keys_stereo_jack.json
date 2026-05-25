@@ -1,0 +1,18 @@
+{
+  "type": "preset",
+  "id": "keys_stereo_jack",
+  "label": "Keys stereo jack",
+  "group": "keys",
+  "inputs": [
+    {
+      "key": "keys_l",
+      "label": "Keys L",
+      "note": "TS jack 6.3mm – DI box"
+    },
+    {
+      "key": "keys_r",
+      "label": "Keys R",
+      "note": "TS jack 6.3mm – DI box"
+    }
+  ]
+}

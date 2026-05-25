@@ -1,0 +1,13 @@
+{
+  "type": "preset",
+  "id": "keys_mono_xlr",
+  "label": "Keys mono XLR",
+  "group": "keys",
+  "inputs": [
+    {
+      "key": "keys",
+      "label": "Keys",
+      "note": "XLR out from rack"
+    }
+  ]
+}

@@ -15,32 +15,40 @@ function isElectricGuitar(input: GuitarSortableInput): boolean {
   return key.startsWith("el_guitar") || key.startsWith("electric_guitar");
 }
 
-function isKeysOrSynth(input: GuitarSortableInput): boolean {
+function isKeysInput(input: GuitarSortableInput): boolean {
   const group = input.group as string;
   const key = input.key.toLowerCase();
-  return group === "keys" || group === "synth" || key.startsWith("keys_") || key.startsWith("synth");
+  return group === "keys" || key === "keys" || key.startsWith("keys_");
 }
 
 function indexOfFirstKeys(inputs: GuitarSortableInput[]): number {
-  const idx = inputs.findIndex((input) => isKeysOrSynth(input));
+  const idx = inputs.findIndex((input) => isKeysInput(input));
   return idx === -1 ? inputs.length : idx;
 }
 
-function lastIndexOfElectricBefore(inputs: GuitarSortableInput[], idxKeys: number): number {
+function lastIndexOfElectricBefore(
+  inputs: GuitarSortableInput[],
+  idxKeys: number,
+): number {
   for (let i = Math.min(idxKeys - 1, inputs.length - 1); i >= 0; i -= 1) {
     if (isElectricGuitar(inputs[i])) return i;
   }
   return -1;
 }
 
-function lastIndexOfGuitarBefore(inputs: GuitarSortableInput[], idxKeys: number): number {
+function lastIndexOfGuitarBefore(
+  inputs: GuitarSortableInput[],
+  idxKeys: number,
+): number {
   for (let i = Math.min(idxKeys - 1, inputs.length - 1); i >= 0; i -= 1) {
     if (inputs[i].group === "guitar") return i;
   }
   return -1;
 }
 
-export function reorderAcousticGuitars<T extends GuitarSortableInput>(inputs: T[]): T[] {
+export function reorderAcousticGuitars<T extends GuitarSortableInput>(
+  inputs: T[],
+): T[] {
   const result = inputs.slice();
   const acousticInputs = result.filter((input) => isAcousticGuitar(input));
 
@@ -55,7 +63,9 @@ export function reorderAcousticGuitars<T extends GuitarSortableInput>(inputs: T[
     const idxKeys = indexOfFirstKeys(result);
     const idxLastElectric = lastIndexOfElectricBefore(result, idxKeys);
     const idxLastGuitar =
-      idxLastElectric >= 0 ? idxLastElectric : lastIndexOfGuitarBefore(result, idxKeys);
+      idxLastElectric >= 0
+        ? idxLastElectric
+        : lastIndexOfGuitarBefore(result, idxKeys);
 
     const insertIndex = Math.min(idxLastGuitar + 1, idxKeys);
     result.splice(Math.max(insertIndex, 0), 0, acousticInput);

@@ -44,22 +44,29 @@ function formatStageplanBaseLabel(label: string, group?: string): string {
   const trimmed = label.trim();
   if (group === "keys") {
     if (/^keys\b/i.test(trimmed)) return "Keys";
-    if (/^synth\s*\(mono\)/i.test(trimmed) || /^synth\s+mono\b/i.test(trimmed)) return "Synth (mono)";
-    if (/^synth\b/i.test(trimmed)) return "Synth";
   }
   return trimmed;
 }
 
-function arePairableBySameLabel(current: StageplanLine, next: StageplanLine): boolean {
+function arePairableBySameLabel(
+  current: StageplanLine,
+  next: StageplanLine,
+): boolean {
   if (current.no == null || next.no == null) return false;
   const currentLabel = formatStageplanBaseLabel(current.label, current.group);
   const nextLabel = formatStageplanBaseLabel(next.label, next.group);
   if (currentLabel.toLowerCase() !== nextLabel.toLowerCase()) return false;
-  if (/^synth\s*\(mono\)/i.test(currentLabel)) return false;
-  return current.group === "keys" || /^(keys|synth|electric guitar|bass)\b/i.test(currentLabel);
+  return (
+    current.group === "keys" ||
+    /^(keys|electric guitar|bass)\b/i.test(currentLabel)
+  );
 }
 
-function tryFindStereoPair(lines: StageplanLine[], start: number, used: Set<number>): number {
+function tryFindStereoPair(
+  lines: StageplanLine[],
+  start: number,
+  used: Set<number>,
+): number {
   const current = lines[start];
   if (current.kind !== "input" || current.no == null) return -1;
 
@@ -72,7 +79,10 @@ function tryFindStereoPair(lines: StageplanLine[], start: number, used: Set<numb
     if (candidate.kind !== "input" || candidate.no == null) continue;
     const candidateStereo = parseStereoLabel(candidate.label);
     if (!candidateStereo) continue;
-    if (candidateStereo.baseLabel.toLowerCase() !== stereo.baseLabel.toLowerCase()) continue;
+    if (
+      candidateStereo.baseLabel.toLowerCase() !== stereo.baseLabel.toLowerCase()
+    )
+      continue;
     if (candidateStereo.side === stereo.side) continue;
     return idx;
   }
@@ -80,7 +90,9 @@ function tryFindStereoPair(lines: StageplanLine[], start: number, used: Set<numb
   return -1;
 }
 
-export function formatStageplanInputLines(lines: StageplanLine[]): StageplanTextLine[] {
+export function formatStageplanInputLines(
+  lines: StageplanLine[],
+): StageplanTextLine[] {
   const used = new Set<number>();
   const output: StageplanTextLine[] = [];
 
@@ -92,20 +104,33 @@ export function formatStageplanInputLines(lines: StageplanLine[]): StageplanText
       const stereoPairIndex = tryFindStereoPair(lines, index, used);
       if (stereoPairIndex >= 0) {
         const pair = lines[stereoPairIndex]!;
-        const baseLabel = formatStageplanBaseLabel(parseStereoLabel(line.label)?.baseLabel ?? line.label, line.group);
+        const baseLabel = formatStageplanBaseLabel(
+          parseStereoLabel(line.label)?.baseLabel ?? line.label,
+          line.group,
+        );
         const numbers = [line.no, pair.no!].sort((a, b) => a - b);
-        output.push({ kind: line.kind, text: `${baseLabel} (${numbers[0]}+${numbers[1]})` });
+        output.push({
+          kind: line.kind,
+          text: `${baseLabel} (${numbers[0]}+${numbers[1]})`,
+        });
         used.add(index);
         used.add(stereoPairIndex);
         continue;
       }
 
       const nextIndex = index + 1;
-      if (nextIndex < lines.length && !used.has(nextIndex) && arePairableBySameLabel(line, lines[nextIndex]!)) {
+      if (
+        nextIndex < lines.length &&
+        !used.has(nextIndex) &&
+        arePairableBySameLabel(line, lines[nextIndex]!)
+      ) {
         const nextLine = lines[nextIndex]!;
         const numbers = [line.no, nextLine.no!].sort((a, b) => a - b);
         const label = formatStageplanBaseLabel(line.label, line.group);
-        output.push({ kind: line.kind, text: `${label} (${numbers[0]}+${numbers[1]})` });
+        output.push({
+          kind: line.kind,
+          text: `${label} (${numbers[0]}+${numbers[1]})`,
+        });
         used.add(index);
         used.add(nextIndex);
         continue;
@@ -119,6 +144,8 @@ export function formatStageplanInputLines(lines: StageplanLine[]): StageplanText
   return output;
 }
 
-export function collapseStereoForStageplan(lines: StageplanLine[]): StageplanTextLine[] {
+export function collapseStereoForStageplan(
+  lines: StageplanLine[],
+): StageplanTextLine[] {
   return formatStageplanInputLines(lines);
 }

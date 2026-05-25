@@ -1,48 +1,51 @@
-import { GROUP_ORDER } from "../model/groups.js";
-import type { Group } from "../model/groups.js";
-import type {
-  DocumentViewModel,
-  StageplanInstrumentKey,
-  StageplanPerson,
-  Musician,
-  PresetEntity,
-  PresetItem,
-  Project,
-  InputChannel,
-  PresetOverridePatch,
-  NotesTemplate,
-  NoteLine,
-  MetaLineModel,
-} from "../model/types.js";
 import type { DataRepository } from "../../infra/fs/repo.js";
-import { disambiguateInputKeys } from "./disambiguateInputKeys.js";
-import { formatKeysInputInstances } from "./formatKeysInputs.js";
-import { reorderAcousticGuitars } from "./reorderAcousticGuitars.js";
-import { resolveDocumentContext } from "./resolveDocumentContext.js";
-import { resolveEffectivePresetsForProject } from "./resolveEffectivePresetsForProject.js";
-import { resolveCanonicalOverlayAssignments } from "../project/resolveProjectAudioAssignments.js";
-import { compareInputsForRole } from "../setup/orderInputsForRole.js";
-import { resolveEffectiveProjectSetup } from "../setup/resolveEffectiveProjectSetup.js";
-import { resolvePowerForStageplan } from "../stageplan/resolvePowerForStageplan.js";
+import { parsePersistedDrumDefinition } from "../drums/drumDefinition.js";
 import {
+  drumRankByResolvedKey,
+  resolveDrumInputs,
+} from "../drums/resolveDrumInputs.js";
+import {
+  formatBackVocalPdfLabel,
+  formatDrumInputDisplayLabel,
   formatInputListLabel,
   formatInputListNote,
   formatLeadVocalPdfLabel,
-  formatDrumInputDisplayLabel,
-  formatBackVocalPdfLabel,
   formatMonitorOwnerLabel,
   formatMonitoringLabel,
   formatProjectMetaLine,
   groupActiveDrumInputsByFamily,
   resolveStereoPair,
 } from "../formatters/index.js";
-import { applyPresetOverride } from "../rules/presetOverride.js";
-import { getMonitorLabel, type MonitorPresetIndex } from "../monitors/getMonitorLabel.js";
+import { GROUP_ORDER } from "../model/groups.js";
+import type { Group } from "../model/groups.js";
+import type {
+  DocumentViewModel,
+  InputChannel,
+  MetaLineModel,
+  Musician,
+  NoteLine,
+  NotesTemplate,
+  PresetEntity,
+  PresetItem,
+  PresetOverridePatch,
+  Project,
+  StageplanInstrumentKey,
+  StageplanPerson,
+} from "../model/types.js";
 import {
-  drumRankByResolvedKey,
-  resolveDrumInputs,
-} from "../drums/resolveDrumInputs.js";
-import { parsePersistedDrumDefinition } from "../drums/drumDefinition.js";
+  type MonitorPresetIndex,
+  getMonitorLabel,
+} from "../monitors/getMonitorLabel.js";
+import { resolveCanonicalOverlayAssignments } from "../project/resolveProjectAudioAssignments.js";
+import { applyPresetOverride } from "../rules/presetOverride.js";
+import { compareInputsForRole } from "../setup/orderInputsForRole.js";
+import { resolveEffectiveProjectSetup } from "../setup/resolveEffectiveProjectSetup.js";
+import { resolvePowerForStageplan } from "../stageplan/resolvePowerForStageplan.js";
+import { disambiguateInputKeys } from "./disambiguateInputKeys.js";
+import { formatKeysInputInstances } from "./formatKeysInputs.js";
+import { reorderAcousticGuitars } from "./reorderAcousticGuitars.js";
+import { resolveDocumentContext } from "./resolveDocumentContext.js";
+import { resolveEffectivePresetsForProject } from "./resolveEffectivePresetsForProject.js";
 
 /* ============================================================
  * Helpers
@@ -104,11 +107,26 @@ type DisplayRow = {
   note?: string;
 };
 
-type MonitorTableRow = { no: string; output: string; note: string; ownerRole: Group; ownerMusicianId: string };
+type MonitorTableRow = {
+  no: string;
+  output: string;
+  note: string;
+  ownerRole: Group;
+  ownerMusicianId: string;
+};
 
-type StageplanSlot = "drums" | "bass" | "guitar" | "keys" | "lead_voc_1" | "lead_voc_2";
+type StageplanSlot =
+  | "drums"
+  | "bass"
+  | "guitar"
+  | "keys"
+  | "lead_voc_1"
+  | "lead_voc_2";
 
-function toStageplanPerson(musician: Musician, bandLeaderId: string): StageplanPerson {
+function toStageplanPerson(
+  musician: Musician,
+  bandLeaderId: string,
+): StageplanPerson {
   return {
     musicianId: musician.id,
     firstName: musician.firstName ?? null,
@@ -131,7 +149,9 @@ function resolveOverlaySlots(args: {
       const musician = ctx.membersById.get(musicianId);
       return musician ? { musician, slot } : null;
     })
-    .filter((entry): entry is { musician: Musician; slot: number } => Boolean(entry));
+    .filter((entry): entry is { musician: Musician; slot: number } =>
+      Boolean(entry),
+    );
   members.sort((a, b) => a.slot - b.slot);
   return members;
 }
@@ -151,25 +171,34 @@ function resolveOverlayDrivenVocalRows(args: {
   capabilityByMusicianId: Map<string, BuiltInput[]>;
   ownerGroupByMusicianId: Map<string, Group>;
 }): BuiltInput[] {
-  const { role, members, capabilityByMusicianId, ownerGroupByMusicianId } = args;
+  const { role, members, capabilityByMusicianId, ownerGroupByMusicianId } =
+    args;
   const rows: BuiltInput[] = [];
 
   for (const { musician, slot } of members) {
     const ownerRole = ownerGroupByMusicianId.get(musician.id) ?? musician.group;
     const orderRank = GROUP_MONITOR_ORDER[ownerRole] ?? 999;
-    const capabilityInputs = capabilityByMusicianId.get(musician.id) ?? [{
-      key: role === "lead" ? `voc_lead_${slot}` : `voc_back_${ownerRole}_${slot}`,
-      label: role === "lead" ? "Lead vocal" : "Back vocal",
-      group: "vocs" as const,
-      ownerRole,
-      ownerMusicianId: musician.id,
-      ownerGender: musician.gender,
-    }];
+    const capabilityInputs = capabilityByMusicianId.get(musician.id) ?? [
+      {
+        key:
+          role === "lead"
+            ? `voc_lead_${slot}`
+            : `voc_back_${ownerRole}_${slot}`,
+        label: role === "lead" ? "Lead vocal" : "Back vocal",
+        group: "vocs" as const,
+        ownerRole,
+        ownerMusicianId: musician.id,
+        ownerGender: musician.gender,
+      },
+    ];
 
     for (const capability of capabilityInputs) {
       rows.push({
         ...capability,
-        key: role === "lead" ? `voc_lead_${slot}` : `voc_back_${ownerRole}_${slot}`,
+        key:
+          role === "lead"
+            ? `voc_lead_${slot}`
+            : `voc_back_${ownerRole}_${slot}`,
         label: role === "lead" ? "Lead vocal" : "Back vocal",
         group: "vocs",
         ownerRole,
@@ -194,10 +223,15 @@ function normalizeTalkbackLabel(label: string): string {
 
 function resolvePdfMonitorOwners(args: {
   lineupMusicians: Array<{ group: Group; musician: Musician }>;
-  effectiveSetupByMusicianId: Map<string, { monitoring: { monitorRef: string; additionalWedgeCount?: number } }>;
+  effectiveSetupByMusicianId: Map<
+    string,
+    { monitoring: { monitorRef: string; additionalWedgeCount?: number } }
+  >;
 }): Array<{ group: Group; musician: Musician }> {
   const { lineupMusicians, effectiveSetupByMusicianId } = args;
-  return lineupMusicians.filter(({ musician }) => effectiveSetupByMusicianId.has(musician.id));
+  return lineupMusicians.filter(({ musician }) =>
+    effectiveSetupByMusicianId.has(musician.id),
+  );
 }
 
 function orderPdfMonitorOwners(args: {
@@ -209,7 +243,9 @@ function orderPdfMonitorOwners(args: {
   return owners
     .map((owner, originalIndex) => ({ owner, originalIndex }))
     .sort((a, b) => {
-      const groupRankDiff = (GROUP_MONITOR_ORDER[a.owner.group] ?? 999) - (GROUP_MONITOR_ORDER[b.owner.group] ?? 999);
+      const groupRankDiff =
+        (GROUP_MONITOR_ORDER[a.owner.group] ?? 999) -
+        (GROUP_MONITOR_ORDER[b.owner.group] ?? 999);
       if (groupRankDiff !== 0) return groupRankDiff;
 
       if (a.owner.group === "vocs" && b.owner.group === "vocs") {
@@ -244,7 +280,7 @@ function resolveStageplanPersonsBySlot(args: {
 
   const assigned = new Set<string>();
   const bySlot: Partial<Record<StageplanSlot, StageplanPerson>> = {};
-  (['drums', 'bass', 'guitar', 'keys'] as const).forEach((slot) => {
+  (["drums", "bass", "guitar", "keys"] as const).forEach((slot) => {
     const musician = memberByPrimaryGroup.get(slot);
     if (!musician) return;
     bySlot[slot] = toStageplanPerson(musician, bandLeaderId);
@@ -252,8 +288,10 @@ function resolveStageplanPersonsBySlot(args: {
   });
 
   const leadCandidates = leadOverlayMembers.filter((m) => !assigned.has(m.id));
-  if (leadCandidates[0]) bySlot.lead_voc_1 = toStageplanPerson(leadCandidates[0], bandLeaderId);
-  if (leadCandidates[1]) bySlot.lead_voc_2 = toStageplanPerson(leadCandidates[1], bandLeaderId);
+  if (leadCandidates[0])
+    bySlot.lead_voc_1 = toStageplanPerson(leadCandidates[0], bandLeaderId);
+  if (leadCandidates[1])
+    bySlot.lead_voc_2 = toStageplanPerson(leadCandidates[1], bandLeaderId);
   return bySlot;
 }
 
@@ -288,10 +326,21 @@ function buildMusicianInstrumentInputs(args: {
   musician: Musician;
   group: Group;
   effectivePresetItems: PresetItem[];
-  effectiveMusicianSetup: { inputs: InputChannel[]; monitoring: { monitorRef: string; additionalWedgeCount?: number } } | undefined;
+  effectiveMusicianSetup:
+    | {
+        inputs: InputChannel[];
+        monitoring: { monitorRef: string; additionalWedgeCount?: number };
+      }
+    | undefined;
   repo: DataRepository;
 }): { inputs: BuiltInput[]; vocalCapability: BuiltInput[] | null } {
-  const { musician, group, effectivePresetItems, effectiveMusicianSetup, repo } = args;
+  const {
+    musician,
+    group,
+    effectivePresetItems,
+    effectiveMusicianSetup,
+    repo,
+  } = args;
   let vocalCapability: BuiltInput[] | null = null;
   const result: BuiltInput[] = [];
 
@@ -418,7 +467,7 @@ function buildInputRows(inputsWithCh: BuiltInputWithCh[]): DisplayRow[] {
       rows.push({
         no: `${a.ch}+${b.ch}`,
         label: formatInputListLabel(leftLabel, rightLabel),
-        note: formatInputListNote(a.note, 2),
+        note: formatInputListNote(a.note, a.group === "keys" ? 1 : 2),
       });
       i++;
       continue;
@@ -445,7 +494,10 @@ function expandPresetItem(
 ): BuiltInput[] {
   switch (item.kind) {
     case "drum_setup": {
-      const definition = parsePersistedDrumDefinition(item.setup, "musician drum_setup preset");
+      const definition = parsePersistedDrumDefinition(
+        item.setup,
+        "musician drum_setup preset",
+      );
       return resolveDrumInputs(definition).map((ch) => ({
         key: ch.key,
         label: ch.label,
@@ -486,8 +538,8 @@ function expandPresetItem(
           key: ent.input.key.replace("{ownerKey}", item.ownerKey),
           label: normalizeTalkbackLabel(
             ent.input.label
-            .replace("{ownerKey}", item.ownerKey)
-            .replace("{ownerLabel}", item.ownerLabel ?? item.ownerKey),
+              .replace("{ownerKey}", item.ownerKey)
+              .replace("{ownerLabel}", item.ownerLabel ?? item.ownerKey),
           ),
           group: ent.group,
           note: ent.input.note
@@ -605,11 +657,18 @@ export function buildDocument(
     const effectiveMusicianSetup = effectiveSetup.byMusicianId.get(musician.id);
 
     if (effectiveMusicianSetup) {
-      const monitorEntity = repo.getPreset(effectiveMusicianSetup.monitoring.monitorRef);
+      const monitorEntity = repo.getPreset(
+        effectiveMusicianSetup.monitoring.monitorRef,
+      );
       if (monitorEntity.type !== "monitor") {
-        throw new Error(`Monitoring ref "${effectiveMusicianSetup.monitoring.monitorRef}" is not a monitor preset.`);
+        throw new Error(
+          `Monitoring ref "${effectiveMusicianSetup.monitoring.monitorRef}" is not a monitor preset.`,
+        );
       }
-      monitorsById[monitorEntity.id] = { id: monitorEntity.id, label: monitorEntity.label };
+      monitorsById[monitorEntity.id] = {
+        id: monitorEntity.id,
+        label: monitorEntity.label,
+      };
       monitors.push({
         id: `${musician.id}:${monitorEntity.id}`,
         label: monitorEntity.label,
@@ -617,17 +676,22 @@ export function buildDocument(
       });
     }
 
-    const { inputs: musicianInputs, vocalCapability } = buildMusicianInstrumentInputs({
-      musician,
-      group,
-      effectivePresetItems,
-      effectiveMusicianSetup,
-      repo,
-    });
-    if (vocalCapability) vocalCapabilityByMusicianId.set(musician.id, vocalCapability);
+    const { inputs: musicianInputs, vocalCapability } =
+      buildMusicianInstrumentInputs({
+        musician,
+        group,
+        effectivePresetItems,
+        effectiveMusicianSetup,
+        repo,
+      });
+    if (vocalCapability)
+      vocalCapabilityByMusicianId.set(musician.id, vocalCapability);
     inputs.push(...musicianInputs);
 
-    const eventOverride = group === "bass" || group === "drums" ? undefined : ctx.presetOverrideByMusicianId.get(musician.id);
+    const eventOverride =
+      group === "bass" || group === "drums"
+        ? undefined
+        : ctx.presetOverrideByMusicianId.get(musician.id);
     if (eventOverride) {
       const affected = inputs.filter((input) => input.group === group);
       const patched = applyInputOverridePatch(affected, eventOverride);
@@ -639,11 +703,19 @@ export function buildDocument(
     }
   }
 
-  const stageplanRoles: StageplanInstrumentKey[] = ["drums", "bass", "guitar", "keys", "vocs"];
+  const stageplanRoles: StageplanInstrumentKey[] = [
+    "drums",
+    "bass",
+    "guitar",
+    "keys",
+    "vocs",
+  ];
   const lineupByRole: Partial<Record<StageplanInstrumentKey, StageplanPerson>> =
     {};
   for (const role of stageplanRoles) {
-    const musician = ctx.lineupMusicians.find((entry) => entry.group === role)?.musician;
+    const musician = ctx.lineupMusicians.find(
+      (entry) => entry.group === role,
+    )?.musician;
     if (!musician) continue;
     lineupByRole[role] = toStageplanPerson(musician, ctx.bandLeaderId);
   }
@@ -687,9 +759,14 @@ export function buildDocument(
     if (!monitorsById[monitorRef]) {
       const monitorEntity = repo.getPreset(monitorRef);
       if (monitorEntity.type !== "monitor") {
-        throw new Error(`Monitoring ref "${monitorRef}" is not a monitor preset.`);
+        throw new Error(
+          `Monitoring ref "${monitorRef}" is not a monitor preset.`,
+        );
       }
-      monitorsById[monitorEntity.id] = { id: monitorEntity.id, label: monitorEntity.label };
+      monitorsById[monitorEntity.id] = {
+        id: monitorEntity.id,
+        label: monitorEntity.label,
+      };
     }
     const label = getMonitorLabel(monitorsById, monitorRef);
     const extra = effective.monitoring.additionalWedgeCount;
@@ -699,7 +776,9 @@ export function buildDocument(
   const leadResolved = resolveOverlaySlots({ ctx, role: "leadVocals" });
   const backResolved = resolveOverlaySlots({ ctx, role: "backVocals" });
   const ownerGroupByMusicianId = new Map(
-    ctx.lineupMusicians.map(({ group, musician }) => [musician.id, group] as const),
+    ctx.lineupMusicians.map(
+      ({ group, musician }) => [musician.id, group] as const,
+    ),
   );
   const vocalRows = [
     ...resolveOverlayDrivenVocalRows({
@@ -762,7 +841,10 @@ export function buildDocument(
     owners: monitorOwners,
     leadVocsSlotByMusicianId,
   });
-  const pushRow = (owner: { group: Group; musician: Musician }, output: string) => {
+  const pushRow = (
+    owner: { group: Group; musician: Musician },
+    output: string,
+  ) => {
     monitorTableRows.push({
       no: String(monitorTableRows.length + 1),
       output,
@@ -777,7 +859,8 @@ export function buildDocument(
       formatMonitorOwnerLabel({
         ownerRole: owner.group,
         ownerMusicianId: owner.musician.id,
-        fallbackLabel: owner.musician.group === "vocs" ? "Lead vocal" : owner.musician.group,
+        fallbackLabel:
+          owner.musician.group === "vocs" ? "Lead vocal" : owner.musician.group,
         leadVocsCount,
         leadVocsIndexByMusicianId: leadVocsSlotByMusicianId,
         genderByLeadVocsIndex: leadVocsGenderBySlot,
@@ -824,7 +907,10 @@ export function buildDocument(
   const drumFamilyState = groupActiveDrumInputsByFamily(disambiguatedInputs);
   const finalizedInputs = disambiguatedInputs.map((input) => {
     if (input.group === "drums") {
-      return { ...input, label: formatDrumInputDisplayLabel(input, drumFamilyState) };
+      return {
+        ...input,
+        label: formatDrumInputDisplayLabel(input, drumFamilyState),
+      };
     }
     if (input.vocalRole === "back" || input.key.startsWith("voc_back_")) {
       return {
@@ -864,12 +950,16 @@ export function buildDocument(
       const roleDiff = (a.vocalOrderRank ?? 999) - (b.vocalOrderRank ?? 999);
       if (roleDiff !== 0) return roleDiff;
 
-      const aSlot = a.vocalSlot ?? (isLeadVocalInput(a)
-        ? leadVocsSlotByMusicianId.get(a.ownerMusicianId ?? "")
-        : backVocsSlotByMusicianId.get(a.ownerMusicianId ?? ""));
-      const bSlot = b.vocalSlot ?? (isLeadVocalInput(b)
-        ? leadVocsSlotByMusicianId.get(b.ownerMusicianId ?? "")
-        : backVocsSlotByMusicianId.get(b.ownerMusicianId ?? ""));
+      const aSlot =
+        a.vocalSlot ??
+        (isLeadVocalInput(a)
+          ? leadVocsSlotByMusicianId.get(a.ownerMusicianId ?? "")
+          : backVocsSlotByMusicianId.get(a.ownerMusicianId ?? ""));
+      const bSlot =
+        b.vocalSlot ??
+        (isLeadVocalInput(b)
+          ? leadVocsSlotByMusicianId.get(b.ownerMusicianId ?? "")
+          : backVocsSlotByMusicianId.get(b.ownerMusicianId ?? ""));
       const slotDiff = (aSlot ?? 999) - (bSlot ?? 999);
       if (slotDiff !== 0) return slotDiff;
 
@@ -878,16 +968,24 @@ export function buildDocument(
 
       return a.label.localeCompare(b.label, "en");
     });
-  const talkbackInputs = finalizedInputs.filter((input) => isTalkbackInput(input));
-  const orderedInputs = [...nonVocalNonTalkbackInputs, ...vocalInputs, ...talkbackInputs];
+  const talkbackInputs = finalizedInputs.filter((input) =>
+    isTalkbackInput(input),
+  );
+  const orderedInputs = [
+    ...nonVocalNonTalkbackInputs,
+    ...vocalInputs,
+    ...talkbackInputs,
+  ];
 
   const stageplanPersonsBySlot = resolveStageplanPersonsBySlot({
     lineupMusicians: ctx.lineupMusicians,
     leadOverlayMembers: leadResolved.map(({ musician }) => musician),
     bandLeaderId: ctx.bandLeaderId,
   });
-  const leadVocalStageplanPersons = [stageplanPersonsBySlot.lead_voc_1, stageplanPersonsBySlot.lead_voc_2]
-    .filter((person): person is StageplanPerson => Boolean(person));
+  const leadVocalStageplanPersons = [
+    stageplanPersonsBySlot.lead_voc_1,
+    stageplanPersonsBySlot.lead_voc_2,
+  ].filter((person): person is StageplanPerson => Boolean(person));
 
   const inputsWithCh = assignChannelsWithOddStereoRule(orderedInputs);
   const inputRows = buildInputRows(inputsWithCh);

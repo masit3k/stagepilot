@@ -1,19 +1,19 @@
+import { createDefaultDrumDefinition } from "../../../../../../src/domain/drums/drumDefinition";
+import { resolveDrumInputs } from "../../../../../../src/domain/drums/resolveDrumInputs";
+import {
+  getAcousticGuitarMembers,
+  resolveLineupInstrumentMembership,
+} from "../../../../../../src/domain/lineup/resolveLineupInstrumentMembership";
 import type { Group } from "../../../../../../src/domain/model/groups";
 import type {
+  PresetOverridePatch as DomainPresetOverridePatch,
   InputChannel,
   MusicianSetupPreset,
   Preset,
   PresetEntity,
   PresetItem,
-  PresetOverridePatch as DomainPresetOverridePatch,
 } from "../../../../../../src/domain/model/types";
-import { createDefaultDrumDefinition } from "../../../../../../src/domain/drums/drumDefinition";
-import { resolveDrumInputs } from "../../../../../../src/domain/drums/resolveDrumInputs";
 import { resolveDefaultMusicianSetup } from "../../../../../../src/domain/setup/resolveDefaultMusicianSetup";
-import {
-  getAcousticGuitarMembers,
-  resolveLineupInstrumentMembership,
-} from "../../../../../../src/domain/lineup/resolveLineupInstrumentMembership";
 import {
   buildBassFields,
   toBassPresets,
@@ -81,7 +81,12 @@ const PRESET_REFS = {
     "el_guitar_xlr_stereo",
     "ac_guitar",
   ],
-  keys: ["keys_jack", "keys_xlr", "synth", "synth_mono"],
+  keys: [
+    "keys_stereo_xlr",
+    "keys_mono_xlr",
+    "keys_stereo_jack",
+    "keys_mono_jack",
+  ],
   vocs: ["vocal_wireless", "vocal_wired", "vocal_no_mic"],
 } as const;
 
@@ -150,8 +155,7 @@ export function resolveMusicianDefaultSetupForRole(args: {
             monitorRef: mergedMonitoring.monitorRef,
             ...(typeof mergedMonitoring.additionalWedgeCount === "number"
               ? {
-                  additionalWedgeCount:
-                    mergedMonitoring.additionalWedgeCount,
+                  additionalWedgeCount: mergedMonitoring.additionalWedgeCount,
                 }
               : {}),
           },
