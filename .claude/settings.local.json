@@ -13,7 +13,11 @@
       "Bash(grep -E \"\\\\.\\(css|scss|html\\)$\")",
       "Bash(npm test *)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\mkrecmer\\\\dev\\\\stagepilot\" -Directory)",
-      "Bash(Select-Object Name)"
+      "Bash(Select-Object Name)",
+      "Bash(grep -E \"\\\\.\\(tsx|ts|css\\)$\")",
+      "Bash(grep -E \"\\\\.\\(tsx?|css\\)$\")",
+      "Bash(npx biome *)",
+      "Bash(grep -v \"^$\")"
     ]
   },
   "enableAllProjectMcpServers": true,

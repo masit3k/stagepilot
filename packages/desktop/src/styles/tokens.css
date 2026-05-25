@@ -17,6 +17,8 @@
   --secondary-hover: #e2e8f0;
   --secondary-fg: var(--text);
 
+  --active-tint: #e8edf8;
+
   --focus-ring: rgba(30, 42, 68, 0.3);
   --overlay: rgba(15, 23, 42, 0.52);
 
@@ -30,4 +32,27 @@
 
   color: var(--text);
   background: var(--bg);
+}
+
+[data-theme="dark"] {
+  --bg: #111827;
+  --surface: #1f2937;
+  --surface-2: #263144;
+  --border: #374151;
+  --text: #f1f5f9;
+  --muted: #94a3b8;
+
+  --primary: #4a7fd4;
+  --primary-hover: #5d8fe0;
+  --primary-active: #3a6bbf;
+  --primary-fg: #ffffff;
+
+  --secondary: #1f2937;
+  --secondary-hover: #2d3748;
+  --secondary-fg: var(--text);
+
+  --active-tint: #1e3a6e;
+
+  --focus-ring: rgba(74, 127, 212, 0.4);
+  --overlay: rgba(0, 0, 0, 0.7);
 }

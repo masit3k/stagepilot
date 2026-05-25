@@ -73,7 +73,7 @@ button:not([class]):hover:not(:disabled),
 
 .button-secondary.is-active {
   border-color: var(--primary);
-  background: #e8edf8;
+  background: var(--active-tint);
   color: var(--primary);
 }
 
@@ -233,7 +233,7 @@ button:not([class]):hover:not(:disabled),
 }
 
 .selector-option--selected {
-  background: #e8edf8;
+  background: var(--active-tint);
   border-color: var(--primary);
   color: var(--primary);
 }
