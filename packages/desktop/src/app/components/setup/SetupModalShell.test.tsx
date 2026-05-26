@@ -12,7 +12,7 @@ describe("SetupModalShell", () => {
         onBack={() => {}}
         onReset={() => {}}
         onSave={() => {}}
-        defaultAction={{ label: "Save as musician default…", onClick: () => {} }}
+        defaultAction={{ label: "Save as musician default", onClick: () => {} }}
       >
         <div>Body</div>
       </SetupModalShell>,
@@ -20,6 +20,6 @@ describe("SetupModalShell", () => {
 
     expect(html).toContain("setup-editor-body");
     expect(html).toContain("setup-modal-footer");
-    expect(html).toContain("Save as musician default…");
+    expect(html).toContain("Save as musician default");
   });
 });

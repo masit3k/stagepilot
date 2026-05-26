@@ -51,7 +51,7 @@ export function SetupModalShell({
         {defaultAction ? (
           <button
             type="button"
-            className="button-link setup-modal-default-action"
+            className="button-secondary"
             onClick={defaultAction.onClick}
             disabled={defaultAction.disabled}
           >

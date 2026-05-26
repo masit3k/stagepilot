@@ -329,7 +329,3 @@ button:disabled {
   font-size: 0.86rem;
   line-height: 1.35;
 }
-
-.setup-modal-default-action {
-  white-space: nowrap;
-}

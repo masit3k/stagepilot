@@ -2021,7 +2021,7 @@ export function ProjectSetupPage({
                       });
                     }}
                     defaultAction={{
-                      label: "Save as musician default…",
+                      label: "Save as musician default",
                       disabled: !canUpdateMusicianDefault,
                       onClick: () =>
                         setShowUpdateMusicianDefaultsConfirmation(true),
