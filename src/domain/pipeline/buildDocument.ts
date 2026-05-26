@@ -96,6 +96,7 @@ type BuiltInput = {
   ownerGender?: "m" | "f" | "x";
   ownerRole: Group;
   ownerMusicianId?: string;
+  ownerLineupIndex?: number;
   vocalRole?: "lead" | "back";
   vocalSlot?: number;
   vocalOrderRank?: number;
@@ -317,6 +318,8 @@ function applyInputOverridePatch(
     group: input.group ?? source[0]?.group ?? "vocs",
     note: input.note,
     ownerRole: source[0]?.ownerRole ?? "vocs",
+    ownerMusicianId: source[0]?.ownerMusicianId,
+    ownerLineupIndex: source[0]?.ownerLineupIndex ?? 0,
   }));
 }
 
@@ -592,6 +595,49 @@ function isTalkbackInput(input: BuiltInput): boolean {
 }
 
 /* ============================================================
+ * Multi-musician numbering
+ * When a lineup role has N > 1 musicians, prefix each musician's
+ * instrument inputs with their lineup index (1-based).
+ * e.g. guitarist 1 stereo → "Electric guitar 1 L / 1 R"
+ *      guitarist 2 mono  → "Electric guitar 2"
+ * Vocals and talkback have dedicated numbering systems and are skipped.
+ * ============================================================ */
+
+function insertMusicianNumberIntoLabel(label: string, n: number): string {
+  // Insert number before stereo side indicator: "Electric guitar L" → "Electric guitar 1 L"
+  const sideMatch = /^(.*)\s+(L|R)\s*$/i.exec(label.trimEnd());
+  if (sideMatch) {
+    return `${sideMatch[1].trimEnd()} ${n} ${sideMatch[2]}`;
+  }
+  return `${label} ${n}`;
+}
+
+function numberMultiMusicianRoleInputs(inputs: BuiltInput[]): BuiltInput[] {
+  // Determine how many musicians are in each ownerRole
+  const musicianCountByRole = new Map<Group, number>();
+  for (const input of inputs) {
+    if (input.group === "vocs" || input.group === "talkback") continue;
+    if (!input.ownerMusicianId) continue;
+    const lineupIndex = (input.ownerLineupIndex ?? 0) + 1; // 1-based count
+    const current = musicianCountByRole.get(input.ownerRole) ?? 0;
+    if (lineupIndex > current) musicianCountByRole.set(input.ownerRole, lineupIndex);
+  }
+
+  return inputs.map((input) => {
+    if (input.group === "vocs" || input.group === "talkback") return input;
+    if (!input.ownerMusicianId) return input;
+    const total = musicianCountByRole.get(input.ownerRole) ?? 1;
+    if (total <= 1) return input;
+    const n = (input.ownerLineupIndex ?? 0) + 1;
+    return {
+      ...input,
+      label: insertMusicianNumberIntoLabel(input.label, n),
+      ...(input.baseLabel ? { baseLabel: `${input.baseLabel} ${n}` } : {}),
+    };
+  });
+}
+
+/* ============================================================
  * Public API
  * ============================================================ */
 
@@ -629,8 +675,20 @@ export function buildDocument(
     },
   });
 
+  // 0-based position of each musician within their lineup role group
+  const lineupIndexByMusicianId = new Map<string, number>();
+  {
+    const groupCounters = new Map<Group, number>();
+    for (const { group, musician } of ctx.lineupMusicians) {
+      const idx = groupCounters.get(group) ?? 0;
+      lineupIndexByMusicianId.set(musician.id, idx);
+      groupCounters.set(group, idx + 1);
+    }
+  }
+
   const effectivePresetItemsByMusicianId = new Map<string, PresetItem[]>();
   for (const { group, musician } of ctx.lineupMusicians) {
+    const lineupIndex = lineupIndexByMusicianId.get(musician.id) ?? 0;
     const effectivePresetItems = resolveEffectivePresetsForProject({
       project,
       band,
@@ -669,6 +727,9 @@ export function buildDocument(
         effectiveMusicianSetup,
         repo,
       });
+    for (const input of musicianInputs) {
+      input.ownerLineupIndex = lineupIndex;
+    }
     if (vocalCapability)
       vocalCapabilityByMusicianId.set(musician.id, vocalCapability);
     inputs.push(...musicianInputs);
@@ -880,13 +941,22 @@ export function buildDocument(
       return compareInputsForRole("bass", a, b);
     }
 
+    // Preserve lineup musician order within the same role group
+    if (a.ownerMusicianId !== b.ownerMusicianId) {
+      const lineupDiff =
+        (a.ownerLineupIndex ?? 0) - (b.ownerLineupIndex ?? 0);
+      if (lineupDiff !== 0) return lineupDiff;
+    }
+
     const l = a.label.localeCompare(b.label, "en");
     if (l !== 0) return l;
 
     return a.key.localeCompare(b.key, "en");
   });
 
-  const reorderedInputs = reorderAcousticGuitars(inputs);
+  const reorderedInputs = reorderAcousticGuitars(
+    numberMultiMusicianRoleInputs(inputs),
+  );
   const formattedKeysInputs = formatKeysInputInstances(reorderedInputs);
   const disambiguatedInputs = disambiguateInputKeys(formattedKeysInputs);
   const drumFamilyState = groupActiveDrumInputsByFamily(disambiguatedInputs);
