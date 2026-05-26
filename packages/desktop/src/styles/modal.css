@@ -22,6 +22,8 @@
   width: min(620px, 95vw);
   background: var(--surface);
   border-radius: var(--radius-lg);
+  display: grid;
+  gap: var(--space-2);
 
   /* softer border, more modern elevation */
   border: 1px solid rgba(15, 23, 42, 0.06);
@@ -29,7 +31,7 @@
     0 8px 24px rgba(15, 23, 42, 0.12),
     0 32px 64px rgba(15, 23, 42, 0.18);
 
-  padding: calc(var(--space-2) + 24px) var(--space-2) var(--space-2);
+  padding: var(--space-3);
   position: relative;
 
   /* micro polish */
@@ -41,9 +43,12 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   max-height: min(90vh, 980px);
+  overflow: hidden;
 }
 
 .selector-dialog__body {
+  display: grid;
+  gap: var(--space-2);
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
@@ -61,7 +66,12 @@
 }
 
 .selector-dialog--musician-select {
-  padding: calc(var(--space-2) + 20px) var(--space-2) var(--space-2);
+  max-height: min(88vh, 780px);
+  overflow: hidden;
+}
+
+.selector-dialog--musician-select .selector-dialog__body {
+  max-height: min(56vh, 540px);
 }
 
 .selector-dialog--setup-editor {
@@ -87,13 +97,41 @@
 }
 
 .selector-dialog__title {
-  margin-top: 4px;
-  margin-bottom: var(--space-2);
+  margin: 0;
+  padding-right: 44px;
+}
+
+.modal-header,
+.selector-dialog__title,
+.selector-dialog > h3:first-of-type {
+  display: grid;
+  gap: 6px;
+}
+
+.modal-header {
+  padding-right: 44px;
+}
+
+.modal-header h3,
+.modal-header p,
+.selector-dialog__title h3,
+.selector-dialog__title p,
+.selector-dialog > h3:first-of-type,
+.selector-dialog > p {
+  margin: 0;
+}
+
+.modal-header h3,
+.selector-dialog__title h3,
+.selector-dialog > h3:first-of-type {
+  color: var(--text);
+  font-size: 1.15rem;
+  line-height: 1.25;
 }
 
 /* Divider: keep it, but soften it */
 .selector-dialog__divider {
-  margin-bottom: var(--space-2);
+  margin: 0;
   opacity: 0.45;
 }
 

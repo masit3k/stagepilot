@@ -1131,6 +1131,11 @@
   padding-top: var(--space-1);
 }
 
+.selector-dialog__body.about-grid {
+  margin-top: 0;
+  padding-top: 0;
+}
+
 .about-item {
   margin: 0;
   display: grid;

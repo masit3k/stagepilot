@@ -54,7 +54,8 @@ export function ChangeLeadVocsModal({
       className="selector-dialog selector-dialog--musician-select"
       role="dialog"
       aria-modal="true"
-      aria-label="Select LEAD VOCS"
+      aria-labelledby="lead-vocs-dialog-title"
+      aria-describedby="lead-vocs-dialog-note"
     >
       <button
         type="button"
@@ -65,11 +66,13 @@ export function ChangeLeadVocsModal({
         ×
       </button>
       <div className="panel__header panel__header--stack selector-dialog__title">
-        <h3>Select LEAD VOCS</h3>
+        <h3 id="lead-vocs-dialog-title">Select LEAD VOCS</h3>
       </div>
-      <p className="subtle">{VOCAL_EXCLUSION_NOTE}</p>
+      <p id="lead-vocs-dialog-note" className="subtle">
+        {VOCAL_EXCLUSION_NOTE}
+      </p>
       <div className="selector-dialog__divider section-divider" />
-      <div className="selector-list">
+      <div className="selector-dialog__body selector-list">
         <h4 className="subtle">Suggested lead vocalists</h4>
         {suggestedCandidates.length === 0 ? (
           <p className="status status--empty">No suggested lead vocalists.</p>

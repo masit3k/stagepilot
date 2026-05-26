@@ -1,4 +1,9 @@
-import { ModalOverlay, useModalBehavior } from "../../components/ui/Modal";
+import {
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
+  useModalBehavior,
+} from "../../components/ui/Modal";
 
 export function UnsavedChangesModal({
   open,
@@ -22,6 +27,8 @@ export function UnsavedChangesModal({
         className="selector-dialog"
         role="alertdialog"
         aria-modal="true"
+        aria-labelledby="unsaved-changes-title"
+        aria-describedby="unsaved-changes-body"
         ref={dialogRef}
       >
         <button
@@ -32,9 +39,13 @@ export function UnsavedChangesModal({
         >
           ×
         </button>
-        <h3>Unsaved changes</h3>
-        <p>You have unsaved changes. What would you like to do?</p>
-        <div className="modal-actions">
+        <ModalHeader>
+          <h3 id="unsaved-changes-title">Unsaved changes</h3>
+          <p id="unsaved-changes-body">
+            You have unsaved changes. What would you like to do?
+          </p>
+        </ModalHeader>
+        <ModalFooter>
           <button
             type="button"
             className="button-secondary"
@@ -52,7 +63,7 @@ export function UnsavedChangesModal({
           <button type="button" className="button-primary" onClick={onStay}>
             Stay
           </button>
-        </div>
+        </ModalFooter>
       </div>
     </ModalOverlay>
   );

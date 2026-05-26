@@ -1694,6 +1694,8 @@ export function ProjectSetupPage({
           className="selector-dialog"
           role="alertdialog"
           aria-modal="true"
+          aria-labelledby="reset-defaults-title"
+          aria-describedby="reset-defaults-body"
           ref={resetModalRef}
         >
           <button
@@ -1704,9 +1706,9 @@ export function ProjectSetupPage({
           >
             ×
           </button>
-          <div className="panel__header panel__header--stack">
-            <h3>Reset to defaults?</h3>
-            <p className="subtle">
+          <div className="panel__header panel__header--stack selector-dialog__title">
+            <h3 id="reset-defaults-title">Reset to defaults?</h3>
+            <p id="reset-defaults-body" className="subtle">
               This will reset lineup, band leader, and talkback defaults to the
               band defaults.
             </p>
@@ -1754,13 +1756,14 @@ export function ProjectSetupPage({
           role="dialog"
           aria-modal="true"
           aria-labelledby="update-musician-defaults-title"
+          aria-describedby="update-musician-defaults-body"
           ref={updateMusicianDefaultsModalRef}
         >
           <div className="panel__header panel__header--stack selector-dialog__title">
             <h3 id="update-musician-defaults-title">
               Update musician defaults?
             </h3>
-            <p className="subtle">
+            <p id="update-musician-defaults-body" className="subtle">
               {`You are about to update default setup for: ${selectedSetupMusician?.musicianName ?? ""}.`}
             </p>
             <p className="subtle">
@@ -2402,6 +2405,7 @@ export function ProjectSetupPage({
             className="selector-dialog selector-dialog--musician-select"
             role="dialog"
             aria-modal="true"
+            aria-labelledby="musician-selector-title"
             ref={musicianSelectorRef}
           >
             <button
@@ -2413,10 +2417,12 @@ export function ProjectSetupPage({
               ×
             </button>
             <div className="panel__header panel__header--stack selector-dialog__title">
-              <h3>Select {getRoleDisplayName(editing.role)}</h3>
+              <h3 id="musician-selector-title">
+                Select {getRoleDisplayName(editing.role)}
+              </h3>
             </div>
             <div className="selector-dialog__divider section-divider" />
-            <div className="selector-list">
+            <div className="selector-dialog__body selector-list">
               {(editing.role === "leader"
                 ? selectedOptions
                 : editing.role === "talkback"

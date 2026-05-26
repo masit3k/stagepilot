@@ -203,17 +203,25 @@ button:disabled {
 
 .modal-actions {
   display: flex;
-  gap: var(--space-1);
-}
-
-.modal-actions {
   margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+  gap: var(--space-1);
+  align-items: center;
   justify-content: flex-end;
   flex-wrap: wrap;
 }
 
+.selector-dialog > .modal-actions {
+  margin-top: 0;
+}
+
 .modal-actions--setup {
-  justify-content: space-between;
+  justify-content: flex-start;
+}
+
+.modal-actions--setup button:nth-child(2) {
+  margin-left: auto;
 }
 
 .form-grid {

@@ -1,5 +1,9 @@
 import desktopPackage from "../../../package.json";
-import { ModalOverlay, useModalBehavior } from "../../components/ui/Modal";
+import {
+  ModalHeader,
+  ModalOverlay,
+  useModalBehavior,
+} from "../../components/ui/Modal";
 
 export function AboutModal({
   open,
@@ -15,6 +19,7 @@ export function AboutModal({
         className="selector-dialog about-dialog"
         role="dialog"
         aria-modal="true"
+        aria-labelledby="about-stagepilot-title"
         ref={dialogRef}
       >
         <button
@@ -25,8 +30,10 @@ export function AboutModal({
         >
           ×
         </button>
-        <h3>About StagePilot</h3>
-        <div className="about-grid">
+        <ModalHeader>
+          <h3 id="about-stagepilot-title">About StagePilot</h3>
+        </ModalHeader>
+        <div className="selector-dialog__body about-grid">
           <p className="about-item">
             <span>StagePilot</span>
             <strong>Desktop</strong>

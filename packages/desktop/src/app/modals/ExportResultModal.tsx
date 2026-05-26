@@ -1,5 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
-import { ModalOverlay, useModalBehavior } from "../../components/ui/Modal";
+import {
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
+  useModalBehavior,
+} from "../../components/ui/Modal";
 
 export type ExportModalState =
   | { kind: "success"; path: string }
@@ -26,6 +31,8 @@ export function ExportResultModal({
         className="selector-dialog"
         role="dialog"
         aria-modal="true"
+        aria-labelledby="export-result-title"
+        aria-describedby="export-result-body"
         ref={dialogRef}
       >
         <button
@@ -36,18 +43,30 @@ export function ExportResultModal({
         >
           ×
         </button>
-        <h3>{isSuccess ? "Export complete" : "Export failed"}</h3>
+        <ModalHeader>
+          <h3 id="export-result-title">
+            {isSuccess ? "Export complete" : "Export failed"}
+          </h3>
+        </ModalHeader>
         {isSuccess ? (
-          <p className="status status--success" aria-live="polite">
+          <p
+            id="export-result-body"
+            className="status status--success"
+            aria-live="polite"
+          >
             PDF was saved successfully.
           </p>
         ) : (
-          <div className="status status--error" role="alert">
+          <div
+            id="export-result-body"
+            className="status status--error"
+            role="alert"
+          >
             <p>{state.message}</p>
             <p className="subtle">{state.technical || state.message}</p>
           </div>
         )}
-        <div className="modal-actions">
+        <ModalFooter>
           {isSuccess ? (
             <>
               <button
@@ -86,7 +105,7 @@ export function ExportResultModal({
               </button>
             </>
           )}
-        </div>
+        </ModalFooter>
       </div>
     </ModalOverlay>
   );

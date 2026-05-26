@@ -1,5 +1,10 @@
 import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useState } from "react";
-import { ModalOverlay, useModalBehavior } from "../../components/ui/Modal";
+import {
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
+  useModalBehavior,
+} from "../../components/ui/Modal";
 import { formatIsoToDateTimeDisplay } from "../../projectRules";
 import { withFrom } from "../shell/routes";
 import type { ProjectSummary } from "../shell/types";
@@ -422,25 +427,27 @@ export function StartPage({
           aria-describedby="project-action-body"
           ref={confirmDialogRef}
         >
-          <h3 id="project-action-title">
-            {modalState?.kind === "trash"
-              ? "Delete project?"
-              : modalState?.kind === "archive"
-                ? "Archive project?"
-                : modalState?.kind === "unarchive"
-                  ? "Unarchive project?"
-                  : "Delete permanently?"}
-          </h3>
-          <p id="project-action-body">
-            {modalState?.kind === "trash"
-              ? "This will move the project to Trash. It will be permanently deleted after 30 days."
-              : modalState?.kind === "archive"
-                ? "You can restore it anytime from Archived."
-                : modalState?.kind === "unarchive"
-                  ? "The project will return to Active."
-                  : "This action cannot be undone."}
-          </p>
-          <div className="modal-actions">
+          <ModalHeader>
+            <h3 id="project-action-title">
+              {modalState?.kind === "trash"
+                ? "Delete project?"
+                : modalState?.kind === "archive"
+                  ? "Archive project?"
+                  : modalState?.kind === "unarchive"
+                    ? "Unarchive project?"
+                    : "Delete permanently?"}
+            </h3>
+            <p id="project-action-body">
+              {modalState?.kind === "trash"
+                ? "This will move the project to Trash. It will be permanently deleted after 30 days."
+                : modalState?.kind === "archive"
+                  ? "You can restore it anytime from Archived."
+                  : modalState?.kind === "unarchive"
+                    ? "The project will return to Active."
+                    : "This action cannot be undone."}
+            </p>
+          </ModalHeader>
+          <ModalFooter>
             <button
               type="button"
               className="button-secondary"
@@ -467,7 +474,7 @@ export function StartPage({
                     ? "Unarchive"
                     : "Delete permanently"}
             </button>
-          </div>
+          </ModalFooter>
         </div>
       </ModalOverlay>
     </section>

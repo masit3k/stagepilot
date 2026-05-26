@@ -65,10 +65,15 @@ export function LibrarySimpleEntityPage({
       </div>
       <ModalOverlay open={Boolean(modal)} onClose={onCloseModal}>
         <div className="selector-dialog">
-          <button type="button" className="modal-close" onClick={onCloseModal}>
+          <button
+            type="button"
+            className="modal-close"
+            onClick={onCloseModal}
+            aria-label="Close"
+          >
             ×
           </button>
-          {modal}
+          <div className="selector-dialog__body">{modal}</div>
         </div>
       </ModalOverlay>
     </section>

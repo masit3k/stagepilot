@@ -60,7 +60,8 @@ export function ChangeBackVocsModal({
       className="selector-dialog selector-dialog--musician-select"
       role="dialog"
       aria-modal="true"
-      aria-label="Select BACK VOCS"
+      aria-labelledby="back-vocs-dialog-title"
+      aria-describedby="back-vocs-dialog-note"
     >
       <button
         type="button"
@@ -71,11 +72,13 @@ export function ChangeBackVocsModal({
         ×
       </button>
       <div className="panel__header panel__header--stack selector-dialog__title">
-        <h3>Select BACK VOCS</h3>
+        <h3 id="back-vocs-dialog-title">Select BACK VOCS</h3>
       </div>
-      <p className="subtle">{VOCAL_EXCLUSION_NOTE}</p>
+      <p id="back-vocs-dialog-note" className="subtle">
+        {VOCAL_EXCLUSION_NOTE}
+      </p>
       <div className="selector-dialog__divider section-divider" />
-      <div className="selector-list">
+      <div className="selector-dialog__body selector-list">
         {!hasCandidates ? (
           <p className="status status--empty">
             No eligible vocalists available.
