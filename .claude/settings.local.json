@@ -17,7 +17,11 @@
       "Bash(grep -E \"\\\\.\\(tsx|ts|css\\)$\")",
       "Bash(grep -E \"\\\\.\\(tsx?|css\\)$\")",
       "Bash(npx biome *)",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Bash(python *)",
+      "Bash(cmd /c \"cd C:\\\\Users\\\\mkrecmer\\\\dev\\\\stagepilot && npm run lint\")",
+      "Bash(cmd *)",
+      "Bash(powershell *)"
     ]
   },
   "enableAllProjectMcpServers": true,

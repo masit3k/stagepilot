@@ -1698,9 +1698,11 @@ export function ProjectSetupPage({
                 <h3>AC. GUITAR</h3>
                 <div
                   className={
-                    section.members.length <= 1
-                      ? "lineup-card__body section-divider lineup-card__body--centered"
-                      : "lineup-card__body section-divider"
+                    section.members.length === 0
+                      ? "lineup-card__body section-divider lineup-card__body--empty"
+                      : section.members.length === 1
+                        ? "lineup-card__body section-divider lineup-card__body--single"
+                        : "lineup-card__body section-divider lineup-card__body--multiple"
                   }
                 >
                   <div className="lineup-list lineup-list--single">
@@ -1793,9 +1795,11 @@ export function ProjectSetupPage({
               </div>
               <div
                 className={
-                  slots.length <= 1
-                    ? "lineup-card__body section-divider lineup-card__body--centered"
-                    : "lineup-card__body section-divider"
+                  slots.length === 0
+                    ? "lineup-card__body section-divider lineup-card__body--empty"
+                    : slots.length === 1
+                      ? "lineup-card__body section-divider lineup-card__body--single"
+                      : "lineup-card__body section-divider lineup-card__body--multiple"
                 }
               >
                 <div className="lineup-list lineup-list--single">
