@@ -261,11 +261,17 @@ export function NewGenericProjectPage({
             aria-invalid={Boolean(validityYearError)}
           />
           {validityYearError ? (
-            <p className="field-error">{validityYearError}</p>
+            <p className="field-error" role="alert">
+              {validityYearError}
+            </p>
           ) : null}
         </label>
       </div>
-      {status ? <p className="status status--error">{status}</p> : null}
+      {status ? (
+        <p className="status status--error" role="alert">
+          {status}
+        </p>
+      ) : null}
       <div className="setup-action-bar setup-action-bar--equal">
         <button
           type="button"

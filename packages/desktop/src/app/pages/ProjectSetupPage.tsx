@@ -1625,14 +1625,14 @@ export function ProjectSetupPage({
         </article>
       </div>
       {errors.length + overrideValidationErrors.length > 0 ? (
-        <div className="status status--error">
+        <div className="status status--error" role="alert">
           {[...errors, ...overrideValidationErrors].map((error) => (
             <p key={error}>{error}</p>
           ))}
         </div>
       ) : null}
       {overrideValidationWarnings.length > 0 ? (
-        <div className="status status--warning">
+        <div className="status status--warning" aria-live="polite">
           {overrideValidationWarnings.map((warning) => (
             <p key={warning}>{warning}</p>
           ))}
@@ -1642,9 +1642,15 @@ export function ProjectSetupPage({
           </p>
         </div>
       ) : null}
-      {status ? <p className="status status--error">{status}</p> : null}
+      {status ? (
+        <p className="status status--error" role="alert">
+          {status}
+        </p>
+      ) : null}
       {toastMessage ? (
-        <p className="status status--success">{toastMessage}</p>
+        <p className="status status--success" aria-live="polite">
+          {toastMessage}
+        </p>
       ) : null}
 
       <div className="setup-action-bar">
@@ -2243,7 +2249,7 @@ export function ProjectSetupPage({
                       )}
                     </div>
                     {modalErrors.length > 0 ? (
-                      <div className="status status--error">
+                      <div className="status status--error" role="alert">
                         {modalErrors.map((error) => (
                           <p key={error}>{error}</p>
                         ))}

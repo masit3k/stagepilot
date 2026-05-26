@@ -50,51 +50,59 @@ export function LibraryBandsPage({
         onChange={(event) => setQuery(event.target.value)}
       />
       <div className="library-table">
-        {filtered.map((band) => (
-          <div key={band.id} className="library-row">
-            <span>{band.name}</span>
-            <span>{band.code}</span>
-            <span>{band.members.length}</span>
-            <span>
-              {Object.keys(band.defaultLineup ?? {}).join(", ") || "—"}
-            </span>
-            <div className="project-actions">
-              <button
-                type="button"
-                className="button-secondary"
-                onClick={() =>
-                  navigate(`/library/bands/${encodeURIComponent(band.id)}`)
-                }
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                className="button-secondary"
-                onClick={async () => {
-                  const copy = await invoke<LibraryBand>(
-                    "duplicate_library_band",
-                    { bandId: band.id },
-                  );
-                  navigate(`/library/bands/${encodeURIComponent(copy.id)}`);
-                }}
-              >
-                Duplicate
-              </button>
-              <button
-                type="button"
-                className="button-danger"
-                onClick={async () => {
-                  if (!window.confirm(`Delete ${band.name}?`)) return;
-                  await invoke("delete_library_band", { bandId: band.id });
-                  setBands(await invoke<LibraryBand[]>("list_library_bands"));
-                }}
-              >
-                Delete
-              </button>
+        {filtered.length === 0 ? (
+          <p className="status status--empty" aria-live="polite">
+            No bands.
+          </p>
+        ) : (
+          filtered.map((band) => (
+            <div key={band.id} className="library-row">
+              <span>{band.name}</span>
+              <span>{band.code}</span>
+              <span>{band.members.length}</span>
+              <span>
+                {Object.keys(band.defaultLineup ?? {}).join(", ") || "—"}
+              </span>
+              <div className="project-actions">
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={() =>
+                    navigate(`/library/bands/${encodeURIComponent(band.id)}`)
+                  }
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={async () => {
+                    const copy = await invoke<LibraryBand>(
+                      "duplicate_library_band",
+                      { bandId: band.id },
+                    );
+                    navigate(`/library/bands/${encodeURIComponent(copy.id)}`);
+                  }}
+                >
+                  Duplicate
+                </button>
+                <button
+                  type="button"
+                  className="button-danger"
+                  onClick={async () => {
+                    if (!window.confirm(`Delete ${band.name}?`)) return;
+                    await invoke("delete_library_band", { bandId: band.id });
+                    setBands(
+                      await invoke<LibraryBand[]>("list_library_bands"),
+                    );
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </section>
   );
@@ -385,7 +393,19 @@ export function LibraryBandDetailPage({
           </label>
         ))}
       </article>
-      {status ? <p className="status status--error">{status}</p> : null}
+      {status ? (
+        <p
+          className={
+            status === "Saved."
+              ? "status status--success"
+              : "status status--error"
+          }
+          role={status === "Saved." ? undefined : "alert"}
+          aria-live={status === "Saved." ? "polite" : undefined}
+        >
+          {status}
+        </p>
+      ) : null}
       <div className="setup-action-bar">
         <button
           type="button"

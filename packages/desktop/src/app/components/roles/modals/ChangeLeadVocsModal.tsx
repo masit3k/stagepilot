@@ -72,7 +72,7 @@ export function ChangeLeadVocsModal({
       <div className="selector-list">
         <h4 className="subtle">Suggested lead vocalists</h4>
         {suggestedCandidates.length === 0 ? (
-          <p className="subtle">No suggested lead vocalists.</p>
+          <p className="status status--empty">No suggested lead vocalists.</p>
         ) : (
           suggestedCandidates.map((candidate) => (
             <VocalCandidateOptionRow
@@ -91,7 +91,7 @@ export function ChangeLeadVocsModal({
         <div className="selector-dialog__divider section-divider" />
         <h4 className="subtle">Other lineup members</h4>
         {otherCandidates.length === 0 ? (
-          <p className="subtle">No other lineup members.</p>
+          <p className="status status--empty">No other lineup members.</p>
         ) : (
           otherCandidates.map((candidate) => (
             <VocalCandidateOptionRow

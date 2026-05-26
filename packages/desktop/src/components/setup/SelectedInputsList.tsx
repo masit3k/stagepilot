@@ -47,7 +47,11 @@ export function SelectedInputsList({
 
       <div className="setup-available-list">
         <p className="subtle">Add more</p>
-        {availableInputs.length === 0 ? <p className="subtle">No additional inputs available.</p> : null}
+        {availableInputs.length === 0 ? (
+          <p className="status status--empty">
+            No additional inputs available.
+          </p>
+        ) : null}
         {availableInputs.map((item) => (
           <div key={item.key} className="setup-editor-list__row">
             <span>{resolveInputDisplayLabel(item)}</span>

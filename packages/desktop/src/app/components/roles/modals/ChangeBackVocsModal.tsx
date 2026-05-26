@@ -77,7 +77,9 @@ export function ChangeBackVocsModal({
       <div className="selector-dialog__divider section-divider" />
       <div className="selector-list">
         {!hasCandidates ? (
-          <p className="subtle">No eligible vocalists available.</p>
+          <p className="status status--empty">
+            No eligible vocalists available.
+          </p>
         ) : (
           members.map((member) => (
             <VocalCandidateOptionRow

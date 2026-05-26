@@ -28,30 +28,40 @@ export function LibrarySimpleEntityPage({
           + New
         </button>
       </div>
-      {status ? <p className="status status--error">{status}</p> : null}
+      {status ? (
+        <p className="status status--error" role="alert">
+          {status}
+        </p>
+      ) : null}
       <div className="library-table">
-        {rows.map((row) => (
-          <div key={row.id} className="library-row">
-            <span>{row.name}</span>
-            <span>{row.detail || "—"}</span>
-            <div className="project-actions">
-              <button
-                type="button"
-                className="button-secondary"
-                onClick={() => onEdit(row.id)}
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                className="button-danger"
-                onClick={() => onDelete(row.id)}
-              >
-                Delete
-              </button>
+        {rows.length === 0 ? (
+          <p className="status status--empty" aria-live="polite">
+            No {title.toLowerCase()}.
+          </p>
+        ) : (
+          rows.map((row) => (
+            <div key={row.id} className="library-row">
+              <span>{row.name}</span>
+              <span>{row.detail || "—"}</span>
+              <div className="project-actions">
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={() => onEdit(row.id)}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className="button-danger"
+                  onClick={() => onDelete(row.id)}
+                >
+                  Delete
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
       <ModalOverlay open={Boolean(modal)} onClose={onCloseModal}>
         <div className="selector-dialog">

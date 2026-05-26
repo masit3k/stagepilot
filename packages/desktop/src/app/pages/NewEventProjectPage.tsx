@@ -285,7 +285,9 @@ export function NewEventProjectPage({
             }}
           />
           {eventDateTouched && eventDateError ? (
-            <p className="field-error">{eventDateError}</p>
+            <p className="field-error" role="alert">
+              {eventDateError}
+            </p>
           ) : null}
         </label>
         <label>
@@ -309,7 +311,11 @@ export function NewEventProjectPage({
           </select>
         </label>
       </div>
-      {status ? <p className="status status--error">{status}</p> : null}
+      {status ? (
+        <p className="status status--error" role="alert">
+          {status}
+        </p>
+      ) : null}
       <div className="setup-action-bar setup-action-bar--equal">
         <button
           type="button"

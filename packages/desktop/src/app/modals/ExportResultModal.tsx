@@ -38,12 +38,14 @@ export function ExportResultModal({
         </button>
         <h3>{isSuccess ? "Export complete" : "Export failed"}</h3>
         {isSuccess ? (
-          <p>PDF was saved successfully.</p>
+          <p className="status status--success" aria-live="polite">
+            PDF was saved successfully.
+          </p>
         ) : (
-          <>
+          <div className="status status--error" role="alert">
             <p>{state.message}</p>
             <p className="subtle">{state.technical || state.message}</p>
-          </>
+          </div>
         )}
         <div className="modal-actions">
           {isSuccess ? (

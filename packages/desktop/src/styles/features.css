@@ -264,6 +264,11 @@
   font-size: 0.9rem;
 }
 
+.library-table > .status,
+.project-section > .status {
+  width: 100%;
+}
+
 .date-input-wrap {
   position: relative;
 }
@@ -1098,6 +1103,9 @@
   margin: 0 auto;
   min-height: 75vh;
   padding: var(--space-2);
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
 }
 
 .pdf-preview-object {

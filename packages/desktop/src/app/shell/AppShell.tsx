@@ -98,7 +98,11 @@ function AppShell() {
         </div>
       </header>
       <TopTabs pathname={pathname} navigate={navigate} />
-      {status ? <p className="status status--error">{status}</p> : null}
+      {status ? (
+        <p className="status status--error" role="alert">
+          {status}
+        </p>
+      ) : null}
       <ShellRouter
         pathname={pathname}
         search={search}

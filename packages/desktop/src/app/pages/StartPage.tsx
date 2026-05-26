@@ -392,7 +392,9 @@ export function StartPage({
         )}
       </div>
       {visibleProjects.length === 0 ? (
-        <p className="subtle">{getEmptyStateCopy(activeTab)}</p>
+        <p className="status status--empty" aria-live="polite">
+          {getEmptyStateCopy(activeTab)}
+        </p>
       ) : (
         <div className="project-sections">
           <section className="project-section">

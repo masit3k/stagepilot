@@ -250,7 +250,9 @@ export function ProjectPreviewPage({
         <div className="preview-container">
           {previewState.kind === "generating" ||
           previewState.kind === "idle" ? (
-            <p className="subtle">Generating preview…</p>
+            <p className="status status--loading" aria-live="polite">
+              Generating preview…
+            </p>
           ) : null}
           {previewState.kind === "ready" && previewUrl ? (
             <iframe
@@ -260,7 +262,7 @@ export function ProjectPreviewPage({
             />
           ) : null}
           {previewState.kind === "error" ? (
-            <div className="status status--error">
+            <div className="status status--error" role="alert">
               <p>{previewState.message || status || "Preview failed."}</p>
               <button
                 type="button"
