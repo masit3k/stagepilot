@@ -1,28 +1,32 @@
 import { describe, expect, it } from "vitest";
 import {
+  acceptISOToDDMMYYYY,
+  addMusicianToLineupRole,
   buildExportFileName,
+  formatDateDigitsToDDMMYYYY,
+  formatProjectDisplayName,
+  formatProjectSlug,
   getCurrentYearLocal,
+  getRoleDisplayName,
+  getRoleSlotLimit,
   getTodayIsoLocal,
+  getUniqueSelectedMusicians,
   isPastIsoDate,
   isValidityYearInPast,
   matchProjectDetailPath,
   matchProjectEventPath,
   matchProjectGenericPath,
+  moveMusicianInLineupRole,
   normalizeCity,
-  getRoleDisplayName,
-  getRoleSlotLimit,
-  formatDateDigitsToDDMMYYYY,
+  normalizeLineupSlots,
+  normalizeLineupValue,
   parseDDMMYYYYToISO,
-  acceptISOToDDMMYYYY,
   parseUsDateInput,
-  validateLineup,
+  removeMusicianFromLineupRole,
   resolveBandLeaderId,
-  formatProjectDisplayName,
-  formatProjectSlug,
   sanitizeVenueSlug,
   shouldPromptUnsavedChanges,
-  normalizeLineupSlots,
-  getUniqueSelectedMusicians,
+  validateLineup,
 } from "./projectRules";
 
 describe("routing guards", () => {
@@ -130,8 +134,9 @@ describe("role slot limits", () => {
   });
 
   it("validates lineup against static slot limits", () => {
-    expect(validateLineup({ vocs: ["a", "b", "c", "d", "e"] }, ["vocs"]))
-      .toContain("VOCS: expected up to 4 slot(s), selected 5.");
+    expect(
+      validateLineup({ vocs: ["a", "b", "c", "d", "e"] }, ["vocs"]),
+    ).toContain("VOCS: expected up to 4 slot(s), selected 5.");
   });
 
   it("prefers band JSON bandLeader for defaults", () => {
@@ -167,12 +172,22 @@ describe("unsaved changes", () => {
   });
 });
 
-
 describe("lineup slot overrides", () => {
   it("normalizes object-based lineup slots", () => {
     expect(
-      normalizeLineupSlots({ musicianId: "fuchs_tomas", presetOverride: { monitoring: { monitorRef: "iem_mono_wired" } } }, 1),
-    ).toEqual([{ musicianId: "fuchs_tomas", presetOverride: { monitoring: { monitorRef: "iem_mono_wired" } } }]);
+      normalizeLineupSlots(
+        {
+          musicianId: "fuchs_tomas",
+          presetOverride: { monitoring: { monitorRef: "iem_mono_wired" } },
+        },
+        1,
+      ),
+    ).toEqual([
+      {
+        musicianId: "fuchs_tomas",
+        presetOverride: { monitoring: { monitorRef: "iem_mono_wired" } },
+      },
+    ]);
   });
 
   it("collects selected musician ids from mixed lineup shapes", () => {
@@ -185,19 +200,83 @@ describe("lineup slot overrides", () => {
 
   it("ignores persisted null lineup slot entries", () => {
     expect(
-      normalizeLineupSlots([null] as unknown as Array<{ musicianId: string }>, 1),
+      normalizeLineupSlots(
+        [null] as unknown as Array<{ musicianId: string }>,
+        1,
+      ),
     ).toEqual([]);
   });
 
   it("ignores malformed slot values safely", () => {
     expect(
-      normalizeLineupSlots([42, false, { foo: "bar" }, undefined] as unknown as Array<{ musicianId: string }>, 4),
+      normalizeLineupSlots(
+        [42, false, { foo: "bar" }, undefined] as unknown as Array<{
+          musicianId: string;
+        }>,
+        4,
+      ),
     ).toEqual([]);
   });
 
   it("keeps valid string slots", () => {
     expect(normalizeLineupSlots(["fuchs_tomas"], 1)).toEqual([
       { musicianId: "fuchs_tomas" },
+    ]);
+  });
+
+  it("deduplicates lineup slots while preserving the first occurrence", () => {
+    expect(
+      normalizeLineupSlots(
+        [
+          {
+            musicianId: "dr-1",
+            presetOverride: { monitoring: { monitorRef: "wedge" } },
+          },
+          { musicianId: "dr-2" },
+          {
+            musicianId: "dr-1",
+            presetOverride: { monitoring: { monitorRef: "iem_mono_wired" } },
+          },
+        ],
+        8,
+      ),
+    ).toEqual([
+      {
+        musicianId: "dr-1",
+        presetOverride: { monitoring: { monitorRef: "wedge" } },
+      },
+      { musicianId: "dr-2" },
+    ]);
+  });
+
+  it("deduplicates normalized lineup values before applying slot limits", () => {
+    expect(normalizeLineupValue(["a", "a", "b"], 2)).toEqual(["a", "b"]);
+  });
+
+  it("adds a musician to a role without creating duplicates", () => {
+    const lineup = { drums: ["dr-1"] };
+    const updated = addMusicianToLineupRole(lineup, "drums", "dr-2");
+
+    expect(updated.drums).toEqual([
+      { musicianId: "dr-1" },
+      { musicianId: "dr-2" },
+    ]);
+    expect(addMusicianToLineupRole(updated, "drums", "dr-2")).toBe(updated);
+  });
+
+  it("removes and reorders role musicians", () => {
+    const lineup = { keys: ["k-1", "k-2", "k-3"] };
+
+    expect(removeMusicianFromLineupRole(lineup, "keys", "k-2").keys).toEqual([
+      { musicianId: "k-1" },
+      { musicianId: "k-3" },
+    ]);
+    expect(moveMusicianInLineupRole(lineup, "keys", 0, -1)).toBe(lineup);
+    expect(moveMusicianInLineupRole(lineup, "keys", 2, 3)).toBe(lineup);
+    expect(moveMusicianInLineupRole(lineup, "keys", 0, 1).keys).toEqual([
+      { musicianId: "k-2" },
+      { musicianId: "k-1" },
+      { musicianId: "k-3" },
     ]);
   });
 });

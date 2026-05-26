@@ -42,6 +42,31 @@ describe("normalizeProject", () => {
       },
     } as ProjectJsonV2);
 
-    expect(normalized.overlays?.talkback).toEqual({ mode: "none", ownerId: null });
+    expect(normalized.overlays?.talkback).toEqual({
+      mode: "none",
+      ownerId: null,
+    });
+  });
+
+  it("normalizes lineup roles and removes duplicate musicians per role", () => {
+    const normalized = normalizeProject({
+      ...base,
+      lineup: {
+        drums: ["dr-1", "dr-2", "dr-1"],
+        bass: "b-1",
+        guitar: null,
+      },
+    } as ProjectJsonV2);
+
+    expect(normalized.lineup).toEqual({
+      drums: [
+        { slot: 1, musicianId: "dr-1" },
+        { slot: 2, musicianId: "dr-2" },
+      ],
+      bass: [{ slot: 1, musicianId: "b-1" }],
+      guitar: [],
+      keys: [],
+      vocs: [],
+    });
   });
 });

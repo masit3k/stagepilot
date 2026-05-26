@@ -6,9 +6,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::Manager;
 
 const USER_DATA_DIR_NAME: &str = "StagePilot";
-const STORAGE_SCHEMA_VERSION: u32 = 2;
+const STORAGE_SCHEMA_VERSION: u32 = 3;
 const STORAGE_SEED_VERSION: u32 = 3;
 const MAX_ID_LEN: usize = 120;
+const LINEUP_ROLE_KEYS: [&str; 5] = ["drums", "bass", "guitar", "keys", "vocs"];
 #[derive(Debug)]
 pub enum StorageError {
     Io(std::io::Error),
@@ -48,7 +49,8 @@ fn storage_meta_path(root: &Path) -> PathBuf {
 }
 
 const DEFAULT_NOTES_TEMPLATE_ID: &str = "notes_default_cs";
-const DEFAULT_NOTES_TEMPLATE_JSON: &str = include_str!("../../../../src/infra/storage/defaultNotesTemplate.notes_default_cs.json");
+const DEFAULT_NOTES_TEMPLATE_JSON: &str =
+    include_str!("../../../../src/infra/storage/defaultNotesTemplate.notes_default_cs.json");
 
 fn stagepilot_user_data_dir_from_app_data_dir(
     app_data_dir: &Path,
@@ -229,6 +231,163 @@ fn seed_catalog(root: &Path) -> Result<(), StorageError> {
     Ok(())
 }
 
+fn normalize_musician_id(value: &serde_json::Value) -> Option<String> {
+    value
+        .as_str()
+        .or_else(|| value.get("musicianId").and_then(|v| v.as_str()))
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .map(str::to_string)
+}
+
+fn normalize_band_lineup_role(value: Option<&serde_json::Value>) -> serde_json::Value {
+    let entries: Vec<&serde_json::Value> = match value {
+        Some(serde_json::Value::Array(items)) => items.iter().collect(),
+        Some(serde_json::Value::Null) | None => Vec::new(),
+        Some(item) => vec![item],
+    };
+    let mut seen = std::collections::BTreeSet::new();
+    let mut normalized = Vec::new();
+    for entry in entries {
+        let Some(musician_id) = normalize_musician_id(entry) else {
+            continue;
+        };
+        if seen.insert(musician_id.clone()) {
+            normalized.push(serde_json::Value::String(musician_id));
+        }
+    }
+    serde_json::Value::Array(normalized)
+}
+
+fn normalize_project_lineup_role(value: Option<&serde_json::Value>) -> serde_json::Value {
+    let entries: Vec<&serde_json::Value> = match value {
+        Some(serde_json::Value::Array(items)) => items.iter().collect(),
+        Some(serde_json::Value::Null) | None => Vec::new(),
+        Some(item) => vec![item],
+    };
+    let mut seen = std::collections::BTreeSet::new();
+    let mut normalized = Vec::new();
+    for entry in entries {
+        let Some(musician_id) = normalize_musician_id(entry) else {
+            continue;
+        };
+        if !seen.insert(musician_id.clone()) {
+            continue;
+        }
+        if entry.is_object() {
+            let mut cloned = entry.clone();
+            if let Some(object) = cloned.as_object_mut() {
+                object.insert(
+                    "musicianId".to_string(),
+                    serde_json::Value::String(musician_id),
+                );
+            }
+            normalized.push(cloned);
+        } else {
+            normalized.push(serde_json::Value::String(musician_id));
+        }
+    }
+    serde_json::Value::Array(normalized)
+}
+
+fn normalize_lineup_object(
+    target: &mut serde_json::Value,
+    field_name: &str,
+    preserve_project_slots: bool,
+    create_when_missing: bool,
+) -> bool {
+    let before = target.get(field_name).cloned();
+    if before.is_none() && !create_when_missing {
+        return false;
+    }
+
+    let raw_lineup = before
+        .as_ref()
+        .and_then(|value| value.as_object())
+        .cloned()
+        .unwrap_or_default();
+    let mut normalized = raw_lineup.clone();
+    for role in LINEUP_ROLE_KEYS {
+        let role_value = raw_lineup.get(role);
+        let normalized_role = if preserve_project_slots {
+            normalize_project_lineup_role(role_value)
+        } else {
+            normalize_band_lineup_role(role_value)
+        };
+        normalized.insert(role.to_string(), normalized_role);
+    }
+    let next = serde_json::Value::Object(normalized);
+    if before.as_ref() == Some(&next) {
+        return false;
+    }
+    if let Some(object) = target.as_object_mut() {
+        object.insert(field_name.to_string(), next);
+        true
+    } else {
+        false
+    }
+}
+
+fn migrate_lineup_json_file(
+    path: &Path,
+    field_name: &str,
+    preserve_project_slots: bool,
+    create_when_missing: bool,
+) -> Result<bool, StorageError> {
+    let content = fs::read_to_string(path)?;
+    let mut value: serde_json::Value = serde_json::from_str(&content)
+        .map_err(|e| StorageError::Resolve(format!("Invalid JSON {} ({e})", path.display())))?;
+    let changed = normalize_lineup_object(
+        &mut value,
+        field_name,
+        preserve_project_slots,
+        create_when_missing,
+    );
+    if changed {
+        let bytes = serde_json::to_vec_pretty(&value).map_err(|e| {
+            StorageError::Resolve(format!(
+                "Failed to serialize migrated lineup JSON {} ({e})",
+                path.display()
+            ))
+        })?;
+        atomic_write_bytes(path, &bytes)?;
+    }
+    Ok(changed)
+}
+
+fn migrate_lineup_json_dir(
+    dir: &Path,
+    field_name: &str,
+    preserve_project_slots: bool,
+    create_when_missing: bool,
+) -> Result<bool, StorageError> {
+    if !dir.exists() {
+        return Ok(false);
+    }
+    let mut migrated = false;
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
+            continue;
+        }
+        migrated |= migrate_lineup_json_file(
+            &path,
+            field_name,
+            preserve_project_slots,
+            create_when_missing,
+        )?;
+    }
+    Ok(migrated)
+}
+
+fn migrate_lineup_assignments(root: &Path) -> Result<bool, StorageError> {
+    let bands_migrated =
+        migrate_lineup_json_dir(&root.join("catalog/bands"), "defaultLineup", false, true)?;
+    let projects_migrated = migrate_lineup_json_dir(&root.join("projects"), "lineup", true, false)?;
+    Ok(bands_migrated || projects_migrated)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -277,10 +436,8 @@ mod tests {
         fs::create_dir_all(root.join("catalog/templates/notes")).unwrap();
 
         ensure_default_notes_template(&root).unwrap();
-        let first = fs::read_to_string(
-            root.join("catalog/templates/notes/notes_default_cs.json"),
-        )
-        .unwrap();
+        let first =
+            fs::read_to_string(root.join("catalog/templates/notes/notes_default_cs.json")).unwrap();
         assert!(first.contains("\"id\": \"notes_default_cs\""));
 
         fs::write(
@@ -290,11 +447,12 @@ mod tests {
         .unwrap();
 
         ensure_default_notes_template(&root).unwrap();
-        let second = fs::read_to_string(
-            root.join("catalog/templates/notes/notes_default_cs.json"),
-        )
-        .unwrap();
-        assert_eq!(second, "{\"id\":\"notes_default_cs\",\"lang\":\"cs\",\"inputs\":[]}");
+        let second =
+            fs::read_to_string(root.join("catalog/templates/notes/notes_default_cs.json")).unwrap();
+        assert_eq!(
+            second,
+            "{\"id\":\"notes_default_cs\",\"lang\":\"cs\",\"inputs\":[]}"
+        );
 
         let _ = fs::remove_dir_all(&root);
     }
@@ -308,6 +466,109 @@ mod tests {
 
         let notes_path = root.join("catalog/templates/notes/notes_default_cs.json");
         assert!(notes_path.exists());
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn migrate_lineup_assignments_normalizes_bands_and_projects_idempotently() {
+        let root = temp_test_dir("lineup-migration");
+        fs::create_dir_all(root.join("catalog/bands")).unwrap();
+        fs::create_dir_all(root.join("projects")).unwrap();
+
+        let band_path = root.join("catalog/bands/b1.json");
+        fs::write(
+            &band_path,
+            r#"{
+  "id": "b1",
+  "name": "Band",
+  "defaultLineup": {
+    "drums": ["dr-1", "dr-2", "dr-1"],
+    "bass": "b-1",
+    "guitar": null
+  },
+  "unrelated": { "keep": true }
+}"#,
+        )
+        .unwrap();
+
+        let project_path = root.join("projects/p1.json");
+        fs::write(
+            &project_path,
+            r#"{
+  "id": "p1",
+  "lineup": {
+    "drums": [
+      "dr-1",
+      { "musicianId": "dr-2", "presetOverride": { "monitoring": { "monitorRef": "wedge" } } },
+      "dr-1"
+    ],
+    "bass": "b-1",
+    "guitar": null,
+    "back_vocs": ["bv-1"]
+  },
+  "unrelated": "preserved"
+}"#,
+        )
+        .unwrap();
+
+        assert!(migrate_lineup_assignments(&root).unwrap());
+        assert!(!migrate_lineup_assignments(&root).unwrap());
+
+        let band: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&band_path).unwrap()).unwrap();
+        assert_eq!(
+            band.get("defaultLineup").unwrap(),
+            &serde_json::json!({
+                "drums": ["dr-1", "dr-2"],
+                "bass": ["b-1"],
+                "guitar": [],
+                "keys": [],
+                "vocs": []
+            })
+        );
+        assert_eq!(
+            band.pointer("/unrelated/keep").unwrap(),
+            &serde_json::json!(true)
+        );
+
+        let project: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&project_path).unwrap()).unwrap();
+        assert_eq!(
+            project.get("lineup").unwrap(),
+            &serde_json::json!({
+                "drums": [
+                    "dr-1",
+                    { "musicianId": "dr-2", "presetOverride": { "monitoring": { "monitorRef": "wedge" } } }
+                ],
+                "bass": ["b-1"],
+                "guitar": [],
+                "keys": [],
+                "vocs": [],
+                "back_vocs": ["bv-1"]
+            })
+        );
+        assert_eq!(
+            project.get("unrelated").unwrap(),
+            &serde_json::json!("preserved")
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn migrate_lineup_assignments_preserves_project_inheritance_when_lineup_missing() {
+        let root = temp_test_dir("lineup-migration-inheritance");
+        fs::create_dir_all(root.join("catalog/bands")).unwrap();
+        fs::create_dir_all(root.join("projects")).unwrap();
+
+        let project_path = root.join("projects/p1.json");
+        fs::write(&project_path, r#"{ "id": "p1", "bandRef": "b1" }"#).unwrap();
+
+        assert!(!migrate_lineup_assignments(&root).unwrap());
+        let project: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&project_path).unwrap()).unwrap();
+        assert!(project.get("lineup").is_none());
 
         let _ = fs::remove_dir_all(&root);
     }
@@ -382,7 +643,8 @@ pub fn ensure_user_storage(app: &tauri::AppHandle) -> Result<UserStorageMeta, St
     };
 
     let migrated = migrate_legacy_library(&root)?;
-    if migrated || metadata_migrated {
+    let lineup_migrated = migrate_lineup_assignments(&root)?;
+    if migrated || lineup_migrated || metadata_migrated {
         meta.last_migrated_at = Some(now_iso());
     }
 

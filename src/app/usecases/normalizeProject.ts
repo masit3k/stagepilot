@@ -1,33 +1,54 @@
+import { isGroup } from "../../domain/model/groups.js";
 import type {
   LineupSlot,
   OverlaySlot,
-  ProjectLineup,
-  ProjectOverlays,
   Project,
   ProjectJson,
+  ProjectLineup,
+  ProjectOverlays,
   StagePlanPurpose,
 } from "../../domain/model/types.js";
-import { isGroup } from "../../domain/model/groups.js";
 
 function normalizeLineupSlots(value: unknown): LineupSlot[] {
   const entries = Array.isArray(value) ? value : [value];
   const slots: LineupSlot[] = [];
+  const seenMusicians = new Set<string>();
   for (const entry of entries) {
     if (typeof entry === "string" && entry.trim().length > 0) {
-      slots.push({ slot: slots.length + 1, musicianId: entry.trim() });
+      const musicianId = entry.trim();
+      if (seenMusicians.has(musicianId)) continue;
+      seenMusicians.add(musicianId);
+      slots.push({ slot: slots.length + 1, musicianId });
       continue;
     }
     if (!entry || typeof entry !== "object") continue;
-    const raw = entry as { slot?: unknown; musicianId?: unknown; presetOverride?: unknown; drumDefinition?: unknown };
-    if (typeof raw.musicianId !== "string" || raw.musicianId.trim().length === 0) continue;
-    const slotNumber = typeof raw.slot === "number" && Number.isFinite(raw.slot) && raw.slot > 0
-      ? Math.floor(raw.slot)
-      : slots.length + 1;
+    const raw = entry as {
+      slot?: unknown;
+      musicianId?: unknown;
+      presetOverride?: unknown;
+      drumDefinition?: unknown;
+    };
+    if (
+      typeof raw.musicianId !== "string" ||
+      raw.musicianId.trim().length === 0
+    )
+      continue;
+    const musicianId = raw.musicianId.trim();
+    if (seenMusicians.has(musicianId)) continue;
+    seenMusicians.add(musicianId);
+    const slotNumber =
+      typeof raw.slot === "number" && Number.isFinite(raw.slot) && raw.slot > 0
+        ? Math.floor(raw.slot)
+        : slots.length + 1;
     slots.push({
       slot: slotNumber,
-      musicianId: raw.musicianId.trim(),
-      ...(raw.presetOverride && typeof raw.presetOverride === "object" ? { presetOverride: raw.presetOverride } : {}),
-      ...(raw.drumDefinition && typeof raw.drumDefinition === "object" ? { drumDefinition: raw.drumDefinition as LineupSlot["drumDefinition"] } : {}),
+      musicianId,
+      ...(raw.presetOverride && typeof raw.presetOverride === "object"
+        ? { presetOverride: raw.presetOverride }
+        : {}),
+      ...(raw.drumDefinition && typeof raw.drumDefinition === "object"
+        ? { drumDefinition: raw.drumDefinition as LineupSlot["drumDefinition"] }
+        : {}),
     });
   }
   return slots.sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0));
@@ -39,10 +60,15 @@ function normalizeOverlaySlots(value: unknown): OverlaySlot[] {
   for (const entry of value) {
     if (!entry || typeof entry !== "object") continue;
     const raw = entry as { slot?: unknown; musicianId?: unknown };
-    if (typeof raw.musicianId !== "string" || raw.musicianId.trim().length === 0) continue;
-    const slotNumber = typeof raw.slot === "number" && Number.isFinite(raw.slot) && raw.slot > 0
-      ? Math.floor(raw.slot)
-      : slots.length + 1;
+    if (
+      typeof raw.musicianId !== "string" ||
+      raw.musicianId.trim().length === 0
+    )
+      continue;
+    const slotNumber =
+      typeof raw.slot === "number" && Number.isFinite(raw.slot) && raw.slot > 0
+        ? Math.floor(raw.slot)
+        : slots.length + 1;
     slots.push({ slot: slotNumber, musicianId: raw.musicianId.trim() });
   }
   return slots.sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0));
@@ -53,7 +79,8 @@ function dedupeOverlaySlots(slots: OverlaySlot[]): OverlaySlot[] {
   const seenMusicians = new Set<string>();
   return slots.filter((slot) => {
     if (slot.slot === undefined) return false;
-    if (seenSlots.has(slot.slot) || seenMusicians.has(slot.musicianId)) return false;
+    if (seenSlots.has(slot.slot) || seenMusicians.has(slot.musicianId))
+      return false;
     seenSlots.add(slot.slot);
     seenMusicians.add(slot.musicianId);
     return true;
@@ -61,7 +88,8 @@ function dedupeOverlaySlots(slots: OverlaySlot[]): OverlaySlot[] {
 }
 
 function assertString(value: unknown, label: string): string {
-  if (typeof value !== "string" || value.trim() === "") throw new Error(`Missing or invalid ${label}.`);
+  if (typeof value !== "string" || value.trim() === "")
+    throw new Error(`Missing or invalid ${label}.`);
   return value.trim();
 }
 
@@ -70,27 +98,53 @@ function assertPurpose(value: unknown): StagePlanPurpose {
   throw new Error("Missing or invalid purpose.");
 }
 
-function normalizeCanonicalOverlays(input: ProjectJson, lineup: ProjectLineup | undefined): ProjectOverlays | undefined {
-  if (!("overlays" in input) || !input.overlays || typeof input.overlays !== "object") return undefined;
-  const raw = input.overlays as { leadVocals?: unknown; backVocals?: unknown; talkback?: unknown };
+function normalizeCanonicalOverlays(
+  input: ProjectJson,
+  lineup: ProjectLineup | undefined,
+): ProjectOverlays | undefined {
+  if (
+    !("overlays" in input) ||
+    !input.overlays ||
+    typeof input.overlays !== "object"
+  )
+    return undefined;
+  const raw = input.overlays as {
+    leadVocals?: unknown;
+    backVocals?: unknown;
+    talkback?: unknown;
+  };
   const hasLead = Object.prototype.hasOwnProperty.call(raw, "leadVocals");
   const hasBack = Object.prototype.hasOwnProperty.call(raw, "backVocals");
   const hasTalkback = Object.prototype.hasOwnProperty.call(raw, "talkback");
 
   const lineupMemberIds = new Set(
-    Object.values(lineup ?? {}).flatMap((slots) => (Array.isArray(slots) ? slots.map((slot) => slot.musicianId) : [])),
+    Object.values(lineup ?? {}).flatMap((slots) =>
+      Array.isArray(slots) ? slots.map((slot) => slot.musicianId) : [],
+    ),
   );
-  const leadVocals = dedupeOverlaySlots(normalizeOverlaySlots(raw.leadVocals))
-    .filter((slot) => lineupMemberIds.size === 0 || lineupMemberIds.has(slot.musicianId));
-  const backVocals = dedupeOverlaySlots(normalizeOverlaySlots(raw.backVocals))
-    .filter((slot) => lineupMemberIds.size === 0 || lineupMemberIds.has(slot.musicianId));
+  const leadVocals = dedupeOverlaySlots(
+    normalizeOverlaySlots(raw.leadVocals),
+  ).filter(
+    (slot) =>
+      lineupMemberIds.size === 0 || lineupMemberIds.has(slot.musicianId),
+  );
+  const backVocals = dedupeOverlaySlots(
+    normalizeOverlaySlots(raw.backVocals),
+  ).filter(
+    (slot) =>
+      lineupMemberIds.size === 0 || lineupMemberIds.has(slot.musicianId),
+  );
 
   const talkback = (() => {
     if (!raw.talkback || typeof raw.talkback !== "object") return undefined;
     const mode = (raw.talkback as { mode?: unknown }).mode;
     const ownerId = (raw.talkback as { ownerId?: unknown }).ownerId;
     if (mode === "none") return { mode: "none" as const, ownerId: null };
-    if (mode === "assigned" && typeof ownerId === "string" && ownerId.trim().length > 0) {
+    if (
+      mode === "assigned" &&
+      typeof ownerId === "string" &&
+      ownerId.trim().length > 0
+    ) {
       return lineupMemberIds.size === 0 || lineupMemberIds.has(ownerId.trim())
         ? { mode: "assigned" as const, ownerId: ownerId.trim() }
         : { mode: "none" as const, ownerId: null };
@@ -109,30 +163,50 @@ export function normalizeProject(input: ProjectJson): Project {
   const id = assertString((input as ProjectJson).id, "project id");
   const bandRef = assertString((input as ProjectJson).bandRef, "bandRef");
   const raw = input as ProjectJson & { slug?: unknown; displayName?: unknown };
-  const slug = typeof raw.slug === "string" ? raw.slug.trim() || undefined : undefined;
-  const displayName = typeof raw.displayName === "string" ? raw.displayName.trim() || undefined : undefined;
+  const slug =
+    typeof raw.slug === "string" ? raw.slug.trim() || undefined : undefined;
+  const displayName =
+    typeof raw.displayName === "string"
+      ? raw.displayName.trim() || undefined
+      : undefined;
 
   const stageplan = (input as ProjectJson).stageplan;
-  const createdAt = "createdAt" in input && typeof input.createdAt === "string" && input.createdAt.trim().length > 0
-    ? input.createdAt.trim()
-    : undefined;
-  const updatedAt = "updatedAt" in input && typeof input.updatedAt === "string" && input.updatedAt.trim().length > 0
-    ? input.updatedAt.trim()
-    : undefined;
+  const createdAt =
+    "createdAt" in input &&
+    typeof input.createdAt === "string" &&
+    input.createdAt.trim().length > 0
+      ? input.createdAt.trim()
+      : undefined;
+  const updatedAt =
+    "updatedAt" in input &&
+    typeof input.updatedAt === "string" &&
+    input.updatedAt.trim().length > 0
+      ? input.updatedAt.trim()
+      : undefined;
   const lineup = (() => {
-    if (!("lineup" in input) || !input.lineup || typeof input.lineup !== "object") return undefined;
+    if (
+      !("lineup" in input) ||
+      !input.lineup ||
+      typeof input.lineup !== "object"
+    )
+      return undefined;
     const rawLineup = input.lineup as Record<string, unknown>;
     const normalized: ProjectLineup = {};
-    for (const [group, value] of Object.entries(rawLineup)) {
-      if (!isGroup(group) || group === "talkback") continue;
-      normalized[group as keyof ProjectLineup] = normalizeLineupSlots(value);
+    for (const group of ["drums", "bass", "guitar", "keys", "vocs"] as const) {
+      if (!isGroup(group)) continue;
+      normalized[group as keyof ProjectLineup] = normalizeLineupSlots(
+        rawLineup[group],
+      );
     }
     return normalized;
   })();
   const overlays = normalizeCanonicalOverlays(input, lineup);
-  const bandLeaderId = "bandLeaderId" in input && typeof input.bandLeaderId === "string" && input.bandLeaderId.trim().length > 0
-    ? input.bandLeaderId.trim()
-    : undefined;
+  const bandLeaderId =
+    "bandLeaderId" in input &&
+    typeof input.bandLeaderId === "string" &&
+    input.bandLeaderId.trim().length > 0
+      ? input.bandLeaderId.trim()
+      : undefined;
 
   if ("purpose" in input) {
     const purpose = assertPurpose(input.purpose);
@@ -179,7 +253,10 @@ export function normalizeProject(input: ProjectJson): Project {
 
   if ("date" in input) {
     const eventDate = assertString(input.date, "date");
-    const eventVenue = typeof input.venue === "string" && input.venue.trim() ? input.venue.trim() : undefined;
+    const eventVenue =
+      typeof input.venue === "string" && input.venue.trim()
+        ? input.venue.trim()
+        : undefined;
     return {
       id,
       bandRef,

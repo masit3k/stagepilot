@@ -501,6 +501,13 @@
   margin-top: var(--space-1);
 }
 
+.lineup-card__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: var(--space-1);
+  flex-wrap: wrap;
+}
+
 .section-divider {
   border-top: 1px solid var(--border);
   padding-top: var(--space-1);
@@ -530,9 +537,30 @@
   flex-wrap: wrap;
 }
 
+.lineup-list__role {
+  color: var(--muted);
+  min-width: 120px;
+}
+
 .lineup-list__actions {
   display: flex;
   gap: 8px;
+}
+
+.lineup-assignment-editor {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.lineup-assignment-editor__add {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.lineup-assignment-editor__add select {
+  min-width: 220px;
 }
 
 .lineup-list--backvocs {

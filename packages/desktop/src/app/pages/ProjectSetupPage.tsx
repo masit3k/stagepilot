@@ -14,6 +14,7 @@ import {
   resolveTalkbackOwnerId,
   validateLineup,
 } from "../../projectRules";
+import { formatIndexedLabel } from "../../../../../src/domain/labels/formatIndexedLabel";
 import {
   summarizeEffectivePresetValidation,
   validateEffectivePresets,
@@ -131,6 +132,41 @@ function extractOverlayMusicianIds(
     .filter((musicianId) => musicianId.length > 0);
 }
 
+const ROLE_SUMMARY_LABELS: Record<string, string> = {
+  drums: "Drums",
+  bass: "Bass",
+  guitar: "Electric guitar",
+  keys: "Keys",
+  vocs: "Vocal",
+};
+
+const ROLE_EMPTY_LABELS: Record<string, string> = {
+  drums: "No drummer assigned",
+  bass: "No bassist assigned",
+  guitar: "No guitarist assigned",
+  keys: "No keys player assigned",
+  vocs: "No vocalist assigned",
+};
+
+function formatRoleSummaryLabel(
+  role: string,
+  total: number,
+  index: number,
+): string {
+  return formatIndexedLabel(
+    ROLE_SUMMARY_LABELS[role] ?? getRoleDisplayName(role),
+    total,
+    index,
+  );
+}
+
+function getRoleEmptyLabel(role: string): string {
+  return (
+    ROLE_EMPTY_LABELS[role] ??
+    `No ${getRoleDisplayName(role).toLowerCase()} assigned`
+  );
+}
+
 export function ProjectSetupPage({
   id,
   navigate,
@@ -151,6 +187,11 @@ export function ProjectSetupPage({
     role: string;
     slotIndex: number;
     currentSelectedId?: string;
+  } | null>(null);
+  const [assignmentEditor, setAssignmentEditor] = useState<{
+    role: string;
+    draftSlots: LineupSlotValue[];
+    selectedMusicianId: string;
   } | null>(null);
   const [editingSetup, setEditingSetup] = useState<{
     role: string;
@@ -313,8 +354,8 @@ export function ProjectSetupPage({
         parsedTalkbackOwnerIdFromOverlay ??
         (typeof parsed.talkbackOwnerId === "string"
           ? parsed.talkbackOwnerId.trim()
-          : typeof (parsedRaw as { talkBackOwnerId?: unknown }).talkBackOwnerId ===
-              "string"
+          : typeof (parsedRaw as { talkBackOwnerId?: unknown })
+                .talkBackOwnerId === "string"
             ? (parsedRaw as { talkBackOwnerId: string }).talkBackOwnerId.trim()
             : "");
       setProject(parsed);
@@ -424,9 +465,9 @@ export function ProjectSetupPage({
         });
         setProject(updatedProject);
       } else {
-        const hasLegacyLineupFormat = Object.values(
-          parsed.lineup ?? {},
-        ).some((v) => v !== undefined && !Array.isArray(v));
+        const hasLegacyLineupFormat = Object.values(parsed.lineup ?? {}).some(
+          (v) => v !== undefined && !Array.isArray(v),
+        );
         if (hasLegacyLineupFormat) {
           const migratedLineup = serializeLineupForProject(
             initialState.lineup,
@@ -486,7 +527,8 @@ export function ProjectSetupPage({
         group: initialRoleByMusicianId.get(musicianId) ?? "vocs",
         presets: (data.musicianPresetsById?.[musicianId] ?? []) as PresetItem[],
       }));
-      const initialLeadVocalIdsFromPreset = getLeadVocsFromTemplate(initialMusicians);
+      const initialLeadVocalIdsFromPreset =
+        getLeadVocsFromTemplate(initialMusicians);
       const defaultLeadVocalIdsFromBand = extractOverlayMusicianIds(
         data.defaultOverlays?.leadVocals,
       )
@@ -497,10 +539,9 @@ export function ProjectSetupPage({
         ? persistedLeadVocalistIds.filter((idValue) =>
             initialTemplateMusicians.includes(idValue),
           )
-        : (defaultLeadVocalIdsFromBand.length > 0
-            ? defaultLeadVocalIdsFromBand
-            : Array.from(initialLeadVocalIdsFromPreset)
-          );
+        : defaultLeadVocalIdsFromBand.length > 0
+          ? defaultLeadVocalIdsFromBand
+          : Array.from(initialLeadVocalIdsFromPreset);
       const defaultBackOverlayIds = extractOverlayMusicianIds(
         data.defaultOverlays?.backVocals,
       );
@@ -610,7 +651,11 @@ export function ProjectSetupPage({
     : bandLeaderId;
   const defaultLeadVocalistIds = useMemo(
     () =>
-      Array.from(new Set(extractOverlayMusicianIds(setupData?.defaultOverlays?.leadVocals)))
+      Array.from(
+        new Set(
+          extractOverlayMusicianIds(setupData?.defaultOverlays?.leadVocals),
+        ),
+      )
         .concat(setupData?.defaultVocals?.lead ?? [])
         .filter((idValue, index, arr) => arr.indexOf(idValue) === index)
         .concat(
@@ -631,10 +676,17 @@ export function ProjectSetupPage({
   );
   const rawSelectedLeadVocalistIds = useMemo(() => {
     if (hasLeadVocalOverride) {
-      return leadVocalistIds.filter((idValue) => templateMusicianIds.has(idValue));
+      return leadVocalistIds.filter((idValue) =>
+        templateMusicianIds.has(idValue),
+      );
     }
     return defaultLeadVocalistIds;
-  }, [defaultLeadVocalistIds, hasLeadVocalOverride, leadVocalistIds, templateMusicianIds]);
+  }, [
+    defaultLeadVocalistIds,
+    hasLeadVocalOverride,
+    leadVocalistIds,
+    templateMusicianIds,
+  ]);
   const lineupVocalCandidates = useMemo(
     () =>
       resolveLineupVocalCandidates({
@@ -645,12 +697,17 @@ export function ProjectSetupPage({
   );
   const defaultBackVocalIds = useMemo(
     () =>
-      Array.from(new Set(extractOverlayMusicianIds(setupData?.defaultOverlays?.backVocals)))
+      Array.from(
+        new Set(
+          extractOverlayMusicianIds(setupData?.defaultOverlays?.backVocals),
+        ),
+      )
         .concat(setupData?.defaultVocals?.back ?? [])
         .filter((idValue, index, arr) => arr.indexOf(idValue) === index)
         .concat(
           Array.from(
-            setupData?.defaultOverlays?.backVocals || setupData?.defaultVocals?.back
+            setupData?.defaultOverlays?.backVocals ||
+              setupData?.defaultVocals?.back
               ? []
               : getBackVocsFromTemplate(selectedTemplateMusicians),
           ),
@@ -668,20 +725,30 @@ export function ProjectSetupPage({
       return backVocalIds.filter((idValue) => templateMusicianIds.has(idValue));
     }
     return defaultBackVocalIds;
-  }, [backVocalIds, defaultBackVocalIds, hasBackVocalOverride, templateMusicianIds]);
+  }, [
+    backVocalIds,
+    defaultBackVocalIds,
+    hasBackVocalOverride,
+    templateMusicianIds,
+  ]);
   const lineupVocalCandidateIdSet = useMemo(
     () => new Set(lineupVocalCandidates.map((candidate) => candidate.id)),
     [lineupVocalCandidates],
   );
-  const { leadIds: selectedLeadVocalistIds, backIds: selectedBackVocalIds } = useMemo(
-    () =>
-      enforceVocalSelectionInvariant({
-        lineupCandidateIds: lineupVocalCandidateIdSet,
-        leadIds: rawSelectedLeadVocalistIds,
-        backIds: rawSelectedBackVocalIds,
-      }),
-    [lineupVocalCandidateIdSet, rawSelectedBackVocalIds, rawSelectedLeadVocalistIds],
-  );
+  const { leadIds: selectedLeadVocalistIds, backIds: selectedBackVocalIds } =
+    useMemo(
+      () =>
+        enforceVocalSelectionInvariant({
+          lineupCandidateIds: lineupVocalCandidateIdSet,
+          leadIds: rawSelectedLeadVocalistIds,
+          backIds: rawSelectedBackVocalIds,
+        }),
+      [
+        lineupVocalCandidateIdSet,
+        rawSelectedBackVocalIds,
+        rawSelectedLeadVocalistIds,
+      ],
+    );
   const leadVocalCandidateSections = useMemo(
     () =>
       resolveLeadVocalCandidates({
@@ -696,24 +763,22 @@ export function ProjectSetupPage({
       }),
     [defaultLeadVocalistIds, lineupVocalCandidates, selectedLeadVocalistIds],
   );
-  const leadVocalMembers = useMemo(
-    () => {
-      const membersById = new Map(templateMusicians.map((item) => [item.id, item]));
-      return selectedLeadVocalistIds
-        .map((idValue) => membersById.get(idValue))
-        .filter((item): item is MemberOption => Boolean(item));
-    },
-    [selectedLeadVocalistIds, templateMusicians],
-  );
-  const backVocalMembers = useMemo(
-    () => {
-      const membersById = new Map(templateMusicians.map((item) => [item.id, item]));
-      return selectedBackVocalIds
-        .map((idValue) => membersById.get(idValue))
-        .filter((item): item is MemberOption => Boolean(item));
-    },
-    [selectedBackVocalIds, templateMusicians],
-  );
+  const leadVocalMembers = useMemo(() => {
+    const membersById = new Map(
+      templateMusicians.map((item) => [item.id, item]),
+    );
+    return selectedLeadVocalistIds
+      .map((idValue) => membersById.get(idValue))
+      .filter((item): item is MemberOption => Boolean(item));
+  }, [selectedLeadVocalistIds, templateMusicians]);
+  const backVocalMembers = useMemo(() => {
+    const membersById = new Map(
+      templateMusicians.map((item) => [item.id, item]),
+    );
+    return selectedBackVocalIds
+      .map((idValue) => membersById.get(idValue))
+      .filter((item): item is MemberOption => Boolean(item));
+  }, [selectedBackVocalIds, templateMusicians]);
   const hasSelectedBackVocs = selectedBackVocalIds.length > 0;
   const isBackVocsSetupDisabled = !hasSelectedBackVocs;
 
@@ -726,7 +791,9 @@ export function ProjectSetupPage({
         name: candidate.name,
         primaryGroup: candidate.primaryGroup,
         isDisabled,
-        disabledReason: isDisabled ? "Already selected as Lead Vocal" : undefined,
+        disabledReason: isDisabled
+          ? "Already selected as Lead Vocal"
+          : undefined,
       };
     });
   }, [lineupVocalCandidates, selectedLeadVocalistIds]);
@@ -926,7 +993,10 @@ export function ProjectSetupPage({
     if (!setupData) return;
     const roleSlotLimit = getRoleSlotLimit(role);
     const compact = slots.filter((slot) => Boolean(slot.musicianId));
-    const value = Number.isFinite(roleSlotLimit) && roleSlotLimit <= 1 ? compact[0] : compact;
+    const value =
+      Number.isFinite(roleSlotLimit) && roleSlotLimit <= 1
+        ? compact[0]
+        : compact;
     const nextLineup = { ...lineup, [role]: value as LineupMap[string] };
     applyState(nextLineup, setupData, bandLeaderId, talkbackOwnerId);
   }
@@ -935,8 +1005,15 @@ export function ProjectSetupPage({
     if (!setupData) return;
     const roleSlotLimit = getRoleSlotLimit(role);
     const current = normalizeLineupSlots(lineup[role], roleSlotLimit);
-    while (current.length <= slotIndex)
-      current.push({ musicianId: "" });
+    if (
+      musicianId &&
+      current.some(
+        (slot, index) => index !== slotIndex && slot.musicianId === musicianId,
+      )
+    ) {
+      return;
+    }
+    while (current.length <= slotIndex) current.push({ musicianId: "" });
     const previous = current[slotIndex];
     current[slotIndex] = musicianId
       ? {
@@ -950,33 +1027,6 @@ export function ProjectSetupPage({
         }
       : { musicianId: "" };
     setRoleSlots(role, current);
-  }
-
-  function removeSlot(role: string, slotIndex: number) {
-    if (!setupData) return;
-    const roleSlotLimit = getRoleSlotLimit(role);
-    const current = normalizeLineupSlots(lineup[role], roleSlotLimit);
-    setRoleSlots(role, current.filter((_, i) => i !== slotIndex));
-  }
-
-  function moveSlotUp(role: string, slotIndex: number) {
-    if (!setupData || slotIndex === 0) return;
-    const roleSlotLimit = getRoleSlotLimit(role);
-    const current = normalizeLineupSlots(lineup[role], roleSlotLimit);
-    if (slotIndex >= current.length) return;
-    const next = [...current];
-    [next[slotIndex - 1], next[slotIndex]] = [next[slotIndex], next[slotIndex - 1]];
-    setRoleSlots(role, next);
-  }
-
-  function moveSlotDown(role: string, slotIndex: number) {
-    if (!setupData) return;
-    const roleSlotLimit = getRoleSlotLimit(role);
-    const current = normalizeLineupSlots(lineup[role], roleSlotLimit);
-    if (slotIndex >= current.length - 1) return;
-    const next = [...current];
-    [next[slotIndex], next[slotIndex + 1]] = [next[slotIndex + 1], next[slotIndex]];
-    setRoleSlots(role, next);
   }
 
   function parseSlotIndex(slotKey: string): number {
@@ -1125,7 +1175,9 @@ export function ProjectSetupPage({
           patch,
         );
         const resolvedMicByNote = (() => {
-          const note = effective.inputs.find((input) => input.key.startsWith("voc_"))?.note;
+          const note = effective.inputs.find((input) =>
+            input.key.startsWith("voc_"),
+          )?.note;
           if (!note) return "vocal_no_mic";
           const normalizedNote = note.toLowerCase();
           if (normalizedNote.includes("wireless")) return "vocal_wireless";
@@ -1285,6 +1337,49 @@ export function ProjectSetupPage({
     }).filter((section) => section.kind !== "role" || section.role !== "vocs");
   }, [lineup, resolveMusicianCapabilityDefaultInputs, setupData]);
 
+  function buildSetupDraftEntries(): Record<
+    string,
+    PresetOverridePatch | undefined
+  > {
+    const draftEntries: Record<string, PresetOverridePatch | undefined> = {};
+    for (const setupRole of ROLE_ORDER) {
+      const setupRoleSlotLimit = getRoleSlotLimit(setupRole);
+      const slots = normalizeLineupSlots(lineup[setupRole], setupRoleSlotLimit);
+      for (const [setupIndex, setupSlot] of slots.entries()) {
+        if (!setupSlot.musicianId) continue;
+        draftEntries[`${setupRole}:${setupIndex}`] =
+          normalizeSetupOverridePatch(
+            resolveSlotSetup(setupRole as Group, setupSlot.musicianId).resolved
+              .defaultPreset,
+            setupSlot.presetOverride,
+          );
+      }
+    }
+    return draftEntries;
+  }
+
+  function openSetupForRole(role: string, slotIndex = 0) {
+    const slots = normalizeLineupSlots(lineup[role], getRoleSlotLimit(role));
+    const selectedIndex = slots[slotIndex] ? slotIndex : 0;
+    const selectedSlot = slots[selectedIndex];
+    if (!selectedSlot?.musicianId) return;
+    setSetupDraftBySlot(buildSetupDraftEntries());
+    setSelectedSetupSlotKey(`${role}:${selectedIndex}`);
+    setEditingSetup({
+      role,
+      slotIndex: selectedIndex,
+      musicianId: selectedSlot.musicianId,
+    });
+  }
+
+  function openAssignmentEditor(role: string) {
+    setAssignmentEditor({
+      role,
+      draftSlots: normalizeLineupSlots(lineup[role], getRoleSlotLimit(role)),
+      selectedMusicianId: "",
+    });
+  }
+
   const resetModalRef = useModalBehavior(showResetConfirmation, () =>
     setShowResetConfirmation(false),
   );
@@ -1295,6 +1390,10 @@ export function ProjectSetupPage({
   const musicianSelectorRef = useModalBehavior(
     Boolean(editing && setupData),
     () => setEditing(null),
+  );
+  const assignmentEditorRef = useModalBehavior(
+    Boolean(assignmentEditor && setupData),
+    () => setAssignmentEditor(null),
   );
   const leadVocsModalRef = useModalBehavior(Boolean(isLeadVocsModalOpen), () =>
     setIsLeadVocsModalOpen(false),
@@ -1377,67 +1476,6 @@ export function ProjectSetupPage({
                           <span className="lineup-list__name">
                             {selectedName}
                           </span>
-                          <div className="lineup-list__actions">
-                            <button
-                              type="button"
-                              className="button-secondary"
-                              disabled={
-                                !musicianId ||
-                                sourceMembers.filter((m) => m.id !== musicianId)
-                                  .length === 0
-                              }
-                              onClick={() =>
-                                setEditing({
-                                  role: member.sourceRole,
-                                  slotIndex: member.sourceSlotIndex,
-                                  currentSelectedId: musicianId || undefined,
-                                })
-                              }
-                            >
-                              Change
-                            </button>
-                            <button
-                              type="button"
-                              className="button-secondary"
-                              disabled={!musicianId}
-                              onClick={() => {
-                                if (!setupData || !musicianId) return;
-                                const draftEntries: Record<
-                                  string,
-                                  PresetOverridePatch | undefined
-                                > = {};
-                                ROLE_ORDER.forEach((setupRole) => {
-                                  const setupRoleSlotLimit =
-                                    getRoleSlotLimit(setupRole);
-                                  normalizeLineupSlots(
-                                    lineup[setupRole],
-                                    setupRoleSlotLimit,
-                                  ).forEach((setupSlot, setupIndex) => {
-                                    if (!setupSlot.musicianId) return;
-                                    draftEntries[`${setupRole}:${setupIndex}`] =
-                                      normalizeSetupOverridePatch(
-                                        resolveSlotSetup(
-                                          setupRole as Group,
-                                          setupSlot.musicianId,
-                                        ).resolved.defaultPreset,
-                                        setupSlot.presetOverride,
-                                      );
-                                  });
-                                });
-                                setSetupDraftBySlot(draftEntries);
-                                const slotKey = `${member.sourceRole}:${member.sourceSlotIndex}`;
-                                setSelectedSetupSlotKey(slotKey);
-                                setEditingSetup({
-                                  role: member.sourceRole,
-                                  slotIndex: member.sourceSlotIndex,
-                                  musicianId,
-                                });
-                              }}
-                            >
-                              Setup
-                              {sourceSlot?.presetOverride ? " •" : ""}
-                            </button>
-                          </div>
                         </div>
                       );
                     })}
@@ -1475,130 +1513,49 @@ export function ProjectSetupPage({
                 <div className="lineup-list lineup-list--single">
                   {slots.length === 0 ? (
                     <div className="lineup-list__row">
-                      <span className="lineup-list__name">Not selected</span>
+                      <span className="lineup-list__name">
+                        {getRoleEmptyLabel(role)}
+                      </span>
                     </div>
                   ) : (
-                    slots.map((slot, index) => {
-                      const alternatives = members.filter(
-                        (m) => m.id !== slot.musicianId,
-                      );
-                      return (
-                        <div
-                          key={`${role}-${index}`}
-                          className="lineup-list__row"
-                        >
-                          <span className="lineup-list__name">
-                            {slot.musicianId
-                              ? resolveMusicianDisplayName({
-                                  musicianId: slot.musicianId,
-                                  preferredName: members.find(
-                                    (m) => m.id === slot.musicianId,
-                                  )?.name,
-                                })
-                              : "Not selected"}
-                          </span>
-                          <div className="lineup-list__actions">
-                            {slots.length > 1 && (
-                              <>
-                                <button
-                                  type="button"
-                                  className="button-ghost"
-                                  disabled={index === 0}
-                                  onClick={() => moveSlotUp(role, index)}
-                                >
-                                  ↑
-                                </button>
-                                <button
-                                  type="button"
-                                  className="button-ghost"
-                                  disabled={index === slots.length - 1}
-                                  onClick={() => moveSlotDown(role, index)}
-                                >
-                                  ↓
-                                </button>
-                              </>
-                            )}
-                            <button
-                              type="button"
-                              className="button-secondary"
-                              disabled={alternatives.length === 0}
-                              onClick={() =>
-                                setEditing({
-                                  role,
-                                  slotIndex: index,
-                                  currentSelectedId:
-                                    slot.musicianId || undefined,
-                                })
-                              }
-                            >
-                              Change
-                            </button>
-                            <button
-                              type="button"
-                              className="button-secondary"
-                              disabled={!slot.musicianId}
-                              onClick={() => {
-                                if (!setupData) return;
-                                const draftEntries: Record<
-                                  string,
-                                  PresetOverridePatch | undefined
-                                > = {};
-                                ROLE_ORDER.forEach((setupRole) => {
-                                  const setupRoleSlotLimit =
-                                    getRoleSlotLimit(setupRole);
-                                  normalizeLineupSlots(
-                                    lineup[setupRole],
-                                    setupRoleSlotLimit,
-                                  ).forEach((setupSlot, setupIndex) => {
-                                    if (!setupSlot.musicianId) return;
-                                    draftEntries[`${setupRole}:${setupIndex}`] =
-                                      normalizeSetupOverridePatch(
-                                        resolveSlotSetup(
-                                          setupRole as Group,
-                                          setupSlot.musicianId,
-                                        ).resolved.defaultPreset,
-                                        setupSlot.presetOverride,
-                                      );
-                                  });
-                                });
-                                setSetupDraftBySlot(draftEntries);
-                                const slotKey = `${role}:${index}`;
-                                setSelectedSetupSlotKey(slotKey);
-                                setEditingSetup({
-                                  role,
-                                  slotIndex: index,
-                                  musicianId: slot.musicianId,
-                                });
-                              }}
-                            >
-                              Setup
-                              {slot.presetOverride ? " •" : ""}
-                            </button>
-                            <button
-                              type="button"
-                              className="button-ghost"
-                              onClick={() => removeSlot(role, index)}
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })
+                    slots.map((slot, index) => (
+                      <div
+                        key={`${role}-${index}`}
+                        className="lineup-list__row"
+                      >
+                        <span className="lineup-list__role">
+                          {formatRoleSummaryLabel(role, slots.length, index)}
+                        </span>
+                        <span className="lineup-list__name">
+                          {resolveMusicianDisplayName({
+                            musicianId: slot.musicianId,
+                            preferredName: members.find(
+                              (m) => m.id === slot.musicianId,
+                            )?.name,
+                          })}
+                        </span>
+                      </div>
+                    ))
                   )}
                 </div>
-                <div className="lineup-card__add">
+                <div className="lineup-card__actions">
                   <button
                     type="button"
-                    className="button-ghost"
-                    onClick={() =>
-                      setEditing({
-                        role,
-                        slotIndex: slots.length,
-                      })
-                    }
+                    className="button-secondary"
+                    onClick={() => openAssignmentEditor(role)}
                   >
-                    + Add musician
+                    Change
+                  </button>
+                  <button
+                    type="button"
+                    className="button-secondary"
+                    disabled={slots.length === 0}
+                    onClick={() => openSetupForRole(role)}
+                  >
+                    Setup
+                    {slots.some((slot) => Boolean(slot.presetOverride))
+                      ? " •"
+                      : ""}
                   </button>
                 </div>
               </div>
@@ -2499,6 +2456,235 @@ export function ProjectSetupPage({
       </ModalOverlay>
 
       <ModalOverlay
+        open={Boolean(assignmentEditor && setupData)}
+        onClose={() => setAssignmentEditor(null)}
+      >
+        {assignmentEditor && setupData
+          ? (() => {
+              const role = assignmentEditor.role;
+              const sectionCapability: SetupCapabilitySection =
+                role === "guitar" ? "guitar" : (role as SetupCapabilitySection);
+              const members = resolveEligibleMembersForSection(
+                sectionCapability,
+                role,
+              );
+              const assignedIds = new Set(
+                assignmentEditor.draftSlots.map((slot) => slot.musicianId),
+              );
+              const availableMembers = members.filter(
+                (member) => !assignedIds.has(member.id),
+              );
+              const selectedMusicianId =
+                assignmentEditor.selectedMusicianId &&
+                availableMembers.some(
+                  (member) => member.id === assignmentEditor.selectedMusicianId,
+                )
+                  ? assignmentEditor.selectedMusicianId
+                  : "";
+
+              return (
+                <div
+                  className="selector-dialog selector-dialog--musician-select"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="assignment-editor-title"
+                  ref={assignmentEditorRef}
+                >
+                  <button
+                    type="button"
+                    className="modal-close"
+                    onClick={() => setAssignmentEditor(null)}
+                    aria-label="Close"
+                  >
+                    ×
+                  </button>
+                  <div className="panel__header panel__header--stack selector-dialog__title">
+                    <h3 id="assignment-editor-title">
+                      Edit {getRoleDisplayName(role).toLowerCase()} assignments
+                    </h3>
+                  </div>
+                  <div className="selector-dialog__divider section-divider" />
+                  <div className="selector-dialog__body lineup-assignment-editor">
+                    <div className="lineup-list lineup-list--compact">
+                      {assignmentEditor.draftSlots.length === 0 ? (
+                        <p className="status status--empty">
+                          {getRoleEmptyLabel(role)}
+                        </p>
+                      ) : (
+                        assignmentEditor.draftSlots.map((slot, index) => (
+                          <div
+                            key={`${role}-assignment-${slot.musicianId}-${index}`}
+                            className="lineup-list__row"
+                          >
+                            <span className="lineup-list__role">
+                              {formatRoleSummaryLabel(
+                                role,
+                                assignmentEditor.draftSlots.length,
+                                index,
+                              )}
+                            </span>
+                            <span className="lineup-list__name">
+                              {resolveMusicianDisplayName({
+                                musicianId: slot.musicianId,
+                                preferredName: members.find(
+                                  (member) => member.id === slot.musicianId,
+                                )?.name,
+                              })}
+                            </span>
+                            <div className="lineup-list__actions">
+                              <button
+                                type="button"
+                                className="button-ghost"
+                                disabled={index === 0}
+                                onClick={() =>
+                                  setAssignmentEditor((current) => {
+                                    if (!current) return current;
+                                    const next = [...current.draftSlots];
+                                    [next[index - 1], next[index]] = [
+                                      next[index],
+                                      next[index - 1],
+                                    ];
+                                    return { ...current, draftSlots: next };
+                                  })
+                                }
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                className="button-ghost"
+                                disabled={
+                                  index ===
+                                  assignmentEditor.draftSlots.length - 1
+                                }
+                                onClick={() =>
+                                  setAssignmentEditor((current) => {
+                                    if (!current) return current;
+                                    const next = [...current.draftSlots];
+                                    [next[index], next[index + 1]] = [
+                                      next[index + 1],
+                                      next[index],
+                                    ];
+                                    return { ...current, draftSlots: next };
+                                  })
+                                }
+                              >
+                                ↓
+                              </button>
+                              <button
+                                type="button"
+                                className="button-ghost"
+                                onClick={() =>
+                                  setAssignmentEditor((current) =>
+                                    current
+                                      ? {
+                                          ...current,
+                                          draftSlots: current.draftSlots.filter(
+                                            (_, slotIndex) =>
+                                              slotIndex !== index,
+                                          ),
+                                        }
+                                      : current,
+                                  )
+                                }
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div className="lineup-card__add">
+                      <label className="field-label" htmlFor="assignment-add">
+                        Add musician
+                      </label>
+                      <div className="lineup-assignment-editor__add">
+                        <select
+                          id="assignment-add"
+                          value={selectedMusicianId}
+                          disabled={availableMembers.length === 0}
+                          onChange={(event) =>
+                            setAssignmentEditor((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    selectedMusicianId: event.target.value,
+                                  }
+                                : current,
+                            )
+                          }
+                        >
+                          <option value="">
+                            {availableMembers.length === 0
+                              ? "All musicians assigned"
+                              : "Select musician"}
+                          </option>
+                          {availableMembers.map((member) => (
+                            <option key={member.id} value={member.id}>
+                              {member.name}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          className="button-secondary"
+                          disabled={!selectedMusicianId}
+                          onClick={() =>
+                            setAssignmentEditor((current) => {
+                              if (!current || !selectedMusicianId) {
+                                return current;
+                              }
+                              if (
+                                current.draftSlots.some(
+                                  (slot) =>
+                                    slot.musicianId === selectedMusicianId,
+                                )
+                              ) {
+                                return current;
+                              }
+                              return {
+                                ...current,
+                                draftSlots: [
+                                  ...current.draftSlots,
+                                  { musicianId: selectedMusicianId },
+                                ],
+                                selectedMusicianId: "",
+                              };
+                            })
+                          }
+                        >
+                          Add
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="modal-actions">
+                    <button
+                      type="button"
+                      className="button-secondary"
+                      onClick={() => setAssignmentEditor(null)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="button-primary"
+                      onClick={() => {
+                        setRoleSlots(role, assignmentEditor.draftSlots);
+                        setAssignmentEditor(null);
+                      }}
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              );
+            })()
+          : null}
+      </ModalOverlay>
+
+      <ModalOverlay
         open={Boolean(editing && setupData)}
         onClose={() => setEditing(null)}
       >
@@ -2534,7 +2720,13 @@ export function ProjectSetupPage({
                         ? "guitar"
                         : (editing.role as SetupCapabilitySection),
                       editing.role,
-                    )
+                    ).filter((member) => {
+                      if (member.id === editing.currentSelectedId) return true;
+                      return !normalizeLineupSlots(
+                        lineup[editing.role],
+                        getRoleSlotLimit(editing.role),
+                      ).some((slot) => slot.musicianId === member.id);
+                    })
               ).map((member) => (
                 <button
                   type="button"

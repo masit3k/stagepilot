@@ -44,7 +44,10 @@ describe("band lineup canonical model", () => {
 
   it("fails when vocalist assignment points outside lineup", () => {
     const invalid = createBand({
-      defaultOverlays: { leadVocals: [{ slot: 1, musicianId: "missing-id" }], backVocals: [] },
+      defaultOverlays: {
+        leadVocals: [{ slot: 1, musicianId: "missing-id" }],
+        backVocals: [],
+      },
     });
     expect(() => validateCanonicalBandModel(invalid)).toThrow(
       "defaultOverlays.leadVocals contains 'missing-id' not present in defaultLineup.",
@@ -57,7 +60,10 @@ describe("band lineup canonical model", () => {
         drums: ["shared-id"],
         bass: ["shared-id"],
       },
-      defaultOverlays: { leadVocals: [{ slot: 1, musicianId: "shared-id" }], backVocals: [] },
+      defaultOverlays: {
+        leadVocals: [{ slot: 1, musicianId: "shared-id" }],
+        backVocals: [],
+      },
     });
     expect(() => validateCanonicalBandModel(invalid)).toThrow(
       "assigned to multiple lineup groups",
@@ -96,6 +102,26 @@ describe("band lineup canonical model", () => {
     });
     expect(normalized.bandLeader).toBe("dr-1");
     expect(normalized.defaultTalkbackOwnerId).toBe("dr-1");
+  });
+
+  it("normalizes default lineup role values and removes same-role duplicates", () => {
+    const normalized = normalizeBandToCanonicalShape(
+      createBand({
+        defaultLineup: {
+          drums: ["dr-1", "dr-2", "dr-1"],
+          bass: "b-1" as unknown as string[],
+          guitar: null as unknown as string[],
+        },
+      }),
+    );
+
+    expect(normalized.defaultLineup).toEqual({
+      drums: ["dr-1", "dr-2"],
+      bass: ["b-1"],
+      guitar: [],
+      keys: [],
+      vocs: [],
+    });
   });
 });
 

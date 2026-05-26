@@ -2,6 +2,7 @@ import {
   type DrumDefinition,
   parseDrumDefinition,
 } from "../../../src/domain/drums/drumDefinition";
+import { dedupeLineupIds } from "../../../src/domain/lineup/lineupAssignments";
 import {
   formatEventDateForDisplayName,
   formatEventDateForSlug,
@@ -283,12 +284,11 @@ export function normalizeLineupValue(
 ): string[] {
   if (!value) return [];
   const ids = Array.isArray(value) ? value : [value];
-  return ids
-    .map((entry) =>
+  return dedupeLineupIds(
+    ids.map((entry) =>
       typeof entry === "string" ? entry : (entry?.musicianId ?? ""),
-    )
-    .filter(Boolean)
-    .slice(0, Math.max(maxSlots, 0));
+    ),
+  ).slice(0, Math.max(maxSlots, 0));
 }
 
 export function normalizeLineupSlots(
@@ -297,8 +297,10 @@ export function normalizeLineupSlots(
 ): LineupSlotValue[] {
   if (!value) return [];
   const entries = Array.isArray(value) ? value : [value];
-  return entries
-    .map((entry) => {
+  const seen = new Set<string>();
+  const normalized: LineupSlotValue[] = [];
+  for (const entry of entries) {
+    const slot = (() => {
       if (typeof entry === "string") return { musicianId: entry };
       if (!entry || typeof entry !== "object") return null;
       const musicianId =
@@ -312,9 +314,64 @@ export function normalizeLineupSlots(
         normalized.drumDefinition = parseDrumDefinition(entry.drumDefinition);
       }
       return normalized;
-    })
-    .filter((entry): entry is LineupSlotValue => Boolean(entry?.musicianId))
-    .slice(0, Math.max(maxSlots, 0));
+    })();
+    const musicianId = slot?.musicianId.trim() ?? "";
+    if (!slot || !musicianId || seen.has(musicianId)) continue;
+    seen.add(musicianId);
+    normalized.push({ ...slot, musicianId });
+  }
+  return normalized.slice(0, Math.max(maxSlots, 0));
+}
+
+export function addMusicianToLineupRole(
+  lineup: LineupMap,
+  role: string,
+  musicianId: string,
+): LineupMap {
+  const roleSlotLimit = getRoleSlotLimit(role);
+  const current = normalizeLineupSlots(lineup[role], roleSlotLimit);
+  const trimmed = musicianId.trim();
+  if (!trimmed || current.some((slot) => slot.musicianId === trimmed)) {
+    return lineup;
+  }
+  return { ...lineup, [role]: [...current, { musicianId: trimmed }] };
+}
+
+export function removeMusicianFromLineupRole(
+  lineup: LineupMap,
+  role: string,
+  musicianId: string,
+): LineupMap {
+  const roleSlotLimit = getRoleSlotLimit(role);
+  const current = normalizeLineupSlots(lineup[role], roleSlotLimit);
+  return {
+    ...lineup,
+    [role]: current.filter((slot) => slot.musicianId !== musicianId),
+  };
+}
+
+export function moveMusicianInLineupRole(
+  lineup: LineupMap,
+  role: string,
+  fromIndex: number,
+  toIndex: number,
+): LineupMap {
+  const roleSlotLimit = getRoleSlotLimit(role);
+  const current = normalizeLineupSlots(lineup[role], roleSlotLimit);
+  if (
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= current.length ||
+    toIndex >= current.length ||
+    fromIndex === toIndex
+  ) {
+    return lineup;
+  }
+  const next = [...current];
+  const [moved] = next.splice(fromIndex, 1);
+  if (!moved) return lineup;
+  next.splice(toIndex, 0, moved);
+  return { ...lineup, [role]: next };
 }
 
 export function getRoleSlotLimit(role: string): number {
