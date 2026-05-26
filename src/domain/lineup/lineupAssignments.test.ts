@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addMusicianToRole,
+  addMusiciansToRole,
   moveMusicianInRole,
   normalizeLineupAssignments,
   removeMusicianFromRole,
@@ -37,6 +38,20 @@ describe("lineup assignment helpers", () => {
 
     expect(withNew.drums).toEqual(["dr-1", "dr-2"]);
     expect(addMusicianToRole(withNew, "drums", "dr-2")).toBe(withNew);
+  });
+
+  it("appends multiple musicians in order and skips duplicates", () => {
+    const base = normalizeLineupAssignments({ drums: ["dr-1"] });
+    const withNew = addMusiciansToRole(base, "drums", [
+      "dr-3",
+      "dr-2",
+      "dr-1",
+      "dr-3",
+    ]);
+
+    expect(withNew.drums).toEqual(["dr-1", "dr-3", "dr-2"]);
+    expect(addMusiciansToRole(withNew, "drums", ["dr-1"])).toBe(withNew);
+    expect(addMusiciansToRole(withNew, "drums", [])).toBe(withNew);
   });
 
   it("removes a musician from a role", () => {

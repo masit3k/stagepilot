@@ -328,13 +328,38 @@ export function addMusicianToLineupRole(
   role: string,
   musicianId: string,
 ): LineupMap {
+  return addMusiciansToLineupRole(lineup, role, [musicianId]);
+}
+
+export function addMusiciansToLineupSlots(
+  slots: RichLineupValue | undefined,
+  musicianIds: string[],
+  maxSlots: number,
+): LineupSlotValue[] {
+  const next = normalizeLineupSlots(slots, maxSlots);
+  const seen = new Set(next.map((slot) => slot.musicianId));
+  for (const musicianId of musicianIds) {
+    const trimmed = musicianId.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    next.push({ musicianId: trimmed });
+    if (next.length >= Math.max(maxSlots, 0)) break;
+  }
+  return next;
+}
+
+export function addMusiciansToLineupRole(
+  lineup: LineupMap,
+  role: string,
+  musicianIds: string[],
+): LineupMap {
   const roleSlotLimit = getRoleSlotLimit(role);
   const current = normalizeLineupSlots(lineup[role], roleSlotLimit);
-  const trimmed = musicianId.trim();
-  if (!trimmed || current.some((slot) => slot.musicianId === trimmed)) {
+  const next = addMusiciansToLineupSlots(current, musicianIds, roleSlotLimit);
+  if (next.length === current.length) {
     return lineup;
   }
-  return { ...lineup, [role]: [...current, { musicianId: trimmed }] };
+  return { ...lineup, [role]: next };
 }
 
 export function removeMusicianFromLineupRole(

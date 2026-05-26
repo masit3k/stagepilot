@@ -497,6 +497,18 @@
   margin-top: var(--space-1);
 }
 
+.lineup-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.lineup-card__header h3 {
+  margin: 0;
+  font-weight: 700;
+}
+
 .lineup-card__add {
   margin-top: var(--space-1);
 }
@@ -504,7 +516,6 @@
 .lineup-card__actions {
   display: flex;
   gap: 8px;
-  margin-top: var(--space-1);
   flex-wrap: wrap;
 }
 
@@ -537,6 +548,14 @@
   flex-wrap: wrap;
 }
 
+.lineup-list--single .lineup-list__row {
+  justify-content: flex-start;
+}
+
+.lineup-list--compact .lineup-list__row {
+  justify-content: space-between;
+}
+
 .lineup-list__role {
   color: var(--muted);
   min-width: 120px;
@@ -561,6 +580,10 @@
 
 .lineup-assignment-editor__add select {
   min-width: 220px;
+}
+
+.lineup-assignment-editor__multiselect {
+  min-height: 96px;
 }
 
 .lineup-list--backvocs {

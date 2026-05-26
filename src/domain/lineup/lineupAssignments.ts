@@ -57,11 +57,26 @@ export function addMusicianToRole(
   role: LineupRole,
   musicianId: string,
 ): LineupAssignments {
-  const trimmed = musicianId.trim();
-  if (!trimmed || assignments[role].includes(trimmed)) return assignments;
+  return addMusiciansToRole(assignments, role, [musicianId]);
+}
+
+export function addMusiciansToRole(
+  assignments: LineupAssignments,
+  role: LineupRole,
+  musicianIds: string[],
+): LineupAssignments {
+  const next = [...assignments[role]];
+  const seen = new Set(next);
+  for (const musicianId of musicianIds) {
+    const trimmed = musicianId.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    next.push(trimmed);
+  }
+  if (next.length === assignments[role].length) return assignments;
   return {
     ...assignments,
-    [role]: [...assignments[role], trimmed],
+    [role]: next,
   };
 }
 

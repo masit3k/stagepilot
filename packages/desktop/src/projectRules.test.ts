@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   acceptISOToDDMMYYYY,
   addMusicianToLineupRole,
+  addMusiciansToLineupRole,
+  addMusiciansToLineupSlots,
   buildExportFileName,
   formatDateDigitsToDDMMYYYY,
   formatProjectDisplayName,
@@ -262,6 +264,34 @@ describe("lineup slot overrides", () => {
       { musicianId: "dr-2" },
     ]);
     expect(addMusicianToLineupRole(updated, "drums", "dr-2")).toBe(updated);
+  });
+
+  it("adds multiple musicians deterministically and skips duplicates", () => {
+    const lineup = { drums: ["dr-1"] };
+    const updated = addMusiciansToLineupRole(lineup, "drums", [
+      "dr-3",
+      "dr-2",
+      "dr-1",
+      "dr-3",
+    ]);
+
+    expect(updated.drums).toEqual([
+      { musicianId: "dr-1" },
+      { musicianId: "dr-3" },
+      { musicianId: "dr-2" },
+    ]);
+    expect(addMusiciansToLineupRole(updated, "drums", ["dr-1"])).toBe(updated);
+    expect(addMusiciansToLineupRole(updated, "drums", [])).toBe(updated);
+  });
+
+  it("adds multiple musicians to draft slots without exceeding role limits", () => {
+    expect(
+      addMusiciansToLineupSlots(["v-1", "v-2"], ["v-3", "v-1", "v-4"], 3),
+    ).toEqual([
+      { musicianId: "v-1" },
+      { musicianId: "v-2" },
+      { musicianId: "v-3" },
+    ]);
   });
 
   it("removes and reorders role musicians", () => {
