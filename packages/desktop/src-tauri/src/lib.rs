@@ -12,7 +12,7 @@ use std::{
 use storage_paths::{
     atomic_write_bytes, catalog_dir as storage_catalog_dir, ensure_user_storage, exports_dir,
     maybe_wipe_storage_for_dev, projects_dir as storage_projects_dir, sanitize_id_to_filename,
-    temp_dir as storage_temp_dir, user_storage_root, versions_dir as storage_versions_dir,
+    stagepilot_user_data_dir, temp_dir as storage_temp_dir, versions_dir as storage_versions_dir,
     StorageError,
 };
 use tauri_plugin_dialog::DialogExt;
@@ -659,7 +659,7 @@ fn save_library_list<T: Serialize>(
 
 #[tauri::command]
 fn get_user_data_dir(app: tauri::AppHandle) -> Result<String, ApiError> {
-    let dir = user_storage_root(&app).map_err(|err| {
+    let dir = stagepilot_user_data_dir(&app).map_err(|err| {
         map_storage_error(
             err,
             "APP_DATA_DIR_FAILED",
@@ -1240,7 +1240,7 @@ fn export_pdf(
     project_id: String,
     hide_musician_names: Option<bool>,
 ) -> Result<ExportPdfResult, ApiError> {
-    let user_data_dir = user_storage_root(&app).map_err(|err| {
+    let user_data_dir = stagepilot_user_data_dir(&app).map_err(|err| {
         map_storage_error(err, "EXPORT_FAILED", "Failed to resolve user storage root")
     })?;
     ensure_user_storage(&app).map_err(|err| {
@@ -1339,7 +1339,7 @@ fn build_project_pdf_preview(
     project_id: String,
     hide_musician_names: Option<bool>,
 ) -> Result<PreviewPdfPathResult, ApiError> {
-    let user_data_dir = user_storage_root(&app).map_err(|err| {
+    let user_data_dir = stagepilot_user_data_dir(&app).map_err(|err| {
         map_storage_error(err, "PREVIEW_FAILED", "Failed to resolve user storage root")
     })?;
     ensure_user_storage(&app).map_err(|err| {

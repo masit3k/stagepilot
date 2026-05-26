@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::Manager;
 
-const STORAGE_DIR_NAME: &str = "stagepilot";
+const USER_DATA_DIR_NAME: &str = "StagePilot";
 const STORAGE_SCHEMA_VERSION: u32 = 2;
 const STORAGE_SEED_VERSION: u32 = 3;
 const MAX_ID_LEN: usize = 120;
@@ -50,12 +50,21 @@ fn storage_meta_path(root: &Path) -> PathBuf {
 const DEFAULT_NOTES_TEMPLATE_ID: &str = "notes_default_cs";
 const DEFAULT_NOTES_TEMPLATE_JSON: &str = include_str!("../../../../src/infra/storage/defaultNotesTemplate.notes_default_cs.json");
 
-pub fn user_storage_root(app: &tauri::AppHandle) -> Result<PathBuf, StorageError> {
+fn stagepilot_user_data_dir_from_app_data_dir(
+    app_data_dir: &Path,
+) -> Result<PathBuf, StorageError> {
+    let roaming_dir = app_data_dir
+        .parent()
+        .ok_or_else(|| StorageError::Resolve("Cannot resolve AppData roaming directory".into()))?;
+    Ok(roaming_dir.join(USER_DATA_DIR_NAME))
+}
+
+pub fn stagepilot_user_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, StorageError> {
     let app_data_dir = app
         .path()
         .app_data_dir()
         .map_err(|e| StorageError::Resolve(format!("Failed to resolve app data dir: {e}")))?;
-    Ok(app_data_dir.join(STORAGE_DIR_NAME))
+    stagepilot_user_data_dir_from_app_data_dir(&app_data_dir)
 }
 
 pub fn maybe_wipe_storage_for_dev(app: &tauri::AppHandle) -> Result<(), StorageError> {
@@ -70,7 +79,7 @@ pub fn maybe_wipe_storage_for_dev(app: &tauri::AppHandle) -> Result<(), StorageE
         return Ok(());
     }
 
-    let root = user_storage_root(app)?;
+    let root = stagepilot_user_data_dir(app)?;
     if root.exists() {
         fs::remove_dir_all(&root)?;
     }
@@ -202,11 +211,14 @@ fn ensure_default_notes_template(root: &Path) -> Result<(), StorageError> {
         return Ok(());
     }
 
-    let parsed: serde_json::Value = serde_json::from_str(DEFAULT_NOTES_TEMPLATE_JSON).map_err(|e| {
-        StorageError::Resolve(format!("Invalid embedded default notes template JSON: {e}"))
-    })?;
+    let parsed: serde_json::Value =
+        serde_json::from_str(DEFAULT_NOTES_TEMPLATE_JSON).map_err(|e| {
+            StorageError::Resolve(format!("Invalid embedded default notes template JSON: {e}"))
+        })?;
     let bytes = serde_json::to_vec_pretty(&parsed).map_err(|e| {
-        StorageError::Resolve(format!("Failed to serialize embedded default notes template: {e}"))
+        StorageError::Resolve(format!(
+            "Failed to serialize embedded default notes template: {e}"
+        ))
     })?;
     atomic_write_bytes(&target, &bytes)?;
     Ok(())
@@ -227,6 +239,36 @@ mod tests {
             .map(|d| d.as_nanos())
             .unwrap_or_default();
         std::env::temp_dir().join(format!("stagepilot-storage-tests-{name}-{nanos}"))
+    }
+
+    #[test]
+    fn stagepilot_user_data_dir_uses_clean_appdata_root() {
+        let app_data_dir = PathBuf::from("AppData")
+            .join("Roaming")
+            .join("com.mkrecmer.stagepilot-desktop");
+        let root = stagepilot_user_data_dir_from_app_data_dir(&app_data_dir).unwrap();
+
+        assert_eq!(
+            root,
+            PathBuf::from("AppData").join("Roaming").join("StagePilot")
+        );
+        assert_eq!(storage_meta_path(&root), root.join("storage.json"));
+        assert_eq!(
+            root.join("projects"),
+            PathBuf::from("AppData")
+                .join("Roaming")
+                .join("StagePilot")
+                .join("projects")
+        );
+        assert!(!root.ends_with(Path::new("com.mkrecmer.stagepilot-desktop").join("stagepilot")));
+    }
+
+    #[test]
+    fn stagepilot_user_data_dir_errors_when_parent_is_missing() {
+        let empty_path = PathBuf::new();
+        let err = stagepilot_user_data_dir_from_app_data_dir(&empty_path).unwrap_err();
+
+        assert!(matches!(err, StorageError::Resolve(_)));
     }
 
     #[test]
@@ -272,7 +314,7 @@ mod tests {
 }
 
 pub fn ensure_user_storage(app: &tauri::AppHandle) -> Result<UserStorageMeta, StorageError> {
-    let root = user_storage_root(app)?;
+    let root = stagepilot_user_data_dir(app)?;
     fs::create_dir_all(&root)?;
     ensure_dirs(&root)?;
 
@@ -358,27 +400,27 @@ pub fn ensure_user_storage(app: &tauri::AppHandle) -> Result<UserStorageMeta, St
 
 pub fn projects_dir(app: &tauri::AppHandle) -> Result<PathBuf, StorageError> {
     ensure_user_storage(app)?;
-    Ok(user_storage_root(app)?.join("projects"))
+    Ok(stagepilot_user_data_dir(app)?.join("projects"))
 }
 
 pub fn exports_dir(app: &tauri::AppHandle) -> Result<PathBuf, StorageError> {
     ensure_user_storage(app)?;
-    Ok(user_storage_root(app)?.join("exports"))
+    Ok(stagepilot_user_data_dir(app)?.join("exports"))
 }
 
 pub fn versions_dir(app: &tauri::AppHandle) -> Result<PathBuf, StorageError> {
     ensure_user_storage(app)?;
-    Ok(user_storage_root(app)?.join("versions"))
+    Ok(stagepilot_user_data_dir(app)?.join("versions"))
 }
 
 pub fn temp_dir(app: &tauri::AppHandle) -> Result<PathBuf, StorageError> {
     ensure_user_storage(app)?;
-    Ok(user_storage_root(app)?.join("temp"))
+    Ok(stagepilot_user_data_dir(app)?.join("temp"))
 }
 
 pub fn catalog_dir(app: &tauri::AppHandle) -> Result<PathBuf, StorageError> {
     ensure_user_storage(app)?;
-    Ok(user_storage_root(app)?.join("catalog"))
+    Ok(stagepilot_user_data_dir(app)?.join("catalog"))
 }
 
 pub fn sanitize_id_to_filename(project_id: &str) -> String {

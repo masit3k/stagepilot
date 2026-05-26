@@ -1,17 +1,20 @@
 import os from "node:os";
 import path from "node:path";
 
-const TAURI_APP_ID =
-  process.env.STAGEPILOT_TAURI_APP_ID || "com.mkrecmer.stagepilot-desktop";
+const USER_DATA_DIR_NAME = "StagePilot";
 
 function resolveAppDataBaseDir(): string {
-  if (process.platform === "win32") return process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
-  if (process.platform === "darwin") return path.join(os.homedir(), "Library", "Application Support");
-  return process.env.XDG_DATA_HOME || path.join(os.homedir(), ".local", "share");
+  if (process.platform === "win32")
+    return process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
+  if (process.platform === "darwin")
+    return path.join(os.homedir(), "Library", "Application Support");
+  return (
+    process.env.XDG_DATA_HOME || path.join(os.homedir(), ".local", "share")
+  );
 }
 
 export function resolveStorageRoot(): string {
-  return path.join(resolveAppDataBaseDir(), TAURI_APP_ID, "stagepilot");
+  return path.join(resolveAppDataBaseDir(), USER_DATA_DIR_NAME);
 }
 
 export function catalogPathsForRoot(root: string) {

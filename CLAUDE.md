@@ -104,7 +104,7 @@ Pipeline entry: `src/domain/pipeline/buildDocument.ts`
 | Root | Type | Access |
 |------|------|--------|
 | `data/assets/` | Static preset catalog | Read-only |
-| `%APPDATA%/com.mkrecmer.stagepilot-desktop/stagepilot/` | User data | Read/write |
+| `%APPDATA%/StagePilot/` | User data | Read/write |
 
 Never write user data outside the APPDATA root. Never modify `data/assets/` at runtime.
 

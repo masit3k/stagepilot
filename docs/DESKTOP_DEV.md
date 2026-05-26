@@ -23,29 +23,29 @@ npm run tauri build
 > Closing the terminal stops the dev app.
 
 ## User data root
-The desktop app stores all user-writable data in the OS app data directory under `stagepilot/`.
+The desktop app stores all user-writable data in a clean StagePilot OS app data root.
 
-- Windows: `%APPDATA%/com.mkrecmer.stagepilot-desktop/stagepilot`
-- macOS: `~/Library/Application Support/com.mkrecmer.stagepilot-desktop/stagepilot`
-- Linux: `$XDG_DATA_HOME/com.mkrecmer.stagepilot-desktop/stagepilot` (or `~/.local/share/com.mkrecmer.stagepilot-desktop/stagepilot`)
+- Windows: `%APPDATA%/StagePilot`
+- macOS: `~/Library/Application Support/StagePilot`
+- Linux: `$XDG_DATA_HOME/StagePilot` (or `~/.local/share/StagePilot`)
 
 Subdirectories created on first run:
+- `catalog/`
 - `projects/`
 - `exports/`
 - `temp/`
 - `versions/`
-- `assets/` (user-imported assets)
-- `library/`
+- `storage.json`
 
 ## Troubleshooting
 - **WebView2 missing (Windows):** Install the Evergreen WebView2 runtime.
 - **Export lock errors:** If the export PDF is open, the export will fail with `EXPORT_LOCKED`.
-  Close the PDF and re-export. The version PDF is still saved in `stagepilot/versions`.
+  Close the PDF and re-export. The version PDF is still saved in `StagePilot/versions`.
 - **Chromium cache missing (Puppeteer):** Install browser cache once with `npx puppeteer browsers install chrome` (desktop will otherwise fallback to system Chrome when available).
 
 
 ## Wiping local data
-Runtime user data is **never** read from repo-local `user_data/`; desktop uses OS app data `stagepilot/` only.
+Runtime user data is **never** read from repo-local `user_data/`; desktop uses the StagePilot OS app data root only.
 
 - One-shot wipe for development startup (debug/dev only):
 
@@ -56,8 +56,8 @@ STAGEPILOT_DEV_WIPE_STORAGE=1 npm run tauri dev
 On startup, StagePilot logs `Wiped StagePilot storage at <path>` and then recreates required folders.
 
 - Manual cleanup:
-  - Windows: `%APPDATA%/com.mkrecmer.stagepilot-desktop/stagepilot`
-  - macOS: `~/Library/Application Support/com.mkrecmer.stagepilot-desktop/stagepilot`
-  - Linux: `$XDG_DATA_HOME/com.mkrecmer.stagepilot-desktop/stagepilot` (or `~/.local/share/com.mkrecmer.stagepilot-desktop/stagepilot`)
+  - Windows: `%APPDATA%/StagePilot`
+  - macOS: `~/Library/Application Support/StagePilot`
+  - Linux: `$XDG_DATA_HOME/StagePilot` (or `~/.local/share/StagePilot`)
 
 In production builds, `STAGEPILOT_DEV_WIPE_STORAGE` is ignored for safety.
