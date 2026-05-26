@@ -489,7 +489,7 @@
 .lineup-card {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: var(--space-2);
+  padding: 12px;
   background: var(--surface);
 }
 
@@ -498,13 +498,12 @@
 }
 
 .lineup-card__body.section-divider {
-  padding-top: var(--space-2);
+  padding-top: 12px;
   padding-bottom: 0;
 }
 
 .lineup-card__body--empty,
 .lineup-card__body--single {
-  min-height: 72px;
   display: flex;
   align-items: center;
 }
@@ -559,7 +558,7 @@
 
 .lineup-list {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .lineup-list__row {
@@ -685,6 +684,7 @@
   min-height: 36px;
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 10px;
   border: none;
   border-radius: 8px;
@@ -730,32 +730,6 @@
   padding: 5px 10px;
 }
 
-.lineup-list--backvocs {
-  gap: 8px;
-  min-width: 0;
-  flex: 1;
-}
-
-.lineup-list__row--backvocs {
-  align-items: center;
-  flex-wrap: nowrap;
-}
-
-.lineup-list__actions--inline {
-  align-items: center;
-}
-
-.lineup-list__actions--backvocs {
-  align-self: center;
-  flex-shrink: 0;
-}
-
-.lineup-card__body--split {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
 
 .lineup-list--compact {
   gap: 8px;

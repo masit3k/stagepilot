@@ -1897,13 +1897,9 @@ export function ProjectSetupPage({
           Select the on-site band lead for coordination and decisions.
         </p>
         <article className="lineup-card">
-          <h3>BAND LEADER</h3>
-          <div className="lineup-card__body section-divider">
-            <div className="lineup-list__row">
-              <span className="lineup-list__name">
-                {selectedOptions.find((m) => m.id === bandLeaderId)?.name ||
-                  "Not selected"}
-              </span>
+          <div className="lineup-card__header">
+            <h3>BAND LEADER</h3>
+            <div className="lineup-card__actions">
               <button
                 type="button"
                 className="button-secondary"
@@ -1923,18 +1919,18 @@ export function ProjectSetupPage({
               </button>
             </div>
           </div>
+          <div className="lineup-card__body section-divider">
+            <span className="lineup-list__name">
+              {selectedOptions.find((m) => m.id === bandLeaderId)?.name ||
+                "Not selected"}
+            </span>
+          </div>
         </article>
         <p className="subtle">Assign talkback microphone owner.</p>
         <article className="lineup-card">
-          <h3>TALKBACK</h3>
-          <div className="lineup-card__body section-divider">
-            <div className="lineup-list__row">
-              <span className="lineup-list__name">
-                {resolveTalkbackSummaryLabel(
-                  selectedOptions.find((m) => m.id === talkbackCurrentOwnerId)
-                    ?.name,
-                )}
-              </span>
+          <div className="lineup-card__header">
+            <h3>TALKBACK</h3>
+            <div className="lineup-card__actions">
               <button
                 type="button"
                 className="button-secondary"
@@ -1950,6 +1946,14 @@ export function ProjectSetupPage({
                 Change
               </button>
             </div>
+          </div>
+          <div className="lineup-card__body section-divider">
+            <span className="lineup-list__name">
+              {resolveTalkbackSummaryLabel(
+                selectedOptions.find((m) => m.id === talkbackCurrentOwnerId)
+                  ?.name,
+              )}
+            </span>
           </div>
         </article>
       </div>
