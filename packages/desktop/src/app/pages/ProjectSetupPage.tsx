@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ModalOverlay, useModalBehavior } from "../../components/ui/Modal";
 import {
   type LineupMap,
@@ -144,6 +145,257 @@ function getRoleEmptyLabel(role: string): string {
   return (
     ROLE_EMPTY_LABELS[role] ??
     `No ${getRoleDisplayName(role).toLowerCase()} assigned`
+  );
+}
+
+type AssignmentRoleCopy = {
+  title: string;
+  assignedHeading: string;
+  addHeading: string;
+  placeholder: string;
+  emptyState: string;
+};
+
+const ASSIGNMENT_ROLE_COPY: Record<string, AssignmentRoleCopy> = {
+  drums: {
+    title: "Edit drum assignments",
+    assignedHeading: "Assigned drummers",
+    addHeading: "Add drummers",
+    placeholder: "Add another drummer",
+    emptyState: "No drummer assigned",
+  },
+  bass: {
+    title: "Edit bass assignments",
+    assignedHeading: "Assigned bassists",
+    addHeading: "Add bassists",
+    placeholder: "Add another bassist",
+    emptyState: "No bassist assigned",
+  },
+  guitar: {
+    title: "Edit electric guitar assignments",
+    assignedHeading: "Assigned electric guitarists",
+    addHeading: "Add electric guitarists",
+    placeholder: "Add another electric guitarist",
+    emptyState: "No electric guitarist assigned",
+  },
+  keys: {
+    title: "Edit keys assignments",
+    assignedHeading: "Assigned keyboardists",
+    addHeading: "Add keyboardists",
+    placeholder: "Add another keyboardist",
+    emptyState: "No keyboardist assigned",
+  },
+  vocs: {
+    title: "Edit lead vocal assignments",
+    assignedHeading: "Assigned lead vocalists",
+    addHeading: "Add lead vocalists",
+    placeholder: "Add another lead vocalist",
+    emptyState: "No lead vocalist assigned",
+  },
+};
+
+function getAssignmentRoleCopy(role: string): AssignmentRoleCopy {
+  return (
+    ASSIGNMENT_ROLE_COPY[role] ?? {
+      title: `Edit ${getRoleDisplayName(role).toLowerCase()} assignments`,
+      assignedHeading: `Assigned ${getRoleDisplayName(role).toLowerCase()}`,
+      addHeading: `Add ${getRoleDisplayName(role).toLowerCase()}`,
+      placeholder: `Add another ${getRoleDisplayName(role).toLowerCase()}`,
+      emptyState: getRoleEmptyLabel(role),
+    }
+  );
+}
+
+type AddMusiciansMultiSelectProps = {
+  id: string;
+  options: MemberOption[];
+  selectedIds: string[];
+  placeholder: string;
+  onSelectionChange: (nextSelectedIds: string[]) => void;
+};
+
+function AddMusiciansMultiSelect({
+  id,
+  options,
+  selectedIds,
+  placeholder,
+  onSelectionChange,
+}: AddMusiciansMultiSelectProps) {
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [panelPosition, setPanelPosition] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const selectedOptions = options.filter((option) =>
+    selectedIdSet.has(option.id),
+  );
+
+  const updatePanelPosition = useCallback(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const viewportMargin = 8;
+    const preferredMaxHeight = Math.min(
+      260,
+      Math.round(window.innerHeight * 0.42),
+    );
+    const spaceBelow =
+      window.innerHeight - rect.bottom - 6 - viewportMargin;
+    const spaceAbove = rect.top - 6 - viewportMargin;
+    const opensAbove =
+      spaceBelow < preferredMaxHeight && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(
+      120,
+      Math.min(preferredMaxHeight, opensAbove ? spaceAbove : spaceBelow),
+    );
+    setPanelPosition({
+      left: rect.left,
+      top: opensAbove
+        ? Math.max(viewportMargin, rect.top - maxHeight - 6)
+        : rect.bottom + 6,
+      width: rect.width,
+      maxHeight,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    updatePanelPosition();
+    const onMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (triggerRef.current?.contains(target)) return;
+      if (panelRef.current?.contains(target)) return;
+      setIsOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsOpen(false);
+    };
+    window.addEventListener("resize", updatePanelPosition);
+    window.addEventListener("scroll", updatePanelPosition, true);
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("resize", updatePanelPosition);
+      window.removeEventListener("scroll", updatePanelPosition, true);
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isOpen, updatePanelPosition]);
+
+  const setSelectedFromSet = (nextSet: Set<string>) => {
+    onSelectionChange(
+      options
+        .filter((option) => nextSet.has(option.id))
+        .map((option) => option.id),
+    );
+  };
+  const toggleOption = (musicianId: string) => {
+    const nextSet = new Set(selectedIds);
+    if (nextSet.has(musicianId)) {
+      nextSet.delete(musicianId);
+    } else {
+      nextSet.add(musicianId);
+    }
+    setSelectedFromSet(nextSet);
+  };
+  const removeSelected = (musicianId: string) => {
+    const nextSet = new Set(selectedIds);
+    nextSet.delete(musicianId);
+    setSelectedFromSet(nextSet);
+  };
+
+  return (
+    <div className="lineup-multiselect">
+      <button
+        id={id}
+        ref={triggerRef}
+        type="button"
+        className="lineup-multiselect__trigger"
+        aria-haspopup="true"
+        aria-expanded={isOpen}
+        disabled={options.length === 0}
+        onClick={() => {
+          updatePanelPosition();
+          setIsOpen((current) => !current);
+        }}
+      >
+        <span>
+          {options.length === 0 ? "All musicians assigned" : placeholder}
+        </span>
+        <span aria-hidden="true" className="lineup-multiselect__chevron">
+          ▾
+        </span>
+      </button>
+      {selectedOptions.length > 0 ? (
+        <div className="lineup-multiselect__selection">
+          <span className="lineup-multiselect__selection-label">Selected:</span>
+          <div className="lineup-multiselect__chips">
+            {selectedOptions.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className="lineup-multiselect__chip"
+                onClick={() => removeSelected(option.id)}
+              >
+                {option.name}
+                <span aria-hidden="true">×</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {isOpen && panelPosition && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              ref={panelRef}
+              className="lineup-multiselect__popover"
+              style={{
+                left: `${panelPosition.left}px`,
+                top: `${panelPosition.top}px`,
+                width: `${panelPosition.width}px`,
+                maxHeight: `${panelPosition.maxHeight}px`,
+              }}
+            >
+              <div
+                className="lineup-multiselect__options"
+                aria-label={placeholder}
+              >
+                {options.map((option) => {
+                  const selected = selectedIdSet.has(option.id);
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      className={
+                        selected
+                          ? "lineup-multiselect__option is-selected"
+                          : "lineup-multiselect__option"
+                      }
+                      onClick={() => toggleOption(option.id)}
+                    >
+                      <input
+                        type="checkbox"
+                        tabIndex={-1}
+                        checked={selected}
+                        readOnly
+                        aria-hidden="true"
+                      />
+                      <span>{option.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+    </div>
   );
 }
 
@@ -2442,6 +2694,7 @@ export function ProjectSetupPage({
         {assignmentEditor && setupData
           ? (() => {
               const role = assignmentEditor.role;
+              const roleCopy = getAssignmentRoleCopy(role);
               const sectionCapability: SetupCapabilitySection =
                 role === "guitar" ? "guitar" : (role as SetupCapabilitySection);
               const members = resolveEligibleMembersForSection(
@@ -2483,168 +2736,160 @@ export function ProjectSetupPage({
                     ×
                   </button>
                   <div className="panel__header panel__header--stack selector-dialog__title">
-                    <h3 id="assignment-editor-title">
-                      Edit {getRoleDisplayName(role).toLowerCase()} assignments
-                    </h3>
+                    <h3 id="assignment-editor-title">{roleCopy.title}</h3>
                   </div>
                   <div className="selector-dialog__divider section-divider" />
                   <div className="selector-dialog__body lineup-assignment-editor">
-                    <div className="lineup-list lineup-list--compact">
-                      {assignmentEditor.draftSlots.length === 0 ? (
-                        <p className="status status--empty">
-                          {getRoleEmptyLabel(role)}
-                        </p>
-                      ) : (
-                        assignmentEditor.draftSlots.map((slot, index) => (
-                          <div
-                            key={`${role}-assignment-${slot.musicianId}-${index}`}
-                            className="lineup-list__row"
-                          >
-                            <span className="lineup-list__name">
-                              {index + 1}.{" "}
-                              {resolveMusicianDisplayName({
-                                musicianId: slot.musicianId,
-                                preferredName: members.find(
-                                  (member) => member.id === slot.musicianId,
-                                )?.name,
-                              })}
-                            </span>
-                            <div className="lineup-list__actions">
-                              <button
-                                type="button"
-                                className="button-ghost"
-                                disabled={index === 0}
-                                onClick={() =>
-                                  setAssignmentEditor((current) => {
-                                    if (!current) return current;
-                                    const next = [...current.draftSlots];
-                                    [next[index - 1], next[index]] = [
-                                      next[index],
-                                      next[index - 1],
-                                    ];
-                                    return { ...current, draftSlots: next };
-                                  })
-                                }
-                              >
-                                ↑
-                              </button>
-                              <button
-                                type="button"
-                                className="button-ghost"
-                                disabled={
-                                  index ===
-                                  assignmentEditor.draftSlots.length - 1
-                                }
-                                onClick={() =>
-                                  setAssignmentEditor((current) => {
-                                    if (!current) return current;
-                                    const next = [...current.draftSlots];
-                                    [next[index], next[index + 1]] = [
-                                      next[index + 1],
-                                      next[index],
-                                    ];
-                                    return { ...current, draftSlots: next };
-                                  })
-                                }
-                              >
-                                ↓
-                              </button>
-                              <button
-                                type="button"
-                                className="button-ghost"
-                                onClick={() =>
-                                  setAssignmentEditor((current) =>
-                                    current
-                                      ? {
-                                          ...current,
-                                          draftSlots: current.draftSlots.filter(
-                                            (_, slotIndex) =>
-                                              slotIndex !== index,
-                                          ),
-                                        }
-                                      : current,
-                                  )
-                                }
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                    <div className="lineup-card__add">
-                      <label className="field-label" htmlFor="assignment-add">
-                        Add musicians
-                      </label>
-                      <div className="lineup-assignment-editor__add">
-                        <select
-                          id="assignment-add"
-                          className="lineup-assignment-editor__multiselect"
-                          multiple
-                          size={Math.min(Math.max(availableMembers.length, 3), 6)}
-                          value={selectedMusicianIds}
-                          disabled={availableMembers.length === 0}
-                          onChange={(event) => {
-                            const selectedValues = Array.from(
-                              event.currentTarget.selectedOptions,
-                              (option) => option.value,
-                            );
-                            setAssignmentEditor((current) =>
-                              current
-                                ? {
-                                    ...current,
-                                    selectedMusicianIds: selectedValues,
-                                  }
-                                : current,
-                            );
-                          }}
-                        >
-                          {availableMembers.map((member) => (
-                            <option key={member.id} value={member.id}>
-                              {member.name}
-                            </option>
-                          ))}
-                        </select>
-                        {availableMembers.length === 0 ? (
+                    <section className="lineup-assignment-editor__section">
+                      <h4>{roleCopy.assignedHeading}</h4>
+                      <div className="lineup-list lineup-list--compact">
+                        {assignmentEditor.draftSlots.length === 0 ? (
                           <p className="status status--empty">
-                            All musicians assigned
+                            {roleCopy.emptyState}
                           </p>
-                        ) : null}
-                        <button
-                          type="button"
-                          className="button-secondary"
-                          disabled={selectedMusicianIdsInMemberOrder.length === 0}
-                          onClick={() =>
-                            setAssignmentEditor((current) => {
-                              if (
-                                !current ||
-                                selectedMusicianIdsInMemberOrder.length === 0
-                              ) {
-                                return current;
-                              }
-                              const roleSlotLimit = getRoleSlotLimit(
-                                current.role,
-                              );
-                              const nextDraftSlots = addMusiciansToLineupSlots(
-                                current.draftSlots,
-                                selectedMusicianIdsInMemberOrder,
-                                roleSlotLimit,
-                              );
-                              return {
-                                ...current,
-                                draftSlots: nextDraftSlots,
-                                selectedMusicianIds: [],
-                              };
-                            })
-                          }
-                        >
-                          Add
-                        </button>
+                        ) : (
+                          assignmentEditor.draftSlots.map((slot, index) => (
+                            <div
+                              key={`${role}-assignment-${slot.musicianId}-${index}`}
+                              className="lineup-list__row"
+                            >
+                              <span className="lineup-list__name">
+                                {index + 1}.{" "}
+                                {resolveMusicianDisplayName({
+                                  musicianId: slot.musicianId,
+                                  preferredName: members.find(
+                                    (member) => member.id === slot.musicianId,
+                                  )?.name,
+                                })}
+                              </span>
+                              <div className="lineup-list__actions">
+                                <button
+                                  type="button"
+                                  className="button-ghost"
+                                  disabled={index === 0}
+                                  onClick={() =>
+                                    setAssignmentEditor((current) => {
+                                      if (!current) return current;
+                                      const next = [...current.draftSlots];
+                                      [next[index - 1], next[index]] = [
+                                        next[index],
+                                        next[index - 1],
+                                      ];
+                                      return { ...current, draftSlots: next };
+                                    })
+                                  }
+                                >
+                                  ↑
+                                </button>
+                                <button
+                                  type="button"
+                                  className="button-ghost"
+                                  disabled={
+                                    index ===
+                                    assignmentEditor.draftSlots.length - 1
+                                  }
+                                  onClick={() =>
+                                    setAssignmentEditor((current) => {
+                                      if (!current) return current;
+                                      const next = [...current.draftSlots];
+                                      [next[index], next[index + 1]] = [
+                                        next[index + 1],
+                                        next[index],
+                                      ];
+                                      return { ...current, draftSlots: next };
+                                    })
+                                  }
+                                >
+                                  ↓
+                                </button>
+                                <button
+                                  type="button"
+                                  className="button-ghost"
+                                  onClick={() =>
+                                    setAssignmentEditor((current) =>
+                                      current
+                                        ? {
+                                            ...current,
+                                            draftSlots:
+                                              current.draftSlots.filter(
+                                                (_, slotIndex) =>
+                                                  slotIndex !== index,
+                                              ),
+                                          }
+                                        : current,
+                                    )
+                                  }
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                          ))
+                        )}
                       </div>
-                    </div>
+                    </section>
+                    <section className="lineup-assignment-editor__section">
+                      <h4>{roleCopy.addHeading}</h4>
+                      <div className="lineup-card__add">
+                        <div className="lineup-assignment-editor__add">
+                          <AddMusiciansMultiSelect
+                            id="assignment-add"
+                            options={availableMembers}
+                            selectedIds={selectedMusicianIds}
+                            placeholder={roleCopy.placeholder}
+                            onSelectionChange={(nextSelectedIds) =>
+                              setAssignmentEditor((current) =>
+                                current
+                                  ? {
+                                      ...current,
+                                      selectedMusicianIds: nextSelectedIds,
+                                    }
+                                  : current,
+                              )
+                            }
+                          />
+                          {availableMembers.length === 0 ? (
+                            <p className="status status--empty">
+                              All musicians assigned
+                            </p>
+                          ) : null}
+                          <button
+                            type="button"
+                            className="button-secondary"
+                            disabled={
+                              selectedMusicianIdsInMemberOrder.length === 0
+                            }
+                            onClick={() =>
+                              setAssignmentEditor((current) => {
+                                if (
+                                  !current ||
+                                  selectedMusicianIdsInMemberOrder.length === 0
+                                ) {
+                                  return current;
+                                }
+                                const roleSlotLimit = getRoleSlotLimit(
+                                  current.role,
+                                );
+                                const nextDraftSlots = addMusiciansToLineupSlots(
+                                  current.draftSlots,
+                                  selectedMusicianIdsInMemberOrder,
+                                  roleSlotLimit,
+                                );
+                                return {
+                                  ...current,
+                                  draftSlots: nextDraftSlots,
+                                  selectedMusicianIds: [],
+                                };
+                              })
+                            }
+                          >
+                            Add selected
+                          </button>
+                        </div>
+                      </div>
+                    </section>
                   </div>
-                  <div className="modal-actions">
+                  <div className="modal-actions modal-actions--split">
                     <button
                       type="button"
                       className="button-secondary"
