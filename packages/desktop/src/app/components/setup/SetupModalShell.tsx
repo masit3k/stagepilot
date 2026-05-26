@@ -35,18 +35,6 @@ export function SetupModalShell({
       <div className="panel__header panel__header--stack selector-dialog__title">
         <h3>{title}</h3>
         <p className="subtle">{subtitle}</p>
-        {defaultAction ? (
-          <div className="setup-modal-header-action">
-            <button
-              type="button"
-              className="button-link setup-modal-default-action"
-              onClick={defaultAction.onClick}
-              disabled={defaultAction.disabled}
-            >
-              {defaultAction.label}
-            </button>
-          </div>
-        ) : null}
       </div>
       <div className="selector-dialog__divider section-divider" />
       <div
@@ -60,6 +48,16 @@ export function SetupModalShell({
         <button type="button" className="button-secondary" onClick={onBack}>
           Back
         </button>
+        {defaultAction ? (
+          <button
+            type="button"
+            className="button-link setup-modal-default-action"
+            onClick={defaultAction.onClick}
+            disabled={defaultAction.disabled}
+          >
+            {defaultAction.label}
+          </button>
+        ) : null}
         <button
           type="button"
           className="button-secondary"

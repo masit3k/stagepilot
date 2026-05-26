@@ -330,12 +330,6 @@ button:disabled {
   line-height: 1.35;
 }
 
-.setup-modal-header-action {
-  width: 100%;
-  display: flex;
-  justify-content: flex-end;
-}
-
 .setup-modal-default-action {
   white-space: nowrap;
 }
