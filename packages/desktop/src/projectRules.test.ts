@@ -9,6 +9,7 @@ import {
   formatProjectDisplayName,
   formatProjectSlug,
   getCurrentYearLocal,
+  getDefaultLineupSlotsForRole,
   getRoleDisplayName,
   getRoleSlotLimit,
   getTodayIsoLocal,
@@ -292,6 +293,26 @@ describe("lineup slot overrides", () => {
       { musicianId: "v-2" },
       { musicianId: "v-3" },
     ]);
+  });
+
+  it("resolves role defaults from band default lineup", () => {
+    expect(
+      getDefaultLineupSlotsForRole(
+        {
+          drums: ["dr-2", "dr-1", "dr-2"],
+          bass: "b-1",
+          guitar: null,
+        },
+        "drums",
+      ),
+    ).toEqual([{ musicianId: "dr-2" }, { musicianId: "dr-1" }]);
+    expect(
+      getDefaultLineupSlotsForRole({ bass: "b-1" }, "bass"),
+    ).toEqual([{ musicianId: "b-1" }]);
+    expect(
+      getDefaultLineupSlotsForRole({ guitar: null }, "guitar"),
+    ).toEqual([]);
+    expect(getDefaultLineupSlotsForRole(undefined, "keys")).toEqual([]);
   });
 
   it("removes and reorders role musicians", () => {

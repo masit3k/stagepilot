@@ -7,6 +7,7 @@ import {
   type LineupSlotValue,
   type PresetOverridePatch,
   addMusiciansToLineupSlots,
+  getDefaultLineupSlotsForRole,
   getUniqueSelectedMusicians,
   getRoleDisplayName,
   normalizeLineupSlots,
@@ -212,6 +213,7 @@ type AddMusiciansMultiSelectProps = {
   selectedIds: string[];
   placeholder: string;
   onSelectionChange: (nextSelectedIds: string[]) => void;
+  onAddSelected: (selectedIds: string[]) => void;
 };
 
 function AddMusiciansMultiSelect({
@@ -220,6 +222,7 @@ function AddMusiciansMultiSelect({
   selectedIds,
   placeholder,
   onSelectionChange,
+  onAddSelected,
 }: AddMusiciansMultiSelectProps) {
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -231,9 +234,9 @@ function AddMusiciansMultiSelect({
     maxHeight: number;
   } | null>(null);
   const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
-  const selectedOptions = options.filter((option) =>
-    selectedIdSet.has(option.id),
-  );
+  const orderedSelectedIds = options
+    .filter((option) => selectedIdSet.has(option.id))
+    .map((option) => option.id);
 
   const updatePanelPosition = useCallback(() => {
     const trigger = triggerRef.current;
@@ -304,10 +307,11 @@ function AddMusiciansMultiSelect({
     }
     setSelectedFromSet(nextSet);
   };
-  const removeSelected = (musicianId: string) => {
-    const nextSet = new Set(selectedIds);
-    nextSet.delete(musicianId);
-    setSelectedFromSet(nextSet);
+  const addSelected = () => {
+    if (orderedSelectedIds.length === 0) return;
+    onAddSelected(orderedSelectedIds);
+    onSelectionChange([]);
+    setIsOpen(false);
   };
 
   return (
@@ -319,7 +323,6 @@ function AddMusiciansMultiSelect({
         className="lineup-multiselect__trigger"
         aria-haspopup="true"
         aria-expanded={isOpen}
-        disabled={options.length === 0}
         onClick={() => {
           updatePanelPosition();
           setIsOpen((current) => !current);
@@ -332,24 +335,6 @@ function AddMusiciansMultiSelect({
           ▾
         </span>
       </button>
-      {selectedOptions.length > 0 ? (
-        <div className="lineup-multiselect__selection">
-          <span className="lineup-multiselect__selection-label">Selected:</span>
-          <div className="lineup-multiselect__chips">
-            {selectedOptions.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                className="lineup-multiselect__chip"
-                onClick={() => removeSelected(option.id)}
-              >
-                {option.name}
-                <span aria-hidden="true">×</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
       {isOpen && panelPosition && typeof document !== "undefined"
         ? createPortal(
             <div
@@ -366,30 +351,51 @@ function AddMusiciansMultiSelect({
                 className="lineup-multiselect__options"
                 aria-label={placeholder}
               >
-                {options.map((option) => {
-                  const selected = selectedIdSet.has(option.id);
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      className={
-                        selected
-                          ? "lineup-multiselect__option is-selected"
-                          : "lineup-multiselect__option"
-                      }
-                      onClick={() => toggleOption(option.id)}
-                    >
-                      <input
-                        type="checkbox"
-                        tabIndex={-1}
-                        checked={selected}
-                        readOnly
-                        aria-hidden="true"
-                      />
-                      <span>{option.name}</span>
-                    </button>
-                  );
-                })}
+                {options.length === 0 ? (
+                  <p className="lineup-multiselect__empty">
+                    No available musicians
+                  </p>
+                ) : (
+                  options.map((option) => {
+                    const selected = selectedIdSet.has(option.id);
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        className={
+                          selected
+                            ? "lineup-multiselect__option is-selected"
+                            : "lineup-multiselect__option"
+                        }
+                        onClick={() => toggleOption(option.id)}
+                      >
+                        <input
+                          type="checkbox"
+                          tabIndex={-1}
+                          checked={selected}
+                          readOnly
+                          aria-hidden="true"
+                        />
+                        <span>{option.name}</span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+              <div className="lineup-multiselect__footer">
+                <span>
+                  {orderedSelectedIds.length === 1
+                    ? "1 selected"
+                    : `${orderedSelectedIds.length} selected`}
+                </span>
+                <button
+                  type="button"
+                  className="button-secondary"
+                  disabled={orderedSelectedIds.length === 0}
+                  onClick={addSelected}
+                >
+                  Add selected
+                </button>
               </div>
             </div>,
             document.body,
@@ -1612,6 +1618,22 @@ export function ProjectSetupPage({
     });
   }
 
+  function resetAssignmentEditorToBandDefaults(role: string) {
+    if (!setupData) return;
+    setAssignmentEditor((current) =>
+      current?.role === role
+        ? {
+            ...current,
+            draftSlots: getDefaultLineupSlotsForRole(
+              setupData.defaultLineup,
+              role,
+            ),
+            selectedMusicianIds: [],
+          }
+        : current,
+    );
+  }
+
   const resetModalRef = useModalBehavior(showResetConfirmation, () =>
     setShowResetConfirmation(false),
   );
@@ -1674,7 +1696,13 @@ export function ProjectSetupPage({
             return (
               <article key="acoustic-guitar" className="lineup-card">
                 <h3>AC. GUITAR</h3>
-                <div className="lineup-card__body section-divider">
+                <div
+                  className={
+                    section.members.length <= 1
+                      ? "lineup-card__body section-divider lineup-card__body--centered"
+                      : "lineup-card__body section-divider"
+                  }
+                >
                   <div className="lineup-list lineup-list--single">
                     {section.members.map((member) => {
                       const sourceRoleSlotLimit = getRoleSlotLimit(
@@ -1763,7 +1791,13 @@ export function ProjectSetupPage({
                   </button>
                 </div>
               </div>
-              <div className="lineup-card__body section-divider">
+              <div
+                className={
+                  slots.length <= 1
+                    ? "lineup-card__body section-divider lineup-card__body--centered"
+                    : "lineup-card__body section-divider"
+                }
+              >
                 <div className="lineup-list lineup-list--single">
                   {slots.length === 0 ? (
                     <div className="lineup-list__row">
@@ -2714,10 +2748,6 @@ export function ProjectSetupPage({
                 assignmentEditor.selectedMusicianIds.filter((musicianId) =>
                   availableMemberIds.has(musicianId),
                 );
-              const selectedMusicianIdSet = new Set(selectedMusicianIds);
-              const selectedMusicianIdsInMemberOrder = availableMembers
-                .filter((member) => selectedMusicianIdSet.has(member.id))
-                .map((member) => member.id);
 
               return (
                 <div
@@ -2847,34 +2877,20 @@ export function ProjectSetupPage({
                                   : current,
                               )
                             }
-                          />
-                          {availableMembers.length === 0 ? (
-                            <p className="status status--empty">
-                              All musicians assigned
-                            </p>
-                          ) : null}
-                          <button
-                            type="button"
-                            className="button-secondary"
-                            disabled={
-                              selectedMusicianIdsInMemberOrder.length === 0
-                            }
-                            onClick={() =>
+                            onAddSelected={(nextSelectedIds) =>
                               setAssignmentEditor((current) => {
-                                if (
-                                  !current ||
-                                  selectedMusicianIdsInMemberOrder.length === 0
-                                ) {
+                                if (!current || nextSelectedIds.length === 0) {
                                   return current;
                                 }
                                 const roleSlotLimit = getRoleSlotLimit(
                                   current.role,
                                 );
-                                const nextDraftSlots = addMusiciansToLineupSlots(
-                                  current.draftSlots,
-                                  selectedMusicianIdsInMemberOrder,
-                                  roleSlotLimit,
-                                );
+                                const nextDraftSlots =
+                                  addMusiciansToLineupSlots(
+                                    current.draftSlots,
+                                    nextSelectedIds,
+                                    roleSlotLimit,
+                                  );
                                 return {
                                   ...current,
                                   draftSlots: nextDraftSlots,
@@ -2882,9 +2898,7 @@ export function ProjectSetupPage({
                                 };
                               })
                             }
-                          >
-                            Add selected
-                          </button>
+                          />
                         </div>
                       </div>
                     </section>
@@ -2893,20 +2907,29 @@ export function ProjectSetupPage({
                     <button
                       type="button"
                       className="button-secondary"
-                      onClick={() => setAssignmentEditor(null)}
+                      onClick={() => resetAssignmentEditorToBandDefaults(role)}
                     >
-                      Cancel
+                      Reset to defaults
                     </button>
-                    <button
-                      type="button"
-                      className="button-primary"
-                      onClick={() => {
-                        setRoleSlots(role, assignmentEditor.draftSlots);
-                        setAssignmentEditor(null);
-                      }}
-                    >
-                      Save
-                    </button>
+                    <div className="modal-actions__group">
+                      <button
+                        type="button"
+                        className="button-secondary"
+                        onClick={() => setAssignmentEditor(null)}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="button-primary"
+                        onClick={() => {
+                          setRoleSlots(role, assignmentEditor.draftSlots);
+                          setAssignmentEditor(null);
+                        }}
+                      >
+                        Save
+                      </button>
+                    </div>
                   </div>
                 </div>
               );

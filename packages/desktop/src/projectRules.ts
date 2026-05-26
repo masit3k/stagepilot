@@ -348,6 +348,19 @@ export function addMusiciansToLineupSlots(
   return next;
 }
 
+export function getDefaultLineupSlotsForRole(
+  defaultLineup:
+    | Record<string, RichLineupValue | null | undefined>
+    | null
+    | undefined,
+  role: string,
+): LineupSlotValue[] {
+  return normalizeLineupSlots(
+    defaultLineup?.[role] ?? undefined,
+    getRoleSlotLimit(role),
+  );
+}
+
 export function addMusiciansToLineupRole(
   lineup: LineupMap,
   role: string,
