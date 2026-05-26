@@ -36,7 +36,11 @@ export function LibraryBandsPage({
     <section className="panel">
       <div className="panel__header">
         <h2>Bands</h2>
-        <button type="button" onClick={() => navigate("/library/bands/new")}>
+        <button
+          type="button"
+          className="button-primary"
+          onClick={() => navigate("/library/bands/new")}
+        >
           + New Band
         </button>
       </div>
@@ -79,7 +83,7 @@ export function LibraryBandsPage({
               </button>
               <button
                 type="button"
-                className="button-secondary"
+                className="button-danger"
                 onClick={async () => {
                   if (!window.confirm(`Delete ${band.name}?`)) return;
                   await invoke("delete_library_band", { bandId: band.id });
@@ -399,6 +403,7 @@ export function LibraryBandDetailPage({
         </button>
         <button
           type="button"
+          className="button-primary"
           onClick={async () => {
             await saveBand();
             navigate("/library/bands");
@@ -519,6 +524,7 @@ export function LibraryMusiciansPage({ registerNavigationGuard }: LibraryPagePro
               </button>
               <button
                 type="button"
+                className="button-primary"
                 onClick={async () => {
                   if (!draft) return;
                   await invoke("upsert_library_musician", {

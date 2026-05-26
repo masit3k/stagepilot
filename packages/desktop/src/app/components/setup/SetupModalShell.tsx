@@ -44,7 +44,7 @@ export function SetupModalShell({ open, title, subtitle = "Changes here apply on
       <div className="modal-actions modal-actions--setup setup-modal-footer">
         <button type="button" className="button-secondary" onClick={onBack}>Back</button>
         <button type="button" className="button-secondary" onClick={onReset} disabled={!isDirty}>Reset overrides</button>
-        <button type="button" onClick={onSave} disabled={saveDisabled}>Save</button>
+        <button type="button" className="button-primary" onClick={onSave} disabled={saveDisabled}>Save</button>
       </div>
     </>
   );

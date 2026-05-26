@@ -300,7 +300,12 @@ export function ProjectPreviewPage({
         >
           {isRegeneratingPreview ? "Regenerating…" : "Regenerate preview"}
         </button>
-        <button type="button" disabled={isGeneratingPdf} onClick={runExport}>
+        <button
+          type="button"
+          className="button-primary"
+          disabled={isGeneratingPdf}
+          onClick={runExport}
+        >
           {isGeneratingPdf ? "Generating…" : "Generate PDF"}
         </button>
       </div>

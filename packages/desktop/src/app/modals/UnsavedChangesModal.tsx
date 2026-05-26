@@ -44,12 +44,12 @@ export function UnsavedChangesModal({
           </button>
           <button
             type="button"
-            className="button-secondary"
+            className="button-danger"
             onClick={onExitWithoutSaving}
           >
             Exit without saving
           </button>
-          <button type="button" onClick={onStay}>
+          <button type="button" className="button-primary" onClick={onStay}>
             Stay
           </button>
         </div>

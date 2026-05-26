@@ -1,9 +1,9 @@
 /* Buttons */
 button {
-  border: 1px solid var(--primary);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
-  background: var(--primary);
-  color: var(--primary-fg);
+  background: transparent;
+  color: inherit;
   padding: 10px 14px;
   min-height: 44px;
   font-size: 0.95rem;
@@ -23,7 +23,6 @@ button:disabled {
   transform: none;
 }
 
-button:not([class]):active:not(:disabled),
 .button-primary:active:not(:disabled) {
   background: var(--primary-active);
   border-color: var(--primary-active);
@@ -39,14 +38,12 @@ button:not([class]):active:not(:disabled),
   border-color: #912018;
 }
 
-.button-primary,
-button:not([class]) {
+.button-primary {
   background: var(--primary);
   color: var(--primary-fg);
   border-color: var(--primary);
 }
 
-button:not([class]):hover:not(:disabled),
 .button-primary:hover:not(:disabled) {
   background: var(--primary-hover);
   border-color: #415788;

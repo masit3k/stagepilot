@@ -24,6 +24,7 @@ import { toPersistableProject } from "../shell/types";
 import { buildCanonicalProjectBaseFromBandDefaults } from "../shell/canonicalProject";
 import { EventDateInput } from "./components/EventDateInput";
 import type { NewProjectPageProps } from "./shared/pageTypes";
+import { resolveProjectTalkbackOwnerId } from "./shared/talkbackPersistence";
 
 export function NewEventProjectPage({
   navigate,
@@ -158,7 +159,9 @@ export function NewEventProjectPage({
             project: payload,
             setupDefaults,
             roleOrder: ["drums", "bass", "guitar", "keys", "vocs"],
-            existingTalkbackOwnerId: existingProject ? resolveProjectTalkbackOwnerId(existingProject as Record<string, unknown> & { overlays?: { talkback?: { mode?: unknown; ownerId?: unknown } } }) : undefined,
+            existingTalkbackOwnerId: existingProject
+              ? resolveProjectTalkbackOwnerId(existingProject)
+              : undefined,
           });
         } catch (error) {
           console.error("Failed to load setup defaults for new event project", {
@@ -322,7 +325,12 @@ export function NewEventProjectPage({
         >
           Back to Hub
         </button>
-        <button type="button" onClick={createProject} disabled={!canSubmit}>
+        <button
+          type="button"
+          className="button-primary"
+          onClick={createProject}
+          disabled={!canSubmit}
+        >
           {editingProjectId
             ? isDirty
               ? "Save & Continue"

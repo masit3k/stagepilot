@@ -24,7 +24,7 @@ export function LibrarySimpleEntityPage({
     <section className="panel">
       <div className="panel__header">
         <h2>{title}</h2>
-        <button type="button" onClick={onCreate}>
+        <button type="button" className="button-primary" onClick={onCreate}>
           + New
         </button>
       </div>
@@ -44,7 +44,7 @@ export function LibrarySimpleEntityPage({
               </button>
               <button
                 type="button"
-                className="button-secondary"
+                className="button-danger"
                 onClick={() => onDelete(row.id)}
               >
                 Delete

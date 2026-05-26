@@ -100,6 +100,7 @@ export function ChangeBackVocsModal({
         </button>
         <button
           type="button"
+          className="button-primary"
           disabled={saveDisabled}
           onClick={() => onSave(selectedIds)}
         >

@@ -149,6 +149,7 @@ export function LibraryEntityCrud({
               </button>
               <button
                 type="button"
+                className="button-primary"
                 onClick={async () => {
                   if (!draft) return;
                   await invoke(upsertCommand, { [upsertArgName]: draft });

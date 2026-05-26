@@ -62,7 +62,11 @@ export function ExportResultModal({
               >
                 Open folder
               </button>
-              <button type="button" onClick={onGoToHub}>
+              <button
+                type="button"
+                className="button-primary"
+                onClick={onGoToHub}
+              >
                 Go to Project Hub
               </button>
             </>
@@ -75,7 +79,7 @@ export function ExportResultModal({
               >
                 Retry
               </button>
-              <button type="button" onClick={onClose}>
+              <button type="button" className="button-primary" onClick={onClose}>
                 Close
               </button>
             </>

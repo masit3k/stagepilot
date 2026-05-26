@@ -112,7 +112,11 @@ export function ChangeLeadVocsModal({
         <button type="button" className="button-secondary" onClick={onCancel}>
           Cancel
         </button>
-        <button type="button" onClick={() => onSave(selectedIds)}>
+        <button
+          type="button"
+          className="button-primary"
+          onClick={() => onSave(selectedIds)}
+        >
           Save
         </button>
       </div>

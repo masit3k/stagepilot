@@ -1664,6 +1664,7 @@ export function ProjectSetupPage({
         </button>
         <button
           type="button"
+          className="button-primary"
           onClick={async () => {
             if (errors.length > 0 || overrideValidationErrors.length > 0)
               return;
@@ -1714,6 +1715,7 @@ export function ProjectSetupPage({
             </button>
             <button
               type="button"
+              className="button-danger"
               onClick={() => {
                 if (!setupData) return;
                 applyState({ ...(setupData.defaultLineup ?? {}) }, setupData);
@@ -1772,6 +1774,7 @@ export function ProjectSetupPage({
             </button>
             <button
               type="button"
+              className="button-primary"
               onClick={async () => {
                 if (!selectedSetupMusician) return;
                 const existingPatch = getExistingSlotOverride(
