@@ -497,6 +497,10 @@
   margin-top: var(--space-1);
 }
 
+.lineup-card__add {
+  margin-top: var(--space-1);
+}
+
 .section-divider {
   border-top: 1px solid var(--border);
   padding-top: var(--space-1);

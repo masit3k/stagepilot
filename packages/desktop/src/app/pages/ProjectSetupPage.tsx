@@ -423,6 +423,40 @@ export function ProjectSetupPage({
           json: JSON.stringify(toPersistableProject(updatedProject), null, 2),
         });
         setProject(updatedProject);
+      } else {
+        const hasLegacyLineupFormat = Object.values(
+          parsed.lineup ?? {},
+        ).some((v) => v !== undefined && !Array.isArray(v));
+        if (hasLegacyLineupFormat) {
+          const migratedLineup = serializeLineupForProject(
+            initialState.lineup,
+            ROLE_ORDER,
+          );
+          const migratedProject: NewProjectPayload = {
+            ...parsed,
+            lineup: {
+              ...migratedLineup,
+              ...(Array.isArray((parsed.lineup ?? {}).back_vocs)
+                ? {
+                    back_vocs: normalizeLineupValue(
+                      (parsed.lineup ?? {}).back_vocs,
+                      8,
+                    ),
+                  }
+                : {}),
+            },
+            updatedAt: new Date().toISOString(),
+          };
+          await projectsApi.saveProject({
+            projectId: id,
+            json: JSON.stringify(
+              toPersistableProject(migratedProject),
+              null,
+              2,
+            ),
+          });
+          setProject(migratedProject);
+        }
       }
       const initialSerializedLineup = serializeLineupForProject(
         initialState.lineup,
@@ -892,7 +926,7 @@ export function ProjectSetupPage({
     if (!setupData) return;
     const roleSlotLimit = getRoleSlotLimit(role);
     const compact = slots.filter((slot) => Boolean(slot.musicianId));
-    const value = roleSlotLimit <= 1 ? compact[0] : compact;
+    const value = Number.isFinite(roleSlotLimit) && roleSlotLimit <= 1 ? compact[0] : compact;
     const nextLineup = { ...lineup, [role]: value as LineupMap[string] };
     applyState(nextLineup, setupData, bandLeaderId, talkbackOwnerId);
   }
@@ -901,7 +935,7 @@ export function ProjectSetupPage({
     if (!setupData) return;
     const roleSlotLimit = getRoleSlotLimit(role);
     const current = normalizeLineupSlots(lineup[role], roleSlotLimit);
-    while (current.length < Math.max(roleSlotLimit, slotIndex + 1))
+    while (current.length <= slotIndex)
       current.push({ musicianId: "" });
     const previous = current[slotIndex];
     current[slotIndex] = musicianId
@@ -916,6 +950,33 @@ export function ProjectSetupPage({
         }
       : { musicianId: "" };
     setRoleSlots(role, current);
+  }
+
+  function removeSlot(role: string, slotIndex: number) {
+    if (!setupData) return;
+    const roleSlotLimit = getRoleSlotLimit(role);
+    const current = normalizeLineupSlots(lineup[role], roleSlotLimit);
+    setRoleSlots(role, current.filter((_, i) => i !== slotIndex));
+  }
+
+  function moveSlotUp(role: string, slotIndex: number) {
+    if (!setupData || slotIndex === 0) return;
+    const roleSlotLimit = getRoleSlotLimit(role);
+    const current = normalizeLineupSlots(lineup[role], roleSlotLimit);
+    if (slotIndex >= current.length) return;
+    const next = [...current];
+    [next[slotIndex - 1], next[slotIndex]] = [next[slotIndex], next[slotIndex - 1]];
+    setRoleSlots(role, next);
+  }
+
+  function moveSlotDown(role: string, slotIndex: number) {
+    if (!setupData) return;
+    const roleSlotLimit = getRoleSlotLimit(role);
+    const current = normalizeLineupSlots(lineup[role], roleSlotLimit);
+    if (slotIndex >= current.length - 1) return;
+    const next = [...current];
+    [next[slotIndex], next[slotIndex + 1]] = [next[slotIndex + 1], next[slotIndex]];
+    setRoleSlots(role, next);
   }
 
   function parseSlotIndex(slotKey: string): number {
@@ -1388,7 +1449,7 @@ export function ProjectSetupPage({
 
           const role = section.role;
           const roleSlotLimit = getRoleSlotLimit(role);
-          const selected = normalizeLineupValue(lineup[role], roleSlotLimit);
+          const slots = normalizeLineupSlots(lineup[role], roleSlotLimit);
           const sectionCapability: SetupCapabilitySection =
             role === "guitar" ? "guitar" : (role as SetupCapabilitySection);
           const members = resolveEligibleMembersForSection(
@@ -1402,7 +1463,7 @@ export function ProjectSetupPage({
                 {role === "guitar"
                   ? resolveSetupCardLabel({
                       role: "guitar",
-                      musicianId: selected[0],
+                      musicianId: slots[0]?.musicianId,
                       resolveInputs: (musicianId) =>
                         resolveSlotSetup("guitar", musicianId).resolved
                           .defaultPreset.inputs,
@@ -1412,10 +1473,14 @@ export function ProjectSetupPage({
               </h3>
               <div className="lineup-card__body section-divider">
                 <div className="lineup-list lineup-list--single">
-                  {(selected.length ? selected : [""]).map(
-                    (musicianId, index) => {
+                  {slots.length === 0 ? (
+                    <div className="lineup-list__row">
+                      <span className="lineup-list__name">Not selected</span>
+                    </div>
+                  ) : (
+                    slots.map((slot, index) => {
                       const alternatives = members.filter(
-                        (m) => m.id !== musicianId,
+                        (m) => m.id !== slot.musicianId,
                       );
                       return (
                         <div
@@ -1423,16 +1488,36 @@ export function ProjectSetupPage({
                           className="lineup-list__row"
                         >
                           <span className="lineup-list__name">
-                            {musicianId
+                            {slot.musicianId
                               ? resolveMusicianDisplayName({
-                                  musicianId,
+                                  musicianId: slot.musicianId,
                                   preferredName: members.find(
-                                    (m) => m.id === musicianId,
+                                    (m) => m.id === slot.musicianId,
                                   )?.name,
                                 })
                               : "Not selected"}
                           </span>
                           <div className="lineup-list__actions">
+                            {slots.length > 1 && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="button-ghost"
+                                  disabled={index === 0}
+                                  onClick={() => moveSlotUp(role, index)}
+                                >
+                                  ↑
+                                </button>
+                                <button
+                                  type="button"
+                                  className="button-ghost"
+                                  disabled={index === slots.length - 1}
+                                  onClick={() => moveSlotDown(role, index)}
+                                >
+                                  ↓
+                                </button>
+                              </>
+                            )}
                             <button
                               type="button"
                               className="button-secondary"
@@ -1441,7 +1526,8 @@ export function ProjectSetupPage({
                                 setEditing({
                                   role,
                                   slotIndex: index,
-                                  currentSelectedId: musicianId || undefined,
+                                  currentSelectedId:
+                                    slot.musicianId || undefined,
                                 })
                               }
                             >
@@ -1450,7 +1536,7 @@ export function ProjectSetupPage({
                             <button
                               type="button"
                               className="button-secondary"
-                              disabled={!musicianId}
+                              disabled={!slot.musicianId}
                               onClick={() => {
                                 if (!setupData) return;
                                 const draftEntries: Record<
@@ -1481,23 +1567,39 @@ export function ProjectSetupPage({
                                 setEditingSetup({
                                   role,
                                   slotIndex: index,
-                                  musicianId,
+                                  musicianId: slot.musicianId,
                                 });
                               }}
                             >
                               Setup
-                              {normalizeLineupSlots(
-                                lineup[role],
-                                roleSlotLimit,
-                              )[index]?.presetOverride
-                                ? " •"
-                                : ""}
+                              {slot.presetOverride ? " •" : ""}
+                            </button>
+                            <button
+                              type="button"
+                              className="button-ghost"
+                              onClick={() => removeSlot(role, index)}
+                            >
+                              Remove
                             </button>
                           </div>
                         </div>
                       );
-                    },
+                    })
                   )}
+                </div>
+                <div className="lineup-card__add">
+                  <button
+                    type="button"
+                    className="button-ghost"
+                    onClick={() =>
+                      setEditing({
+                        role,
+                        slotIndex: slots.length,
+                      })
+                    }
+                  >
+                    + Add musician
+                  </button>
                 </div>
               </div>
             </article>

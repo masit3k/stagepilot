@@ -1,4 +1,7 @@
-import { parseDrumDefinition, type DrumDefinition } from "../../../src/domain/drums/drumDefinition";
+import {
+  type DrumDefinition,
+  parseDrumDefinition,
+} from "../../../src/domain/drums/drumDefinition";
 import {
   formatEventDateForDisplayName,
   formatEventDateForSlug,
@@ -8,10 +11,6 @@ import {
 } from "../../../src/domain/projectNaming";
 
 const ROLE_SLOT_LIMITS: Record<string, number> = {
-  drums: 1,
-  bass: 1,
-  guitar: 1,
-  keys: 1,
   vocs: 4,
   talkback: 1,
 };
@@ -126,23 +125,29 @@ export {
   sanitizeSlugSegment,
 };
 
-export function formatProjectSlug(project: {
-  purpose?: "event" | "generic";
-  eventDate?: string;
-  eventVenue?: string;
-  documentDate?: string;
-  note?: string;
-}, band: { id: string; code?: string | null; name: string }): string {
+export function formatProjectSlug(
+  project: {
+    purpose?: "event" | "generic";
+    eventDate?: string;
+    eventVenue?: string;
+    documentDate?: string;
+    note?: string;
+  },
+  band: { id: string; code?: string | null; name: string },
+): string {
   return formatProjectSlugFromDomain(project, band);
 }
 
-export function formatProjectDisplayName(project: {
-  purpose?: "event" | "generic";
-  eventDate?: string;
-  eventVenue?: string;
-  documentDate?: string;
-  note?: string;
-}, band: { id: string; code?: string | null; name: string }): string {
+export function formatProjectDisplayName(
+  project: {
+    purpose?: "event" | "generic";
+    eventDate?: string;
+    eventVenue?: string;
+    documentDate?: string;
+    note?: string;
+  },
+  band: { id: string; code?: string | null; name: string },
+): string {
   return formatProjectDisplayNameFromDomain(project, band);
 }
 
@@ -313,12 +318,10 @@ export function normalizeLineupSlots(
 }
 
 export function getRoleSlotLimit(role: string): number {
-  return ROLE_SLOT_LIMITS[role] ?? 1;
+  return ROLE_SLOT_LIMITS[role] ?? Number.POSITIVE_INFINITY;
 }
 
-export function getRoleDisplayName(
-  role: string,
-): string {
+export function getRoleDisplayName(role: string): string {
   if (role === "vocs") return "VOCS";
   const names: Record<string, string> = {
     drums: "DRUMS",
@@ -353,7 +356,10 @@ export function getUniqueSelectedMusicians(
 ): string[] {
   const ids = new Set<string>();
   for (const role of roleOrder) {
-    for (const id of normalizeLineupValue(lineup[role], getRoleSlotLimit(role))) {
+    for (const id of normalizeLineupValue(
+      lineup[role],
+      getRoleSlotLimit(role),
+    )) {
       ids.add(id);
     }
   }

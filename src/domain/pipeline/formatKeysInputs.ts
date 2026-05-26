@@ -1,3 +1,4 @@
+import { formatIndexedLabel } from "../labels/formatIndexedLabel.js";
 import type { Group } from "../model/groups.js";
 
 type InputLike = {
@@ -17,7 +18,7 @@ function parseKeysIndex(key: string): number | null {
 }
 
 function buildLabel(index: number, total: number): string {
-  return total <= 1 ? "Keys" : `Keys ${index}`;
+  return formatIndexedLabel("Keys", total, index - 1);
 }
 
 export function formatKeysInputInstances<T extends InputLike>(
