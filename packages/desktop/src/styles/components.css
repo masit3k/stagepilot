@@ -330,15 +330,12 @@ button:disabled {
   line-height: 1.35;
 }
 
-.setup-modal-subtitle-row {
+.setup-modal-header-action {
   width: 100%;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-2);
+  justify-content: flex-end;
 }
 
 .setup-modal-default-action {
-  align-self: flex-end;
   white-space: nowrap;
 }

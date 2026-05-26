@@ -509,6 +509,10 @@
   font-weight: 600;
 }
 
+.lineup-card > h3 {
+  font-weight: 700;
+}
+
 .lineup-list {
   display: grid;
   gap: 10px;
@@ -546,7 +550,6 @@
   align-self: center;
   flex-shrink: 0;
 }
-
 
 .lineup-card__body--split {
   display: flex;
@@ -837,7 +840,6 @@
   width: 100%;
 }
 
-
 .setup-pad-settings {
   display: grid;
   gap: 8px;
@@ -974,8 +976,8 @@
   border-radius: 9px;
   background: transparent;
   box-shadow: none;
-  transition: background-color 150ms ease, border-color 150ms ease,
-    color 150ms ease;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms
+    ease;
   line-height: 1;
   font-size: 1.05rem;
   font-weight: 600;
