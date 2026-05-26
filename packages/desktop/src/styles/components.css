@@ -118,17 +118,29 @@ button:disabled {
 .panel h3 {
   margin: 0;
   color: var(--text);
+  line-height: 1.2;
+}
+
+.panel h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.panel h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
 }
 
 .panel {
   background: var(--surface);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
-  padding: var(--space-2);
+  padding: var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-2);
   overflow: visible;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .panel--setup {
@@ -139,16 +151,17 @@ button:disabled {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-2);
 }
 
 .panel__header--stack {
   align-items: flex-start;
   flex-direction: column;
+  gap: 4px;
 }
 
 .panel__header--hub {
-  margin-bottom: var(--space-2);
+  margin-bottom: 0;
 }
 
 .subtle,
@@ -157,6 +170,7 @@ button:disabled {
   margin: 0;
   color: var(--muted);
   font-size: 0.9rem;
+  line-height: 1.4;
 }
 
 .actions-row {
@@ -168,7 +182,7 @@ button:disabled {
 .actions-row--top {
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--space-3);
+  margin-bottom: 0;
 }
 
 .actions-row--top .button-primary--large {
@@ -204,7 +218,7 @@ button:disabled {
 
 .form-grid {
   display: grid;
-  gap: 12px;
+  gap: var(--space-2);
   max-width: 420px;
 }
 

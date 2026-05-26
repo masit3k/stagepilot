@@ -5,17 +5,21 @@
 /* --------------------------------------------------------------------------
    Project hub
    -------------------------------------------------------------------------- */
-.project-sections,
+.project-sections {
+  display: grid;
+  gap: var(--space-3);
+}
+
 .project-section,
 .lineup-grid {
   display: grid;
-  gap: 12px;
+  gap: var(--space-2);
 }
 
 .project-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 12px;
+  gap: var(--space-2);
 }
 
 .project-list--rows {
@@ -32,7 +36,7 @@
   border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--text);
-  padding: 16px;
+  padding: var(--space-2);
   cursor: pointer;
 }
 
@@ -44,7 +48,7 @@
 .project-main-action__content {
   flex: 1;
   display: grid;
-  gap: 4px;
+  gap: 6px;
   border: none;
   background: transparent;
   color: var(--text);
@@ -69,7 +73,7 @@
 
 .project-surface:hover {
   background: var(--surface-2);
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.1);
   transform: translateY(-1px);
 }
 
@@ -177,7 +181,7 @@
 .hub-tabs {
   display: flex;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 0;
 }
 
 .page-context {
@@ -198,7 +202,7 @@
 
 .library-table {
   display: grid;
-  gap: 8px;
+  gap: var(--space-1);
 }
 
 .library-row {
@@ -213,7 +217,8 @@
   align-items: center;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 10px;
+  background: var(--surface);
+  padding: 12px;
 }
 
 /* --------------------------------------------------------------------------
@@ -393,11 +398,11 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   display: grid;
-  gap: 14px;
+  gap: var(--space-2);
   min-height: 220px;
   align-content: center;
   justify-items: center;
-  padding: 28px;
+  padding: var(--space-3);
   text-align: center;
 }
 
@@ -448,7 +453,7 @@
    Lineup and setup (shared)
    -------------------------------------------------------------------------- */
 .lineup-meta {
-  margin: var(--space-4) 0 var(--space-4) 0;
+  margin: var(--space-3) 0;
 }
 
 .band-name,
@@ -468,8 +473,8 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 12px;
-  margin-top: 8px;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
 }
 
 .lineup-helper .subtle {
@@ -484,12 +489,19 @@
 }
 
 .lineup-card__body {
-  margin-top: 12px;
+  margin-top: var(--space-1);
 }
 
 .section-divider {
   border-top: 1px solid var(--border);
-  padding-top: 12px;
+  padding-top: var(--space-1);
+}
+
+.lineup-card > .panel__header h3,
+.setup-section-card__header h4 {
+  font-size: 1rem;
+  line-height: 1.25;
+  font-weight: 600;
 }
 
 .lineup-list {
@@ -601,13 +613,13 @@
 .setup-action-bar {
   position: sticky;
   bottom: 0;
-  margin-top: var(--space-4);
+  margin-top: var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface);
-  padding: 16px;
+  padding: var(--space-2);
   display: flex;
-  gap: 12px;
+  gap: var(--space-2);
   justify-content: space-between;
   z-index: 50;
 }
@@ -686,9 +698,9 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);
-  padding: 14px;
+  padding: var(--space-2);
   display: grid;
-  gap: 12px;
+  gap: var(--space-2);
   min-width: 0;
 }
 
@@ -698,7 +710,7 @@
 
 .setup-section-card__header {
   display: grid;
-  gap: 4px;
+  gap: 6px;
 }
 
 .setup-section-card__header h4 {
