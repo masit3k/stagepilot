@@ -167,7 +167,11 @@ fn normalize_default_lineup_keys(default_lineup: Option<Value>) -> Option<Value>
     Some(Value::Object(lineup))
 }
 
-fn normalize_default_overlays(default_overlays: Option<Value>) -> Option<Value> {
+fn normalize_default_overlays(
+    default_overlays: Option<Value>,
+    band_id: &str,
+    load_warnings: &mut Vec<String>,
+) -> Option<Value> {
     let Some(Value::Object(mut overlays)) = default_overlays else {
         return None;
     };
@@ -175,26 +179,74 @@ fn normalize_default_overlays(default_overlays: Option<Value>) -> Option<Value> 
     let lead_source = overlays.remove("leadVocals");
     let back_source = overlays.remove("backVocals");
 
-    fn to_string_array(value: Option<Value>) -> Vec<Value> {
+    fn to_string_array(
+        value: Option<Value>,
+        band_id: &str,
+        role: &str,
+        load_warnings: &mut Vec<String>,
+    ) -> Vec<Value> {
         let Some(Value::Array(items)) = value else {
             return Vec::new();
         };
-        let mut normalized: Vec<Value> = Vec::new();
-        let mut seen = std::collections::BTreeSet::new();
-        for item in items.iter() {
-            let Some(id) = item.as_str().map(str::trim).filter(|id| !id.is_empty()) else {
-                continue;
-            };
-            if seen.insert(id.to_string()) {
-                normalized.push(Value::String(id.to_string()));
+        let mut indexed: Vec<(usize, String)> = Vec::new();
+        for (i, item) in items.iter().enumerate() {
+            match item {
+                Value::String(id) => {
+                    let trimmed = id.trim();
+                    if !trimmed.is_empty() {
+                        indexed.push((i + 1, trimmed.to_string()));
+                    }
+                }
+                Value::Object(obj) => {
+                    if let Some(musician_id) = obj
+                        .get("musicianId")
+                        .and_then(|v| v.as_str())
+                        .map(str::trim)
+                        .filter(|id| !id.is_empty())
+                    {
+                        let slot = obj
+                            .get("slot")
+                            .and_then(|v| v.as_u64())
+                            .filter(|s| *s > 0)
+                            .map(|s| s as usize)
+                            .unwrap_or(i + 1);
+                        load_warnings.push(format!(
+                            "Band '{}' defaultOverlays.{} contains legacy {{slot, musicianId}} object at position {} — run storage cleanup",
+                            band_id, role, i
+                        ));
+                        indexed.push((slot, musician_id.to_string()));
+                    } else {
+                        load_warnings.push(format!(
+                            "Band '{}' defaultOverlays.{} has unrecognized entry at position {} — dropped",
+                            band_id, role, i
+                        ));
+                    }
+                }
+                _ => {
+                    load_warnings.push(format!(
+                        "Band '{}' defaultOverlays.{} has invalid entry at position {} — dropped",
+                        band_id, role, i
+                    ));
+                }
             }
         }
-        normalized
+        indexed.sort_by_key(|(order, _)| *order);
+        let mut seen = std::collections::BTreeSet::new();
+        indexed
+            .into_iter()
+            .filter_map(|(_, id)| {
+                if seen.insert(id.clone()) {
+                    Some(Value::String(id))
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     Some(serde_json::json!({
-        "leadVocals": to_string_array(lead_source),
-        "backVocals": to_string_array(back_source)
+        "leadVocals": to_string_array(lead_source, band_id, "leadVocals", load_warnings),
+        "backVocals": to_string_array(back_source, band_id, "backVocals", load_warnings)
     }))
 }
 
@@ -1038,6 +1090,12 @@ fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSet
         musician_defaults.insert(key, value);
     }
 
+    let default_overlays = normalize_default_overlays(
+        json.get("defaultOverlays").cloned(),
+        &requested,
+        &mut load_warnings,
+    );
+
     Ok(BandSetupData {
         id: json
             .get("id")
@@ -1073,7 +1131,7 @@ fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSet
             .and_then(|v| v.as_str())
             .map(|v| v.to_string()),
         default_lineup: normalize_default_lineup_keys(json.get("defaultLineup").cloned()),
-        default_overlays: normalize_default_overlays(json.get("defaultOverlays").cloned()),
+        default_overlays,
         members,
         musician_defaults,
         musician_presets_by_id,

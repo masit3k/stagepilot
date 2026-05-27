@@ -53,6 +53,43 @@ function normalizeLineupSlots(value: unknown): LineupSlot[] {
   return slots.sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0));
 }
 
+/** Converts legacy {slot, musicianId} vocal overlay arrays to canonical string[]. */
+export function normalizeLegacyVocalOverlayArrayForCleanup(
+  value: unknown,
+): unknown[] {
+  if (!Array.isArray(value)) return [];
+  type LegacyEntry = { slot?: unknown; musicianId?: unknown };
+  const indexed: Array<[number, string]> = [];
+  for (let i = 0; i < value.length; i++) {
+    const entry = value[i];
+    if (typeof entry === "string" && entry.trim().length > 0) {
+      indexed.push([i + 1, entry.trim()]);
+    } else if (entry && typeof entry === "object" && !Array.isArray(entry)) {
+      const raw = entry as LegacyEntry;
+      if (
+        typeof raw.musicianId !== "string" ||
+        raw.musicianId.trim().length === 0
+      )
+        continue;
+      const id = raw.musicianId.trim();
+      const slot =
+        typeof raw.slot === "number" &&
+        Number.isFinite(raw.slot) &&
+        raw.slot > 0
+          ? Math.floor(raw.slot)
+          : i + 1;
+      indexed.push([slot, id]);
+    }
+  }
+  indexed.sort((a, b) => a[0] - b[0]);
+  const seen = new Set<string>();
+  return indexed.flatMap(([, id]) => {
+    if (seen.has(id)) return [];
+    seen.add(id);
+    return [id];
+  });
+}
+
 function normalizeOverlayIds(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   const ids: string[] = [];
@@ -107,11 +144,21 @@ function normalizeCanonicalOverlays(
       Array.isArray(slots) ? slots.map((slot) => slot.musicianId) : [],
     ),
   );
-  const leadVocals = dedupeOverlayIds(normalizeOverlayIds(raw.leadVocals)).filter(
-    (musicianId) => lineupMemberIds.size === 0 || lineupMemberIds.has(musicianId),
+  const leadVocals = dedupeOverlayIds(
+    normalizeOverlayIds(
+      normalizeLegacyVocalOverlayArrayForCleanup(raw.leadVocals),
+    ),
+  ).filter(
+    (musicianId) =>
+      lineupMemberIds.size === 0 || lineupMemberIds.has(musicianId),
   );
-  const backVocals = dedupeOverlayIds(normalizeOverlayIds(raw.backVocals)).filter(
-    (musicianId) => lineupMemberIds.size === 0 || lineupMemberIds.has(musicianId),
+  const backVocals = dedupeOverlayIds(
+    normalizeOverlayIds(
+      normalizeLegacyVocalOverlayArrayForCleanup(raw.backVocals),
+    ),
+  ).filter(
+    (musicianId) =>
+      lineupMemberIds.size === 0 || lineupMemberIds.has(musicianId),
   );
 
   const talkback = (() => {

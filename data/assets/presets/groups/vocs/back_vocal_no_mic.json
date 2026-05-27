@@ -1,7 +1,7 @@
 {
   "type": "preset",
-  "id": "vocal_no_mic",
-  "label": "Vocal (no mic)",
+  "id": "back_vocal_no_mic",
+  "label": "Back vocal (no mic)",
   "group": "vocs",
   "capabilities": ["vocal", "back_vocal"],
   "inputs": [
