@@ -3,7 +3,7 @@
   "id": "vocal_wireless",
   "label": "Vocal (wireless)",
   "group": "vocs",
-  "capabilities": ["vocal", "lead_vocal", "back_vocal"],
+  "capabilities": ["vocal"],
   "inputs": [
     {
       "key": "voc_input",

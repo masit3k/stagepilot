@@ -234,7 +234,7 @@ export interface Preset {
   inputs: InputChannel[];
 }
 
-export type PresetCapability = "vocal" | "lead_vocal" | "back_vocal";
+export type PresetCapability = "vocal";
 
 export type MonitoringPreset = {
   monitorRef: string;

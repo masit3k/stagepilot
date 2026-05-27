@@ -10,7 +10,7 @@ describe("resolveLeadVocalCandidates", () => {
           displayName: "Klara",
           primaryGroup: "keys",
           section: "suggested",
-          reason: "lead_vocal_capability",
+          reason: "vocal_capability",
         },
         {
           musicianId: "voc-1",
@@ -31,7 +31,7 @@ describe("resolveLeadVocalCandidates", () => {
           displayName: "David",
           primaryGroup: "drums",
           section: "suggested",
-          reason: "lead_vocal_capability",
+          reason: "vocal_capability",
         },
       ],
       selectedLeadVocalistIds: ["voc-1", "keys-1"],
@@ -76,13 +76,15 @@ describe("resolveLeadVocalCandidates", () => {
           displayName: "One",
           primaryGroup: "keys",
           section: "suggested",
-          reason: "lead_vocal_capability",
+          reason: "vocal_capability",
         },
       ],
       selectedLeadVocalistIds: [],
     });
 
-    expect(result.suggestedLeadVocalCandidates.map((item) => item.musicianId)).toEqual(["m1"]);
+    expect(
+      result.suggestedLeadVocalCandidates.map((item) => item.musicianId),
+    ).toEqual(["m1"]);
     expect(result.otherLeadVocalCandidates).toHaveLength(0);
   });
 });

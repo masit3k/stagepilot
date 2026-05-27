@@ -70,7 +70,7 @@ export function resolveLeadVocalCandidates(args: {
       primaryGroup: candidate.primaryGroup,
       isSuggested,
       isSelected,
-      hasLeadPreset: candidate.reason === "lead_vocal_capability",
+      hasLeadPreset: candidate.section === "suggested",
       reason: candidate.reason,
     } satisfies LeadVocalCandidate;
   });

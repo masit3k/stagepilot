@@ -86,7 +86,7 @@ async function loadMusiciansMap(absDir: string): Promise<Map<string, Musician>> 
   return map;
 }
 
-const KNOWN_PRESET_CAPABILITIES = new Set(["vocal", "lead_vocal", "back_vocal"]);
+const KNOWN_PRESET_CAPABILITIES = new Set(["vocal"]);
 
 function validatePresetEntity(preset: PresetEntity, file: string): void {
   if (preset.type !== "preset" || !Array.isArray(preset.capabilities)) return;

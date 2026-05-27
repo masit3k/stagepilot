@@ -4,8 +4,6 @@ import type { MemberOption } from "../../shell/types";
 export type VocalCandidateSection = "suggested" | "additional";
 export type VocalAssignmentRole = "lead" | "back";
 export type VocalCandidateReason =
-  | "lead_vocal_capability"
-  | "back_vocal_capability"
   | "vocal_capability"
   | "active_lineup_without_vocal_preset";
 
@@ -13,8 +11,6 @@ export type LineupVocalCandidate = {
   id: string;
   name: string;
   primaryGroup: Group;
-  hasLeadVocalPreset: boolean;
-  hasBackVocalPreset: boolean;
   hasVocalCapability: boolean;
   sectionByRole: Record<VocalAssignmentRole, VocalCandidateSection>;
   reasonByRole: Record<VocalAssignmentRole, VocalCandidateReason>;
@@ -40,65 +36,42 @@ export function resolveLineupVocalCandidates(args: {
   for (const musician of args.lineupMusicians) {
     const name = memberNameById.get(musician.id);
     if (!name) continue;
-      const capabilities = resolveMusicianVocalCapabilities(musician, args.presetCatalog);
-      const leadReason: VocalCandidateReason = capabilities.hasLeadVocalCapability
-        ? "lead_vocal_capability"
-        : "active_lineup_without_vocal_preset";
-      const backReason: VocalCandidateReason = capabilities.hasBackVocalCapability
-        ? "back_vocal_capability"
-        : capabilities.hasVocalCapability
-          ? "vocal_capability"
-          : "active_lineup_without_vocal_preset";
-      candidates.push({
-        id: musician.id,
-        name,
-        primaryGroup: musician.group,
-        hasLeadVocalPreset: capabilities.hasLeadVocalCapability,
-        hasBackVocalPreset: capabilities.hasBackVocalCapability || capabilities.hasVocalCapability,
-        hasVocalCapability: capabilities.hasVocalCapability,
-        sectionByRole: {
-          lead: capabilities.hasLeadVocalCapability ? "suggested" : "additional",
-          back:
-            capabilities.hasBackVocalCapability || capabilities.hasVocalCapability
-              ? "suggested"
-              : "additional",
-        },
-        reasonByRole: {
-          lead: leadReason,
-          back: backReason,
-        } satisfies Record<VocalAssignmentRole, VocalCandidateReason>,
-      });
+    const hasVocalCapability = resolveMusicianHasVocalCapability(musician, args.presetCatalog);
+    const isLeadSuggested = musician.group === "vocs" && hasVocalCapability;
+    candidates.push({
+      id: musician.id,
+      name,
+      primaryGroup: musician.group,
+      hasVocalCapability,
+      sectionByRole: {
+        lead: isLeadSuggested ? "suggested" : "additional",
+        back: hasVocalCapability ? "suggested" : "additional",
+      },
+      reasonByRole: {
+        lead: isLeadSuggested ? "vocal_capability" : "active_lineup_without_vocal_preset",
+        back: hasVocalCapability ? "vocal_capability" : "active_lineup_without_vocal_preset",
+      },
+    });
   }
 
   return candidates.sort((left, right) => {
-      const groupDiff = groupRank(left.primaryGroup) - groupRank(right.primaryGroup);
-      if (groupDiff !== 0) return groupDiff;
-      const nameDiff = left.name.localeCompare(right.name, "en");
-      if (nameDiff !== 0) return nameDiff;
-      return left.id.localeCompare(right.id, "en");
-    });
+    const groupDiff = groupRank(left.primaryGroup) - groupRank(right.primaryGroup);
+    if (groupDiff !== 0) return groupDiff;
+    const nameDiff = left.name.localeCompare(right.name, "en");
+    if (nameDiff !== 0) return nameDiff;
+    return left.id.localeCompare(right.id, "en");
+  });
 }
 
-function resolveMusicianVocalCapabilities(
+function resolveMusicianHasVocalCapability(
   musician: Musician,
   presetCatalog: Record<string, PresetEntity | undefined>,
-): {
-  hasVocalCapability: boolean;
-  hasLeadVocalCapability: boolean;
-  hasBackVocalCapability: boolean;
-} {
-  const capabilities = new Set<string>();
+): boolean {
   for (const item of musician.presets) {
     if (item.kind !== "preset") continue;
     const preset = presetCatalog[item.ref];
     if (!preset || preset.type !== "preset") continue;
-    for (const capability of preset.capabilities ?? []) {
-      capabilities.add(capability);
-    }
+    if (preset.capabilities?.includes("vocal")) return true;
   }
-  return {
-    hasVocalCapability: capabilities.has("vocal"),
-    hasLeadVocalCapability: capabilities.has("lead_vocal"),
-    hasBackVocalCapability: capabilities.has("back_vocal"),
-  };
+  return false;
 }
