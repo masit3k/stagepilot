@@ -21,7 +21,11 @@
       "Bash(python *)",
       "Bash(cmd /c \"cd C:\\\\Users\\\\mkrecmer\\\\dev\\\\stagepilot && npm run lint\")",
       "Bash(cmd *)",
-      "Bash(powershell *)"
+      "Bash(powershell *)",
+      "Bash(git show *)",
+      "Bash(cargo check *)",
+      "Bash(cargo test *)",
+      "Bash(git add *)"
     ]
   },
   "enableAllProjectMcpServers": true,
