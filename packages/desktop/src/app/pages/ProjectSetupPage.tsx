@@ -11,7 +11,6 @@ import {
   getUniqueSelectedMusicians,
   getRoleDisplayName,
   normalizeLineupSlots,
-  normalizeLineupValue,
   getRoleSlotLimit,
   resolveBandLeaderId,
   resolveTalkbackOwnerId,
@@ -27,6 +26,7 @@ import type {
   InputChannel,
   Musician,
   MusicianSetupPreset,
+  Preset,
   PresetEntity,
   PresetItem,
 } from "../../../../../src/domain/model/types";
@@ -41,7 +41,6 @@ import { MonitoringEditor } from "../../components/setup/MonitoringEditor";
 import { SetupModalShell } from "../components/setup/SetupModalShell";
 import { SetupSection } from "../components/setup/SetupSection";
 import { SchemaRenderer } from "../components/setup/SchemaRenderer";
-import { migrateProjectLineupVocsToLeadBack } from "../domain/project/migrateProjectLineup";
 import { migrateProjectTalkbackOwner } from "../domain/project/migrateProjectTalkbackOwner";
 import {
   createLineupDirtyBaseline,
@@ -52,19 +51,13 @@ import {
   areSetupsEqual,
   resetOverrides,
   shouldEnableSetupReset,
-  withInputsTarget,
   type EventSetupEditState,
 } from "../components/setup/adapters/eventSetupAdapter";
 import { BackVocsBlock } from "../components/roles/BackVocsBlock";
 import { LeadVocsBlock } from "../components/roles/LeadVocsBlock";
 import { ChangeBackVocsModal } from "../components/roles/modals/ChangeBackVocsModal";
 import { ChangeLeadVocsModal } from "../components/roles/modals/ChangeLeadVocsModal";
-import { BackVocsSetupModal } from "../components/roles/modals/BackVocsSetupModal";
-import {
-  getBackVocsFromTemplate,
-  getLeadVocsFromTemplate,
-  sanitizeBackVocsSelection,
-} from "../components/roles/utils/backVocs";
+import { sanitizeBackVocsSelection } from "../components/roles/utils/backVocs";
 import { resolveLeadVocalCandidates } from "../domain/roles/resolveLeadVocalCandidates";
 import { resolveLineupVocalCandidates } from "../domain/roles/resolveLineupVocalCandidates";
 import { enforceVocalSelectionInvariant } from "../domain/roles/vocalSelectionInvariant";
@@ -115,22 +108,16 @@ function hasOwnKey(value: unknown, key: string): boolean {
 function normalizeOverlayIds(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value
-    .map((entry) => {
-      if (!entry || typeof entry !== "object") return "";
-      const musicianId = (entry as { musicianId?: unknown }).musicianId;
-      return typeof musicianId === "string" ? musicianId.trim() : "";
-    })
+    .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
     .filter((musicianId) => musicianId.length > 0);
 }
 
 function extractOverlayMusicianIds(
-  value: Array<string | { musicianId: string }> | null | undefined,
+  value: string[] | null | undefined,
 ): string[] {
   if (!Array.isArray(value)) return [];
   return value
-    .map((entry) =>
-      typeof entry === "string" ? entry.trim() : entry.musicianId.trim(),
-    )
+    .map((entry) => entry.trim())
     .filter((musicianId) => musicianId.length > 0);
 }
 
@@ -414,12 +401,21 @@ export function ProjectSetupPage({
   const [project, setProject] = useState<NewProjectPayload | null>(null);
   const [setupData, setSetupData] = useState<BandSetupData | null>(null);
   const presetCatalog = setupData?.presetCatalog ?? {};
+  const setupPresetCatalog = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(presetCatalog).filter(
+          (entry): entry is [string, Preset] => entry[1].type === "preset",
+        ),
+      ),
+    [presetCatalog],
+  );
   const {
     bassFields: BASS_FIELDS,
     guitarFields: GUITAR_FIELDS,
     keysFields: KEYS_FIELDS,
     leadVocsFields: LEAD_VOCS_FIELDS,
-  } = useMemo(() => buildSetupFieldCatalog(presetCatalog), [presetCatalog]);
+  } = useMemo(() => buildSetupFieldCatalog(setupPresetCatalog), [setupPresetCatalog]);
   const [lineup, setLineup] = useState<LineupMap>({});
   const [editing, setEditing] = useState<{
     role: string;
@@ -443,16 +439,12 @@ export function ProjectSetupPage({
   const [bandLeaderId, setBandLeaderId] = useState("");
   const [talkbackOwnerId, setTalkbackOwnerId] = useState("");
   const [hasTalkbackOverride, setHasTalkbackOverride] = useState(false);
-  const [leadVocalistIds, setLeadVocalistIds] = useState<string[]>([]);
+  const [leadVocalIds, setLeadVocalIds] = useState<string[]>([]);
   const [hasLeadVocalOverride, setHasLeadVocalOverride] = useState(false);
   const [backVocalIds, setBackVocalIds] = useState<string[]>([]);
   const [hasBackVocalOverride, setHasBackVocalOverride] = useState(false);
   const [isLeadVocsModalOpen, setIsLeadVocsModalOpen] = useState(false);
   const [isBackVocsModalOpen, setIsBackVocsModalOpen] = useState(false);
-  const [isBackVocsSetupOpen, setIsBackVocsSetupOpen] = useState(false);
-  const [backVocsSetupDraft, setBackVocsSetupDraft] = useState<
-    Record<string, PresetOverridePatch | undefined>
-  >({});
   const [status, setStatus] = useState("");
   const [toastMessage, setToastMessage] = useState("");
   const [showResetConfirmation, setShowResetConfirmation] = useState(false);
@@ -556,9 +548,7 @@ export function ProjectSetupPage({
         });
         throw error;
       }
-      const parsed = migrateProjectTalkbackOwner(
-        migrateProjectLineupVocsToLeadBack(parsedRaw),
-      );
+      const parsed = migrateProjectTalkbackOwner(parsedRaw);
       console.info("[project-open] after-project-migrate", {
         projectId: id,
         lineupKeys: Object.keys(parsed.lineup ?? {}),
@@ -570,14 +560,8 @@ export function ProjectSetupPage({
       const parsedHasLeadOverlay = hasOwnKey(rawOverlays, "leadVocals");
       const parsedHasBackOverlay = hasOwnKey(rawOverlays, "backVocals");
       const parsedHasTalkbackOverlay = hasOwnKey(rawOverlays, "talkback");
-      const parsedHasLegacyLeadOverride = Array.isArray(parsed.leadVocalistIds);
-      const parsedHasLegacyBackOverride = Array.isArray(
-        (parsed.lineup ?? {}).back_vocs,
-      );
-      const parsedHasLeadVocalOverride =
-        parsedHasLeadOverlay || parsedHasLegacyLeadOverride;
-      const parsedHasBackVocalOverride =
-        parsedHasBackOverlay || parsedHasLegacyBackOverride;
+      const parsedHasLeadVocalOverride = parsedHasLeadOverlay;
+      const parsedHasBackVocalOverride = parsedHasBackOverlay;
       const parsedHasTalkbackOverride = parsedHasTalkbackOverlay;
       const parsedTalkbackOwnerIdFromOverlay = (() => {
         if (!parsedHasTalkbackOverlay) return undefined;
@@ -592,23 +576,19 @@ export function ProjectSetupPage({
         parsedTalkbackOwnerIdFromOverlay ??
         (typeof parsed.talkbackOwnerId === "string"
           ? parsed.talkbackOwnerId.trim()
-          : typeof (parsedRaw as { talkBackOwnerId?: unknown })
+          : typeof (parsedRaw as unknown as { talkBackOwnerId?: unknown })
                 .talkBackOwnerId === "string"
-            ? (parsedRaw as { talkBackOwnerId: string }).talkBackOwnerId.trim()
+            ? (parsedRaw as unknown as { talkBackOwnerId: string }).talkBackOwnerId.trim()
             : "");
       setProject(parsed);
       const persistedBackVocalIds = parsedHasBackOverlay
         ? normalizeOverlayIds(rawOverlays?.backVocals)
-        : normalizeLineupValue((parsed.lineup ?? {}).back_vocs, 8);
-      const persistedLeadVocalistIds = parsedHasLeadOverlay
+        : [];
+      const persistedLeadVocalIds = parsedHasLeadOverlay
         ? normalizeOverlayIds(rawOverlays?.leadVocals)
-        : Array.isArray(parsed.leadVocalistIds)
-          ? parsed.leadVocalistIds.filter(
-              (item) => typeof item === "string" && item.trim().length > 0,
-            )
-          : [];
+        : [];
       setBackVocalIds(persistedBackVocalIds);
-      setLeadVocalistIds(persistedLeadVocalistIds);
+      setLeadVocalIds(persistedLeadVocalIds);
       setHasBackVocalOverride(parsedHasBackVocalOverride);
       setHasLeadVocalOverride(parsedHasLeadVocalOverride);
       setHasTalkbackOverride(parsedHasTalkbackOverride);
@@ -682,17 +662,7 @@ export function ProjectSetupPage({
       if (!hasStoredLineup) {
         const updatedProject: NewProjectPayload = {
           ...parsed,
-          lineup: {
-            ...serializeLineupForProject(initialState.lineup, ROLE_ORDER),
-            ...(Array.isArray((parsed.lineup ?? {}).back_vocs)
-              ? {
-                  back_vocs: normalizeLineupValue(
-                    (parsed.lineup ?? {}).back_vocs,
-                    8,
-                  ),
-                }
-              : {}),
-          },
+          lineup: serializeLineupForProject(initialState.lineup, ROLE_ORDER),
           bandLeaderId: initialState.bandLeaderId || undefined,
           talkbackOwnerId: parsedTalkbackOwnerId,
           updatedAt: new Date().toISOString(),
@@ -713,17 +683,7 @@ export function ProjectSetupPage({
           );
           const migratedProject: NewProjectPayload = {
             ...parsed,
-            lineup: {
-              ...migratedLineup,
-              ...(Array.isArray((parsed.lineup ?? {}).back_vocs)
-                ? {
-                    back_vocs: normalizeLineupValue(
-                      (parsed.lineup ?? {}).back_vocs,
-                      8,
-                    ),
-                  }
-                : {}),
-            },
+            lineup: migratedLineup,
             updatedAt: new Date().toISOString(),
           };
           await projectsApi.saveProject({
@@ -749,61 +709,21 @@ export function ProjectSetupPage({
         initialState.lineup,
         ROLE_ORDER,
       );
-      const initialRoleByMusicianId = new Map<string, Group>();
-      ROLE_ORDER.forEach((role) => {
-        const roleSlotLimit = getRoleSlotLimit(role);
-        normalizeLineupSlots(initialState.lineup[role], roleSlotLimit).forEach(
-          (slot) => {
-            initialRoleByMusicianId.set(slot.musicianId, role as Group);
-          },
-        );
-      });
-      const initialMusicians = initialTemplateMusicians.map((musicianId) => ({
-        id: musicianId,
-        firstName: "",
-        lastName: "",
-        group: initialRoleByMusicianId.get(musicianId) ?? "vocs",
-        presets: (data.musicianPresetsById?.[musicianId] ?? []) as PresetItem[],
-      }));
-      const initialLeadVocalIdsFromPreset =
-        getLeadVocsFromTemplate(initialMusicians);
-      const defaultLeadVocalIdsFromBand = extractOverlayMusicianIds(
-        data.defaultOverlays?.leadVocals,
-      )
-        .concat(extractOverlayMusicianIds(data.defaultVocals?.lead))
-        .filter((idValue, index, arr) => arr.indexOf(idValue) === index)
-        .filter((idValue) => initialTemplateMusicians.includes(idValue));
       const effectiveInitialLeadVocalIds = parsedHasLeadVocalOverride
-        ? persistedLeadVocalistIds.filter((idValue) =>
+        ? persistedLeadVocalIds.filter((idValue) =>
             initialTemplateMusicians.includes(idValue),
           )
-        : defaultLeadVocalIdsFromBand.length > 0
-          ? defaultLeadVocalIdsFromBand
-          : Array.from(initialLeadVocalIdsFromPreset);
-      const defaultBackOverlayIds = extractOverlayMusicianIds(
-        data.defaultOverlays?.backVocals,
-      );
-      const defaultBackVocalSource =
-        defaultBackOverlayIds.length > 0
-          ? new Set(defaultBackOverlayIds)
-          : Array.isArray(data.defaultVocals?.back)
-            ? new Set(data.defaultVocals.back)
-            : getBackVocsFromTemplate(initialMusicians);
+        : [];
       const effectiveBackVocalIds = parsedHasBackVocalOverride
         ? persistedBackVocalIds
-        : Array.from(
-            sanitizeBackVocsSelection(
-              defaultBackVocalSource,
-              new Set(effectiveInitialLeadVocalIds),
-            ),
-          ).filter((idValue) => initialTemplateMusicians.includes(idValue));
+        : [];
       initialSnapshotRef.current = createLineupDirtyBaseline({
         lineup: initialSerializedLineup,
         bandLeaderId: initialState.bandLeaderId,
         talkbackOwnerId: parsedHasTalkbackOverride
           ? parsedTalkbackOwnerId
           : parsedTalkbackOwnerId,
-        leadVocalistIds: effectiveInitialLeadVocalIds,
+        leadVocalIds: effectiveInitialLeadVocalIds,
         hasLeadVocalOverride: parsedHasLeadVocalOverride,
         backVocalIds: effectiveBackVocalIds,
         hasBackVocalOverride: parsedHasBackVocalOverride,
@@ -836,18 +756,6 @@ export function ProjectSetupPage({
       .map((idValue) => byId.get(idValue))
       .filter(Boolean) as MemberOption[];
   }, [selectedMusicianIds, setupData]);
-  const backVocalPresetRefs = useMemo(
-    () =>
-      ["vocal_no_mic", "vocal_wired", "vocal_wireless"]
-        .map((ref) => presetCatalog[ref])
-        .filter((preset): preset is PresetEntity => Boolean(preset))
-        .filter(
-          (preset): preset is Extract<PresetEntity, { type: "preset" }> =>
-            preset.type === "preset",
-        ),
-    [presetCatalog],
-  );
-
   const monitorOptions = useMemo(
     () =>
       Object.values(presetCatalog)
@@ -887,104 +795,52 @@ export function ProjectSetupPage({
   const talkbackCurrentOwnerId = hasTalkbackOverride
     ? talkbackOwnerId
     : bandLeaderId;
-  const defaultLeadVocalistIds = useMemo(
+  const defaultLeadVocalIds = useMemo(
     () =>
       Array.from(
         new Set(
           extractOverlayMusicianIds(setupData?.defaultOverlays?.leadVocals),
         ),
       )
-        .concat(setupData?.defaultVocals?.lead ?? [])
-        .filter((idValue, index, arr) => arr.indexOf(idValue) === index)
-        .concat(
-          Array.from(
-            setupData?.defaultOverlays?.leadVocals ||
-              setupData?.defaultVocals?.lead
-              ? []
-              : getLeadVocsFromTemplate(selectedTemplateMusicians),
-          ),
-        )
         .filter((idValue) => templateMusicianIds.has(idValue)),
     [
-      selectedTemplateMusicians,
       setupData?.defaultOverlays?.leadVocals,
-      setupData?.defaultVocals?.lead,
       templateMusicianIds,
     ],
   );
-  const rawSelectedLeadVocalistIds = useMemo(() => {
-    if (hasLeadVocalOverride) {
-      return leadVocalistIds.filter((idValue) =>
-        templateMusicianIds.has(idValue),
-      );
-    }
-    return defaultLeadVocalistIds;
-  }, [
-    defaultLeadVocalistIds,
-    hasLeadVocalOverride,
-    leadVocalistIds,
-    templateMusicianIds,
-  ]);
+  const rawSelectedLeadVocalIds = useMemo(() => {
+    return leadVocalIds.filter((idValue) =>
+      templateMusicianIds.has(idValue),
+    );
+  }, [leadVocalIds, templateMusicianIds]);
   const lineupVocalCandidates = useMemo(
     () =>
       resolveLineupVocalCandidates({
         lineupMusicians: selectedTemplateMusicians,
         lineupMembers: templateMusicians,
+        presetCatalog,
       }),
-    [selectedTemplateMusicians, templateMusicians],
-  );
-  const defaultBackVocalIds = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          extractOverlayMusicianIds(setupData?.defaultOverlays?.backVocals),
-        ),
-      )
-        .concat(setupData?.defaultVocals?.back ?? [])
-        .filter((idValue, index, arr) => arr.indexOf(idValue) === index)
-        .concat(
-          Array.from(
-            setupData?.defaultOverlays?.backVocals ||
-              setupData?.defaultVocals?.back
-              ? []
-              : getBackVocsFromTemplate(selectedTemplateMusicians),
-          ),
-        )
-        .filter((idValue) => templateMusicianIds.has(idValue)),
-    [
-      selectedTemplateMusicians,
-      setupData?.defaultOverlays?.backVocals,
-      setupData?.defaultVocals?.back,
-      templateMusicianIds,
-    ],
+    [presetCatalog, selectedTemplateMusicians, templateMusicians],
   );
   const rawSelectedBackVocalIds = useMemo(() => {
-    if (hasBackVocalOverride) {
-      return backVocalIds.filter((idValue) => templateMusicianIds.has(idValue));
-    }
-    return defaultBackVocalIds;
-  }, [
-    backVocalIds,
-    defaultBackVocalIds,
-    hasBackVocalOverride,
-    templateMusicianIds,
-  ]);
+    return backVocalIds.filter((idValue) => templateMusicianIds.has(idValue));
+  }, [backVocalIds, templateMusicianIds]);
   const lineupVocalCandidateIdSet = useMemo(
     () => new Set(lineupVocalCandidates.map((candidate) => candidate.id)),
     [lineupVocalCandidates],
   );
-  const { leadIds: selectedLeadVocalistIds, backIds: selectedBackVocalIds } =
+  const { leadIds: selectedLeadVocalIds, backIds: selectedBackVocalIds } =
     useMemo(
       () =>
         enforceVocalSelectionInvariant({
           lineupCandidateIds: lineupVocalCandidateIdSet,
-          leadIds: rawSelectedLeadVocalistIds,
+          leadIds: rawSelectedLeadVocalIds,
           backIds: rawSelectedBackVocalIds,
         }),
       [
         lineupVocalCandidateIdSet,
         rawSelectedBackVocalIds,
-        rawSelectedLeadVocalistIds,
+        rawSelectedLeadVocalIds,
       ],
     );
   const leadVocalCandidateSections = useMemo(
@@ -994,21 +850,21 @@ export function ProjectSetupPage({
           musicianId: candidate.id,
           displayName: candidate.name,
           primaryGroup: candidate.primaryGroup,
-          hasLeadVocalPreset: candidate.hasLeadVocalPreset,
+          section: candidate.sectionByRole.lead,
+          reason: candidate.reasonByRole.lead,
         })),
-        selectedLeadVocalistIds,
-        suggestedLeadVocalistIds: defaultLeadVocalistIds,
+        selectedLeadVocalistIds: selectedLeadVocalIds,
       }),
-    [defaultLeadVocalistIds, lineupVocalCandidates, selectedLeadVocalistIds],
+    [lineupVocalCandidates, selectedLeadVocalIds],
   );
   const leadVocalMembers = useMemo(() => {
     const membersById = new Map(
       templateMusicians.map((item) => [item.id, item]),
     );
-    return selectedLeadVocalistIds
+    return selectedLeadVocalIds
       .map((idValue) => membersById.get(idValue))
       .filter((item): item is MemberOption => Boolean(item));
-  }, [selectedLeadVocalistIds, templateMusicians]);
+  }, [selectedLeadVocalIds, templateMusicians]);
   const backVocalMembers = useMemo(() => {
     const membersById = new Map(
       templateMusicians.map((item) => [item.id, item]),
@@ -1017,24 +873,36 @@ export function ProjectSetupPage({
       .map((idValue) => membersById.get(idValue))
       .filter((item): item is MemberOption => Boolean(item));
   }, [selectedBackVocalIds, templateMusicians]);
-  const hasSelectedBackVocs = selectedBackVocalIds.length > 0;
-  const isBackVocsSetupDisabled = !hasSelectedBackVocs;
+  const isBackVocsSetupDisabled = true;
 
-  const backVocalCandidates = useMemo(() => {
-    const selectedLeadIds = new Set(selectedLeadVocalistIds);
-    return lineupVocalCandidates.map((candidate) => {
+  const backVocalCandidateSections = useMemo(() => {
+    const selectedLeadIds = new Set(selectedLeadVocalIds);
+    const candidates = lineupVocalCandidates.map((candidate) => {
       const isDisabled = selectedLeadIds.has(candidate.id);
       return {
         id: candidate.id,
         name: candidate.name,
         primaryGroup: candidate.primaryGroup,
+        reason: candidate.reasonByRole.back,
         isDisabled,
         disabledReason: isDisabled
           ? "Already selected as Lead Vocal"
           : undefined,
       };
     });
-  }, [lineupVocalCandidates, selectedLeadVocalistIds]);
+    return {
+      suggested: candidates.filter(
+        (candidate) =>
+          lineupVocalCandidates.find((item) => item.id === candidate.id)
+            ?.sectionByRole.back === "suggested",
+      ),
+      additional: candidates.filter(
+        (candidate) =>
+          lineupVocalCandidates.find((item) => item.id === candidate.id)
+            ?.sectionByRole.back === "additional",
+      ),
+    };
+  }, [lineupVocalCandidates, selectedLeadVocalIds]);
 
   const serializedLineup = useMemo(() => {
     if (!setupData) return {} as LineupMap;
@@ -1044,47 +912,15 @@ export function ProjectSetupPage({
     if (!setupData) return [] as string[];
     const defaultLineup = { ...(setupData.defaultLineup ?? {}) };
     const selectedIds = getUniqueSelectedMusicians(defaultLineup, ROLE_ORDER);
-    const roleByMusicianId = new Map<string, Group>();
-    ROLE_ORDER.forEach((role) => {
-      const roleSlotLimit = getRoleSlotLimit(role);
-      normalizeLineupSlots(defaultLineup[role], roleSlotLimit).forEach(
-        (slot) => {
-          roleByMusicianId.set(slot.musicianId, role as Group);
-        },
-      );
-    });
-    const musicians = selectedIds.map((musicianId) => ({
-      id: musicianId,
-      firstName: "",
-      lastName: "",
-      group: roleByMusicianId.get(musicianId) ?? "vocs",
-      presets: (setupData.musicianPresetsById?.[musicianId] ??
-        []) as PresetItem[],
-    }));
-    const leadOverlayIds = extractOverlayMusicianIds(
-      setupData.defaultOverlays?.leadVocals,
+    const leadIds = new Set(
+      extractOverlayMusicianIds(setupData.defaultOverlays?.leadVocals),
     );
-    const leadIds =
-      leadOverlayIds.length > 0
-        ? new Set(leadOverlayIds)
-        : Array.isArray(setupData.defaultVocals?.lead)
-          ? new Set(setupData.defaultVocals.lead)
-          : getLeadVocsFromTemplate(musicians);
     return Array.from(
       sanitizeBackVocsSelection(
-        (() => {
-          const backOverlayIds = extractOverlayMusicianIds(
-            setupData.defaultOverlays?.backVocals,
-          );
-          if (backOverlayIds.length > 0) return new Set(backOverlayIds);
-          if (Array.isArray(setupData.defaultVocals?.back)) {
-            return new Set(setupData.defaultVocals.back);
-          }
-          return getBackVocsFromTemplate(musicians);
-        })(),
+        new Set(extractOverlayMusicianIds(setupData.defaultOverlays?.backVocals)),
         leadIds,
       ),
-    );
+    ).filter((idValue) => selectedIds.includes(idValue));
   }, [setupData]);
 
   const currentSnapshot = JSON.stringify({
@@ -1092,7 +928,7 @@ export function ProjectSetupPage({
     bandLeaderId,
     talkbackOwnerId: talkbackCurrentOwnerId,
     hasTalkbackOverride,
-    leadVocalistIds: [...selectedLeadVocalistIds],
+    leadVocalIds: [...selectedLeadVocalIds],
     hasLeadVocalOverride,
     backVocalIds: [...selectedBackVocalIds],
     hasBackVocalOverride,
@@ -1107,13 +943,13 @@ export function ProjectSetupPage({
       ...defaults,
       lineup: serializeLineupForProject(defaults.lineup, ROLE_ORDER),
       backVocalIds: defaultSelectedBackVocalIds,
-      leadVocalistIds: defaultLeadVocalistIds,
-      hasLeadVocalOverride: false,
-      hasBackVocalOverride: false,
+      leadVocalIds: defaultLeadVocalIds,
+      hasLeadVocalOverride: true,
+      hasBackVocalOverride: true,
       hasTalkbackOverride: false,
     });
   }, [
-    defaultLeadVocalistIds,
+    defaultLeadVocalIds,
     defaultSelectedBackVocalIds,
     setupData,
     buildSetupSnapshot,
@@ -1123,7 +959,7 @@ export function ProjectSetupPage({
       lineup: serializedLineup,
       bandLeaderId,
       talkbackOwnerId: talkbackCurrentOwnerId,
-      leadVocalistIds: selectedLeadVocalistIds,
+      leadVocalIds: selectedLeadVocalIds,
       hasLeadVocalOverride,
       backVocalIds: selectedBackVocalIds,
       hasBackVocalOverride,
@@ -1134,7 +970,7 @@ export function ProjectSetupPage({
       hasLeadVocalOverride,
       hasBackVocalOverride,
       hasTalkbackOverride,
-      selectedLeadVocalistIds,
+      selectedLeadVocalIds,
       selectedBackVocalIds,
       serializedLineup,
       talkbackCurrentOwnerId,
@@ -1149,7 +985,7 @@ export function ProjectSetupPage({
             lineup: {},
             bandLeaderId: "",
             talkbackOwnerId: "",
-            leadVocalistIds: [],
+            leadVocalIds: [],
             hasLeadVocalOverride: false,
             backVocalIds: [],
             hasBackVocalOverride: false,
@@ -1175,7 +1011,7 @@ export function ProjectSetupPage({
             bandLeaderId,
             talkbackOwnerId: talkbackCurrentOwnerId,
             hasTalkbackOverride,
-            leadVocalistIds: [...selectedLeadVocalistIds],
+            leadVocalIds: [...selectedLeadVocalIds],
             hasLeadVocalOverride,
             backVocalIds: [...selectedBackVocalIds],
             hasBackVocalOverride,
@@ -1189,7 +1025,7 @@ export function ProjectSetupPage({
       lineup,
       project,
       selectedBackVocalIds,
-      selectedLeadVocalistIds,
+      selectedLeadVocalIds,
       talkbackCurrentOwnerId,
     ],
   );
@@ -1206,7 +1042,7 @@ export function ProjectSetupPage({
       lineup: serializeLineupForProject(payload.lineup ?? {}, ROLE_ORDER),
       bandLeaderId: payload.bandLeaderId ?? "",
       talkbackOwnerId: payload.talkbackOwnerId ?? "",
-      leadVocalistIds: [...selectedLeadVocalistIds],
+      leadVocalIds: [...selectedLeadVocalIds],
       hasLeadVocalOverride,
       hasTalkbackOverride,
       backVocalIds: [...selectedBackVocalIds],
@@ -1388,52 +1224,6 @@ export function ProjectSetupPage({
       };
     },
     [resolveMusicianDefaultPreset],
-  );
-
-  const backVocalMembersSorted = backVocalMembers;
-  const backVocsSetupItems = useMemo(
-    () =>
-      backVocalMembersSorted.map((member) => {
-        const defaultPreset = resolveSlotSetup("vocs", member.id).resolved
-          .defaultPreset;
-        const slots = normalizeLineupSlots(lineup.back_vocs, 8);
-        const existing = slots.find(
-          (slot) => slot.musicianId === member.id,
-        )?.presetOverride;
-        const draft = backVocsSetupDraft[member.id];
-        const patch = normalizeSetupOverridePatch(
-          defaultPreset,
-          Object.prototype.hasOwnProperty.call(backVocsSetupDraft, member.id)
-            ? draft
-            : existing,
-        );
-        const { resolved, effective } = resolveSlotSetup(
-          "vocs",
-          member.id,
-          patch,
-        );
-        const resolvedMicByNote = (() => {
-          const note = effective.inputs.find((input) =>
-            input.key.startsWith("voc_"),
-          )?.note;
-          if (!note) return "vocal_no_mic";
-          const normalizedNote = note.toLowerCase();
-          if (normalizedNote.includes("wireless")) return "vocal_wireless";
-          if (normalizedNote.includes("wired")) return "vocal_wired";
-          return "vocal_no_mic";
-        })();
-        const value = resolvedMicByNote;
-        const isModified = resolved.diffMeta.inputs.some((item) =>
-          isDiffOriginOverridden(item.origin),
-        );
-        return { musicianId: member.id, name: member.name, value, isModified };
-      }),
-    [
-      backVocalMembersSorted,
-      backVocsSetupDraft,
-      lineup.back_vocs,
-      resolveSlotSetup,
-    ],
   );
 
   const effectiveSlotPresets = useMemo(() => {
@@ -1655,10 +1445,6 @@ export function ProjectSetupPage({
   const backVocsModalRef = useModalBehavior(Boolean(isBackVocsModalOpen), () =>
     setIsBackVocsModalOpen(false),
   );
-  const backVocsSetupModalRef = useModalBehavior(
-    Boolean(isBackVocsSetupOpen),
-    () => setIsBackVocsSetupOpen(false),
-  );
   const setupEditorRef = useModalBehavior(Boolean(editingSetup), () => {
     setEditingSetup(null);
     setSetupDraftBySlot({});
@@ -1838,7 +1624,7 @@ export function ProjectSetupPage({
           setupDisabled={leadVocalMembers.length === 0}
           onChange={() => setIsLeadVocsModalOpen(true)}
           onSetup={() => {
-            if (!setupData || selectedLeadVocalistIds.length === 0) return;
+            if (!setupData || selectedLeadVocalIds.length === 0) return;
             const draftEntries: Record<
               string,
               PresetOverridePatch | undefined
@@ -1858,7 +1644,7 @@ export function ProjectSetupPage({
                   );
               });
             });
-            const selectedLeadId = selectedLeadVocalistIds[0];
+            const selectedLeadId = selectedLeadVocalIds[0];
             let selectedSlotKey = "";
             let selectedRole = "vocs";
             let selectedIndex = 0;
@@ -1891,7 +1677,7 @@ export function ProjectSetupPage({
           changeDisabled={selectedOptions.length === 0}
           setupDisabled={isBackVocsSetupDisabled}
           onChange={() => setIsBackVocsModalOpen(true)}
-          onSetup={() => setIsBackVocsSetupOpen(true)}
+          onSetup={() => undefined}
         />
         <p className="subtle">
           Select the on-site band lead for coordination and decisions.
@@ -2060,10 +1846,10 @@ export function ProjectSetupPage({
               onClick={() => {
                 if (!setupData) return;
                 applyState({ ...(setupData.defaultLineup ?? {}) }, setupData);
-                setLeadVocalistIds([]);
-                setHasLeadVocalOverride(false);
-                setBackVocalIds([]);
-                setHasBackVocalOverride(false);
+                setLeadVocalIds(defaultLeadVocalIds);
+                setHasLeadVocalOverride(true);
+                setBackVocalIds(defaultSelectedBackVocalIds);
+                setHasBackVocalOverride(true);
                 setTalkbackOwnerId("");
                 setHasTalkbackOverride(false);
                 setShowResetConfirmation(false);
@@ -2611,7 +2397,7 @@ export function ProjectSetupPage({
             otherCandidates={
               leadVocalCandidateSections.otherLeadVocalCandidates
             }
-            initialSelectedIds={selectedLeadVocalistIds}
+            initialSelectedIds={selectedLeadVocalIds}
             disabledSelectedIds={selectedBackVocalIds}
             onCancel={() => setIsLeadVocsModalOpen(false)}
             onSave={(nextSelectedIds) => {
@@ -2620,7 +2406,7 @@ export function ProjectSetupPage({
                 leadIds: nextSelectedIds,
                 backIds: selectedBackVocalIds,
               });
-              setLeadVocalistIds(normalizedSelection.leadIds);
+              setLeadVocalIds(normalizedSelection.leadIds);
               setBackVocalIds(normalizedSelection.backIds);
               setHasLeadVocalOverride(true);
               setHasBackVocalOverride(true);
@@ -2637,93 +2423,21 @@ export function ProjectSetupPage({
         <div ref={backVocsModalRef}>
           <ChangeBackVocsModal
             open={isBackVocsModalOpen}
-            members={backVocalCandidates}
+            suggestedCandidates={backVocalCandidateSections.suggested}
+            additionalCandidates={backVocalCandidateSections.additional}
             initialSelectedIds={selectedBackVocalIds}
             onCancel={() => setIsBackVocsModalOpen(false)}
             onSave={(nextSelectedIds) => {
               const normalizedSelection = enforceVocalSelectionInvariant({
                 lineupCandidateIds: lineupVocalCandidateIdSet,
-                leadIds: selectedLeadVocalistIds,
+                leadIds: selectedLeadVocalIds,
                 backIds: nextSelectedIds,
               });
-              setLeadVocalistIds(normalizedSelection.leadIds);
+              setLeadVocalIds(normalizedSelection.leadIds);
               setBackVocalIds(normalizedSelection.backIds);
               setHasLeadVocalOverride(true);
               setHasBackVocalOverride(true);
               setIsBackVocsModalOpen(false);
-            }}
-          />
-        </div>
-      </ModalOverlay>
-
-      <ModalOverlay
-        open={isBackVocsSetupOpen}
-        onClose={() => setIsBackVocsSetupOpen(false)}
-      >
-        <div
-          className="selector-dialog selector-dialog--setup-editor"
-          role="dialog"
-          aria-modal="true"
-          ref={backVocsSetupModalRef}
-        >
-          <BackVocsSetupModal
-            open={isBackVocsSetupOpen}
-            items={backVocsSetupItems}
-            onBack={() => setIsBackVocsSetupOpen(false)}
-            onReset={() => {
-              const next = Object.fromEntries(
-                backVocsSetupItems.map((item) => [item.musicianId, undefined]),
-              );
-              setBackVocsSetupDraft(next);
-            }}
-            onSave={() => {
-              const current = normalizeLineupSlots(lineup.back_vocs, 8);
-              const nextById = new Map(
-                current.map((slot) => [slot.musicianId, slot]),
-              );
-              for (const item of backVocsSetupItems) {
-                const override = Object.prototype.hasOwnProperty.call(
-                  backVocsSetupDraft,
-                  item.musicianId,
-                )
-                  ? backVocsSetupDraft[item.musicianId]
-                  : nextById.get(item.musicianId)?.presetOverride;
-                const normalizedOverride = normalizeSetupOverridePatch(
-                  resolveSlotSetup("vocs", item.musicianId).resolved
-                    .defaultPreset,
-                  override,
-                );
-                nextById.set(item.musicianId, {
-                  musicianId: item.musicianId,
-                  ...(normalizedOverride
-                    ? { presetOverride: normalizedOverride }
-                    : {}),
-                });
-              }
-              setLineup((prev) => ({
-                ...prev,
-                back_vocs: Array.from(nextById.values()),
-              }));
-              setIsBackVocsSetupOpen(false);
-            }}
-            onChange={(musicianId, presetId) => {
-              const targetPreset = backVocalPresetRefs.find(
-                (item) => item.id === presetId,
-              );
-              if (!targetPreset) return;
-              const nextPatch = withInputsTarget(
-                resolveSlotSetup("vocs", musicianId).resolved.defaultPreset
-                  .inputs,
-                backVocsSetupDraft[musicianId],
-                targetPreset.inputs as InputChannel[],
-              );
-              setBackVocsSetupDraft((prev) => ({
-                ...prev,
-                [musicianId]: normalizeSetupOverridePatch(
-                  resolveSlotSetup("vocs", musicianId).resolved.defaultPreset,
-                  nextPatch,
-                ),
-              }));
             }}
           />
         </div>

@@ -8,10 +8,10 @@ import {
 
 describe("isLineupSetupDirty", () => {
   const baseline = {
-    lineup: { drums: "drummer-1", vocs: "lead-1", back_vocs: ["back-1"] },
+    lineup: { drums: "drummer-1", vocs: "lead-1" },
     bandLeaderId: "drummer-1",
     talkbackOwnerId: "drummer-1",
-    leadVocalistIds: ["lead-1"],
+    leadVocalIds: ["lead-1"],
     backVocalIds: ["back-1"],
   };
 
@@ -77,7 +77,6 @@ describe("isLineupSetupDirty", () => {
       ...baseline,
       lineup: {
         vocs: "lead-1",
-        back_vocs: ["back-1"],
         drums: "drummer-1",
       },
     };

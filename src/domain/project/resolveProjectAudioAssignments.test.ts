@@ -6,7 +6,7 @@ import {
 } from "./resolveProjectAudioAssignments.js";
 
 describe("resolveCanonicalOverlayAssignments", () => {
-  it("returns only lineup-member canonical overlay slots", () => {
+  it("returns only lineup-member canonical overlay ids", () => {
     const project: Project = {
       id: "p-1",
       bandRef: "band-1",
@@ -14,13 +14,11 @@ describe("resolveCanonicalOverlayAssignments", () => {
       documentDate: "2026-01-01",
       lineup: { vocs: ["voc-1"], guitar: ["gtr-1"] },
       overlays: {
-        leadVocals: [{ slot: 1, musicianId: "voc-1" }, { slot: 2, musicianId: "ghost" }],
+        leadVocals: ["voc-1", "ghost"],
       },
     };
 
-    expect(resolveCanonicalOverlayAssignments({ project, role: "leadVocals" })).toEqual([
-      { slot: 1, musicianId: "voc-1" },
-    ]);
+    expect(resolveCanonicalOverlayAssignments({ project, role: "leadVocals" })).toEqual(["voc-1"]);
   });
 });
 

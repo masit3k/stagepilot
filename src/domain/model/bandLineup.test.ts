@@ -21,8 +21,8 @@ function createBand(overrides?: Partial<Band>): Band {
       vocs: ["v-1"],
     },
     defaultOverlays: {
-      leadVocals: [{ slot: 1, musicianId: "v-1" }],
-      backVocals: [{ slot: 1, musicianId: "k-1" }],
+      leadVocals: ["v-1"],
+      backVocals: ["k-1"],
     },
     ...overrides,
   };
@@ -45,7 +45,7 @@ describe("band lineup canonical model", () => {
   it("fails when vocalist assignment points outside lineup", () => {
     const invalid = createBand({
       defaultOverlays: {
-        leadVocals: [{ slot: 1, musicianId: "missing-id" }],
+        leadVocals: ["missing-id"],
         backVocals: [],
       },
     });
@@ -61,7 +61,7 @@ describe("band lineup canonical model", () => {
         bass: ["shared-id"],
       },
       defaultOverlays: {
-        leadVocals: [{ slot: 1, musicianId: "shared-id" }],
+        leadVocals: ["shared-id"],
         backVocals: [],
       },
     });
@@ -73,8 +73,8 @@ describe("band lineup canonical model", () => {
   it("fails when one musician appears in both lead and back vocals", () => {
     const invalid = createBand({
       defaultOverlays: {
-        leadVocals: [{ slot: 1, musicianId: "v-1" }],
-        backVocals: [{ slot: 1, musicianId: "v-1" }],
+        leadVocals: ["v-1"],
+        backVocals: ["v-1"],
       },
     });
     expect(() => validateCanonicalBandModel(invalid)).toThrow(
@@ -82,23 +82,22 @@ describe("band lineup canonical model", () => {
     );
   });
 
-  it("normalizes legacy string overlay arrays and talkback fallback", () => {
+  it("normalizes canonical overlay arrays and talkback fallback", () => {
     const normalized = normalizeBandToCanonicalShape(
       createBand({
         bandLeader: "",
         bandLeaderId: "dr-1",
         defaultTalkbackOwnerId: undefined,
-        defaultOverlays: undefined,
-        defaultVocals: {
-          lead: ["v-1"],
-          back: ["k-1"],
+        defaultOverlays: {
+          leadVocals: ["v-1"],
+          backVocals: ["k-1"],
         },
       }),
     );
 
     expect(normalized.defaultOverlays).toEqual({
-      leadVocals: [{ slot: 1, musicianId: "v-1" }],
-      backVocals: [{ slot: 1, musicianId: "k-1" }],
+      leadVocals: ["v-1"],
+      backVocals: ["k-1"],
     });
     expect(normalized.bandLeader).toBe("dr-1");
     expect(normalized.defaultTalkbackOwnerId).toBe("dr-1");

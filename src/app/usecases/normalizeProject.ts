@@ -1,7 +1,6 @@
 import { isGroup } from "../../domain/model/groups.js";
 import type {
   LineupSlot,
-  OverlaySlot,
   Project,
   ProjectJson,
   ProjectLineup,
@@ -54,35 +53,21 @@ function normalizeLineupSlots(value: unknown): LineupSlot[] {
   return slots.sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0));
 }
 
-function normalizeOverlaySlots(value: unknown): OverlaySlot[] {
+function normalizeOverlayIds(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
-  const slots: OverlaySlot[] = [];
+  const ids: string[] = [];
   for (const entry of value) {
-    if (!entry || typeof entry !== "object") continue;
-    const raw = entry as { slot?: unknown; musicianId?: unknown };
-    if (
-      typeof raw.musicianId !== "string" ||
-      raw.musicianId.trim().length === 0
-    )
-      continue;
-    const slotNumber =
-      typeof raw.slot === "number" && Number.isFinite(raw.slot) && raw.slot > 0
-        ? Math.floor(raw.slot)
-        : slots.length + 1;
-    slots.push({ slot: slotNumber, musicianId: raw.musicianId.trim() });
+    if (typeof entry !== "string" || entry.trim().length === 0) continue;
+    ids.push(entry.trim());
   }
-  return slots.sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0));
+  return ids;
 }
 
-function dedupeOverlaySlots(slots: OverlaySlot[]): OverlaySlot[] {
-  const seenSlots = new Set<number>();
+function dedupeOverlayIds(ids: string[]): string[] {
   const seenMusicians = new Set<string>();
-  return slots.filter((slot) => {
-    if (slot.slot === undefined) return false;
-    if (seenSlots.has(slot.slot) || seenMusicians.has(slot.musicianId))
-      return false;
-    seenSlots.add(slot.slot);
-    seenMusicians.add(slot.musicianId);
+  return ids.filter((musicianId) => {
+    if (seenMusicians.has(musicianId)) return false;
+    seenMusicians.add(musicianId);
     return true;
   });
 }
@@ -122,17 +107,11 @@ function normalizeCanonicalOverlays(
       Array.isArray(slots) ? slots.map((slot) => slot.musicianId) : [],
     ),
   );
-  const leadVocals = dedupeOverlaySlots(
-    normalizeOverlaySlots(raw.leadVocals),
-  ).filter(
-    (slot) =>
-      lineupMemberIds.size === 0 || lineupMemberIds.has(slot.musicianId),
+  const leadVocals = dedupeOverlayIds(normalizeOverlayIds(raw.leadVocals)).filter(
+    (musicianId) => lineupMemberIds.size === 0 || lineupMemberIds.has(musicianId),
   );
-  const backVocals = dedupeOverlaySlots(
-    normalizeOverlaySlots(raw.backVocals),
-  ).filter(
-    (slot) =>
-      lineupMemberIds.size === 0 || lineupMemberIds.has(slot.musicianId),
+  const backVocals = dedupeOverlayIds(normalizeOverlayIds(raw.backVocals)).filter(
+    (musicianId) => lineupMemberIds.size === 0 || lineupMemberIds.has(musicianId),
   );
 
   const talkback = (() => {

@@ -9,7 +9,7 @@ describe("resolveEffectiveProjectSetup", () => {
       name: "Band",
       bandLeader: "bass-1",
       defaultLineup: { bass: ["bass-1"] },
-      defaultVocals: { lead: [], back: [] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
     };
     const musician: Musician = {
       id: "bass-1",
@@ -67,7 +67,7 @@ describe("resolveEffectiveProjectSetup", () => {
       name: "Band",
       bandLeader: "dr-1",
       defaultLineup: { drums: ["dr-1"] },
-      defaultVocals: { lead: [], back: [] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
     };
     const drummer: Musician = {
       id: "dr-1",

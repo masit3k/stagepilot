@@ -6,13 +6,15 @@ export type BackVocalCandidate = {
   id: string;
   name: string;
   primaryGroup: Group;
+  reason?: string;
   isDisabled: boolean;
   disabledReason?: string;
 };
 
 type ChangeBackVocsModalProps = {
   open: boolean;
-  members: BackVocalCandidate[];
+  suggestedCandidates: BackVocalCandidate[];
+  additionalCandidates: BackVocalCandidate[];
   initialSelectedIds: string[];
   saveDisabled?: boolean;
   onCancel: () => void;
@@ -24,7 +26,8 @@ const VOCAL_EXCLUSION_NOTE =
 
 export function ChangeBackVocsModal({
   open,
-  members,
+  suggestedCandidates,
+  additionalCandidates,
   initialSelectedIds,
   saveDisabled = false,
   onCancel,
@@ -32,6 +35,10 @@ export function ChangeBackVocsModal({
 }: ChangeBackVocsModalProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>(initialSelectedIds);
   const wasOpenRef = useRef(false);
+  const members = useMemo(
+    () => [...suggestedCandidates, ...additionalCandidates],
+    [additionalCandidates, suggestedCandidates],
+  );
   const hasCandidates = members.length > 0;
   const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
@@ -84,19 +91,45 @@ export function ChangeBackVocsModal({
             No eligible vocalists available.
           </p>
         ) : (
-          members.map((member) => (
-            <VocalCandidateOptionRow
-              key={member.id}
-              id={member.id}
-              inputIdPrefix="back-vocs"
-              displayName={member.name}
-              primaryGroup={member.primaryGroup}
-              selected={selectedIdSet.has(member.id)}
-              disabled={member.isDisabled}
-              onToggle={toggleSelection}
-              trailingNote={member.isDisabled ? member.disabledReason : undefined}
-            />
-          ))
+          <>
+            <h4 className="subtle">Suggested</h4>
+            {suggestedCandidates.length === 0 ? (
+              <p className="status status--empty">No suggested back vocalists.</p>
+            ) : (
+              suggestedCandidates.map((member) => (
+                <VocalCandidateOptionRow
+                  key={member.id}
+                  id={member.id}
+                  inputIdPrefix="back-vocs"
+                  displayName={member.name}
+                  primaryGroup={member.primaryGroup}
+                  selected={selectedIdSet.has(member.id)}
+                  disabled={member.isDisabled}
+                  onToggle={toggleSelection}
+                  trailingNote={member.isDisabled ? member.disabledReason : "Vocal capability"}
+                />
+              ))
+            )}
+            <div className="selector-dialog__divider section-divider" />
+            <h4 className="subtle">Additional</h4>
+            {additionalCandidates.length === 0 ? (
+              <p className="status status--empty">No additional lineup members.</p>
+            ) : (
+              additionalCandidates.map((member) => (
+                <VocalCandidateOptionRow
+                  key={member.id}
+                  id={member.id}
+                  inputIdPrefix="back-vocs"
+                  displayName={member.name}
+                  primaryGroup={member.primaryGroup}
+                  selected={selectedIdSet.has(member.id)}
+                  disabled={member.isDisabled}
+                  onToggle={toggleSelection}
+                  trailingNote={member.isDisabled ? member.disabledReason : undefined}
+                />
+              ))
+            )}
+          </>
         )}
       </div>
       <div className="modal-actions">

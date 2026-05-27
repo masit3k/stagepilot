@@ -6,7 +6,6 @@
     "pdf": "npm run cli -- --pdf",
     "pdf:dev": "npm run cli:dev -- --pdf",
     "smoke:versions": "node --enable-source-maps --import tsx scripts/smoke_versions.ts",
-    "audit:user-vocals": "node --enable-source-maps --import tsx scripts/audit/auditUserDataVocals.ts",
     "tauri": "npm --prefix packages/desktop run tauri",
     "tauri:dev": "npm run tauri -- dev",
     "tauri:build": "npm run tauri -- build",
@@ -15,8 +14,7 @@
     "format": "biome format --write .",
     "dev": "npm --prefix packages/desktop run dev",
     "build:desktop": "npm --prefix packages/desktop run build",
-    "smoke:pdf-preview": "node --enable-source-maps --import tsx scripts/smoke_pdf_preview.ts",
-    "migrate:band-default-lineup-vocs": "node --enable-source-maps --import tsx scripts/migrate/migrateBandDefaultLineupVocs.ts"
+    "smoke:pdf-preview": "node --enable-source-maps --import tsx scripts/smoke_pdf_preview.ts"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.10.0",

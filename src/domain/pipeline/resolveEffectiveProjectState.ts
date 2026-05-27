@@ -131,12 +131,12 @@ export function resolveEffectiveProjectState(args: {
       project: args.project,
       role: "leadVocals",
       activeMusicianIds: selectedMusicianIds,
-    }).map((entry) => entry.musicianId),
+    }),
     backVocals: resolveCanonicalOverlayAssignments({
       project: args.project,
       role: "backVocals",
       activeMusicianIds: selectedMusicianIds,
-    }).map((entry) => entry.musicianId),
+    }),
   };
 
   const talkback = resolveProjectTalkbackState({

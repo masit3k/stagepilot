@@ -1,11 +1,6 @@
 import { normalizeLineupAssignments } from "../lineup/lineupAssignments.js";
 import { GROUP_ORDER, type Group } from "./groups.js";
-import type {
-  Band,
-  DefaultLineup,
-  DefaultOverlays,
-  OverlaySlot,
-} from "./types.js";
+import type { Band, DefaultLineup, DefaultOverlays } from "./types.js";
 
 export function getLineupGroupMemberIds(
   lineup: DefaultLineup,
@@ -77,33 +72,13 @@ export function validateDefaultLineup(lineup: DefaultLineup): void {
   }
 }
 
-function normalizeOverlaySlots(value: unknown, path: string): OverlaySlot[] {
+function normalizeOverlayIds(value: unknown, path: string): string[] {
   if (!Array.isArray(value)) throw new Error(`${path} must be an array.`);
   return value.map((entry, index) => {
-    if (typeof entry === "string") {
-      const musicianId = entry.trim();
-      if (!musicianId)
-        throw new Error(
-          `${path}[${index}] must be a non-empty musician id string.`,
-        );
-      return { slot: index + 1, musicianId };
+    if (typeof entry !== "string" || entry.trim().length === 0) {
+      throw new Error(`${path}[${index}] must be a non-empty musician id string.`);
     }
-    if (!entry || typeof entry !== "object") {
-      throw new Error(
-        `${path}[${index}] must be a slot object or musician id string.`,
-      );
-    }
-    const slot = (entry as { slot?: unknown }).slot;
-    const musicianId = (entry as { musicianId?: unknown }).musicianId;
-    if (!Number.isInteger(slot) || Number(slot) <= 0) {
-      throw new Error(`${path}[${index}].slot must be a positive integer.`);
-    }
-    if (typeof musicianId !== "string" || musicianId.trim().length === 0) {
-      throw new Error(
-        `${path}[${index}].musicianId must be a non-empty musician id string.`,
-      );
-    }
-    return { slot: Number(slot), musicianId: musicianId.trim() };
+    return entry.trim();
   });
 }
 
@@ -112,17 +87,17 @@ export function validateDefaultVocals(args: {
   vocals: DefaultOverlays;
 }): void {
   const lineupIds = new Set(getAllLineupMemberIds(args.lineup));
-  const leadVocals = normalizeOverlaySlots(
-    args.vocals.leadVocals ?? args.vocals.lead ?? [],
+  const leadVocals = normalizeOverlayIds(
+    args.vocals.leadVocals ?? [],
     "defaultOverlays.leadVocals",
   );
-  const backVocals = normalizeOverlaySlots(
-    args.vocals.backVocals ?? args.vocals.back ?? [],
+  const backVocals = normalizeOverlayIds(
+    args.vocals.backVocals ?? [],
     "defaultOverlays.backVocals",
   );
 
   const leadSet = new Set<string>();
-  for (const { musicianId } of leadVocals) {
+  for (const musicianId of leadVocals) {
     if (leadSet.has(musicianId)) {
       throw new Error(
         `defaultOverlays.leadVocals contains duplicate musician '${musicianId}'.`,
@@ -137,7 +112,7 @@ export function validateDefaultVocals(args: {
   }
 
   const backSet = new Set<string>();
-  for (const { musicianId } of backVocals) {
+  for (const musicianId of backVocals) {
     if (backSet.has(musicianId)) {
       throw new Error(
         `defaultOverlays.backVocals contains duplicate musician '${musicianId}'.`,
@@ -159,15 +134,13 @@ export function validateDefaultVocals(args: {
 
 export function normalizeBandToCanonicalShape(band: Band): Band {
   const defaultLineup = normalizeLineupAssignments(band.defaultLineup ?? {});
-  const defaultOverlays = (band.defaultOverlays ??
-    band.defaultVocals ??
-    {}) as DefaultOverlays;
-  const leadVocals = normalizeOverlaySlots(
-    defaultOverlays.leadVocals ?? defaultOverlays.lead ?? [],
+  const defaultOverlays = (band.defaultOverlays ?? {}) as DefaultOverlays;
+  const leadVocals = normalizeOverlayIds(
+    defaultOverlays.leadVocals ?? [],
     "defaultOverlays.leadVocals",
   );
-  const backVocals = normalizeOverlaySlots(
-    defaultOverlays.backVocals ?? defaultOverlays.back ?? [],
+  const backVocals = normalizeOverlayIds(
+    defaultOverlays.backVocals ?? [],
     "defaultOverlays.backVocals",
   );
   const primaryBandLeader =
@@ -186,7 +159,7 @@ export function normalizeBandToCanonicalShape(band: Band): Band {
 }
 
 export function validateCanonicalBandModel(band: Band): void {
-  const defaultOverlays = band.defaultOverlays ?? band.defaultVocals;
+  const defaultOverlays = band.defaultOverlays;
   if (!defaultOverlays)
     throw new Error(
       "Band must define defaultOverlays with leadVocals/backVocals arrays.",

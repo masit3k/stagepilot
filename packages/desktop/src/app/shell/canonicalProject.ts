@@ -5,44 +5,13 @@ import {
 import { serializeLineupForProject } from "./lineupSerialize";
 import type { BandSetupData, NewProjectPayload } from "./types";
 
-type OverlaySlot = { slot: number; musicianId: string };
-
-function toOverlaySlots(ids: string[]) {
-  return ids.map((musicianId, index) => ({ slot: index + 1, musicianId }));
-}
-
-function normalizeOverlaySlots(
-  overlays: Array<string | OverlaySlot> | undefined | null,
-): OverlaySlot[] {
-  if (!Array.isArray(overlays)) return [];
-  const normalized: OverlaySlot[] = [];
-  overlays.forEach((entry, index) => {
-    if (typeof entry === "string") {
-      const musicianId = entry.trim();
-      if (!musicianId) return;
-      normalized.push({ slot: index + 1, musicianId });
-      return;
-    }
-    if (!entry || typeof entry !== "object") return;
-    const musicianId = entry.musicianId.trim();
-    if (!musicianId) return;
-    const numericSlot = Number(entry.slot);
-    normalized.push({
-      slot:
-        Number.isInteger(numericSlot) && numericSlot > 0
-          ? numericSlot
-          : index + 1,
-      musicianId,
-    });
-  });
-  return normalized;
-}
-
 function normalizeOverlayIds(
-  overlays: Array<string | OverlaySlot> | undefined | null,
+  overlays: string[] | undefined | null,
   selectedIds: Set<string>,
 ): string[] {
-  const ids = normalizeOverlaySlots(overlays).map((entry) => entry.musicianId);
+  const ids = Array.isArray(overlays)
+    ? overlays.map((entry) => entry.trim()).filter(Boolean)
+    : [];
   const seen = new Set<string>();
   return ids
     .filter((id) => id.length > 0 && selectedIds.has(id))
@@ -63,18 +32,16 @@ export function buildCanonicalOverlaysFromDefaults(args: {
     getUniqueSelectedMusicians(args.lineup, args.roleOrder),
   );
   const leadDefaults =
-    args.setupDefaults.defaultOverlays?.leadVocals ??
-    args.setupDefaults.defaultVocals?.lead;
+    args.setupDefaults.defaultOverlays?.leadVocals;
   const backDefaults =
-    args.setupDefaults.defaultOverlays?.backVocals ??
-    args.setupDefaults.defaultVocals?.back;
+    args.setupDefaults.defaultOverlays?.backVocals;
   const leadVocals = normalizeOverlayIds(leadDefaults, selectedIds);
   const backVocals = normalizeOverlayIds(backDefaults, selectedIds);
   const talkbackOwnerId = (args.talkbackOwnerId ?? "").trim();
 
   const overlays: NonNullable<NewProjectPayload["overlays"]> = {
-    leadVocals: toOverlaySlots(leadVocals),
-    backVocals: toOverlaySlots(backVocals),
+    leadVocals,
+    backVocals,
     ...(talkbackOwnerId
       ? {
           talkback: {
@@ -131,19 +98,15 @@ export function buildCanonicalProjectFromSetupState(args: {
   bandLeaderId: string;
   talkbackOwnerId: string;
   hasTalkbackOverride: boolean;
-  leadVocalistIds: string[];
+  leadVocalIds: string[];
   hasLeadVocalOverride: boolean;
   backVocalIds: string[];
   hasBackVocalOverride: boolean;
 }): NewProjectPayload {
   const normalizedTalkbackOwnerId = args.talkbackOwnerId.trim();
   const persistedOverlays: NonNullable<NewProjectPayload["overlays"]> = {
-    ...(args.hasLeadVocalOverride
-      ? { leadVocals: toOverlaySlots([...args.leadVocalistIds]) }
-      : {}),
-    ...(args.hasBackVocalOverride
-      ? { backVocals: toOverlaySlots([...args.backVocalIds]) }
-      : {}),
+    leadVocals: [...args.leadVocalIds],
+    backVocals: [...args.backVocalIds],
     ...(args.hasTalkbackOverride
       ? {
           talkback:
@@ -161,7 +124,5 @@ export function buildCanonicalProjectFromSetupState(args: {
     lineup: serializeLineupForProject(args.lineup, args.roleOrder),
     overlays,
     bandLeaderId: args.bandLeaderId || undefined,
-    leadVocalistIds: undefined,
-    backVocalIds: undefined,
   };
 }

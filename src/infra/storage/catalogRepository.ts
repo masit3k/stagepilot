@@ -86,6 +86,22 @@ async function loadMusiciansMap(absDir: string): Promise<Map<string, Musician>> 
   return map;
 }
 
+const KNOWN_PRESET_CAPABILITIES = new Set(["vocal", "lead_vocal", "back_vocal"]);
+
+function validatePresetEntity(preset: PresetEntity, file: string): void {
+  if (preset.type !== "preset" || !Array.isArray(preset.capabilities)) return;
+  const seen = new Set<string>();
+  for (const capability of preset.capabilities) {
+    if (!KNOWN_PRESET_CAPABILITIES.has(capability)) {
+      throw new Error(`Unknown preset capability '${capability}' in ${file}`);
+    }
+    if (seen.has(capability)) {
+      throw new Error(`Duplicate preset capability '${capability}' in ${file}`);
+    }
+    seen.add(capability);
+  }
+}
+
 async function loadBandsMap(absDir: string): Promise<Map<string, Band>> {
   const map = await loadMap<Band>(absDir);
   for (const [id, band] of map.entries()) {
@@ -110,6 +126,7 @@ async function loadMap<T>(absDir: string): Promise<Map<string, T>> {
     const id = obj.id;
     if (typeof id !== "string" || !id.trim()) throw new Error(`Missing or invalid id in: ${f}`);
     if (map.has(id)) throw new Error(`Duplicate id ${id} in ${absDir}`);
+    if (obj.type === "preset") validatePresetEntity(obj as unknown as PresetEntity, f);
     map.set(id, obj as T);
   }
   return map;

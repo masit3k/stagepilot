@@ -51,7 +51,7 @@ describe("buildDocument vocal overlay composition", () => {
         drums: ["drm-1"],
         vocs: ["voc-1"],
       },
-      defaultVocals: { lead: [], back: [] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
     };
 
     const musicians: Record<string, Musician> = {
@@ -109,8 +109,8 @@ describe("buildDocument vocal overlay composition", () => {
       documentDate: "2026-01-01",
       lineup: band.defaultLineup,
       overlays: {
-        leadVocals: [{ musicianId: "bass-1" }, { musicianId: "voc-1" }],
-        backVocals: [{ musicianId: "gtr-1" }, { musicianId: "voc-1" }],
+        leadVocals: ["bass-1", "voc-1"],
+        backVocals: ["gtr-1", "voc-1"],
         talkback: { mode: "assigned", ownerId: "bass-1" },
       },
     };
@@ -231,7 +231,7 @@ describe("buildDocument vocal overlay composition", () => {
         keys: ["keys-1"],
         vocs: ["voc-1", "voc-2"],
       },
-      defaultVocals: { lead: [], back: [] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
     };
 
     const musicians: Record<string, Musician> = {
@@ -313,12 +313,12 @@ describe("buildDocument vocal overlay composition", () => {
       lineup: band.defaultLineup,
       overlays: {
         leadVocals: [
-          { slot: 1, musicianId: "bass-1" },
-          { slot: 2, musicianId: "voc-1" },
-          { slot: 3, musicianId: "drm-1" },
-          { slot: 4, musicianId: "voc-2" },
+          "bass-1",
+          "voc-1",
+          "drm-1",
+          "voc-2",
         ],
-        backVocals: [{ slot: 1, musicianId: "gtr-1" }],
+        backVocals: ["gtr-1"],
       },
     };
 
@@ -453,7 +453,7 @@ describe("buildDocument vocal overlay composition", () => {
         drums: ["drm-1"],
         vocs: ["voc-m", "voc-f"],
       },
-      defaultVocals: { lead: [], back: [] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
     };
 
     const musicians: Record<string, Musician> = {
@@ -535,12 +535,12 @@ describe("buildDocument vocal overlay composition", () => {
       lineup: band.defaultLineup,
       overlays: {
         leadVocals: [
-          { slot: 1, musicianId: "voc-m" },
-          { slot: 2, musicianId: "voc-f" },
-          { slot: 3, musicianId: "bass-1" },
-          { slot: 4, musicianId: "drm-1" },
+          "voc-m",
+          "voc-f",
+          "bass-1",
+          "drm-1",
         ],
-        backVocals: [{ slot: 1, musicianId: "gtr-1" }],
+        backVocals: ["gtr-1"],
         talkback: { mode: "assigned", ownerId: "bass-1" },
       },
     };
@@ -687,7 +687,7 @@ describe("buildDocument vocal overlay composition", () => {
         drums: ["drm-1"],
         vocs: ["voc-1", "voc-2"],
       },
-      defaultVocals: { lead: [], back: [] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
     };
 
     const musicians: Record<string, Musician> = {
@@ -756,8 +756,8 @@ describe("buildDocument vocal overlay composition", () => {
       lineup: band.defaultLineup,
       overlays: {
         leadVocals: [
-          { slot: 1, musicianId: "voc-2" },
-          { slot: 2, musicianId: "voc-1" },
+          "voc-2",
+          "voc-1",
         ],
       },
     };
@@ -872,7 +872,7 @@ describe("buildDocument vocal overlay composition", () => {
         drums: ["drm-1"],
         vocs: ["voc-1", "voc-2"],
       },
-      defaultVocals: { lead: [], back: [] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
     };
     const musicians: Record<string, Musician> = {
       "gtr-1": {
@@ -939,8 +939,8 @@ describe("buildDocument vocal overlay composition", () => {
       lineup: band.defaultLineup,
       overlays: {
         leadVocals: [
-          { slot: 2, musicianId: "voc-1" },
-          { slot: 1, musicianId: "voc-2" },
+          "voc-1",
+          "voc-2",
         ],
       },
     };

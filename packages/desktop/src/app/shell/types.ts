@@ -2,7 +2,7 @@ import type { LineupMap } from "../../projectRules";
 import { serializeLineupForProject, CANONICAL_LINEUP_ROLE_ORDER } from "./lineupSerialize";
 import type {
   MusicianSetupPreset,
-  Preset,
+  PresetEntity,
   PresetItem,
 } from "../../../../../src/domain/model/types";
 
@@ -66,24 +66,14 @@ export type BandSetupData = {
   defaultContactId?: string | null;
   defaultLineup?: LineupMap | null;
   defaultOverlays?: {
-    leadVocals?:
-      | Array<{ slot: number; musicianId: string }>
-      | string[]
-      | null;
-    backVocals?:
-      | Array<{ slot: number; musicianId: string }>
-      | string[]
-      | null;
+    leadVocals?: string[] | null;
+    backVocals?: string[] | null;
   } | null;
   members: Record<string, MemberOption[]>;
   musicianDefaults?: Record<string, Partial<MusicianSetupPreset>>;
   musicianPresetsById?: Record<string, PresetItem[]>;
   loadWarnings?: string[];
-  presetCatalog?: Record<string, Preset>;
-  defaultVocals?: {
-    lead?: string[] | null;
-    back?: string[] | null;
-  } | null;
+  presetCatalog?: Record<string, PresetEntity>;
 };
 
 export type NewProjectPayload = {
@@ -105,8 +95,8 @@ export type NewProjectPayload = {
   purgeAt?: string;
   lineup?: LineupMap;
   overlays?: {
-    leadVocals?: Array<{ slot: number; musicianId: string }>;
-    backVocals?: Array<{ slot: number; musicianId: string }>;
+    leadVocals?: string[];
+    backVocals?: string[];
     talkback?: { mode: "none"; ownerId: null } | { mode: "assigned"; ownerId: string };
   };
   bandLeaderId?: string;
@@ -115,10 +105,6 @@ export type NewProjectPayload = {
     | { mode: "none" }
     | { mode: "assigned"; musicianId: string };
   hasTalkbackOverride?: boolean;
-  /** @deprecated */
-  backVocalIds?: string[];
-  /** @deprecated */
-  leadVocalistIds?: string[];
 };
 
 export type NavigationGuard = {
@@ -149,10 +135,7 @@ export function toPersistableProject(
     lineup,
     overlays,
     bandLeaderId,
-    hasTalkbackOverride,
     note,
-    backVocalIds,
-    leadVocalistIds,
   } = project;
   const serializedLineup = lineup
     ? serializeLineupForProject(lineup, [...CANONICAL_LINEUP_ROLE_ORDER])
@@ -179,7 +162,5 @@ export function toPersistableProject(
     ...(serializedLineup ? { lineup: serializedLineup } : {}),
     ...(overlays ? { overlays } : {}),
     ...(bandLeaderId ? { bandLeaderId } : {}),
-    ...(overlays ? {} : Array.isArray(backVocalIds) ? { backVocalIds } : {}),
-    ...(overlays ? {} : Array.isArray(leadVocalistIds) ? { leadVocalistIds } : {}),
   };
 }

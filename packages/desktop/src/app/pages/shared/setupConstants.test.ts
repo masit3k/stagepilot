@@ -4,6 +4,7 @@ import {
   resolveMusicianDefaultInputsFromPresets,
   resolveMusicianDefaultSetupForRole,
 } from "./setupConstants";
+import type { PresetEntity } from "../../../../../../src/domain/model/types";
 
 describe("resolveMusicianDefaultInputsFromPresets", () => {
   it("resolves bass default input from musician preset ref", () => {
@@ -25,7 +26,7 @@ describe("resolveMusicianDefaultInputsFromPresets", () => {
 });
 
 describe("resolveMusicianDefaultSetupForRole", () => {
-  const catalog = {
+  const catalog: Record<string, PresetEntity> = {
     el_guitar_xlr_stereo: {
       type: "preset",
       id: "el_guitar_xlr_stereo",
@@ -56,7 +57,7 @@ describe("resolveMusicianDefaultSetupForRole", () => {
       id: "iem_stereo_wireless",
       label: "IEM stereo wireless",
     },
-  } as const;
+  };
 
   it("resolves guitar defaults from musician presets", () => {
     const resolved = resolveMusicianDefaultSetupForRole({

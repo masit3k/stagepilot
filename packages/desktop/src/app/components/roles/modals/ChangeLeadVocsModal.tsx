@@ -87,7 +87,7 @@ export function ChangeLeadVocsModal({
               selected={selectedIdSet.has(candidate.musicianId)}
               disabled={disabledIdSet.has(candidate.musicianId)}
               onToggle={toggleSelection}
-              trailingNote={candidate.hasLeadPreset ? "Lead vocal preset" : undefined}
+              trailingNote={candidate.hasLeadPreset ? "Lead vocal capability" : undefined}
             />
           ))
         )}
@@ -106,7 +106,7 @@ export function ChangeLeadVocsModal({
               selected={selectedIdSet.has(candidate.musicianId)}
               disabled={disabledIdSet.has(candidate.musicianId)}
               onToggle={toggleSelection}
-              trailingNote={candidate.hasLeadPreset ? "Lead vocal preset" : undefined}
+              trailingNote={candidate.hasLeadPreset ? "Lead vocal capability" : undefined}
             />
           ))
         )}

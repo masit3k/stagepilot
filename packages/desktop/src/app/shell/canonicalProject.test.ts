@@ -13,10 +13,10 @@ describe("buildCanonicalOverlaysFromDefaults", () => {
         name: "Band",
         defaultOverlays: {
           leadVocals: [
-            { slot: 7, musicianId: "voc-1" },
-            { slot: 8, musicianId: "off-lineup" },
+            "voc-1",
+            "off-lineup",
           ],
-          backVocals: [{ slot: 3, musicianId: "voc-2" }],
+          backVocals: ["voc-2"],
         },
         members: {},
       },
@@ -26,8 +26,8 @@ describe("buildCanonicalOverlaysFromDefaults", () => {
     });
 
     expect(overlays).toEqual({
-      leadVocals: [{ slot: 1, musicianId: "voc-1" }],
-      backVocals: [{ slot: 1, musicianId: "voc-2" }],
+      leadVocals: ["voc-1"],
+      backVocals: ["voc-2"],
       talkback: { mode: "assigned", ownerId: "voc-1" },
     });
   });
@@ -50,7 +50,7 @@ describe("buildCanonicalProjectBaseFromBandDefaults", () => {
         defaultTalkbackOwnerId: "tb-1",
         defaultLineup: { drums: "dr-1", vocs: ["voc-1"] },
         defaultOverlays: {
-          leadVocals: [{ slot: 1, musicianId: "voc-1" }],
+          leadVocals: ["voc-1"],
           backVocals: [],
         },
         members: {},
@@ -61,7 +61,7 @@ describe("buildCanonicalProjectBaseFromBandDefaults", () => {
     expect(payload.bandLeaderId).toBe("leader-1");
     expect(payload.lineup).toEqual({ drums: ["dr-1"], vocs: ["voc-1"] });
     expect(payload.overlays).toEqual({
-      leadVocals: [{ slot: 1, musicianId: "voc-1" }],
+      leadVocals: ["voc-1"],
       backVocals: [],
       talkback: { mode: "assigned", ownerId: "tb-1" },
     });
@@ -86,7 +86,7 @@ describe("buildCanonicalProjectFromSetupState", () => {
       bandLeaderId: "dr-1",
       talkbackOwnerId: "dr-1",
       hasTalkbackOverride: false,
-      leadVocalistIds: [],
+      leadVocalIds: [],
       hasLeadVocalOverride: false,
       backVocalIds: [],
       hasBackVocalOverride: false,
@@ -115,7 +115,7 @@ describe("buildCanonicalProjectFromSetupState", () => {
       bandLeaderId: "dr-1",
       talkbackOwnerId: "",
       hasTalkbackOverride: true,
-      leadVocalistIds: ["vc-1"],
+      leadVocalIds: ["vc-1"],
       hasLeadVocalOverride: true,
       backVocalIds: [],
       hasBackVocalOverride: true,
@@ -129,7 +129,7 @@ describe("buildCanonicalProjectFromSetupState", () => {
       vocs: ["vc-1"],
     });
     expect(project.overlays).toEqual({
-      leadVocals: [{ slot: 1, musicianId: "vc-1" }],
+      leadVocals: ["vc-1"],
       backVocals: [],
       talkback: { mode: "none", ownerId: null },
     });

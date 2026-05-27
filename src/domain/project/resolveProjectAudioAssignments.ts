@@ -1,11 +1,11 @@
-import type { Group, OverlaySlot, Project } from "../model/types.js";
+import type { Group, Project } from "../model/types.js";
 import { isGroup } from "../model/groups.js";
 
 type ProjectWithLineup = Project & { lineup?: Record<string, unknown> };
 type ProjectWithOverlays = Project & {
   overlays?: {
-    leadVocals?: Array<{ slot?: unknown; musicianId?: unknown }>;
-    backVocals?: Array<{ slot?: unknown; musicianId?: unknown }>;
+    leadVocals?: unknown;
+    backVocals?: unknown;
     talkback?: { mode?: unknown; ownerId?: unknown };
   };
 };
@@ -42,31 +42,18 @@ function lineupEntries(value: unknown): string[] {
   return [];
 }
 
-function normalizeOverlaySlots(value: unknown): OverlaySlot[] {
+function normalizeOverlayIds(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
-  const out: OverlaySlot[] = [];
-  for (const entry of value) {
-    if (!entry || typeof entry !== "object") continue;
-    const musicianId = normalizeId((entry as { musicianId?: unknown }).musicianId);
-    if (!musicianId) continue;
-    const rawSlot = (entry as { slot?: unknown }).slot;
-    const slot = typeof rawSlot === "number" && Number.isFinite(rawSlot) && rawSlot > 0
-      ? Math.floor(rawSlot)
-      : out.length + 1;
-    out.push({ slot, musicianId });
-  }
-
-  const seenSlots = new Set<number>();
+  const out: string[] = [];
   const seenMusicians = new Set<string>();
-  return out
-    .sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0))
-    .filter((entry) => {
-      if (entry.slot === undefined) return false;
-      if (seenSlots.has(entry.slot) || seenMusicians.has(entry.musicianId)) return false;
-      seenSlots.add(entry.slot);
-      seenMusicians.add(entry.musicianId);
-      return true;
-    });
+  for (const entry of value) {
+    const musicianId = normalizeId(entry);
+    if (!musicianId) continue;
+    if (seenMusicians.has(musicianId)) continue;
+    seenMusicians.add(musicianId);
+    out.push(musicianId);
+  }
+  return out;
 }
 
 export function collectActiveLineupMusicianIds(project: Project): string[] {
@@ -87,11 +74,11 @@ export function resolveCanonicalOverlayAssignments(args: {
   project: Project;
   role: "leadVocals" | "backVocals";
   activeMusicianIds?: string[];
-}): OverlaySlot[] {
+}): string[] {
   const overlays = (args.project as ProjectWithOverlays).overlays;
   const lineupSet = new Set(args.activeMusicianIds ?? collectActiveLineupMusicianIds(args.project));
-  const raw = normalizeOverlaySlots(overlays?.[args.role]);
-  return raw.filter((entry) => lineupSet.has(entry.musicianId));
+  const raw = normalizeOverlayIds(overlays?.[args.role]);
+  return raw.filter((musicianId) => lineupSet.has(musicianId));
 }
 
 export function resolveProjectTalkbackState(args: {
@@ -164,7 +151,7 @@ export function resolveProjectBackVocsState(args: { project: Project }): {
 } {
   const hasExplicitBackVocsOverride = hasOwnBackVocsOverride(args.project);
   const explicitBackVocs = hasExplicitBackVocsOverride
-    ? resolveCanonicalOverlayAssignments({ project: args.project, role: "backVocals" }).map((slot) => slot.musicianId)
+    ? resolveCanonicalOverlayAssignments({ project: args.project, role: "backVocals" })
     : undefined;
 
   return {

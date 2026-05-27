@@ -33,7 +33,7 @@ async function makeUserDataRoot(): Promise<string> {
       code: "PL",
       name: "Praise Leaders",
       defaultLineup: {},
-      defaultVocals: { lead: [], back: [] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
     }),
     "utf8",
   );

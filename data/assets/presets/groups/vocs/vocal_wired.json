@@ -3,6 +3,7 @@
   "id": "vocal_wired",
   "label": "Vocal (wired)",
   "group": "vocs",
+  "capabilities": ["vocal", "lead_vocal", "back_vocal"],
   "inputs": [
     {
       "key": "voc_input",

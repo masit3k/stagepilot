@@ -17,7 +17,7 @@ describe("buildDocument setup overrides", () => {
       name: "Band",
       bandLeader: "bass-1",
       defaultLineup: { bass: ["bass-1"] },
-      defaultVocals: { lead: [], back: [] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
     };
     const musician: Musician = {
       id: "bass-1",
@@ -122,7 +122,7 @@ describe("buildDocument setup overrides", () => {
       name: "Band",
       bandLeader: "bass-1",
       defaultLineup: { bass: ["bass-1"] },
-      defaultVocals: { lead: [], back: [] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
     };
     const musician: Musician = {
       id: "bass-1",
@@ -191,7 +191,7 @@ describe("buildDocument setup overrides", () => {
       name: "Band",
       bandLeader: "lead-1",
       defaultLineup: { vocs: ["lead-1"], guitar: ["gtr-1"] },
-      defaultVocals: { lead: [], back: [] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
     };
     const lead: Musician = {
       id: "lead-1",
@@ -211,12 +211,7 @@ describe("buildDocument setup overrides", () => {
       presets: [
         { kind: "preset", ref: "el_guitar" },
         { kind: "monitor", ref: "iem_stereo_wireless" },
-        {
-          kind: "vocal",
-          ref: "vocal_back_no_mic",
-          ownerKey: "guitar",
-          ownerLabel: "Guitar",
-        },
+        { kind: "preset", ref: "vocal_back_no_mic" },
       ],
     };
     const notes: NotesTemplate = {
@@ -231,7 +226,7 @@ describe("buildDocument setup overrides", () => {
       purpose: "event",
       documentDate: "2026-01-01",
       lineup: { vocs: ["lead-1"], guitar: ["gtr-1"] },
-      overlays: { leadVocals: [{ slot: 1, musicianId: "lead-1" }] },
+      overlays: { leadVocals: ["lead-1"] },
     };
 
     const repo: DataRepository = {
@@ -256,15 +251,11 @@ describe("buildDocument setup overrides", () => {
           };
         if (id === "vocal_back_no_mic")
           return {
-            type: "vocal_type",
+            type: "preset",
             id,
             label: "Back vocal (no mic)",
             group: "vocs",
-            input: {
-              key: "voc_back_{ownerKey}",
-              label: "Back vocal – {ownerLabel}",
-              note: "BETA 58A, SE V7, SM58 – boom mic stand (requested from sound engineer)",
-            },
+            inputs: [{ key: "voc_back", label: "Back vocal", group: "vocs", note: "BETA 58A, SE V7, SM58 – boom mic stand (requested from sound engineer)" }],
           };
         if (id === "el_guitar")
           return {
@@ -318,7 +309,7 @@ describe("buildDocument setup overrides", () => {
       name: "Band",
       bandLeader: "lead-1",
       defaultLineup: { vocs: ["lead-1"], guitar: ["gtr-1"] },
-      defaultVocals: { lead: [], back: ["gtr-1"] },
+      defaultOverlays: { leadVocals: [], backVocals: ["gtr-1"] },
     };
     const lead: Musician = {
       id: "lead-1",
@@ -334,12 +325,7 @@ describe("buildDocument setup overrides", () => {
       group: "guitar",
       presets: [
         { kind: "preset", ref: "el_guitar" },
-        {
-          kind: "vocal",
-          ref: "vocal_back_no_mic",
-          ownerKey: "guitar",
-          ownerLabel: "Guitar",
-        },
+        { kind: "preset", ref: "vocal_back_no_mic" },
       ],
     };
     const notes: NotesTemplate = {
@@ -370,14 +356,11 @@ describe("buildDocument setup overrides", () => {
           };
         if (id === "vocal_back_no_mic")
           return {
-            type: "vocal_type",
+            type: "preset",
             id,
             label: "Back vocal (no mic)",
             group: "vocs",
-            input: {
-              key: "voc_back_{ownerKey}",
-              label: "Back vocal – {ownerLabel}",
-            },
+            inputs: [{ key: "voc_back", label: "Back vocal", group: "vocs" }],
           };
         if (id === "el_guitar")
           return {
@@ -414,7 +397,7 @@ describe("buildDocument setup overrides", () => {
       name: "Band",
       bandLeader: "keys-1",
       defaultLineup: { vocs: ["voc-1"], keys: ["keys-1"] },
-      defaultVocals: { lead: [], back: [] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
     };
     const vocalist: Musician = {
       id: "voc-1",
@@ -442,7 +425,7 @@ describe("buildDocument setup overrides", () => {
       purpose: "event",
       documentDate: "2026-01-01",
       lineup: { vocs: ["voc-1"], keys: ["keys-1"] },
-      overlays: { leadVocals: [{ slot: 1, musicianId: "keys-1" }] },
+      overlays: { leadVocals: ["keys-1"] },
     };
     const notes: NotesTemplate = {
       id: "notes_default_cs",
@@ -502,7 +485,7 @@ describe("buildDocument setup overrides", () => {
       name: "Band",
       bandLeader: "keys-1",
       defaultLineup: { vocs: ["voc-1", "voc-2"], keys: ["keys-1"] },
-      defaultVocals: { lead: [], back: [] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
     };
     const voc1: Musician = {
       id: "voc-1",
@@ -542,9 +525,9 @@ describe("buildDocument setup overrides", () => {
       lineup: { vocs: ["voc-1", "voc-2"], keys: ["keys-1"] },
       overlays: {
         leadVocals: [
-          { slot: 1, musicianId: "keys-1" },
-          { slot: 2, musicianId: "voc-2" },
-          { slot: 3, musicianId: "voc-1" },
+          "keys-1",
+          "voc-2",
+          "voc-1",
         ],
       },
     };
@@ -599,7 +582,7 @@ describe("buildDocument setup overrides", () => {
 
     const vm = buildDocument(project, repo);
 
-    expect(vm.stageplan.leadVocals.map((item) => item.firstName)).toEqual([
+    expect((vm.stageplan.leadVocals ?? []).map((item) => item.firstName)).toEqual([
       "Vocal Two",
       "Vocal One",
     ]);
@@ -617,7 +600,7 @@ describe("buildDocument setup overrides", () => {
       name: "Band",
       bandLeader: "voc-1",
       defaultLineup: { vocs: ["voc-1"] },
-      defaultVocals: { lead: ["voc-1"], back: [] },
+      defaultOverlays: { leadVocals: ["voc-1"], backVocals: [] },
     };
     const vocalist: Musician = {
       id: "voc-1",
@@ -683,7 +666,7 @@ describe("buildDocument setup overrides", () => {
       name: "Band",
       bandLeader: "dr-1",
       defaultLineup: { bass: ["bass-1"], drums: ["dr-1"] },
-      defaultVocals: { lead: [], back: [] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
     };
     const bassist: Musician = {
       id: "bass-1",
@@ -715,8 +698,8 @@ describe("buildDocument setup overrides", () => {
       lineup: { bass: ["bass-1"], drums: ["dr-1"] },
       overlays: {
         leadVocals: [
-          { slot: 1, musicianId: "bass-1" },
-          { slot: 2, musicianId: "dr-1" },
+          "bass-1",
+          "dr-1",
         ],
       },
     };
@@ -765,7 +748,7 @@ describe("buildDocument setup overrides", () => {
     };
 
     const vm = buildDocument(project, repo);
-    expect(vm.stageplan.leadVocals.map((person) => person.firstName)).toEqual(
+    expect((vm.stageplan.leadVocals ?? []).map((person) => person.firstName)).toEqual(
       [],
     );
     expect(
@@ -782,7 +765,7 @@ describe("buildDocument setup overrides", () => {
       name: "Band",
       bandLeader: "voc-1",
       defaultLineup: { vocs: ["voc-1"], guitar: ["gtr-1"], keys: ["keys-1"] },
-      defaultVocals: { lead: [], back: [] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
     };
     const vocs: Musician = {
       id: "voc-1",
@@ -821,10 +804,10 @@ describe("buildDocument setup overrides", () => {
       documentDate: "2026-01-01",
       lineup: { vocs: ["voc-1"], guitar: ["gtr-1"], keys: ["keys-1"] },
       overlays: {
-        backVocals: [{ slot: 1, musicianId: "gtr-1" }],
+        backVocals: ["gtr-1"],
         leadVocals: [
-          { slot: 1, musicianId: "voc-1" },
-          { slot: 2, musicianId: "keys-1" },
+          "voc-1",
+          "keys-1",
         ],
       },
     };
@@ -873,14 +856,11 @@ describe("buildDocument setup overrides", () => {
         }
         if (id === "vocal_back_no_mic") {
           return {
-            type: "vocal_type",
+            type: "preset",
             id,
             label: "Back vocal (no mic)",
             group: "vocs",
-            input: {
-              key: "voc_back_{ownerKey}",
-              label: "Back vocal – {ownerLabel}",
-            },
+            inputs: [{ key: "voc_back", label: "Back vocal", group: "vocs" }],
           };
         }
         if (id === "wedge") return { type: "monitor", id, label: "Wedge" };
@@ -921,7 +901,7 @@ describe("buildDocument setup overrides", () => {
       name: "Band",
       bandLeader: "lead-1",
       defaultLineup: { vocs: ["lead-1"] },
-      defaultVocals: { lead: [], back: [] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
     };
     const lead: Musician = {
       id: "lead-1",
@@ -1015,7 +995,7 @@ describe("buildDocument setup overrides", () => {
       name: "Band",
       bandLeader: "guitar-1",
       defaultLineup: { guitar: ["guitar-1"], vocs: ["vocs-1"] },
-      defaultVocals: { lead: [], back: [] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
     };
     const guitar: Musician = {
       id: "guitar-1",
@@ -1040,7 +1020,7 @@ describe("buildDocument setup overrides", () => {
       purpose: "generic",
       documentDate: "2026-01-01",
       lineup: { guitar: ["guitar-1"], vocs: ["vocs-1"] },
-      overlays: { leadVocals: [{ slot: 1, musicianId: "vocs-1" }] },
+      overlays: { leadVocals: ["vocs-1"] },
     };
     const notes: NotesTemplate = {
       id: "notes_default_cs",
@@ -1114,7 +1094,7 @@ describe("buildDocument setup overrides", () => {
       name: "Band",
       bandLeader: "dr-1",
       defaultLineup: {},
-      defaultVocals: { lead: [], back: [] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
     };
     const makeMusician = (
       id: string,
@@ -1167,10 +1147,10 @@ describe("buildDocument setup overrides", () => {
       },
       overlays: {
         leadVocals: [
-          { slot: 1, musicianId: "vc-1" },
-          { slot: 2, musicianId: "gt-1" },
-          { slot: 3, musicianId: "ky-1" },
-          { slot: 4, musicianId: "dr-1" },
+          "vc-1",
+          "gt-1",
+          "ky-1",
+          "dr-1",
         ],
       },
     };
@@ -1245,7 +1225,7 @@ describe("buildDocument setup overrides", () => {
       name: "Band",
       bandLeader: "gt-1",
       defaultLineup: {},
-      defaultVocals: { lead: [], back: [] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
     };
     const project: Project = {
       id: "p-stage",
@@ -1255,8 +1235,8 @@ describe("buildDocument setup overrides", () => {
       lineup: { guitar: ["gt-1"], vocs: ["vc-1"] },
       overlays: {
         leadVocals: [
-          { slot: 1, musicianId: "gt-1" },
-          { slot: 2, musicianId: "vc-1" },
+          "gt-1",
+          "vc-1",
         ],
       },
     };
@@ -1302,7 +1282,7 @@ describe("buildDocument setup overrides", () => {
     };
 
     const vm = buildDocument(project, repo);
-    expect(vm.stageplan.leadVocals.map((person) => person.firstName)).toEqual([
+    expect((vm.stageplan.leadVocals ?? []).map((person) => person.firstName)).toEqual([
       "vc-1",
     ]);
   });
@@ -1313,7 +1293,7 @@ describe("buildDocument setup overrides", () => {
       name: "Band",
       bandLeader: "dr-1",
       defaultLineup: { drums: ["dr-1"] },
-      defaultVocals: { lead: [], back: [] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
     };
     const drummer: Musician = {
       id: "dr-1",
@@ -1409,7 +1389,7 @@ describe("buildDocument setup overrides", () => {
       name: "Band",
       bandLeader: "dr-2",
       defaultLineup: { drums: ["dr-2"], bass: ["b-1"] },
-      defaultVocals: { lead: [], back: [] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
     };
     const drummer: Musician = {
       id: "dr-2",

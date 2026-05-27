@@ -12,7 +12,7 @@ describe("formatContactLine", () => {
     name: "Band",
     bandLeader: "leader-id",
     defaultLineup: {},
-    defaultVocals: { lead: [], back: [] },
+    defaultOverlays: { leadVocals: [], backVocals: [] },
   };
 
   const contact = {
@@ -67,7 +67,7 @@ describe("loadDefaultContactLine", () => {
       name: "Band",
       bandLeader: "leader-id",
       defaultLineup: {},
-      defaultVocals: { lead: [], back: [] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
     };
     const repo: DataRepository = {
       getBand: () => { throw new Error("not used"); },

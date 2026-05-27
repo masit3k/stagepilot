@@ -1,10 +1,12 @@
 import type { Group } from "../../../../../../src/domain/model/groups";
+import type { VocalCandidateReason, VocalCandidateSection } from "./resolveLineupVocalCandidates";
 
 export type LeadVocalCandidateInput = {
   musicianId: string;
   displayName: string;
   primaryGroup: Group;
-  hasLeadVocalPreset: boolean;
+  section: VocalCandidateSection;
+  reason: VocalCandidateReason;
 };
 
 export type LeadVocalCandidate = {
@@ -14,6 +16,7 @@ export type LeadVocalCandidate = {
   isSuggested: boolean;
   isSelected: boolean;
   hasLeadPreset: boolean;
+  reason: VocalCandidateReason;
 };
 
 export type LeadVocalCandidateSections = {
@@ -55,22 +58,20 @@ function compareCandidates(
 export function resolveLeadVocalCandidates(args: {
   lineupCandidates: LeadVocalCandidateInput[];
   selectedLeadVocalistIds: string[];
-  suggestedLeadVocalistIds?: Iterable<string>;
 }): LeadVocalCandidateSections {
   const selectedSet = new Set(args.selectedLeadVocalistIds);
-  const suggestedSet = new Set(args.suggestedLeadVocalistIds ?? []);
 
   const candidates = args.lineupCandidates.map((candidate) => {
     const isSelected = selectedSet.has(candidate.musicianId);
-    const isSuggested =
-      candidate.hasLeadVocalPreset || suggestedSet.has(candidate.musicianId);
+    const isSuggested = candidate.section === "suggested";
     return {
       musicianId: candidate.musicianId,
       displayName: candidate.displayName,
       primaryGroup: candidate.primaryGroup,
       isSuggested,
       isSelected,
-      hasLeadPreset: candidate.hasLeadVocalPreset,
+      hasLeadPreset: candidate.reason === "lead_vocal_capability",
+      reason: candidate.reason,
     } satisfies LeadVocalCandidate;
   });
 

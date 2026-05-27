@@ -172,55 +172,29 @@ fn normalize_default_overlays(default_overlays: Option<Value>) -> Option<Value> 
         return None;
     };
 
-    let lead_source = overlays.remove("leadVocals").or_else(|| overlays.remove("lead"));
-    let back_source = overlays.remove("backVocals").or_else(|| overlays.remove("back"));
+    let lead_source = overlays.remove("leadVocals");
+    let back_source = overlays.remove("backVocals");
 
-    fn to_slot_objects(value: Option<Value>) -> Vec<Value> {
+    fn to_string_array(value: Option<Value>) -> Vec<Value> {
         let Some(Value::Array(items)) = value else {
             return Vec::new();
         };
         let mut normalized: Vec<Value> = Vec::new();
-        for (index, item) in items.iter().enumerate() {
-            match item {
-                Value::String(id) => {
-                    let trimmed = id.trim();
-                    if trimmed.is_empty() {
-                        continue;
-                    }
-                    normalized.push(serde_json::json!({
-                        "slot": index + 1,
-                        "musicianId": trimmed
-                    }));
-                }
-                Value::Object(obj) => {
-                    let musician_id = obj
-                        .get("musicianId")
-                        .and_then(|v| v.as_str())
-                        .map(|v| v.trim().to_string())
-                        .unwrap_or_default();
-                    if musician_id.is_empty() {
-                        continue;
-                    }
-                    let slot = obj
-                        .get("slot")
-                        .and_then(|v| v.as_u64())
-                        .map(|v| v as usize)
-                        .filter(|slot| *slot > 0)
-                        .unwrap_or(index + 1);
-                    normalized.push(serde_json::json!({
-                        "slot": slot,
-                        "musicianId": musician_id
-                    }));
-                }
-                _ => {}
+        let mut seen = std::collections::BTreeSet::new();
+        for item in items.iter() {
+            let Some(id) = item.as_str().map(str::trim).filter(|id| !id.is_empty()) else {
+                continue;
+            };
+            if seen.insert(id.to_string()) {
+                normalized.push(Value::String(id.to_string()));
             }
         }
         normalized
     }
 
     Some(serde_json::json!({
-        "leadVocals": to_slot_objects(lead_source),
-        "backVocals": to_slot_objects(back_source)
+        "leadVocals": to_string_array(lead_source),
+        "backVocals": to_string_array(back_source)
     }))
 }
 
@@ -1005,7 +979,8 @@ fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSet
     }
 
     let mut load_warnings: Vec<String> = Vec::new();
-    if let Some(default_lineup) = normalize_default_lineup_keys(json.get("defaultLineup").cloned()) {
+    if let Some(default_lineup) = normalize_default_lineup_keys(json.get("defaultLineup").cloned())
+    {
         if let Some(obj) = default_lineup.as_object() {
             for (role, value) in obj {
                 let ids: Vec<String> = match value {
@@ -1098,11 +1073,7 @@ fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSet
             .and_then(|v| v.as_str())
             .map(|v| v.to_string()),
         default_lineup: normalize_default_lineup_keys(json.get("defaultLineup").cloned()),
-        default_overlays: normalize_default_overlays(
-            json.get("defaultOverlays")
-                .cloned()
-                .or_else(|| json.get("defaultVocals").cloned()),
-        ),
+        default_overlays: normalize_default_overlays(json.get("defaultOverlays").cloned()),
         members,
         musician_defaults,
         musician_presets_by_id,

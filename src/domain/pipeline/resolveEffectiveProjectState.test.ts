@@ -14,8 +14,8 @@ describe("resolveEffectiveProjectState", () => {
         guitar: ["talkback-1"],
       },
       overlays: {
-        leadVocals: [{ slot: 1, musicianId: "lead-1" }, { slot: 2, musicianId: "lead-2" }],
-        backVocals: [{ slot: 1, musicianId: "back-1" }],
+        leadVocals: ["lead-1", "lead-2"],
+        backVocals: ["back-1"],
         talkback: { mode: "assigned", ownerId: "talkback-1" },
       },
     };

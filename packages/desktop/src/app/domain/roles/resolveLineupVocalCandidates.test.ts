@@ -24,6 +24,24 @@ describe("resolveLineupVocalCandidates", () => {
         { id: "voc-only", name: "Vocal Only" },
         { id: "keys-1", name: "Keys Player" },
       ],
+      presetCatalog: {
+        vocal_no_mic: {
+          type: "preset",
+          id: "vocal_no_mic",
+          label: "Vocal",
+          group: "vocs",
+          capabilities: ["vocal", "lead_vocal", "back_vocal"],
+          inputs: [],
+        },
+        vocal_wireless: {
+          type: "preset",
+          id: "vocal_wireless",
+          label: "Vocal",
+          group: "vocs",
+          capabilities: ["vocal", "lead_vocal", "back_vocal"],
+          inputs: [],
+        },
+      },
     });
 
     expect(candidates).toEqual([
@@ -33,6 +51,12 @@ describe("resolveLineupVocalCandidates", () => {
         primaryGroup: "keys",
         hasLeadVocalPreset: true,
         hasBackVocalPreset: true,
+        hasVocalCapability: true,
+        sectionByRole: { lead: "suggested", back: "suggested" },
+        reasonByRole: {
+          lead: "lead_vocal_capability",
+          back: "back_vocal_capability",
+        },
       },
       {
         id: "voc-only",
@@ -40,6 +64,12 @@ describe("resolveLineupVocalCandidates", () => {
         primaryGroup: "vocs",
         hasLeadVocalPreset: true,
         hasBackVocalPreset: true,
+        hasVocalCapability: true,
+        sectionByRole: { lead: "suggested", back: "suggested" },
+        reasonByRole: {
+          lead: "lead_vocal_capability",
+          back: "back_vocal_capability",
+        },
       },
     ]);
   });

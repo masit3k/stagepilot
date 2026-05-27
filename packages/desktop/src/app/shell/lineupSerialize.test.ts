@@ -31,23 +31,11 @@ describe("serializeLineupForProject", () => {
     expect(serialized).not.toHaveProperty("lead_vocs");
   });
 
-  it("keeps explicit empty back_vocs in serialized lineup", () => {
+  it("drops legacy back_vocs from serialized lineup", () => {
     const serialized = serializeLineupForProject(
       {
         vocs: "lead-1",
         back_vocs: [],
-      },
-      ["vocs"],
-    );
-
-    expect(serialized).toHaveProperty("back_vocs");
-    expect(serialized.back_vocs).toEqual([]);
-  });
-
-  it("omits back_vocs when no explicit selection was provided", () => {
-    const serialized = serializeLineupForProject(
-      {
-        vocs: "lead-1",
       },
       ["vocs"],
     );

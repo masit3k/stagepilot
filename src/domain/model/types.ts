@@ -33,16 +33,11 @@ export type LineupSlot = {
   drumDefinition?: DrumDefinition;
 };
 
-export type OverlaySlot = {
-  slot?: number;
-  musicianId: string;
-};
-
 export type ProjectLineup = Partial<Record<Group, LineupSlot[]>> & Record<string, unknown>;
 
 export type ProjectOverlays = {
-  leadVocals?: OverlaySlot[];
-  backVocals?: OverlaySlot[];
+  leadVocals?: string[];
+  backVocals?: string[];
   talkback?: { mode: "none"; ownerId: null } | { mode: "assigned"; ownerId: string };
 };
 
@@ -76,10 +71,6 @@ export interface Project {
   template?: string;
   lineup?: ProjectLineup | Record<string, unknown>;
   overlays?: ProjectOverlays;
-  /** @deprecated legacy read-compat only */
-  backVocalIds?: string[];
-  /** @deprecated legacy read-compat only */
-  leadVocalistIds?: string[];
   bandLeaderId?: string;
   talkbackOverride?:
     | { mode: "none" }
@@ -128,10 +119,6 @@ export interface ProjectJsonV2 {
   template?: string;
   lineup?: ProjectLineup | Record<string, unknown>;
   overlays?: ProjectOverlays;
-  /** @deprecated legacy read-compat only */
-  backVocalIds?: string[];
-  /** @deprecated legacy read-compat only */
-  leadVocalistIds?: string[];
   bandLeaderId?: string;
   talkbackOverride?:
     | { mode: "none" }
@@ -152,10 +139,8 @@ export type DefaultLineup = Partial<Record<Group, string[]>>;
 
 /** Canonical explicit vocal assignments overlaying default lineup membership. */
 export type DefaultOverlays = {
-  leadVocals?: OverlaySlot[];
-  backVocals?: OverlaySlot[];
-  lead?: string[];
-  back?: string[];
+  leadVocals?: string[];
+  backVocals?: string[];
 };
 
 /** Kapela: statická definice (knihovna). */
@@ -172,8 +157,6 @@ export interface Band {
 
   /** Výchozí overlay role nad default lineup membership. */
   defaultOverlays?: DefaultOverlays;
-  /** @deprecated legacy read-compat only */
-  defaultVocals?: DefaultOverlays | { lead?: string[]; back?: string[] };
   /** @deprecated canonical alias */
   bandLeaderId?: string;
   defaultTalkbackOwnerId?: string;
@@ -244,11 +227,14 @@ export interface Preset {
   id: string;
   label: string;
   group: Group;
+  capabilities?: PresetCapability[];
   /** Optional subgroup used by setup editors (e.g. bass connection variants). */
   setupGroup?: string;
   presetRole?: "primary" | "addition";
   inputs: InputChannel[];
 }
+
+export type PresetCapability = "vocal" | "lead_vocal" | "back_vocal";
 
 export type MonitoringPreset = {
   monitorRef: string;

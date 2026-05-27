@@ -9,25 +9,29 @@ describe("resolveLeadVocalCandidates", () => {
           musicianId: "keys-1",
           displayName: "Klara",
           primaryGroup: "keys",
-          hasLeadVocalPreset: true,
+          section: "suggested",
+          reason: "lead_vocal_capability",
         },
         {
           musicianId: "voc-1",
           displayName: "Adam",
           primaryGroup: "vocs",
-          hasLeadVocalPreset: false,
+          section: "additional",
+          reason: "active_lineup_without_vocal_preset",
         },
         {
           musicianId: "gtr-1",
           displayName: "Boris",
           primaryGroup: "guitar",
-          hasLeadVocalPreset: false,
+          section: "additional",
+          reason: "active_lineup_without_vocal_preset",
         },
         {
           musicianId: "drm-1",
           displayName: "David",
           primaryGroup: "drums",
-          hasLeadVocalPreset: true,
+          section: "suggested",
+          reason: "lead_vocal_capability",
         },
       ],
       selectedLeadVocalistIds: ["voc-1", "keys-1"],
@@ -48,7 +52,8 @@ describe("resolveLeadVocalCandidates", () => {
           musicianId: "m1",
           displayName: "One",
           primaryGroup: "bass",
-          hasLeadVocalPreset: false,
+          section: "additional",
+          reason: "active_lineup_without_vocal_preset",
         },
       ],
       selectedLeadVocalistIds: ["m1"],
@@ -63,18 +68,18 @@ describe("resolveLeadVocalCandidates", () => {
     });
   });
 
-  it("treats default suggested lead vocal ids as suggested even without lead preset", () => {
+  it("uses candidate section as the only suggested grouping source", () => {
     const result = resolveLeadVocalCandidates({
       lineupCandidates: [
         {
           musicianId: "m1",
           displayName: "One",
           primaryGroup: "keys",
-          hasLeadVocalPreset: false,
+          section: "suggested",
+          reason: "lead_vocal_capability",
         },
       ],
       selectedLeadVocalistIds: [],
-      suggestedLeadVocalistIds: ["m1"],
     });
 
     expect(result.suggestedLeadVocalCandidates.map((item) => item.musicianId)).toEqual(["m1"]);

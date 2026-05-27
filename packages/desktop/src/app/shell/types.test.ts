@@ -15,7 +15,7 @@ describe("toPersistableProject talkback persistence", () => {
     expect("talkbackOwnerId" in persisted).toBe(false);
   });
 
-  it("preserves explicit empty lineup.back_vocs selection", () => {
+  it("drops legacy lineup.back_vocs selection", () => {
     const persisted = toPersistableProject({
       id: "p-1",
       purpose: "event",
@@ -28,11 +28,10 @@ describe("toPersistableProject talkback persistence", () => {
       },
     });
 
-    expect(persisted.lineup).toHaveProperty("back_vocs");
-    expect(persisted.lineup?.back_vocs).toEqual([]);
+    expect(persisted.lineup).not.toHaveProperty("back_vocs");
   });
 
-  it("drops legacy lead/back vocal arrays when canonical overlays are present", () => {
+  it("serializes canonical overlay arrays", () => {
     const persisted = toPersistableProject({
       id: "p-2",
       purpose: "generic",
@@ -40,17 +39,17 @@ describe("toPersistableProject talkback persistence", () => {
       documentDate: "2026-01-01",
       createdAt: "2026-01-01T00:00:00.000Z",
       overlays: {
-        leadVocals: [{ slot: 1, musicianId: "lead-1" }],
+        leadVocals: ["lead-1"],
         backVocals: [],
         talkback: { mode: "none", ownerId: null },
       },
-      leadVocalistIds: ["legacy-lead"],
-      backVocalIds: ["legacy-back"],
     });
 
-    expect(persisted).toHaveProperty("overlays");
-    expect("leadVocalistIds" in persisted).toBe(false);
-    expect("backVocalIds" in persisted).toBe(false);
+    expect(persisted.overlays).toEqual({
+      leadVocals: ["lead-1"],
+      backVocals: [],
+      talkback: { mode: "none", ownerId: null },
+    });
   });
 
   it("serializes event lineup using canonical arrays and keeps event fields", () => {
@@ -70,8 +69,8 @@ describe("toPersistableProject talkback persistence", () => {
         vocs: "lead-1",
       },
       overlays: {
-        leadVocals: [{ slot: 1, musicianId: "lead-1" }],
-        backVocals: [{ slot: 2, musicianId: "voc-2" }],
+        leadVocals: ["lead-1"],
+        backVocals: ["voc-2"],
         talkback: { mode: "assigned", ownerId: "leader-1" },
       },
     });
@@ -86,8 +85,8 @@ describe("toPersistableProject talkback persistence", () => {
       vocs: ["lead-1"],
     });
     expect(persisted.overlays).toEqual({
-      leadVocals: [{ slot: 1, musicianId: "lead-1" }],
-      backVocals: [{ slot: 2, musicianId: "voc-2" }],
+      leadVocals: ["lead-1"],
+      backVocals: ["voc-2"],
       talkback: { mode: "assigned", ownerId: "leader-1" },
     });
   });

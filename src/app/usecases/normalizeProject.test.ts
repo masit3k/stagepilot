@@ -15,22 +15,18 @@ describe("normalizeProject", () => {
     const normalized = normalizeProject({
       ...base,
       overlays: {
-        leadVocals: [{ slot: 1, musicianId: "voc-2" }],
-        backVocals: [{ slot: 1, musicianId: "gtr-1" }],
+        leadVocals: ["voc-2"],
+        backVocals: ["gtr-1"],
         talkback: { mode: "assigned", ownerId: "gtr-1" },
       },
-      leadVocalistIds: ["legacy-lead"],
-      backVocalIds: ["legacy-back"],
       talkbackOverride: { mode: "assigned", musicianId: "legacy" },
     } as ProjectJsonV2);
 
     expect(normalized.overlays).toEqual({
-      leadVocals: [{ slot: 1, musicianId: "voc-2" }],
-      backVocals: [{ slot: 1, musicianId: "gtr-1" }],
+      leadVocals: ["voc-2"],
+      backVocals: ["gtr-1"],
       talkback: { mode: "assigned", ownerId: "gtr-1" },
     });
-    expect(normalized.leadVocalistIds).toBeUndefined();
-    expect(normalized.backVocalIds).toBeUndefined();
     expect(normalized.talkbackOverride).toBeUndefined();
   });
 

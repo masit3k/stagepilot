@@ -136,21 +136,18 @@ function resolveOverlaySlots(args: {
   role: "leadVocals" | "backVocals";
 }): Array<{ musician: Musician; slot: number }> {
   const { ctx, role } = args;
-  const members = resolveCanonicalOverlayAssignments({
+  return resolveCanonicalOverlayAssignments({
     project: ctx.project,
     role,
     activeMusicianIds: ctx.lineupMusicians.map(({ musician }) => musician.id),
   })
-    .map(({ musicianId, slot }) => {
-      if (!slot) return null;
+    .map((musicianId, index) => {
       const musician = ctx.membersById.get(musicianId);
-      return musician ? { musician, slot } : null;
+      return musician ? { musician, slot: index + 1 } : null;
     })
     .filter((entry): entry is { musician: Musician; slot: number } =>
       Boolean(entry),
     );
-  members.sort((a, b) => a.slot - b.slot);
-  return members;
 }
 
 const GROUP_MONITOR_ORDER: Record<Group, number> = {

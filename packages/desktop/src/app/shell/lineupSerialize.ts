@@ -35,9 +35,5 @@ export function serializeLineupForProject(
     serialized[role] = ids;
   }
 
-  if (lineup.back_vocs !== undefined) {
-    serialized.back_vocs = lineup.back_vocs;
-  }
-
   return serialized;
 }

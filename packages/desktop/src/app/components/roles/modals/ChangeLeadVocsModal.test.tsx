@@ -15,6 +15,7 @@ describe("ChangeLeadVocsModal", () => {
             isSuggested: true,
             isSelected: true,
             hasLeadPreset: true,
+            reason: "lead_vocal_capability",
           },
         ]}
         otherCandidates={[
@@ -25,6 +26,7 @@ describe("ChangeLeadVocsModal", () => {
             isSuggested: false,
             isSelected: false,
             hasLeadPreset: false,
+            reason: "active_lineup_without_vocal_preset",
           },
         ]}
         initialSelectedIds={["m1"]}
@@ -38,7 +40,7 @@ describe("ChangeLeadVocsModal", () => {
     expect(html).toContain("Other lineup members");
     expect(html).toContain("(KEYS)");
     expect(html).toContain("(GUITAR)");
-    expect(html).toContain("Lead vocal preset");
+    expect(html).toContain("Lead vocal capability");
     expect(html).toContain("checked");
     expect(html).toContain("cannot be selected as Back Vocal");
     expect(html).toContain('id="lead-vocs-m2"');

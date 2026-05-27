@@ -12,7 +12,7 @@ export type LineupDirtyComparisonState = {
   lineup: LineupComparableMap;
   bandLeaderId: string;
   talkbackOwnerId: string;
-  leadVocalistIds: string[];
+  leadVocalIds: string[];
   backVocalIds: string[];
   hasLeadVocalOverride?: boolean;
   hasBackVocalOverride?: boolean;
@@ -35,7 +35,7 @@ export function normalizeLineupForComparison(
     lineup: normalizedLineup,
     bandLeaderId: value.bandLeaderId,
     talkbackOwnerId: value.talkbackOwnerId,
-    leadVocalistIds: [...value.leadVocalistIds],
+    leadVocalIds: [...value.leadVocalIds],
     backVocalIds: [...value.backVocalIds],
     hasLeadVocalOverride: Boolean(value.hasLeadVocalOverride),
     hasBackVocalOverride: Boolean(value.hasBackVocalOverride),

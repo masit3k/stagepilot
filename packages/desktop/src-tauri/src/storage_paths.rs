@@ -388,6 +388,137 @@ fn migrate_lineup_assignments(root: &Path) -> Result<bool, StorageError> {
     Ok(bands_migrated || projects_migrated)
 }
 
+fn normalize_vocal_overlay_ids(value: Option<&serde_json::Value>) -> serde_json::Value {
+    let Some(serde_json::Value::Array(items)) = value else {
+        return serde_json::Value::Array(Vec::new());
+    };
+
+    let mut indexed: Vec<(usize, String)> = Vec::new();
+    for (index, item) in items.iter().enumerate() {
+        match item {
+            serde_json::Value::String(id) => {
+                let trimmed = id.trim();
+                if !trimmed.is_empty() {
+                    indexed.push((index + 1, trimmed.to_string()));
+                }
+            }
+            serde_json::Value::Object(object) => {
+                let Some(musician_id) = object
+                    .get("musicianId")
+                    .and_then(|v| v.as_str())
+                    .map(str::trim)
+                    .filter(|id| !id.is_empty())
+                else {
+                    continue;
+                };
+                let order = object
+                    .get("slot")
+                    .and_then(|v| v.as_u64())
+                    .map(|slot| slot as usize)
+                    .filter(|slot| *slot > 0)
+                    .unwrap_or(index + 1);
+                indexed.push((order, musician_id.to_string()));
+            }
+            _ => {}
+        }
+    }
+
+    indexed.sort_by_key(|(order, _)| *order);
+    let mut seen = std::collections::BTreeSet::new();
+    serde_json::Value::Array(
+        indexed
+            .into_iter()
+            .filter_map(|(_, id)| {
+                if seen.insert(id.clone()) {
+                    Some(serde_json::Value::String(id))
+                } else {
+                    None
+                }
+            })
+            .collect(),
+    )
+}
+
+fn cleanup_vocal_overlays_in_file(path: &Path, is_band: bool) -> Result<bool, StorageError> {
+    let content = fs::read_to_string(path)?;
+    let mut value: serde_json::Value = serde_json::from_str(&content)
+        .map_err(|e| StorageError::Resolve(format!("Invalid JSON {} ({e})", path.display())))?;
+    let before = value.clone();
+
+    let Some(object) = value.as_object_mut() else {
+        return Ok(false);
+    };
+
+    if is_band {
+        object.remove("defaultVocals");
+        let default_overlays = object
+            .entry("defaultOverlays".to_string())
+            .or_insert_with(|| serde_json::json!({}));
+        if let Some(overlays) = default_overlays.as_object_mut() {
+            let lead = normalize_vocal_overlay_ids(
+                overlays.get("leadVocals").or_else(|| overlays.get("lead")),
+            );
+            let back = normalize_vocal_overlay_ids(
+                overlays.get("backVocals").or_else(|| overlays.get("back")),
+            );
+            overlays.remove("lead");
+            overlays.remove("back");
+            overlays.insert("leadVocals".to_string(), lead);
+            overlays.insert("backVocals".to_string(), back);
+        }
+    } else {
+        object.remove("leadVocalistIds");
+        object.remove("backVocalIds");
+        if let Some(lineup) = object.get_mut("lineup").and_then(|v| v.as_object_mut()) {
+            lineup.remove("lead_vocs");
+            lineup.remove("back_vocs");
+        }
+        let overlays = object
+            .entry("overlays".to_string())
+            .or_insert_with(|| serde_json::json!({}));
+        if let Some(overlays) = overlays.as_object_mut() {
+            let lead = normalize_vocal_overlay_ids(overlays.get("leadVocals"));
+            let back = normalize_vocal_overlay_ids(overlays.get("backVocals"));
+            overlays.insert("leadVocals".to_string(), lead);
+            overlays.insert("backVocals".to_string(), back);
+        }
+    }
+
+    if value == before {
+        return Ok(false);
+    }
+    let bytes = serde_json::to_vec_pretty(&value).map_err(|e| {
+        StorageError::Resolve(format!(
+            "Failed to serialize vocal overlay cleanup JSON {} ({e})",
+            path.display()
+        ))
+    })?;
+    atomic_write_bytes(path, &bytes)?;
+    Ok(true)
+}
+
+fn cleanup_vocal_overlays_dir(dir: &Path, is_band: bool) -> Result<bool, StorageError> {
+    if !dir.exists() {
+        return Ok(false);
+    }
+    let mut changed = false;
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
+            continue;
+        }
+        changed |= cleanup_vocal_overlays_in_file(&path, is_band)?;
+    }
+    Ok(changed)
+}
+
+fn cleanup_vocal_overlays(root: &Path) -> Result<bool, StorageError> {
+    let bands_changed = cleanup_vocal_overlays_dir(&root.join("catalog/bands"), true)?;
+    let projects_changed = cleanup_vocal_overlays_dir(&root.join("projects"), false)?;
+    Ok(bands_changed || projects_changed)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -572,6 +703,89 @@ mod tests {
 
         let _ = fs::remove_dir_all(&root);
     }
+
+    #[test]
+    fn cleanup_vocal_overlays_converts_slots_removes_legacy_fields_and_is_idempotent() {
+        let root = temp_test_dir("vocal-overlay-cleanup");
+        fs::create_dir_all(root.join("catalog/bands")).unwrap();
+        fs::create_dir_all(root.join("projects")).unwrap();
+
+        let band_path = root.join("catalog/bands/b1.json");
+        fs::write(
+            &band_path,
+            r#"{
+  "id": "b1",
+  "name": "Band",
+  "defaultOverlays": {
+    "leadVocals": [
+      { "slot": 2, "musicianId": "lead-2" },
+      { "slot": 1, "musicianId": "lead-1" },
+      { "slot": 3, "musicianId": "lead-1" }
+    ],
+    "back": ["back-1"]
+  },
+  "defaultVocals": { "lead": ["legacy-lead"], "back": ["legacy-back"] },
+  "keep": true
+}"#,
+        )
+        .unwrap();
+
+        let project_path = root.join("projects/p1.json");
+        fs::write(
+            &project_path,
+            r#"{
+  "id": "p1",
+  "lineup": {
+    "vocs": ["lead-1"],
+    "lead_vocs": ["legacy-lead"],
+    "back_vocs": ["legacy-back"]
+  },
+  "overlays": {
+    "leadVocals": [
+      { "slot": 2, "musicianId": "lead-2" },
+      { "slot": 1, "musicianId": "lead-1" }
+    ],
+    "backVocals": ["back-1", "back-1", { "musicianId": "back-2" }]
+  },
+  "leadVocalistIds": ["legacy-lead"],
+  "backVocalIds": ["legacy-back"],
+  "keep": "yes"
+}"#,
+        )
+        .unwrap();
+
+        assert!(cleanup_vocal_overlays(&root).unwrap());
+        assert!(!cleanup_vocal_overlays(&root).unwrap());
+
+        let band: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&band_path).unwrap()).unwrap();
+        assert_eq!(
+            band.get("defaultOverlays").unwrap(),
+            &serde_json::json!({
+                "leadVocals": ["lead-1", "lead-2"],
+                "backVocals": ["back-1"]
+            })
+        );
+        assert!(band.get("defaultVocals").is_none());
+        assert_eq!(band.get("keep").unwrap(), &serde_json::json!(true));
+
+        let project: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&project_path).unwrap()).unwrap();
+        assert_eq!(
+            project.get("overlays").unwrap(),
+            &serde_json::json!({
+                "leadVocals": ["lead-1", "lead-2"],
+                "backVocals": ["back-1", "back-2"]
+            })
+        );
+        assert!(project.get("leadVocalistIds").is_none());
+        assert!(project.get("backVocalIds").is_none());
+        assert!(project.pointer("/lineup/lead_vocs").is_none());
+        assert!(project.pointer("/lineup/back_vocs").is_none());
+        assert_eq!(project.get("keep").unwrap(), &serde_json::json!("yes"));
+
+        let _ = fs::remove_dir_all(&root);
+    }
 }
 
 pub fn ensure_user_storage(app: &tauri::AppHandle) -> Result<UserStorageMeta, StorageError> {
@@ -644,7 +858,8 @@ pub fn ensure_user_storage(app: &tauri::AppHandle) -> Result<UserStorageMeta, St
 
     let migrated = migrate_legacy_library(&root)?;
     let lineup_migrated = migrate_lineup_assignments(&root)?;
-    if migrated || lineup_migrated || metadata_migrated {
+    let vocal_cleanup_migrated = cleanup_vocal_overlays(&root)?;
+    if migrated || lineup_migrated || vocal_cleanup_migrated || metadata_migrated {
         meta.last_migrated_at = Some(now_iso());
     }
 

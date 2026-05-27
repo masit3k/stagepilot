@@ -7,8 +7,10 @@ describe("ChangeBackVocsModal", () => {
     const html = renderToStaticMarkup(
       <ChangeBackVocsModal
         open
-        members={[
+        suggestedCandidates={[
           { id: "m1", name: "One", primaryGroup: "bass", isDisabled: false },
+        ]}
+        additionalCandidates={[
           { id: "m2", name: "Two", primaryGroup: "keys", isDisabled: false },
         ]}
         initialSelectedIds={["m2"]}
@@ -30,7 +32,8 @@ describe("ChangeBackVocsModal", () => {
     const html = renderToStaticMarkup(
       <ChangeBackVocsModal
         open
-        members={[{ id: "m1", name: "One", primaryGroup: "vocs", isDisabled: false }]}
+        suggestedCandidates={[{ id: "m1", name: "One", primaryGroup: "vocs", isDisabled: false }]}
+        additionalCandidates={[]}
         initialSelectedIds={[]}
         onCancel={vi.fn()}
         onSave={vi.fn()}
@@ -44,7 +47,8 @@ describe("ChangeBackVocsModal", () => {
     const html = renderToStaticMarkup(
       <ChangeBackVocsModal
         open
-        members={[]}
+        suggestedCandidates={[]}
+        additionalCandidates={[]}
         initialSelectedIds={[]}
         onCancel={vi.fn()}
         onSave={vi.fn()}
