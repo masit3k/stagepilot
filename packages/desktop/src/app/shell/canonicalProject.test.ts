@@ -6,7 +6,7 @@ import {
 } from "./canonicalProject";
 
 describe("buildCanonicalOverlaysFromDefaults", () => {
-  it("seeds lineup-scoped lead/back/talkback overlays", () => {
+  it("seeds canonical lead/back/talkback overlays without requiring current lineup membership", () => {
     const overlays = buildCanonicalOverlaysFromDefaults({
       setupDefaults: {
         id: "band-1",
@@ -26,7 +26,7 @@ describe("buildCanonicalOverlaysFromDefaults", () => {
     });
 
     expect(overlays).toEqual({
-      leadVocals: ["voc-1"],
+      leadVocals: ["voc-1", "off-lineup"],
       backVocals: ["voc-2"],
       talkback: { mode: "assigned", ownerId: "voc-1" },
     });
@@ -50,18 +50,23 @@ describe("buildCanonicalProjectBaseFromBandDefaults", () => {
         defaultTalkbackOwnerId: "tb-1",
         defaultLineup: { drums: "dr-1", vocs: ["voc-1"] },
         defaultOverlays: {
-          leadVocals: ["voc-1"],
+          leadVocals: ["voc-1", "voc-2"],
           backVocals: [],
         },
-        members: {},
+        members: {
+          vocs: [
+            { id: "voc-1", name: "Vocal One" },
+            { id: "voc-2", name: "Vocal Two" },
+          ],
+        },
       },
       roleOrder: ["drums", "bass", "guitar", "keys", "vocs"],
     });
 
     expect(payload.bandLeaderId).toBe("leader-1");
-    expect(payload.lineup).toEqual({ drums: ["dr-1"], vocs: ["voc-1"] });
+    expect(payload.lineup).toEqual({ drums: ["dr-1"], vocs: ["voc-1", "voc-2"] });
     expect(payload.overlays).toEqual({
-      leadVocals: ["voc-1"],
+      leadVocals: ["voc-1", "voc-2"],
       backVocals: [],
       talkback: { mode: "assigned", ownerId: "tb-1" },
     });

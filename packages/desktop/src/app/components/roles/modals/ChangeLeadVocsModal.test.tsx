@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ChangeLeadVocsModal } from "./ChangeLeadVocsModal";
 
 describe("ChangeLeadVocsModal", () => {
-  it("renders suggested and other sections with badges and helper note", () => {
+  it("renders assignment editor headings, assigned order, and helper note", () => {
     const html = renderToStaticMarkup(
       <ChangeLeadVocsModal
         open
@@ -12,10 +12,12 @@ describe("ChangeLeadVocsModal", () => {
             musicianId: "m1",
             displayName: "One",
             primaryGroup: "keys",
+            source: "band_catalog",
             isSuggested: true,
             isSelected: true,
-            hasLeadPreset: true,
-            reason: "lead_vocal_capability",
+            hasVocalCapability: true,
+            isInProjectLineup: false,
+            reason: "vocal_capability",
           },
         ]}
         otherCandidates={[
@@ -23,27 +25,28 @@ describe("ChangeLeadVocsModal", () => {
             musicianId: "m2",
             displayName: "Two",
             primaryGroup: "guitar",
+            source: "project_lineup",
             isSuggested: false,
             isSelected: false,
-            hasLeadPreset: false,
+            hasVocalCapability: false,
+            isInProjectLineup: true,
             reason: "active_lineup_without_vocal_preset",
           },
         ]}
         initialSelectedIds={["m1"]}
+        defaultSelectedIds={["m2"]}
         disabledSelectedIds={["m2"]}
         onCancel={vi.fn()}
         onSave={vi.fn()}
       />,
     );
 
-    expect(html).toContain("Suggested lead vocalists");
-    expect(html).toContain("Other lineup members");
-    expect(html).toContain("(KEYS)");
-    expect(html).toContain("(GUITAR)");
-    expect(html).toContain("Lead vocal capability");
-    expect(html).toContain("checked");
+    expect(html).toContain("Edit lead vocal assignments");
+    expect(html).toContain("Assigned lead vocalists");
+    expect(html).toContain("Add lead vocalists");
+    expect(html).toContain("1. One");
+    expect(html).toContain("Add another lead vocalist");
+    expect(html).toContain("Reset to defaults");
     expect(html).toContain("cannot be selected as Back Vocal");
-    expect(html).toContain('id="lead-vocs-m2"');
-    expect(html).toContain("disabled");
   });
 });

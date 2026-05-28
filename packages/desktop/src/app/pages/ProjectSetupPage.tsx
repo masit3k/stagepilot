@@ -58,6 +58,7 @@ import { LeadVocsBlock } from "../components/roles/LeadVocsBlock";
 import { ChangeBackVocsModal } from "../components/roles/modals/ChangeBackVocsModal";
 import { ChangeLeadVocsModal } from "../components/roles/modals/ChangeLeadVocsModal";
 import { sanitizeBackVocsSelection } from "../components/roles/utils/backVocs";
+import { ensureMusiciansInLineup } from "../domain/roles/ensureMusiciansInLineup";
 import { resolveLeadVocalCandidates } from "../domain/roles/resolveLeadVocalCandidates";
 import { resolveLineupVocalCandidates } from "../domain/roles/resolveLineupVocalCandidates";
 import { enforceVocalSelectionInvariant } from "../domain/roles/vocalSelectionInvariant";
@@ -749,13 +750,47 @@ export function ProjectSetupPage({
   const selectedOptions = useMemo(() => {
     if (!setupData) return [] as MemberOption[];
     const byId = new Map<string, MemberOption>();
-    Object.values(setupData.members)
-      .flat()
-      .forEach((m) => byId.set(m.id, m));
+    for (const members of Object.values(setupData.members)) {
+      for (const member of members) {
+        byId.set(member.id, member);
+      }
+    }
     return selectedMusicianIds
       .map((idValue) => byId.get(idValue))
       .filter(Boolean) as MemberOption[];
   }, [selectedMusicianIds, setupData]);
+  const allBandMembers = useMemo(() => {
+    if (!setupData) return [] as MemberOption[];
+    const byId = new Map<string, MemberOption>();
+    for (const members of Object.values(setupData.members)) {
+      for (const member of members) {
+        byId.set(member.id, member);
+      }
+    }
+    return Array.from(byId.values());
+  }, [setupData]);
+  const allBandMusicians = useMemo<Musician[]>(() => {
+    if (!setupData) return [];
+    const byId = new Map<string, Musician>();
+    for (const [group, members] of Object.entries(setupData.members)) {
+      for (const member of members) {
+        if (byId.has(member.id)) continue;
+        byId.set(member.id, {
+          id: member.id,
+          firstName: "",
+          lastName: "",
+          group: group as Group,
+          presets: (setupData.musicianPresetsById?.[member.id] ??
+            []) as PresetItem[],
+        });
+      }
+    }
+    return Array.from(byId.values());
+  }, [setupData]);
+  const allBandMusiciansById = useMemo(
+    () => new Map(allBandMusicians.map((musician) => [musician.id, musician])),
+    [allBandMusicians],
+  );
   const monitorOptions = useMemo(
     () =>
       Object.values(presetCatalog)
@@ -768,10 +803,6 @@ export function ProjectSetupPage({
     [presetCatalog],
   );
   const templateMusicians = selectedOptions;
-  const templateMusicianIds = useMemo(
-    () => new Set(templateMusicians.map((item) => item.id)),
-    [templateMusicians],
-  );
   const selectedTemplateMusicians = useMemo<Musician[]>(() => {
     if (!setupData) return [];
 
@@ -801,30 +832,32 @@ export function ProjectSetupPage({
         new Set(
           extractOverlayMusicianIds(setupData?.defaultOverlays?.leadVocals),
         ),
-      )
-        .filter((idValue) => templateMusicianIds.has(idValue)),
-    [
-      setupData?.defaultOverlays?.leadVocals,
-      templateMusicianIds,
-    ],
+      ),
+    [setupData?.defaultOverlays?.leadVocals],
   );
   const rawSelectedLeadVocalIds = useMemo(() => {
-    return leadVocalIds.filter((idValue) =>
-      templateMusicianIds.has(idValue),
-    );
-  }, [leadVocalIds, templateMusicianIds]);
+    return extractOverlayMusicianIds(leadVocalIds);
+  }, [leadVocalIds]);
   const lineupVocalCandidates = useMemo(
     () =>
       resolveLineupVocalCandidates({
         lineupMusicians: selectedTemplateMusicians,
         lineupMembers: templateMusicians,
+        catalogMusicians: allBandMusicians,
+        catalogMembers: allBandMembers,
         presetCatalog,
       }),
-    [presetCatalog, selectedTemplateMusicians, templateMusicians],
+    [
+      allBandMembers,
+      allBandMusicians,
+      presetCatalog,
+      selectedTemplateMusicians,
+      templateMusicians,
+    ],
   );
   const rawSelectedBackVocalIds = useMemo(() => {
-    return backVocalIds.filter((idValue) => templateMusicianIds.has(idValue));
-  }, [backVocalIds, templateMusicianIds]);
+    return extractOverlayMusicianIds(backVocalIds);
+  }, [backVocalIds]);
   const lineupVocalCandidateIdSet = useMemo(
     () => new Set(lineupVocalCandidates.map((candidate) => candidate.id)),
     [lineupVocalCandidates],
@@ -846,43 +879,57 @@ export function ProjectSetupPage({
   const leadVocalCandidateSections = useMemo(
     () =>
       resolveLeadVocalCandidates({
-        lineupCandidates: lineupVocalCandidates.map((candidate) => ({
-          musicianId: candidate.id,
-          displayName: candidate.name,
-          primaryGroup: candidate.primaryGroup,
-          section: candidate.sectionByRole.lead,
-          reason: candidate.reasonByRole.lead,
-        })),
+        lineupCandidates: lineupVocalCandidates
+          .filter(
+            (candidate) =>
+              candidate.sectionByRole.lead === "suggested" ||
+              candidate.isInProjectLineup ||
+              candidate.primaryGroup === "vocs",
+          )
+          .map((candidate) => ({
+            musicianId: candidate.id,
+            displayName: candidate.name,
+            primaryGroup: candidate.primaryGroup,
+            source: candidate.source,
+            section: candidate.sectionByRole.lead,
+            reason: candidate.reasonByRole.lead,
+            hasVocalCapability: candidate.hasVocalCapability,
+            isInProjectLineup: candidate.isInProjectLineup,
+          })),
         selectedLeadVocalistIds: selectedLeadVocalIds,
       }),
     [lineupVocalCandidates, selectedLeadVocalIds],
   );
   const leadVocalMembers = useMemo(() => {
     const membersById = new Map(
-      templateMusicians.map((item) => [item.id, item]),
+      allBandMembers.map((item) => [item.id, item]),
     );
     return selectedLeadVocalIds
       .map((idValue) => membersById.get(idValue))
       .filter((item): item is MemberOption => Boolean(item));
-  }, [selectedLeadVocalIds, templateMusicians]);
+  }, [allBandMembers, selectedLeadVocalIds]);
   const backVocalMembers = useMemo(() => {
     const membersById = new Map(
-      templateMusicians.map((item) => [item.id, item]),
+      allBandMembers.map((item) => [item.id, item]),
     );
     return selectedBackVocalIds
       .map((idValue) => membersById.get(idValue))
       .filter((item): item is MemberOption => Boolean(item));
-  }, [selectedBackVocalIds, templateMusicians]);
-  const isBackVocsSetupDisabled = true;
+  }, [allBandMembers, selectedBackVocalIds]);
 
   const backVocalCandidateSections = useMemo(() => {
     const selectedLeadIds = new Set(selectedLeadVocalIds);
-    const candidates = lineupVocalCandidates.map((candidate) => {
+    const backCandidates = lineupVocalCandidates.filter(
+      (candidate) => candidate.hasVocalCapability || candidate.isInProjectLineup,
+    );
+    const candidates = backCandidates.map((candidate) => {
       const isDisabled = selectedLeadIds.has(candidate.id);
       return {
         id: candidate.id,
         name: candidate.name,
         primaryGroup: candidate.primaryGroup,
+        hasVocalCapability: candidate.hasVocalCapability,
+        isInProjectLineup: candidate.isInProjectLineup,
         reason: candidate.reasonByRole.back,
         isDisabled,
         disabledReason: isDisabled
@@ -893,25 +940,33 @@ export function ProjectSetupPage({
     return {
       suggested: candidates.filter(
         (candidate) =>
-          lineupVocalCandidates.find((item) => item.id === candidate.id)
+          backCandidates.find((item) => item.id === candidate.id)
             ?.sectionByRole.back === "suggested",
       ),
       additional: candidates.filter(
         (candidate) =>
-          lineupVocalCandidates.find((item) => item.id === candidate.id)
-            ?.sectionByRole.back === "additional",
+          backCandidates.find((item) => item.id === candidate.id)
+            ?.sectionByRole.back === "other_lineup_members",
       ),
     };
   }, [lineupVocalCandidates, selectedLeadVocalIds]);
 
   const serializedLineup = useMemo(() => {
     if (!setupData) return {} as LineupMap;
-    return serializeLineupForProject(lineup, ROLE_ORDER);
-  }, [lineup, setupData]);
+    const nextLineup = ensureMusiciansInLineup(lineup, allBandMusiciansById, [
+      ...selectedLeadVocalIds,
+      ...selectedBackVocalIds,
+    ]);
+    return serializeLineupForProject(nextLineup, ROLE_ORDER);
+  }, [
+    allBandMusiciansById,
+    lineup,
+    selectedBackVocalIds,
+    selectedLeadVocalIds,
+    setupData,
+  ]);
   const defaultSelectedBackVocalIds = useMemo(() => {
     if (!setupData) return [] as string[];
-    const defaultLineup = { ...(setupData.defaultLineup ?? {}) };
-    const selectedIds = getUniqueSelectedMusicians(defaultLineup, ROLE_ORDER);
     const leadIds = new Set(
       extractOverlayMusicianIds(setupData.defaultOverlays?.leadVocals),
     );
@@ -920,7 +975,7 @@ export function ProjectSetupPage({
         new Set(extractOverlayMusicianIds(setupData.defaultOverlays?.backVocals)),
         leadIds,
       ),
-    ).filter((idValue) => selectedIds.includes(idValue));
+    );
   }, [setupData]);
 
   const currentSnapshot = JSON.stringify({
@@ -941,7 +996,13 @@ export function ProjectSetupPage({
     );
     return JSON.stringify({
       ...defaults,
-      lineup: serializeLineupForProject(defaults.lineup, ROLE_ORDER),
+      lineup: serializeLineupForProject(
+        ensureMusiciansInLineup(defaults.lineup, allBandMusiciansById, [
+          ...defaultLeadVocalIds,
+          ...defaultSelectedBackVocalIds,
+        ]),
+        ROLE_ORDER,
+      ),
       backVocalIds: defaultSelectedBackVocalIds,
       leadVocalIds: defaultLeadVocalIds,
       hasLeadVocalOverride: true,
@@ -951,6 +1012,7 @@ export function ProjectSetupPage({
   }, [
     defaultLeadVocalIds,
     defaultSelectedBackVocalIds,
+    allBandMusiciansById,
     setupData,
     buildSetupSnapshot,
   ]);
@@ -1002,22 +1064,27 @@ export function ProjectSetupPage({
   }, [currentDirtyState, project, setupData]);
 
   const canonicalProjectDraft = useMemo(
-    () =>
-      project
-        ? buildCanonicalProjectFromSetupState({
-            project,
-            roleOrder: ROLE_ORDER,
-            lineup,
-            bandLeaderId,
-            talkbackOwnerId: talkbackCurrentOwnerId,
-            hasTalkbackOverride,
-            leadVocalIds: [...selectedLeadVocalIds],
-            hasLeadVocalOverride,
-            backVocalIds: [...selectedBackVocalIds],
-            hasBackVocalOverride,
-          })
-        : null,
+    () => {
+      if (!project) return null;
+      const nextLineup = ensureMusiciansInLineup(lineup, allBandMusiciansById, [
+        ...selectedLeadVocalIds,
+        ...selectedBackVocalIds,
+      ]);
+      return buildCanonicalProjectFromSetupState({
+        project,
+        roleOrder: ROLE_ORDER,
+        lineup: nextLineup,
+        bandLeaderId,
+        talkbackOwnerId: talkbackCurrentOwnerId,
+        hasTalkbackOverride,
+        leadVocalIds: [...selectedLeadVocalIds],
+        hasLeadVocalOverride,
+        backVocalIds: [...selectedBackVocalIds],
+        hasBackVocalOverride,
+      });
+    },
     [
+      allBandMusiciansById,
       bandLeaderId,
       hasBackVocalOverride,
       hasLeadVocalOverride,
@@ -1620,64 +1687,13 @@ export function ProjectSetupPage({
         })}
         <LeadVocsBlock
           members={leadVocalMembers}
-          changeDisabled={selectedOptions.length === 0}
-          setupDisabled={leadVocalMembers.length === 0}
+          changeDisabled={lineupVocalCandidates.length === 0}
           onChange={() => setIsLeadVocsModalOpen(true)}
-          onSetup={() => {
-            if (!setupData || selectedLeadVocalIds.length === 0) return;
-            const draftEntries: Record<
-              string,
-              PresetOverridePatch | undefined
-            > = {};
-            ROLE_ORDER.forEach((setupRole) => {
-              const setupRoleSlotLimit = getRoleSlotLimit(setupRole);
-              normalizeLineupSlots(
-                lineup[setupRole],
-                setupRoleSlotLimit,
-              ).forEach((setupSlot, setupIndex) => {
-                if (!setupSlot.musicianId) return;
-                draftEntries[`${setupRole}:${setupIndex}`] =
-                  normalizeSetupOverridePatch(
-                    resolveSlotSetup(setupRole as Group, setupSlot.musicianId)
-                      .resolved.defaultPreset,
-                    setupSlot.presetOverride,
-                  );
-              });
-            });
-            const selectedLeadId = selectedLeadVocalIds[0];
-            let selectedSlotKey = "";
-            let selectedRole = "vocs";
-            let selectedIndex = 0;
-            ROLE_ORDER.some((role) => {
-              const slots = normalizeLineupSlots(
-                lineup[role],
-                getRoleSlotLimit(role),
-              );
-              const slotIndex = slots.findIndex(
-                (slot) => slot.musicianId === selectedLeadId,
-              );
-              if (slotIndex < 0) return false;
-              selectedRole = role;
-              selectedIndex = slotIndex;
-              selectedSlotKey = `${role}:${slotIndex}`;
-              return true;
-            });
-            if (!selectedSlotKey) return;
-            setSetupDraftBySlot(draftEntries);
-            setSelectedSetupSlotKey(selectedSlotKey);
-            setEditingSetup({
-              role: selectedRole,
-              slotIndex: selectedIndex,
-              musicianId: selectedLeadId,
-            });
-          }}
         />
         <BackVocsBlock
           members={backVocalMembers}
-          changeDisabled={selectedOptions.length === 0}
-          setupDisabled={isBackVocsSetupDisabled}
+          changeDisabled={lineupVocalCandidates.length === 0}
           onChange={() => setIsBackVocsModalOpen(true)}
-          onSetup={() => undefined}
         />
         <p className="subtle">
           Select the on-site band lead for coordination and decisions.
@@ -2398,6 +2414,7 @@ export function ProjectSetupPage({
               leadVocalCandidateSections.otherLeadVocalCandidates
             }
             initialSelectedIds={selectedLeadVocalIds}
+            defaultSelectedIds={defaultLeadVocalIds}
             disabledSelectedIds={selectedBackVocalIds}
             onCancel={() => setIsLeadVocsModalOpen(false)}
             onSave={(nextSelectedIds) => {
@@ -2406,6 +2423,17 @@ export function ProjectSetupPage({
                 leadIds: nextSelectedIds,
                 backIds: selectedBackVocalIds,
               });
+              if (setupData) {
+                applyState(
+                  ensureMusiciansInLineup(lineup, allBandMusiciansById, [
+                    ...normalizedSelection.leadIds,
+                    ...normalizedSelection.backIds,
+                  ]),
+                  setupData,
+                  bandLeaderId,
+                  talkbackOwnerId,
+                );
+              }
               setLeadVocalIds(normalizedSelection.leadIds);
               setBackVocalIds(normalizedSelection.backIds);
               setHasLeadVocalOverride(true);
@@ -2426,6 +2454,7 @@ export function ProjectSetupPage({
             suggestedCandidates={backVocalCandidateSections.suggested}
             additionalCandidates={backVocalCandidateSections.additional}
             initialSelectedIds={selectedBackVocalIds}
+            defaultSelectedIds={defaultSelectedBackVocalIds}
             onCancel={() => setIsBackVocsModalOpen(false)}
             onSave={(nextSelectedIds) => {
               const normalizedSelection = enforceVocalSelectionInvariant({
@@ -2433,6 +2462,17 @@ export function ProjectSetupPage({
                 leadIds: selectedLeadVocalIds,
                 backIds: nextSelectedIds,
               });
+              if (setupData) {
+                applyState(
+                  ensureMusiciansInLineup(lineup, allBandMusiciansById, [
+                    ...normalizedSelection.leadIds,
+                    ...normalizedSelection.backIds,
+                  ]),
+                  setupData,
+                  bandLeaderId,
+                  talkbackOwnerId,
+                );
+              }
               setLeadVocalIds(normalizedSelection.leadIds);
               setBackVocalIds(normalizedSelection.backIds);
               setHasLeadVocalOverride(true);

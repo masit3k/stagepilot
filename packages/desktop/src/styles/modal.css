@@ -20,7 +20,9 @@
 
 .selector-dialog {
   width: min(620px, 95vw);
+  margin: 0;
   background: var(--surface);
+  color: var(--text);
   border-radius: var(--radius-lg);
   display: grid;
   gap: var(--space-2);

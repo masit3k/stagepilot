@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { PresetEntity } from "../../../../../../src/domain/model/types";
 import { resolveLineupVocalCandidates } from "./resolveLineupVocalCandidates";
 
 const VOCAL_PRESET = {
@@ -8,7 +9,7 @@ const VOCAL_PRESET = {
   group: "vocs",
   capabilities: ["vocal"] as ["vocal"],
   inputs: [],
-};
+} satisfies PresetEntity;
 
 describe("resolveLineupVocalCandidates", () => {
   it("vocs musician with vocal preset is suggested for both lead and back", () => {
@@ -31,7 +32,7 @@ describe("resolveLineupVocalCandidates", () => {
     expect(candidates[0].hasVocalCapability).toBe(true);
   });
 
-  it("instrumentalist with vocal preset is additional for lead but suggested for back", () => {
+  it("instrumentalist with vocal preset is other for lead but suggested for back", () => {
     const candidates = resolveLineupVocalCandidates({
       lineupMusicians: [
         {
@@ -46,12 +47,12 @@ describe("resolveLineupVocalCandidates", () => {
       presetCatalog: { vocal_no_mic: VOCAL_PRESET },
     });
 
-    expect(candidates[0].sectionByRole.lead).toBe("additional");
+    expect(candidates[0].sectionByRole.lead).toBe("other_lineup_members");
     expect(candidates[0].sectionByRole.back).toBe("suggested");
     expect(candidates[0].hasVocalCapability).toBe(true);
   });
 
-  it("musician without vocal preset is additional for both lead and back", () => {
+  it("musician without vocal preset is other for both lead and back", () => {
     const candidates = resolveLineupVocalCandidates({
       lineupMusicians: [
         {
@@ -66,8 +67,8 @@ describe("resolveLineupVocalCandidates", () => {
       presetCatalog: {},
     });
 
-    expect(candidates[0].sectionByRole.lead).toBe("additional");
-    expect(candidates[0].sectionByRole.back).toBe("additional");
+    expect(candidates[0].sectionByRole.lead).toBe("other_lineup_members");
+    expect(candidates[0].sectionByRole.back).toBe("other_lineup_members");
     expect(candidates[0].hasVocalCapability).toBe(false);
   });
 
@@ -99,7 +100,7 @@ describe("resolveLineupVocalCandidates", () => {
     expect(candidates.map((c) => c.id)).toEqual(["keys-1", "voc-1"]);
   });
 
-  it("mixed lineup: vocs suggested for lead, instrumentalist additional for lead", () => {
+  it("mixed lineup: vocs suggested for lead, instrumentalist other for lead", () => {
     const candidates = resolveLineupVocalCandidates({
       lineupMusicians: [
         {
@@ -139,10 +140,119 @@ describe("resolveLineupVocalCandidates", () => {
     expect(voc.sectionByRole.lead).toBe("suggested");
     expect(voc.sectionByRole.back).toBe("suggested");
 
-    expect(keys.sectionByRole.lead).toBe("additional");
+    expect(keys.sectionByRole.lead).toBe("other_lineup_members");
     expect(keys.sectionByRole.back).toBe("suggested");
 
-    expect(drums.sectionByRole.lead).toBe("additional");
-    expect(drums.sectionByRole.back).toBe("additional");
+    expect(drums.sectionByRole.lead).toBe("other_lineup_members");
+    expect(drums.sectionByRole.back).toBe("other_lineup_members");
+  });
+
+  it("suggests catalog-only vocs singers with vocal capability for lead and back", () => {
+    const candidates = resolveLineupVocalCandidates({
+      lineupMusicians: [],
+      lineupMembers: [],
+      catalogMusicians: [
+        {
+          id: "zuzana",
+          firstName: "Zuzana",
+          lastName: "Mimrova",
+          group: "vocs",
+          presets: [{ kind: "preset", ref: "vocal_no_mic" }],
+        },
+      ],
+      catalogMembers: [{ id: "zuzana", name: "Mimrova Zuzana" }],
+      presetCatalog: { vocal_no_mic: VOCAL_PRESET },
+    });
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toMatchObject({
+      id: "zuzana",
+      source: "band_catalog",
+      isInProjectLineup: false,
+      sectionByRole: {
+        lead: "suggested",
+        back: "suggested",
+      },
+    });
+  });
+
+  it("dedupes catalog and lineup candidates with project lineup precedence", () => {
+    const candidates = resolveLineupVocalCandidates({
+      lineupMusicians: [
+        {
+          id: "matej",
+          firstName: "Matej",
+          lastName: "Krecmer",
+          group: "bass",
+          presets: [{ kind: "preset", ref: "vocal_no_mic" }],
+        },
+      ],
+      lineupMembers: [{ id: "matej", name: "Krecmer Matej" }],
+      catalogMusicians: [
+        {
+          id: "matej",
+          firstName: "Matej",
+          lastName: "Krecmer",
+          group: "bass",
+          presets: [{ kind: "preset", ref: "vocal_no_mic" }],
+        },
+      ],
+      catalogMembers: [{ id: "matej", name: "Krecmer Matej" }],
+      presetCatalog: { vocal_no_mic: VOCAL_PRESET },
+    });
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toMatchObject({
+      source: "project_lineup",
+      isInProjectLineup: true,
+      sectionByRole: {
+        lead: "other_lineup_members",
+        back: "suggested",
+      },
+    });
+  });
+
+  it("keeps catalog-only vocal-capable instrumentalists for backing vocal suggestions", () => {
+    const candidates = resolveLineupVocalCandidates({
+      lineupMusicians: [],
+      lineupMembers: [],
+      catalogMusicians: [
+        {
+          id: "guest-gtr",
+          firstName: "Guest",
+          lastName: "Guitar",
+          group: "guitar",
+          presets: [{ kind: "preset", ref: "vocal_no_mic" }],
+        },
+      ],
+      catalogMembers: [{ id: "guest-gtr", name: "Guest Guitar" }],
+      presetCatalog: { vocal_no_mic: VOCAL_PRESET },
+    });
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].sectionByRole).toMatchObject({
+      lead: "other_lineup_members",
+      back: "suggested",
+    });
+  });
+
+  it("excludes catalog-only non-vocal instrumentalists", () => {
+    const candidates = resolveLineupVocalCandidates({
+      lineupMusicians: [],
+      lineupMembers: [],
+      catalogMusicians: [
+        {
+          id: "guest-gtr",
+          firstName: "Guest",
+          lastName: "Guitar",
+          group: "guitar",
+          presets: [],
+        },
+      ],
+      catalogMembers: [{ id: "guest-gtr", name: "Guest Guitar" }],
+      presetCatalog: {},
+    });
+
+    expect(candidates).toEqual([]);
   });
 });

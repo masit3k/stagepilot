@@ -1,21 +1,30 @@
 import type { Group } from "../../../../../../src/domain/model/groups";
-import type { VocalCandidateReason, VocalCandidateSection } from "./resolveLineupVocalCandidates";
+import type {
+  VocalCandidateReason,
+  VocalCandidateSection,
+  VocalCandidateSource,
+} from "./resolveLineupVocalCandidates";
 
 export type LeadVocalCandidateInput = {
   musicianId: string;
   displayName: string;
   primaryGroup: Group;
+  source: VocalCandidateSource;
   section: VocalCandidateSection;
   reason: VocalCandidateReason;
+  hasVocalCapability: boolean;
+  isInProjectLineup: boolean;
 };
 
 export type LeadVocalCandidate = {
   musicianId: string;
   displayName: string;
   primaryGroup: Group;
+  source: VocalCandidateSource;
   isSuggested: boolean;
   isSelected: boolean;
-  hasLeadPreset: boolean;
+  hasVocalCapability: boolean;
+  isInProjectLineup: boolean;
   reason: VocalCandidateReason;
 };
 
@@ -68,9 +77,11 @@ export function resolveLeadVocalCandidates(args: {
       musicianId: candidate.musicianId,
       displayName: candidate.displayName,
       primaryGroup: candidate.primaryGroup,
+      source: candidate.source,
       isSuggested,
       isSelected,
-      hasLeadPreset: candidate.section === "suggested",
+      hasVocalCapability: candidate.hasVocalCapability,
+      isInProjectLineup: candidate.isInProjectLineup,
       reason: candidate.reason,
     } satisfies LeadVocalCandidate;
   });

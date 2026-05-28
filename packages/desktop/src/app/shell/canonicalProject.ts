@@ -1,20 +1,16 @@
-import {
-  getUniqueSelectedMusicians,
-  type LineupMap,
-} from "../../projectRules";
+import type { Group } from "../../../../../src/domain/model/groups";
+import type { LineupMap } from "../../projectRules";
+import { ensureMusiciansInLineup } from "../domain/roles/ensureMusiciansInLineup";
 import { serializeLineupForProject } from "./lineupSerialize";
 import type { BandSetupData, NewProjectPayload } from "./types";
 
-function normalizeOverlayIds(
-  overlays: string[] | undefined | null,
-  selectedIds: Set<string>,
-): string[] {
+function normalizeOverlayIds(overlays: string[] | undefined | null): string[] {
   const ids = Array.isArray(overlays)
     ? overlays.map((entry) => entry.trim()).filter(Boolean)
     : [];
   const seen = new Set<string>();
   return ids
-    .filter((id) => id.length > 0 && selectedIds.has(id))
+    .filter((id) => id.length > 0)
     .filter((id) => {
       if (seen.has(id)) return false;
       seen.add(id);
@@ -28,15 +24,10 @@ export function buildCanonicalOverlaysFromDefaults(args: {
   roleOrder: string[];
   talkbackOwnerId?: string;
 }): NewProjectPayload["overlays"] | undefined {
-  const selectedIds = new Set(
-    getUniqueSelectedMusicians(args.lineup, args.roleOrder),
-  );
-  const leadDefaults =
-    args.setupDefaults.defaultOverlays?.leadVocals;
-  const backDefaults =
-    args.setupDefaults.defaultOverlays?.backVocals;
-  const leadVocals = normalizeOverlayIds(leadDefaults, selectedIds);
-  const backVocals = normalizeOverlayIds(backDefaults, selectedIds);
+  const leadDefaults = args.setupDefaults.defaultOverlays?.leadVocals;
+  const backDefaults = args.setupDefaults.defaultOverlays?.backVocals;
+  const leadVocals = normalizeOverlayIds(leadDefaults);
+  const backVocals = normalizeOverlayIds(backDefaults);
   const talkbackOwnerId = (args.talkbackOwnerId ?? "").trim();
 
   const overlays: NonNullable<NewProjectPayload["overlays"]> = {
@@ -55,14 +46,37 @@ export function buildCanonicalOverlaysFromDefaults(args: {
   return overlays;
 }
 
+function buildMusicianGroupsById(
+  setupDefaults: BandSetupData,
+): Map<string, { group: Group }> {
+  const groupsById = new Map<string, { group: Group }>();
+  for (const [group, members] of Object.entries(setupDefaults.members)) {
+    for (const member of members) {
+      if (!groupsById.has(member.id)) {
+        groupsById.set(member.id, { group: group as Group });
+      }
+    }
+  }
+  return groupsById;
+}
+
 export function buildCanonicalProjectBaseFromBandDefaults(args: {
   project: NewProjectPayload;
   setupDefaults: BandSetupData;
   roleOrder: string[];
   existingTalkbackOwnerId?: string;
 }): NewProjectPayload {
+  const baseLineup = { ...(args.setupDefaults.defaultLineup ?? {}) };
+  const defaultOverlayIds = [
+    ...normalizeOverlayIds(args.setupDefaults.defaultOverlays?.leadVocals),
+    ...normalizeOverlayIds(args.setupDefaults.defaultOverlays?.backVocals),
+  ];
   const lineup = serializeLineupForProject(
-    { ...(args.setupDefaults.defaultLineup ?? {}) },
+    ensureMusiciansInLineup(
+      baseLineup,
+      buildMusicianGroupsById(args.setupDefaults),
+      defaultOverlayIds,
+    ),
     args.roleOrder,
   );
   const bandLeaderId = (
@@ -71,8 +85,7 @@ export function buildCanonicalProjectBaseFromBandDefaults(args: {
     ""
   ).trim();
   const defaultTalkbackOwnerId = (
-    args.setupDefaults.defaultTalkbackOwnerId ??
-    bandLeaderId
+    args.setupDefaults.defaultTalkbackOwnerId ?? bandLeaderId
   ).trim();
   const talkbackOwnerId =
     typeof args.existingTalkbackOwnerId === "string"
@@ -111,7 +124,10 @@ export function buildCanonicalProjectFromSetupState(args: {
       ? {
           talkback:
             normalizedTalkbackOwnerId.length > 0
-              ? { mode: "assigned" as const, ownerId: normalizedTalkbackOwnerId }
+              ? {
+                  mode: "assigned" as const,
+                  ownerId: normalizedTalkbackOwnerId,
+                }
               : { mode: "none" as const, ownerId: null },
         }
       : {}),

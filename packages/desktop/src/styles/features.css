@@ -672,6 +672,12 @@
   box-shadow: 0 16px 36px rgba(15, 23, 42, 0.18);
 }
 
+.lineup-multiselect__popover--inline {
+  position: static;
+  width: 100%;
+  max-height: 320px;
+}
+
 .lineup-multiselect__options {
   display: grid;
   gap: 4px;

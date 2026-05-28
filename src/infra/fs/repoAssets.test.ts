@@ -4,8 +4,8 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { loadRepository } from "./repo.js";
 import defaultNotesTemplate from "../storage/defaultNotesTemplate.notes_default_cs.json";
+import { loadRepository } from "./repo.js";
 
 const tmpDirs: string[] = [];
 
@@ -83,6 +83,22 @@ async function makeUserDataRoot(): Promise<string> {
 }
 
 describe("loadRepository split sources", () => {
+  it("keeps standard vocal presets role-neutral and removes role-specific back vocal preset", async () => {
+    const vocsPresetDir = path.join("data", "assets", "presets", "groups", "vocs");
+    const presetIds = ["vocal_no_mic", "vocal_wired", "vocal_wireless"];
+
+    for (const presetId of presetIds) {
+      const raw = await fs.readFile(path.join(vocsPresetDir, `${presetId}.json`), "utf8");
+      const preset = JSON.parse(raw) as { capabilities?: string[] };
+      expect(preset.capabilities).toEqual(["vocal"]);
+    }
+
+    const presetFileNames = await fs.readdir(vocsPresetDir);
+    expect(presetFileNames).not.toContain(
+      `${["back", "vocal", "no", "mic"].join("_")}.json`,
+    );
+  });
+
   it("loads presets from repo assets and notes templates from AppData", async () => {
     const userDataRoot = await makeUserDataRoot();
     const repo = await loadRepository({ userDataRoot });
