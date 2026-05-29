@@ -20,6 +20,7 @@ Thumbs.db
 
 # app runtime / local state
 user_data/
+analysis/
 dist-icons/StagePilot_Icon_StageLayout_CurrentColor/png/StagePilot_Icon_StageLayout_CurrentColor-16.png
 dist-icons/StagePilot_Icon_StageLayout_CurrentColor/png/StagePilot_Icon_StageLayout_CurrentColor-32.png
 dist-icons/StagePilot_Icon_StageLayout_CurrentColor/png/StagePilot_Icon_StageLayout_CurrentColor-48.png
