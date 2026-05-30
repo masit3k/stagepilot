@@ -6,6 +6,7 @@ numbering and display rows. It is descriptive, not a new specification.
 Source of truth:
 
 - `src/domain/pipeline/buildDocument.ts`
+- `src/domain/pipeline/pdf/assignPdfChannels.ts`
 - `src/domain/formatters/inputlist.ts`
 - regression coverage in `src/domain/pipeline/buildDocument.pdfRegression.test.ts`
 - formatter coverage in `src/domain/formatters/inputlist.test.ts`
@@ -19,7 +20,7 @@ numbers near the end of the pipeline:
 2. sort and reorder inputs into final PDF order
 3. apply label formatting and key disambiguation
 4. split final inputs into non-vocal/non-talkback, vocal, and talkback blocks
-5. assign channel numbers with `assignChannelsWithOddStereoRule`
+5. assign channel numbers with `assignPdfChannels`
 6. derive compact printed rows with `buildInputRows`
 7. derive stageplan inputs from numbered inputs, excluding spare rows
 
@@ -82,7 +83,7 @@ Rules:
 
 ## Stereo pair detection for numbering
 
-`assignChannelsWithOddStereoRule` only compares the current input with the next
+`assignPdfChannels` only compares the current input with the next
 input in final order. Non-adjacent inputs are never paired.
 
 A numbering stereo pair requires:

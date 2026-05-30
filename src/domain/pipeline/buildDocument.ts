@@ -5,15 +5,11 @@ import {
   resolveDrumInputs,
 } from "../drums/resolveDrumInputs.js";
 import {
-  compactStereoInputChannelsForPdf,
   formatBackVocalPdfLabel,
   formatDrumInputDisplayLabel,
   formatLeadVocalPdfLabel,
-  formatMonitorOwnerLabel,
-  formatMonitoringLabel,
   formatProjectMetaLine,
   groupActiveDrumInputsByFamily,
-  resolveStereoPair,
 } from "../formatters/index.js";
 import { GROUP_ORDER } from "../model/groups.js";
 import type { Group } from "../model/groups.js";
@@ -22,26 +18,29 @@ import type {
   InputChannel,
   MetaLineModel,
   Musician,
-  NoteLine,
-  NotesTemplate,
   PresetEntity,
   PresetItem,
   PresetOverridePatch,
   Project,
-  StageplanInstrumentKey,
-  StageplanPerson,
 } from "../model/types.js";
-import {
-  type MonitorPresetIndex,
-  getMonitorLabel,
-} from "../monitors/getMonitorLabel.js";
+import type { MonitorPresetIndex } from "../monitors/getMonitorLabel.js";
 import { resolveCanonicalOverlayAssignments } from "../project/resolveProjectAudioAssignments.js";
 import { applyPresetOverride } from "../rules/presetOverride.js";
 import { compareInputsForRole } from "../setup/orderInputsForRole.js";
 import { resolveEffectiveProjectSetup } from "../setup/resolveEffectiveProjectSetup.js";
-import { resolvePowerForStageplan } from "../stageplan/resolvePowerForStageplan.js";
 import { disambiguateInputKeys } from "./disambiguateInputKeys.js";
 import { formatKeysInputInstances } from "./formatKeysInputs.js";
+import {
+  assignPdfChannels,
+  buildPdfInputRows,
+} from "./pdf/assignPdfChannels.js";
+import {
+  GROUP_MONITOR_ORDER,
+  buildPdfMonitorRows,
+} from "./pdf/buildPdfMonitorRows.js";
+import { buildPdfNotes } from "./pdf/buildPdfNotes.js";
+import { buildPdfStageplanModel } from "./pdf/buildPdfStageplan.js";
+import { buildPdfTalkbackInputs } from "./pdf/buildPdfTalkback.js";
 import { reorderAcousticGuitars } from "./reorderAcousticGuitars.js";
 import { resolveDocumentContext } from "./resolveDocumentContext.js";
 import { resolveEffectivePresetsForProject } from "./resolveEffectivePresetsForProject.js";
@@ -68,20 +67,6 @@ function groupRank(group: Group): number {
 }
 
 /* ============================================================
- * Notes filtering (no eval, strict predicates)
- * ============================================================ */
-
-function filterNotesMonitors(notes: NoteLine[], hasWedge: boolean): NoteLine[] {
-  return notes.filter((n) => {
-    if (!n.when) return true;
-    if ("monitors" in n.when) {
-      if (n.when.monitors.hasWedge === true) return hasWedge === true;
-    }
-    return false;
-  });
-}
-
-/* ============================================================
  * Domain types (internal)
  * ============================================================ */
 
@@ -102,35 +87,6 @@ type BuiltInput = {
   vocalOrderRank?: number;
 };
 
-type BuiltInputWithCh = BuiltInput & { ch: number };
-
-type MonitorTableRow = {
-  no: string;
-  output: string;
-  note: string;
-  ownerRole: Group;
-  ownerMusicianId: string;
-};
-
-type StageplanSlot =
-  | "drums"
-  | "bass"
-  | "guitar"
-  | "keys"
-  | "lead_voc_1"
-  | "lead_voc_2";
-
-function toStageplanPerson(
-  musician: Musician,
-  bandLeaderId: string,
-): StageplanPerson {
-  return {
-    musicianId: musician.id,
-    firstName: musician.firstName ?? null,
-    isBandLeader: musician.id === bandLeaderId,
-  };
-}
-
 function resolveOverlaySlots(args: {
   ctx: ReturnType<typeof resolveDocumentContext>;
   role: "leadVocals" | "backVocals";
@@ -149,15 +105,6 @@ function resolveOverlaySlots(args: {
       Boolean(entry),
     );
 }
-
-const GROUP_MONITOR_ORDER: Record<Group, number> = {
-  guitar: 1,
-  vocs: 2,
-  keys: 3,
-  bass: 4,
-  drums: 5,
-  talkback: 999,
-};
 
 function resolveOverlayDrivenVocalRows(args: {
   role: "lead" | "back";
@@ -206,87 +153,6 @@ function resolveOverlayDrivenVocalRows(args: {
   }
 
   return rows;
-}
-
-function normalizeTalkbackLabel(label: string): string {
-  return label.replace(
-    /^Talkback\s*(?:[-–—]|\()\s*([^)]+?)\)?$/i,
-    (_all, owner: string) => `Talkback (${owner.trim()})`,
-  );
-}
-
-function resolvePdfMonitorOwners(args: {
-  lineupMusicians: Array<{ group: Group; musician: Musician }>;
-  effectiveSetupByMusicianId: Map<
-    string,
-    { monitoring: { monitorRef: string; additionalWedgeCount?: number } }
-  >;
-}): Array<{ group: Group; musician: Musician }> {
-  const { lineupMusicians, effectiveSetupByMusicianId } = args;
-  return lineupMusicians.filter(({ musician }) =>
-    effectiveSetupByMusicianId.has(musician.id),
-  );
-}
-
-function orderPdfMonitorOwners(args: {
-  owners: Array<{ group: Group; musician: Musician }>;
-  leadVocsSlotByMusicianId: Map<string, number>;
-}): Array<{ group: Group; musician: Musician }> {
-  const { owners, leadVocsSlotByMusicianId } = args;
-
-  return owners
-    .map((owner, originalIndex) => ({ owner, originalIndex }))
-    .sort((a, b) => {
-      const groupRankDiff =
-        (GROUP_MONITOR_ORDER[a.owner.group] ?? 999) -
-        (GROUP_MONITOR_ORDER[b.owner.group] ?? 999);
-      if (groupRankDiff !== 0) return groupRankDiff;
-
-      if (a.owner.group === "vocs" && b.owner.group === "vocs") {
-        const aLeadIndex = leadVocsSlotByMusicianId.get(a.owner.musician.id);
-        const bLeadIndex = leadVocsSlotByMusicianId.get(b.owner.musician.id);
-        if (typeof aLeadIndex === "number" && typeof bLeadIndex === "number") {
-          if (aLeadIndex !== bLeadIndex) return aLeadIndex - bLeadIndex;
-        } else if (typeof aLeadIndex === "number") {
-          return -1;
-        } else if (typeof bLeadIndex === "number") {
-          return 1;
-        }
-      }
-
-      return a.originalIndex - b.originalIndex;
-    })
-    .map(({ owner }) => owner);
-}
-
-function resolveStageplanPersonsBySlot(args: {
-  lineupMusicians: Array<{ group: Group; musician: Musician }>;
-  leadOverlayMembers: Musician[];
-  bandLeaderId: string;
-}): Partial<Record<StageplanSlot, StageplanPerson>> {
-  const { lineupMusicians, leadOverlayMembers, bandLeaderId } = args;
-  const memberByPrimaryGroup = new Map<Group, Musician>();
-  for (const entry of lineupMusicians) {
-    if (!memberByPrimaryGroup.has(entry.group)) {
-      memberByPrimaryGroup.set(entry.group, entry.musician);
-    }
-  }
-
-  const assigned = new Set<string>();
-  const bySlot: Partial<Record<StageplanSlot, StageplanPerson>> = {};
-  (["drums", "bass", "guitar", "keys"] as const).forEach((slot) => {
-    const musician = memberByPrimaryGroup.get(slot);
-    if (!musician) return;
-    bySlot[slot] = toStageplanPerson(musician, bandLeaderId);
-    assigned.add(musician.id);
-  });
-
-  const leadCandidates = leadOverlayMembers.filter((m) => !assigned.has(m.id));
-  if (leadCandidates[0])
-    bySlot.lead_voc_1 = toStageplanPerson(leadCandidates[0], bandLeaderId);
-  if (leadCandidates[1])
-    bySlot.lead_voc_2 = toStageplanPerson(leadCandidates[1], bandLeaderId);
-  return bySlot;
 }
 
 function applyInputOverridePatch(
@@ -411,63 +277,6 @@ function buildMusicianInstrumentInputs(args: {
 }
 
 /* ============================================================
- * 1) Assign channels with odd-start stereo (except overheads)
- * ============================================================ */
-
-function assignChannelsWithOddStereoRule(
-  sorted: BuiltInput[],
-): BuiltInputWithCh[] {
-  const out: BuiltInputWithCh[] = [];
-  let nextCh = 1;
-
-  for (let i = 0; i < sorted.length; i++) {
-    const a = sorted[i];
-    const b = sorted[i + 1];
-
-    const stereo = b ? resolveStereoPair(a, b) : null;
-
-    if (stereo) {
-      const mustStartOdd = stereo.shouldCollapse;
-
-      if (mustStartOdd && nextCh % 2 === 0) {
-        out.push({
-          ch: nextCh,
-          key: `spare_ch_${nextCh}`,
-          label: "---",
-          group: a.group,
-          note: "---",
-          ownerRole: a.ownerRole,
-        });
-        nextCh++;
-      }
-
-      const first = stereo.aSide === "L" ? a : b!;
-      const second = stereo.aSide === "L" ? b! : a;
-
-      out.push({ ch: nextCh, ...first });
-      out.push({ ch: nextCh + 1, ...second });
-      nextCh += 2;
-
-      i++;
-      continue;
-    }
-
-    out.push({ ch: nextCh, ...a });
-    nextCh++;
-  }
-
-  return out;
-}
-
-/* ============================================================
- * 2) Build display rows (compact explicit stereo groups for PDF)
- * ============================================================ */
-
-function buildInputRows(inputsWithCh: BuiltInputWithCh[]) {
-  return compactStereoInputChannelsForPdf(inputsWithCh);
-}
-
-/* ============================================================
  * Preset expansion (correct narrowing by ent.type)
  * ============================================================ */
 
@@ -516,32 +325,8 @@ function expandPresetItem(
       }));
     }
 
-    case "talkback": {
-      const ent = getPresetForExpansion(repo, item.ref, item.kind, context);
-      if (ent.type !== "talkback_type") {
-        throw new Error(
-          `PresetItem(kind=talkback) ref="${item.ref}" points to type="${ent.type}"${context ? ` ${context}` : ""}.`,
-        );
-      }
-
-      return [
-        {
-          key: ent.input.key.replace("{ownerKey}", item.ownerKey),
-          label: normalizeTalkbackLabel(
-            ent.input.label
-              .replace("{ownerKey}", item.ownerKey)
-              .replace("{ownerLabel}", item.ownerLabel ?? item.ownerKey),
-          ),
-          group: ent.group,
-          note: ent.input.note
-            ? ent.input.note
-                .replace("{ownerKey}", item.ownerKey)
-                .replace("{ownerLabel}", item.ownerLabel ?? item.ownerKey)
-            : undefined,
-          ownerRole: lineupGroup,
-        },
-      ];
-    }
+    case "talkback":
+      return [];
 
     case "monitor":
       return [];
@@ -678,7 +463,6 @@ export function buildDocument(
   const vocalCapabilityByMusicianId = new Map<string, BuiltInput[]>();
   const monitors: DocumentViewModel["monitors"] = [];
 
-  const monitorTableRows: MonitorTableRow[] = [];
   const monitorsById: MonitorPresetIndex = {};
   const effectiveSetup = resolveEffectiveProjectSetup({
     project,
@@ -762,76 +546,6 @@ export function buildDocument(
     }
   }
 
-  const stageplanRoles: StageplanInstrumentKey[] = [
-    "drums",
-    "bass",
-    "guitar",
-    "keys",
-    "vocs",
-  ];
-  const lineupByRole: Partial<Record<StageplanInstrumentKey, StageplanPerson>> =
-    {};
-  for (const role of stageplanRoles) {
-    const musician = ctx.lineupMusicians.find(
-      (entry) => entry.group === role,
-    )?.musician;
-    if (!musician) continue;
-    lineupByRole[role] = toStageplanPerson(musician, ctx.bandLeaderId);
-  }
-  const powerByRole: Partial<
-    Record<
-      StageplanInstrumentKey,
-      {
-        hasPowerBadge: boolean;
-        powerBadgeText: string;
-      }
-    >
-  > = {};
-  for (const role of stageplanRoles) {
-    const power = resolvePowerForStageplan(
-      role,
-      ctx.lineup,
-      project,
-      ctx.membersById,
-    );
-    if (power) {
-      powerByRole[role] = {
-        hasPowerBadge: true,
-        powerBadgeText: `${power.sockets}x ${power.voltage} V`,
-      };
-    } else {
-      powerByRole[role] = { hasPowerBadge: false, powerBadgeText: "" };
-    }
-  }
-
-  // ------------------------------------------------------------
-  // Monitor table ordering & text per spec
-  // - header is handled in template
-  // - note is taken from monitor entity label
-  // ------------------------------------------------------------
-
-  const firstMonitorLabel = (m: Musician | undefined): string => {
-    if (!m) return "";
-    const effective = effectiveSetup.byMusicianId.get(m.id);
-    if (!effective) return "";
-    const monitorRef = effective.monitoring.monitorRef;
-    if (!monitorsById[monitorRef]) {
-      const monitorEntity = repo.getPreset(monitorRef);
-      if (monitorEntity.type !== "monitor") {
-        throw new Error(
-          `Monitoring ref "${monitorRef}" is not a monitor preset.`,
-        );
-      }
-      monitorsById[monitorEntity.id] = {
-        id: monitorEntity.id,
-        label: monitorEntity.label,
-      };
-    }
-    const label = getMonitorLabel(monitorsById, monitorRef);
-    const extra = effective.monitoring.additionalWedgeCount;
-    return formatMonitoringLabel(label, extra);
-  };
-
   const leadResolved = resolveOverlaySlots({ ctx, role: "leadVocals" });
   const backResolved = resolveOverlaySlots({ ctx, role: "backVocals" });
   const ownerGroupByMusicianId = new Map(
@@ -854,28 +568,14 @@ export function buildDocument(
     }),
   ];
   inputs.push(...vocalRows);
-  if (ctx.talkbackOwnerId) {
-    const talkbackOwner = ctx.membersById.get(ctx.talkbackOwnerId);
-    const talkbackOwnerGroup = ownerGroupByMusicianId.get(ctx.talkbackOwnerId);
-    if (talkbackOwner && talkbackOwnerGroup) {
-      const talkbackRows = expandPresetItem(
-        {
-          kind: "talkback",
-          ref: "talkback",
-          ownerKey: talkbackOwnerGroup,
-          ownerLabel: talkbackOwnerGroup,
-        },
-        talkbackOwnerGroup,
-        repo,
-        `while resolving talkback for musician "${talkbackOwner.id}" (role: ${talkbackOwnerGroup})`,
-      ).map((input) => ({
-        ...input,
-        ownerRole: talkbackOwnerGroup,
-        ownerMusicianId: talkbackOwner.id,
-      }));
-      inputs.push(...talkbackRows);
-    }
-  }
+  inputs.push(
+    ...buildPdfTalkbackInputs({
+      talkbackOwnerId: ctx.talkbackOwnerId,
+      membersById: ctx.membersById,
+      ownerGroupByMusicianId,
+      repo,
+    }),
+  );
   const leadVocsSlotByMusicianId = new Map(
     leadResolved.map(({ musician, slot }) => [musician.id, slot]),
   );
@@ -893,43 +593,18 @@ export function buildDocument(
     backVocsGenderBySlot[slot - 1] = musician.gender;
   }
 
-  const monitorOwners = resolvePdfMonitorOwners({
+  const monitorTableRows = buildPdfMonitorRows({
     lineupMusicians: ctx.lineupMusicians,
     effectiveSetupByMusicianId: effectiveSetup.byMusicianId,
-  });
-  const orderedMonitorOwners = orderPdfMonitorOwners({
-    owners: monitorOwners,
+    monitorsById,
+    repo,
+    leadVocsCount,
     leadVocsSlotByMusicianId,
+    leadVocsGenderBySlot,
+    backVocsCount,
+    backVocsSlotByMusicianId,
+    backVocsGenderBySlot,
   });
-  const pushRow = (
-    owner: { group: Group; musician: Musician },
-    output: string,
-  ) => {
-    monitorTableRows.push({
-      no: String(monitorTableRows.length + 1),
-      output,
-      note: firstMonitorLabel(owner.musician),
-      ownerRole: owner.group,
-      ownerMusicianId: owner.musician.id,
-    });
-  };
-  for (const owner of orderedMonitorOwners) {
-    pushRow(
-      owner,
-      formatMonitorOwnerLabel({
-        ownerRole: owner.group,
-        ownerMusicianId: owner.musician.id,
-        fallbackLabel:
-          owner.musician.group === "vocs" ? "Lead vocal" : owner.musician.group,
-        leadVocsCount,
-        leadVocsIndexByMusicianId: leadVocsSlotByMusicianId,
-        genderByLeadVocsIndex: leadVocsGenderBySlot,
-        backVocsCount,
-        backVocsIndexByMusicianId: backVocsSlotByMusicianId,
-        genderByBackVocsIndex: backVocsGenderBySlot,
-      }),
-    );
-  }
 
   inputs.sort((a, b) => {
     const g = groupRank(a.group) - groupRank(b.group);
@@ -1046,38 +721,26 @@ export function buildDocument(
     ...talkbackInputs,
   ];
 
-  const stageplanPersonsBySlot = resolveStageplanPersonsBySlot({
+  const inputsWithCh = assignPdfChannels(orderedInputs);
+  const inputRows = buildPdfInputRows(inputsWithCh);
+  const stageplan = buildPdfStageplanModel({
     lineupMusicians: ctx.lineupMusicians,
-    leadOverlayMembers: leadResolved.map(({ musician }) => musician),
+    lineup: ctx.lineup,
+    project,
+    membersById: ctx.membersById,
     bandLeaderId: ctx.bandLeaderId,
+    leadOverlayMembers: leadResolved.map(({ musician }) => musician),
+    inputsWithCh,
+    monitorTableRows,
   });
-  const leadVocalStageplanPersons = [
-    stageplanPersonsBySlot.lead_voc_1,
-    stageplanPersonsBySlot.lead_voc_2,
-  ].filter((person): person is StageplanPerson => Boolean(person));
-
-  const inputsWithCh = assignChannelsWithOddStereoRule(orderedInputs);
-  const inputRows = buildInputRows(inputsWithCh);
-  const stageplanInputs = inputsWithCh
-    .filter(
-      (input) =>
-        input.label !== "---" &&
-        input.key !== "---" &&
-        !input.key.startsWith("spare_ch_"),
-    )
-    .map((input) => ({
-      channelNo: input.ch,
-      label: input.label,
-      group: input.group,
-      ownerRole: input.ownerRole,
-      ownerMusicianId: input.ownerMusicianId,
-    }));
 
   // Notes template resolution
   const notesTemplateId = band.notesTemplateRef ?? "notes_default_cs";
-  const tpl: NotesTemplate = repo.getNotesTemplate(notesTemplateId);
-
   const hasWedge = monitors.some((m) => m.kind === "wedge");
+  const notes = buildPdfNotes({
+    template: repo.getNotesTemplate(notesTemplateId),
+    hasWedge,
+  });
 
   return {
     meta: {
@@ -1105,23 +768,8 @@ export function buildDocument(
 
     monitorTableRows,
 
-    notes: {
-      inputs: tpl.inputs ?? [],
-      monitors: filterNotesMonitors(tpl.monitors ?? [], hasWedge),
-    },
+    notes,
 
-    stageplan: {
-      lineupByRole,
-      leadVocals: leadVocalStageplanPersons,
-      inputs: stageplanInputs,
-      monitorOutputs: monitorTableRows.map((row) => ({
-        no: Number.parseInt(row.no, 10),
-        output: row.output,
-        note: row.note,
-        ownerRole: row.ownerRole,
-        ownerMusicianId: row.ownerMusicianId,
-      })),
-      powerByRole,
-    },
+    stageplan,
   };
 }
