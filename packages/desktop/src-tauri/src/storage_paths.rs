@@ -107,6 +107,8 @@ fn ensure_dirs(root: &Path) -> Result<(), StorageError> {
     ] {
         fs::create_dir_all(root.join(folder))?;
     }
+    // Runtime preset directories are intentionally not seeded here; group and
+    // monitor presets are currently built-in assets loaded from data/assets.
     Ok(())
 }
 

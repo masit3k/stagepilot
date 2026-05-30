@@ -27,6 +27,8 @@ export function catalogPathsForRoot(root: string) {
     bands: path.join(root, "catalog", "bands"),
     musicians: path.join(root, "catalog", "musicians"),
     contacts: path.join(root, "catalog", "contacts"),
+    // Reserved for possible future runtime preset editing. The current repository
+    // loader intentionally reads group/monitor presets from data/assets instead.
     presetsGroups: path.join(root, "catalog", "presets", "groups"),
     presetsMonitors: path.join(root, "catalog", "presets", "monitors"),
     templatesNotes: path.join(root, "catalog", "templates", "notes"),

@@ -34,9 +34,11 @@ export async function loadCatalogRepository(options?: {
     }
   }
   const musicians = await loadMusiciansMap(paths.musicians);
-  const groupPresets = await loadMap<PresetEntity>(getAllGroupPresetsDir(dataRoot));
-  const monitorPresets = await loadMap<PresetEntity>(getMonitorPresetsDir(dataRoot));
-  const presets = new Map<string, PresetEntity>([...groupPresets, ...monitorPresets]);
+  // Built-in presets are application assets, not runtime catalog entities.
+  // Runtime/AppData remains the source for projects, bands, musicians, and notes templates.
+  const builtInGroupPresets = await loadMap<PresetEntity>(getAllGroupPresetsDir(dataRoot));
+  const builtInMonitorPresets = await loadMap<PresetEntity>(getMonitorPresetsDir(dataRoot));
+  const presets = new Map<string, PresetEntity>([...builtInGroupPresets, ...builtInMonitorPresets]);
   const notesTemplates = await loadMap<NotesTemplate>(paths.templatesNotes);
 
   return {

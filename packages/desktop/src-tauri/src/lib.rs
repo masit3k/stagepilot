@@ -1061,6 +1061,8 @@ fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSet
 
     let mut preset_catalog: HashMap<String, Value> = HashMap::new();
     let workspace_root = resolve_workspace_root();
+    // Presets exposed to setup UI are built-in application assets. Runtime
+    // AppData catalog storage remains limited to user entities and notes.
     for preset_dir in [
         workspace_root.join("data/assets/presets/groups"),
         workspace_root.join("data/assets/presets/monitors"),

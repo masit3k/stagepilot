@@ -7,6 +7,8 @@ function getAssetsRoot(dataRoot: string = DATA_ROOT): string {
   return path.join(dataRoot, "assets");
 }
 
+// Built-in application assets. Runtime/user catalog entities live under AppData
+// paths from infra/storage/catalogPaths.ts.
 export function getCatalogPath(group: Group, dataRoot: string = DATA_ROOT): string {
   return path.join(getAssetsRoot(dataRoot), "catalog", "inputs", `${group}.json`);
 }
