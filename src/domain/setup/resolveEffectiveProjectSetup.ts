@@ -38,6 +38,7 @@ export function resolveEffectiveProjectSetup(args: {
       const musician = args.getMusicianById(musicianId);
       const defaultPreset = resolveDefaultMusicianSetup({
         role,
+        musicianId,
         presetItems: musician.presets,
         musicianDefaults: args.musicianDefaultsById?.[musicianId],
         getPresetByRef: args.getPresetByRef,
@@ -56,7 +57,16 @@ export function resolveEffectiveProjectSetup(args: {
         continue;
       }
       const patch: PresetOverridePatch | undefined = state.presetOverrideByMusicianId.get(musicianId);
-      byMusicianId.set(musicianId, applyPresetOverride(defaultPreset, patch));
+      const effectivePreset = applyPresetOverride(defaultPreset, patch);
+      if (patch?.monitoring?.monitorRef) {
+        assertMonitorPresetRef({
+          ref: patch.monitoring.monitorRef,
+          role,
+          musicianId,
+          getPresetByRef: args.getPresetByRef,
+        });
+      }
+      byMusicianId.set(musicianId, effectivePreset);
     }
   }
 
@@ -65,4 +75,27 @@ export function resolveEffectiveProjectSetup(args: {
     byMusicianId,
     talkbackOwnerId: state.effectiveTalkbackOwnerId,
   };
+}
+
+function assertMonitorPresetRef(args: {
+  ref: string;
+  role: Group;
+  musicianId: string;
+  getPresetByRef: (ref: string) => PresetEntity | undefined;
+}): void {
+  let entity: PresetEntity | undefined;
+  try {
+    entity = args.getPresetByRef(args.ref);
+  } catch {
+    entity = undefined;
+  }
+  const context = ` while resolving monitoring override for musician "${args.musicianId}" (role: ${args.role})`;
+  if (!entity) {
+    throw new Error(`Missing monitor preset reference "${args.ref}"${context}.`);
+  }
+  if (entity.type !== "monitor") {
+    throw new Error(
+      `Monitor preset reference "${args.ref}" points to type "${entity.type}", expected "monitor"${context}.`,
+    );
+  }
 }

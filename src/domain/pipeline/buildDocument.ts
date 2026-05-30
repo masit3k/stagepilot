@@ -379,7 +379,12 @@ function buildMusicianInstrumentInputs(args: {
 
     if (runtimeKind !== "preset" && runtimeKind !== "drum_setup") continue;
 
-    const expanded = expandPresetItem(item, group, repo);
+    const expanded = expandPresetItem(
+      item,
+      group,
+      repo,
+      `while resolving inputs for musician "${musician.id}" (role: ${group})`,
+    );
     for (const input of expanded) {
       if (!input.ownerMusicianId) input.ownerMusicianId = musician.id;
     }
@@ -470,6 +475,7 @@ function expandPresetItem(
   item: PresetItem,
   lineupGroup: Group,
   repo: DataRepository,
+  context?: string,
 ): BuiltInput[] {
   switch (item.kind) {
     case "drum_setup": {
@@ -490,11 +496,11 @@ function expandPresetItem(
     }
 
     case "preset": {
-      const ent: PresetEntity = repo.getPreset(item.ref);
+      const ent = getPresetForExpansion(repo, item.ref, item.kind, context);
 
       if (ent.type !== "preset") {
         throw new Error(
-          `PresetItem(kind=preset) ref="${item.ref}" points to type="${ent.type}"`,
+          `PresetItem(kind=preset) ref="${item.ref}" points to type="${ent.type}"${context ? ` ${context}` : ""}.`,
         );
       }
 
@@ -511,10 +517,10 @@ function expandPresetItem(
     }
 
     case "talkback": {
-      const ent: PresetEntity = repo.getPreset(item.ref);
+      const ent = getPresetForExpansion(repo, item.ref, item.kind, context);
       if (ent.type !== "talkback_type") {
         throw new Error(
-          `PresetItem(kind=talkback) ref="${item.ref}" points to type="${ent.type}"`,
+          `PresetItem(kind=talkback) ref="${item.ref}" points to type="${ent.type}"${context ? ` ${context}` : ""}.`,
         );
       }
 
@@ -539,6 +545,22 @@ function expandPresetItem(
 
     case "monitor":
       return [];
+  }
+}
+
+function getPresetForExpansion(
+  repo: DataRepository,
+  ref: string,
+  kind: Extract<PresetItem, { kind: "preset" | "talkback" }>["kind"],
+  context?: string,
+): PresetEntity {
+  try {
+    return repo.getPreset(ref);
+  } catch {
+    const label = kind === "talkback" ? "talkback preset" : "preset";
+    throw new Error(
+      `Missing ${label} reference "${ref}"${context ? ` ${context}` : ""}.`,
+    );
   }
 }
 
@@ -663,13 +685,7 @@ export function buildDocument(
     band,
     bandLeaderId: ctx.bandLeaderId,
     getMusicianById: (id) => repo.getMusician(id),
-    getPresetByRef: (ref) => {
-      try {
-        return repo.getPreset(ref);
-      } catch {
-        return undefined;
-      }
-    },
+    getPresetByRef: (ref) => repo.getPreset(ref),
   });
 
   // 0-based position of each musician within their lineup role group
@@ -851,6 +867,7 @@ export function buildDocument(
         },
         talkbackOwnerGroup,
         repo,
+        `while resolving talkback for musician "${talkbackOwner.id}" (role: ${talkbackOwnerGroup})`,
       ).map((input) => ({
         ...input,
         ownerRole: talkbackOwnerGroup,

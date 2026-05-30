@@ -39,6 +39,7 @@ function selectBassMainPreset(presets: SetupPreset[]): SetupPreset | undefined {
 
 export function resolveDefaultMusicianSetup(args: {
   role: Group;
+  musicianId?: string;
   presetItems?: PresetItem[];
   musicianDefaults?: Partial<MusicianSetupPreset>;
   bandDefaults?: Partial<MusicianSetupPreset>;
@@ -47,18 +48,25 @@ export function resolveDefaultMusicianSetup(args: {
   const fallback = createDefaultMusicianPreset();
   const resolvedMonitoring = args.musicianDefaults?.monitoring ?? args.bandDefaults?.monitoring ?? fallback.monitoring;
 
-  const presetEntities = (args.presetItems ?? [])
-    .filter((item): item is Extract<PresetItem, { kind: "preset" }> => item.kind === "preset")
-    .map((item) => args.getPresetByRef(item.ref))
-    .filter((entity): entity is SetupPreset => entity?.type === "preset" && entity.group === args.role);
+  const presetEntities: SetupPreset[] = [];
+  for (const item of (args.presetItems ?? []).filter(
+    (item): item is Extract<PresetItem, { kind: "preset" }> =>
+      item.kind === "preset",
+  )) {
+    const entity = resolveExplicitPresetRef(args, item.ref, "preset");
+    if (entity.type === "preset" && entity.group === args.role) {
+      presetEntities.push(entity as SetupPreset);
+    }
+  }
 
-  const monitorPresetRef = (args.presetItems ?? [])
-    .filter((item): item is Extract<PresetItem, { kind: "monitor" }> => item.kind === "monitor")
-    .map((item) => item.ref)
-    .find((monitorRef) => {
-      const entity = args.getPresetByRef(monitorRef);
-      return entity?.type === "monitor";
-    });
+  let monitorPresetRef: string | undefined;
+  for (const item of (args.presetItems ?? []).filter(
+    (item): item is Extract<PresetItem, { kind: "monitor" }> =>
+      item.kind === "monitor",
+  )) {
+    resolveExplicitPresetRef(args, item.ref, "monitor");
+    monitorPresetRef ??= item.ref;
+  }
 
 
   if (args.role === "drums") {
@@ -93,4 +101,39 @@ export function resolveDefaultMusicianSetup(args: {
     inputs: orderInputs(baseInputs.map((input) => ({ ...input })), args.role),
     monitoring: monitorPresetRef ? { ...resolvedMonitoring, monitorRef: monitorPresetRef } : resolvedMonitoring,
   };
+}
+
+function setupContext(args: { role: Group; musicianId?: string }): string {
+  const musician = args.musicianId ? ` for musician "${args.musicianId}"` : "";
+  return ` while resolving setup${musician} (role: ${args.role})`;
+}
+
+function resolveExplicitPresetRef(
+  args: {
+    role: Group;
+    musicianId?: string;
+    getPresetByRef: (ref: string) => PresetEntity | undefined;
+  },
+  ref: string,
+  expectedType: "preset" | "monitor",
+): PresetEntity {
+  let entity: PresetEntity | undefined;
+  try {
+    entity = args.getPresetByRef(ref);
+  } catch {
+    entity = undefined;
+  }
+
+  const context = setupContext(args);
+  if (!entity) {
+    const kind = expectedType === "monitor" ? "monitor preset" : "preset";
+    throw new Error(`Missing ${kind} reference "${ref}"${context}.`);
+  }
+  if (entity.type !== expectedType) {
+    const prefix = expectedType === "monitor" ? "Monitor preset" : "Preset";
+    throw new Error(
+      `${prefix} reference "${ref}" points to type "${entity.type}", expected "${expectedType}"${context}.`,
+    );
+  }
+  return entity;
 }
