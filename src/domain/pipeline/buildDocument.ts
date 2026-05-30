@@ -1,9 +1,6 @@
 import type { DataRepository } from "../../infra/fs/repo.js";
 import { parsePersistedDrumDefinition } from "../drums/drumDefinition.js";
-import {
-  drumRankByResolvedKey,
-  resolveDrumInputs,
-} from "../drums/resolveDrumInputs.js";
+import { resolveDrumInputs } from "../drums/resolveDrumInputs.js";
 import {
   formatBackVocalPdfLabel,
   formatDrumInputDisplayLabel,
@@ -11,7 +8,6 @@ import {
   formatProjectMetaLine,
   groupActiveDrumInputsByFamily,
 } from "../formatters/index.js";
-import { GROUP_ORDER } from "../model/groups.js";
 import type { Group } from "../model/groups.js";
 import type {
   DocumentViewModel,
@@ -26,7 +22,6 @@ import type {
 import type { MonitorPresetIndex } from "../monitors/getMonitorLabel.js";
 import { resolveCanonicalOverlayAssignments } from "../project/resolveProjectAudioAssignments.js";
 import { applyPresetOverride } from "../rules/presetOverride.js";
-import { compareInputsForRole } from "../setup/orderInputsForRole.js";
 import { resolveEffectiveProjectSetup } from "../setup/resolveEffectiveProjectSetup.js";
 import { disambiguateInputKeys } from "./disambiguateInputKeys.js";
 import { formatKeysInputInstances } from "./formatKeysInputs.js";
@@ -41,6 +36,10 @@ import {
 import { buildPdfNotes } from "./pdf/buildPdfNotes.js";
 import { buildPdfStageplanModel } from "./pdf/buildPdfStageplan.js";
 import { buildPdfTalkbackInputs } from "./pdf/buildPdfTalkback.js";
+import {
+  comparePdfInputs,
+  composeFinalPdfInputOrder,
+} from "./pdf/pdfOrdering.js";
 import { reorderAcousticGuitars } from "./reorderAcousticGuitars.js";
 import { resolveDocumentContext } from "./resolveDocumentContext.js";
 import { resolveEffectivePresetsForProject } from "./resolveEffectivePresetsForProject.js";
@@ -59,11 +58,6 @@ function buildMetaLine(project: Project): MetaLineModel {
     note: project.note,
     updatedAt: project.updatedAt,
   });
-}
-
-function groupRank(group: Group): number {
-  const i = GROUP_ORDER.indexOf(group);
-  return i === -1 ? 999 : i;
 }
 
 /* ============================================================
@@ -350,55 +344,6 @@ function getPresetForExpansion(
 }
 
 /* ============================================================
- * Vocal ordering (existing logic)
- * ============================================================ */
-
-const VOC_ORDER: Record<string, number> = {
-  guitar: 1,
-  lead: 2,
-  keys: 3,
-  bass: 4,
-  drums: 5,
-};
-
-function vocalRank(input: BuiltInput): number {
-  if (input.group !== "vocs") return 999;
-
-  if (input.key === "voc_lead" || input.key.startsWith("voc_lead_"))
-    return VOC_ORDER.lead;
-
-  if (input.key.startsWith("voc_back_")) {
-    const suffix = input.key.slice("voc_back_".length).replace(/_\d+$/i, "");
-    return VOC_ORDER[suffix] ?? 900;
-  }
-
-  return 900;
-}
-
-function guitarRankByKey(input: BuiltInput): number {
-  // Default rule: acoustic comes last inside the guitar group (may conflict with future group order rules).
-  const key = input.key.toLowerCase();
-  if (key.startsWith("ac_guitar")) return 100;
-  return 0;
-}
-
-function isLeadVocalInput(input: BuiltInput): boolean {
-  return input.vocalRole === "lead" || input.key.startsWith("voc_lead");
-}
-
-function isBackVocalInput(input: BuiltInput): boolean {
-  return input.vocalRole === "back" || input.key.startsWith("voc_back_");
-}
-
-function isVocalInput(input: BuiltInput): boolean {
-  return isLeadVocalInput(input) || isBackVocalInput(input);
-}
-
-function isTalkbackInput(input: BuiltInput): boolean {
-  return input.group === "talkback" || input.key.startsWith("tb_");
-}
-
-/* ============================================================
  * Multi-musician numbering
  * When a lineup role has N > 1 musicians, prefix each musician's
  * instrument inputs with their lineup index (1-based).
@@ -606,42 +551,7 @@ export function buildDocument(
     backVocsGenderBySlot,
   });
 
-  inputs.sort((a, b) => {
-    const g = groupRank(a.group) - groupRank(b.group);
-    if (g !== 0) return g;
-
-    if (a.group === "drums" && b.group === "drums") {
-      const dr = drumRankByResolvedKey(a.key) - drumRankByResolvedKey(b.key);
-      if (dr !== 0) return dr;
-    }
-
-    if (a.group === "vocs" && b.group === "vocs") {
-      const vr = vocalRank(a) - vocalRank(b);
-      if (vr !== 0) return vr;
-    }
-
-    if (a.group === "guitar" && b.group === "guitar") {
-      // Acoustic guitars come after electric ones within the guitar block.
-      const gr = guitarRankByKey(a) - guitarRankByKey(b);
-      if (gr !== 0) return gr;
-    }
-
-    if (a.group === "bass" && b.group === "bass") {
-      return compareInputsForRole("bass", a, b);
-    }
-
-    // Preserve lineup musician order within the same role group
-    if (a.ownerMusicianId !== b.ownerMusicianId) {
-      const lineupDiff =
-        (a.ownerLineupIndex ?? 0) - (b.ownerLineupIndex ?? 0);
-      if (lineupDiff !== 0) return lineupDiff;
-    }
-
-    const l = a.label.localeCompare(b.label, "en");
-    if (l !== 0) return l;
-
-    return a.key.localeCompare(b.key, "en");
-  });
+  inputs.sort(comparePdfInputs);
 
   const reorderedInputs = reorderAcousticGuitars(
     numberMultiMusicianRoleInputs(inputs),
@@ -685,41 +595,11 @@ export function buildDocument(
     return input;
   });
 
-  const nonVocalNonTalkbackInputs = finalizedInputs.filter(
-    (input) => !isVocalInput(input) && !isTalkbackInput(input),
+  const orderedInputs = composeFinalPdfInputOrder(
+    finalizedInputs,
+    leadVocsSlotByMusicianId,
+    backVocsSlotByMusicianId,
   );
-  const vocalInputs = finalizedInputs
-    .filter((input) => isVocalInput(input))
-    .sort((a, b) => {
-      const roleDiff = (a.vocalOrderRank ?? 999) - (b.vocalOrderRank ?? 999);
-      if (roleDiff !== 0) return roleDiff;
-
-      const aSlot =
-        a.vocalSlot ??
-        (isLeadVocalInput(a)
-          ? leadVocsSlotByMusicianId.get(a.ownerMusicianId ?? "")
-          : backVocsSlotByMusicianId.get(a.ownerMusicianId ?? ""));
-      const bSlot =
-        b.vocalSlot ??
-        (isLeadVocalInput(b)
-          ? leadVocsSlotByMusicianId.get(b.ownerMusicianId ?? "")
-          : backVocsSlotByMusicianId.get(b.ownerMusicianId ?? ""));
-      const slotDiff = (aSlot ?? 999) - (bSlot ?? 999);
-      if (slotDiff !== 0) return slotDiff;
-
-      if (isLeadVocalInput(a) && isBackVocalInput(b)) return -1;
-      if (isBackVocalInput(a) && isLeadVocalInput(b)) return 1;
-
-      return a.label.localeCompare(b.label, "en");
-    });
-  const talkbackInputs = finalizedInputs.filter((input) =>
-    isTalkbackInput(input),
-  );
-  const orderedInputs = [
-    ...nonVocalNonTalkbackInputs,
-    ...vocalInputs,
-    ...talkbackInputs,
-  ];
 
   const inputsWithCh = assignPdfChannels(orderedInputs);
   const inputRows = buildPdfInputRows(inputsWithCh);

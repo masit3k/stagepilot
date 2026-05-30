@@ -24,7 +24,7 @@ type EffectiveSetupByMusicianId = Map<
   { monitoring: { monitorRef: string; additionalWedgeCount?: number } }
 >;
 
-type MonitorOwner = { group: Group; musician: Musician };
+export type MonitorOwner = { group: Group; musician: Musician };
 
 function resolvePdfMonitorOwners(args: {
   lineupMusicians: MonitorOwner[];
@@ -36,7 +36,7 @@ function resolvePdfMonitorOwners(args: {
   );
 }
 
-function orderPdfMonitorOwners(args: {
+export function orderPdfMonitorOwners(args: {
   owners: MonitorOwner[];
   leadVocsSlotByMusicianId: Map<string, number>;
 }): MonitorOwner[] {
