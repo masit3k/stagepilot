@@ -11,7 +11,7 @@ export type PdfTalkbackInput = {
   ownerMusicianId: string;
 };
 
-function normalizeTalkbackLabel(label: string): string {
+export function normalizeTalkbackLabel(label: string): string {
   return label.replace(
     /^Talkback\s*(?:[-\u2013\u2014]|\()\s*([^)]+?)\)?$/i,
     (_all, owner: string) => `Talkback (${owner.trim()})`,
