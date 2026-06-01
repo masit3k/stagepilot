@@ -391,6 +391,8 @@ export interface DocumentViewModel {
     channel?: "L" | "R";
     group: Group;
     note?: string;
+    ownerRole?: Group;
+    ownerMusicianId?: string;
   createdAt?: string;
   updatedAt?: string;
   }>;

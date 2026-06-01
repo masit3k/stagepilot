@@ -1,9 +1,10 @@
 import fs from "node:fs/promises";
+import type { Dirent } from "node:fs";
 import path from "node:path";
 
 export async function listJsonFiles(dir: string): Promise<string[]> {
   const result: string[] = [];
-  let entries: fs.Dirent[];
+  let entries: Dirent[];
   try {
     entries = await fs.readdir(dir, { withFileTypes: true });
   } catch (error) {
