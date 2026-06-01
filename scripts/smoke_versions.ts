@@ -45,7 +45,7 @@ async function main() {
   const versionDir = exportResult.versionPath;
 
   const metaPath = path.join(versionDir, "meta.json");
-  const pdfPath = path.join(versionDir, "document.pdf");
+  const pdfPath = exportResult.versionPdfPath;
   const projectPath = path.join(versionDir, "project.json");
 
   await fs.stat(metaPath);

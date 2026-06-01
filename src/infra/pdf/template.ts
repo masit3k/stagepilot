@@ -42,46 +42,6 @@ function renderMetaLine(metaLine: MetaLineModel, esc: (s: string) => string): st
   `.trim();
 }
 
-function renderNotesBlock(title: string | null, lines: Array<{ text: string }> | undefined): string {
-  const items = (lines ?? []).filter((x) => x.text && x.text.trim() !== "");
-  if (items.length === 0) return "";
-
-  const titleHtml = title ? `<div class="notesTitle">${esc(title)}</div>` : "";
-
-  return `
-<div class="notes">
-  ${titleHtml}
-  ${items.map((x) => `<div class="noteLine">${esc(x.text)}</div>`).join("\n")}
-</div>`.trim();
-}
-
-function renderInputTable(vm: DocumentViewModel): string {
-  const rowsHtml = (vm.inputRows ?? [])
-    .map((r) => {
-      return `
-<tr>
-  <td class="colNo">${esc(r.no)}</td>
-  <td class="colInput">${esc(r.label)}</td>
-  <td class="colNote">${r.note ? esc(r.note) : ""}</td>
-</tr>`.trim();
-    })
-    .join("\n");
-
-  return `
-<table class="table inputTable">
-  <thead>
-    <tr>
-      <th class="colNo">no.</th>
-      <th class="colInput">input</th>
-      <th class="colNote">note</th>
-    </tr>
-  </thead>
-  <tbody>
-    ${rowsHtml}
-  </tbody>
-</table>`.trim();
-}
-
 function renderMonitorTable(vm: DocumentViewModel): string {
   const rowsSrc = vm.monitorTableRows;
 
@@ -129,12 +89,9 @@ export function renderInputlistHtml(vm: DocumentViewModel, opts: RenderTemplateO
   const metaHtml = renderMetaLine(vm.meta.metaLine, esc);
 
   // TABLES
-  const inputTableHtml = renderInputTable(vm);
   const monitorTableHtml = renderMonitorTable(vm);
 
   // NOTES: vždy až POD oběma tabulkami
-  const inputNotesHtml = renderNotesBlock(null, vm.notes?.inputs);
-  const monitorNotesHtml = renderNotesBlock(null, vm.notes?.monitors);
   const stageplanHtml = renderStageplanSection(vm, opts.stageplan);
 
   return `<!doctype html>

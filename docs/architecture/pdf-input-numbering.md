@@ -21,7 +21,7 @@ numbers near the end of the pipeline:
 3. apply label formatting and key disambiguation
 4. split final inputs into non-vocal/non-talkback, vocal, and talkback blocks
 5. assign channel numbers with `assignPdfChannels`
-6. derive compact printed rows with `buildInputRows`
+6. derive compact printed rows with `buildPdfInputRows`
 7. derive stageplan inputs from numbered inputs, excluding spare rows
 
 Channel numbers therefore depend on the final ordered input list, not on preset
