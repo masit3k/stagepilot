@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
 import { loadRepository } from "../../fs/repo.js";
-import { bootstrapSeed } from "../../storage/bootstrapSeed.js";
 import { buildDocument } from "../../../domain/pipeline/buildDocument.js";
-import type { Project } from "../../../domain/model/types.js";
 import { __stageplanTestExports, buildStageplanPlan, matchStageplanLayout } from "./stageplan.js";
 import { pdfLayout } from "../layout.js";
+import {
+  createPdfRendererFixtureProject,
+  createPdfRendererFixtureRoot,
+} from "../pdfRendererFixture.js";
 
 function parsePt(value: string): number {
   const match = /([0-9.]+)\s*pt/i.exec(value);
@@ -18,22 +18,12 @@ function parsePt(value: string): number {
 }
 
 describe("stageplan render plan", () => {
-  it("builds boxes and respects typography for PL sample data", async () => {
-    const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "stagepilot-"));
-    await fs.mkdir(path.join(tmpRoot, "projects"), { recursive: true });
-    await bootstrapSeed({
-      root: tmpRoot,
-      seedRoot: path.join(process.cwd(), "data", "assets", "catalog"),
-    });
+  it("builds boxes and respects typography for test fixture data", async () => {
+    const tmpRoot = await createPdfRendererFixtureRoot();
 
     try {
       const repo = await loadRepository({ userDataRoot: tmpRoot });
-      const project: Project = {
-        id: "stageplan-smoke",
-        bandRef: "pl",
-        purpose: "generic",
-        documentDate: "2024-01-01",
-      };
+      const project = createPdfRendererFixtureProject("stageplan-smoke");
 
       const vm = buildDocument(project, repo);
       const plan = buildStageplanPlan(vm.stageplan);
@@ -53,13 +43,13 @@ describe("stageplan render plan", () => {
 
       const bassBox = plan.boxes.find((box) => box.slot === "bass");
       expect(bassBox).toBeTruthy();
-      expect(bassBox?.header).toBe("BASS – MATĚJ (band leader)");
+      expect(bassBox?.header).toBe("BASS – MATEJ (band leader)");
 
       const inputBullets = drumsBox?.inputBullets ?? [];
       expect(inputBullets[0]).toMatch(/^Drums \(\d+(–\d+)?\)$/);
       expect(inputBullets).toEqual(
         expect.arrayContaining([
-          expect.stringMatching(/^PAD \(\d+(\+\d+)?\)$/),
+          expect.stringMatching(/^PAD SFX \(\d+\+\d+\)$/),
         ])
       );
 
