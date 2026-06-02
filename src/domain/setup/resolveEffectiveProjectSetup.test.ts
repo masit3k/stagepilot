@@ -3,6 +3,163 @@ import type { Band, Musician, PresetEntity, Project } from "../model/types.js";
 import { resolveEffectiveProjectSetup } from "./resolveEffectiveProjectSetup.js";
 
 describe("resolveEffectiveProjectSetup", () => {
+  it("resolves setup for members inherited from band defaultLineup", () => {
+    const band: Band = {
+      id: "band",
+      name: "Band",
+      bandLeader: "bass-1",
+      defaultLineup: { bass: ["bass-1"] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
+    };
+    const musician: Musician = {
+      id: "bass-1",
+      firstName: "Bass",
+      lastName: "Player",
+      group: "bass",
+      presets: [{ kind: "preset", ref: "el_bass_xlr_pedalboard" }],
+    };
+    const project: Project = {
+      id: "p-inherited-setup",
+      bandRef: "band",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+    };
+    const presets: Record<string, PresetEntity> = {
+      el_bass_xlr_pedalboard: {
+        type: "preset",
+        id: "el_bass_xlr_pedalboard",
+        label: "Electric bass guitar",
+        group: "bass",
+        setupGroup: "electric_bass",
+        inputs: [{ key: "el_bass_xlr_pedalboard", label: "Electric bass guitar", group: "bass" }],
+      } as PresetEntity,
+    };
+
+    const resolved = resolveEffectiveProjectSetup({
+      project,
+      band,
+      bandLeaderId: "bass-1",
+      getMusicianById: () => musician,
+      getPresetByRef: (ref) => presets[ref],
+    });
+
+    expect(resolved.lineup.bass).toEqual(["bass-1"]);
+    expect(resolved.byMusicianId.get("bass-1")?.inputs).toEqual([
+      { key: "el_bass_xlr_pedalboard", label: "Electric bass guitar", group: "bass" },
+    ]);
+  });
+
+  it("keeps project setup override while inheriting other roles from band defaultLineup", () => {
+    const band: Band = {
+      id: "band",
+      name: "Band",
+      bandLeader: "bass-1",
+      defaultLineup: { bass: ["bass-1"], guitar: ["gtr-1"] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
+    };
+    const musicians: Record<string, Musician> = {
+      "bass-1": {
+        id: "bass-1",
+        firstName: "Bass",
+        lastName: "Player",
+        group: "bass",
+        presets: [
+          { kind: "preset", ref: "el_bass_xlr_pedalboard" },
+          { kind: "monitor", ref: "iem_stereo_wireless" },
+        ],
+      },
+      "gtr-1": {
+        id: "gtr-1",
+        firstName: "Guitar",
+        lastName: "Player",
+        group: "guitar",
+        presets: [{ kind: "preset", ref: "el_guitar_mic" }],
+      },
+    };
+    const project: Project = {
+      id: "p-partial-override",
+      bandRef: "band",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+      lineup: {
+        bass: {
+          musicianId: "bass-1",
+          presetOverride: {
+            monitoring: { monitorRef: "iem_stereo_wired" },
+          },
+        },
+      },
+    };
+    const presets: Record<string, PresetEntity> = {
+      el_bass_xlr_pedalboard: {
+        type: "preset",
+        id: "el_bass_xlr_pedalboard",
+        label: "Electric bass guitar",
+        group: "bass",
+        setupGroup: "electric_bass",
+        inputs: [{ key: "el_bass_xlr_pedalboard", label: "Electric bass guitar", group: "bass" }],
+      } as PresetEntity,
+      el_guitar_mic: {
+        type: "preset",
+        id: "el_guitar_mic",
+        label: "Electric guitar",
+        group: "guitar",
+        inputs: [{ key: "el_guitar_mic", label: "Electric guitar", group: "guitar" }],
+      } as PresetEntity,
+      iem_stereo_wireless: { type: "monitor", id: "iem_stereo_wireless", label: "IEM STEREO wireless" } as PresetEntity,
+      iem_stereo_wired: { type: "monitor", id: "iem_stereo_wired", label: "IEM STEREO wired" } as PresetEntity,
+    };
+
+    const resolved = resolveEffectiveProjectSetup({
+      project,
+      band,
+      bandLeaderId: "bass-1",
+      getMusicianById: (id) => musicians[id],
+      getPresetByRef: (ref) => presets[ref],
+    });
+
+    expect(resolved.lineup.bass).toEqual(["bass-1"]);
+    expect(resolved.lineup.guitar).toEqual(["gtr-1"]);
+    expect(resolved.byMusicianId.get("bass-1")?.monitoring.monitorRef).toBe("iem_stereo_wired");
+    expect(resolved.byMusicianId.get("gtr-1")?.inputs).toEqual([
+      { key: "el_guitar_mic", label: "Electric guitar", group: "guitar" },
+    ]);
+  });
+
+  it("resolves band default talkback owner for inherited lineup", () => {
+    const band: Band = {
+      id: "band",
+      name: "Band",
+      bandLeader: "bass-1",
+      defaultLineup: { bass: ["bass-1"] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
+      defaultTalkbackOwnerId: "bass-1",
+    };
+    const musician: Musician = {
+      id: "bass-1",
+      firstName: "Bass",
+      lastName: "Player",
+      group: "bass",
+      presets: [],
+    };
+    const project: Project = {
+      id: "p-inherited-talkback",
+      bandRef: "band",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+    };
+
+    const resolved = resolveEffectiveProjectSetup({
+      project,
+      band,
+      bandLeaderId: "bass-1",
+      getMusicianById: () => musician,
+      getPresetByRef: () => undefined,
+    });
+
+    expect(resolved.talkbackOwnerId).toBe("bass-1");
+  });
+
   it("applies monitoring overrides from lineup presetOverride", () => {
     const band: Band = {
       id: "band",

@@ -30,6 +30,8 @@ export function resolveDocumentContext(
 
   const effective = resolveEffectiveProjectState({
     project,
+    bandDefaultLineup: band.defaultLineup,
+    bandDefaultTalkbackOwnerId: band.defaultTalkbackOwnerId,
     bandLeaderId,
   });
 

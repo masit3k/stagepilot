@@ -12,6 +12,12 @@ type ProjectWithLineup = Project & {
   lineup?: Record<string, unknown>;
 };
 
+function asLineupRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
 function normalizeMalformedDrumDefinition(input: unknown): DrumDefinition {
   const fallback = createDefaultDrumDefinition();
   if (!input || typeof input !== "object") return fallback;
@@ -97,6 +103,7 @@ function normalizeLineupSlots(v: unknown): Array<{ musicianId: string; presetOve
 export function resolveEffectiveProjectState(args: {
   project: Project;
   bandDefaultLineup?: unknown;
+  bandDefaultTalkbackOwnerId?: unknown;
   bandLeaderId: string;
 }): {
   effectiveLineup: Record<Group, string[]>;
@@ -105,17 +112,22 @@ export function resolveEffectiveProjectState(args: {
   effectiveTalkbackOwnerId: string;
   drumDefinitionByMusicianId: Map<string, DrumDefinition>;
 } {
-  const projectLineup = ((args.project as ProjectWithLineup).lineup ?? {}) as Record<string, unknown>;
+  const projectLineup = asLineupRecord((args.project as ProjectWithLineup).lineup);
+  const bandDefaultLineup = asLineupRecord(args.bandDefaultLineup);
   const effectiveLineup = {} as Record<Group, string[]>;
   const presetOverrideByMusicianId = new Map<string, PresetOverridePatch>();
   const drumDefinitionByMusicianId = new Map<string, DrumDefinition>();
 
   for (const group of GROUP_ORDER) {
+    const hasProjectGroupLineup = Object.prototype.hasOwnProperty.call(projectLineup, group);
     const projectSlots = normalizeLineupSlots(projectLineup[group]);
-    const resolvedSlots = projectSlots;
-    effectiveLineup[group] = resolvedSlots.map((slot) => slot.musicianId);
+    const bandDefaultSlots = hasProjectGroupLineup
+      ? []
+      : normalizeLineupSlots(bandDefaultLineup[group]);
+    const effectiveSlots = hasProjectGroupLineup ? projectSlots : bandDefaultSlots;
+    effectiveLineup[group] = effectiveSlots.map((slot) => slot.musicianId);
 
-    for (const slot of resolvedSlots) {
+    for (const slot of effectiveSlots) {
       if (slot.presetOverride) {
         presetOverrideByMusicianId.set(slot.musicianId, slot.presetOverride);
       }
@@ -143,7 +155,18 @@ export function resolveEffectiveProjectState(args: {
     project: args.project,
     activeMusicianIds: selectedMusicianIds,
   });
-  const effectiveTalkbackOwnerId = talkback.effectiveTalkbackOwnerId ?? "";
+  const bandDefaultTalkbackOwnerId =
+    typeof args.bandDefaultTalkbackOwnerId === "string"
+      ? args.bandDefaultTalkbackOwnerId.trim()
+      : "";
+  const selectedMusicianIdSet = new Set(selectedMusicianIds);
+  const canUseBandDefaultTalkbackOwner =
+    !talkback.hasExplicitTalkbackOverride &&
+    bandDefaultTalkbackOwnerId.length > 0 &&
+    selectedMusicianIdSet.has(bandDefaultTalkbackOwnerId);
+  const effectiveTalkbackOwnerId =
+    talkback.effectiveTalkbackOwnerId ??
+    (canUseBandDefaultTalkbackOwner ? bandDefaultTalkbackOwnerId : "");
 
   return {
     effectiveLineup,

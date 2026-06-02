@@ -29,6 +29,8 @@ export function resolveEffectiveProjectSetup(args: {
 }): EffectiveProjectSetup {
   const state = resolveEffectiveProjectState({
     project: args.project,
+    bandDefaultLineup: args.band.defaultLineup,
+    bandDefaultTalkbackOwnerId: args.band.defaultTalkbackOwnerId,
     bandLeaderId: args.bandLeaderId,
   });
 
