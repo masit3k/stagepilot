@@ -67,6 +67,9 @@ export interface Project {
   createdAt?: string;
   updatedAt?: string;
 
+  /** Poslední změna obsahu rideru. Čte ji hlavička PDF. */
+  contentUpdatedAt?: string;
+
   /** Volitelně: volba template/layoutu */
   template?: string;
   lineup?: ProjectLineup | Record<string, unknown>;
@@ -114,6 +117,9 @@ export interface ProjectJsonV2 {
   note?: string;
   createdAt?: string;
   updatedAt?: string;
+
+  /** Poslední změna obsahu rideru. Čte ji hlavička PDF. */
+  contentUpdatedAt?: string;
   /** Legacy read-compat only. */
   title?: string;
   template?: string;
