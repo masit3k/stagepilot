@@ -28,16 +28,18 @@ export function formatMonitorBullet(note: string, no: number): string {
   return `${label} (${no})`;
 }
 
+/**
+ * What? Drops the trailing "(provided by FOH)" / "(own)" supplier suffix
+ * from a monitor label before it reaches the stageplan.
+ * Why? The stageplan is a visual stage layout, not a supplier ledger — the
+ * promoter reads supplier info from the monitor table and notes instead.
+ * Shorter text also reduces overflow risk (box height is line-count based).
+ * Mirrors `typeLabelOf` in packages/desktop/src/components/setup/monitorAxes.ts;
+ * duplicated here because src/domain/ must not import desktop code.
+ */
 function formatStageplanMonitoringBaseLabel(label: string): string {
   const trimmed = label.trim();
-  if (
-    /^wedge monitor\s+\((provided by foh|requested from sound engineer)\)$/i.test(
-      trimmed,
-    )
-  ) {
-    return "Wedge monitor";
-  }
-  return trimmed;
+  return trimmed.replace(/\s*\([^)]*\)\s*$/, "").trim();
 }
 
 const ADDITIONAL_WEDGE_PATTERN =

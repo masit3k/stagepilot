@@ -2,6 +2,7 @@ import type {
   MusicianSetupPreset,
   PresetOverridePatch,
 } from "../model/types.js";
+import { resolvePresetIdAlias } from "../model/presetAliases.js";
 import {
   applyPresetOverride,
   normalizeSetupOverridePatch,
@@ -23,7 +24,7 @@ type ComparablePreset = {
 function normalizePreset(preset: MusicianSetupPreset): ComparablePreset {
   return {
     monitoring: {
-      monitorRef: preset.monitoring.monitorRef,
+      monitorRef: resolvePresetIdAlias(preset.monitoring.monitorRef),
       ...(preset.monitoring.additionalWedgeCount && preset.monitoring.additionalWedgeCount > 0
         ? { additionalWedgeCount: preset.monitoring.additionalWedgeCount }
         : {}),

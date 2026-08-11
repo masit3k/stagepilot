@@ -17,6 +17,11 @@ describe("isPatchDifferentFromDefault", () => {
     expect(isPatchDifferentFromDefault(defaultPreset, { monitoring: { monitorRef: "iem_mono_wired_foh" } })).toBe(true);
   });
 
+  it("returns false when the patch uses a legacy alias equivalent to the default", () => {
+    // "wedge" is a legacy alias that resolves to "wedge_foh" — same monitor as the default.
+    expect(isPatchDifferentFromDefault(defaultPreset, { monitoring: { monitorRef: "wedge" } })).toBe(false);
+  });
+
   it("returns false when patch is empty", () => {
     expect(isPatchDifferentFromDefault(defaultPreset, undefined)).toBe(false);
   });
