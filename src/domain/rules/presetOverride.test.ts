@@ -39,6 +39,15 @@ const MONITORS_BY_ID: Record<string, Monitor> = {
     mode: "mono",
     wireless: true,
   },
+  iem_mono_wireless_foh: {
+    type: "monitor",
+    id: "iem_mono_wireless_foh",
+    label: "IEM MONO wireless (provided by FOH)",
+    kind: "iem",
+    supplier: "foh",
+    mode: "mono",
+    wireless: true,
+  },
   wedge_foh: {
     type: "monitor",
     id: "wedge_foh",

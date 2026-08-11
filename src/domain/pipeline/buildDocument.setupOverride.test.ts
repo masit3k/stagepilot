@@ -268,7 +268,7 @@ describe("buildDocument setup overrides", () => {
             ],
           };
         if (id === "wedge_foh")
-          return { type: "monitor", id, label: "Wedge monitor", kind: "wedge", supplier: "foh" };
+          return { type: "monitor", id, label: "Wedge monitor (provided by FOH)", kind: "wedge", supplier: "foh" };
         if (id === "iem_stereo_wireless_foh")
           return { type: "monitor", id, label: "IEM STEREO wireless", kind: "iem", supplier: "foh", mode: "stereo", wireless: true };
         if (id === "talkback")
@@ -371,7 +371,7 @@ describe("buildDocument setup overrides", () => {
             inputs: [{ key: "gtr", label: "Guitar", group: "guitar" }],
           };
         if (id === "wedge_foh")
-          return { type: "monitor", id, label: "Wedge monitor", kind: "wedge", supplier: "foh" };
+          return { type: "monitor", id, label: "Wedge monitor (provided by FOH)", kind: "wedge", supplier: "foh" };
         if (id === "talkback")
           return {
             type: "talkback_type",
@@ -967,7 +967,7 @@ describe("buildDocument setup overrides", () => {
             ],
           };
         if (id === "wedge_foh")
-          return { type: "monitor", id, label: "Wedge monitor", kind: "wedge", supplier: "foh" };
+          return { type: "monitor", id, label: "Wedge monitor (provided by FOH)", kind: "wedge", supplier: "foh" };
         if (id === "talkback")
           return {
             type: "talkback_type",
