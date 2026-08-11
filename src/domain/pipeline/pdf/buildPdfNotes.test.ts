@@ -19,6 +19,11 @@ const template: NotesTemplate = {
       text: "FOH IEM",
       when: { monitors: { hasFohSuppliedIem: true } },
     },
+    {
+      id: "wedge_and_band_iem",
+      text: "Wedge i vlastní IEM",
+      when: { monitors: { hasWedge: true, hasBandSuppliedIem: true } },
+    },
   ],
 };
 
@@ -66,6 +71,35 @@ describe("buildPdfNotes", () => {
       monitors: { ...NOTHING, hasWedge: true },
     });
     expect(ids(notes.monitors)).toEqual(["unconditional", "wedge_only"]);
+  });
+
+  it("keeps a multi-flag note only when every listed flag is satisfied", () => {
+    const notes = buildPdfNotes({
+      template,
+      monitors: { ...NOTHING, hasWedge: true, hasBandSuppliedIem: true },
+    });
+    expect(ids(notes.monitors)).toEqual([
+      "unconditional",
+      "wedge_only",
+      "band_iem",
+      "wedge_and_band_iem",
+    ]);
+  });
+
+  it("hides a multi-flag note when only one of its required flags is satisfied (wedge)", () => {
+    const notes = buildPdfNotes({
+      template,
+      monitors: { ...NOTHING, hasWedge: true },
+    });
+    expect(ids(notes.monitors)).not.toContain("wedge_and_band_iem");
+  });
+
+  it("hides a multi-flag note when only one of its required flags is satisfied (band iem)", () => {
+    const notes = buildPdfNotes({
+      template,
+      monitors: { ...NOTHING, hasBandSuppliedIem: true },
+    });
+    expect(ids(notes.monitors)).not.toContain("wedge_and_band_iem");
   });
 
   it("passes input notes through untouched", () => {
