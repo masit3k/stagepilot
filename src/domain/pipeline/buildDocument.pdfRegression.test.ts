@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { normalizeProject } from "../../app/usecases/normalizeProject.js";
 import type { DataRepository } from "../../infra/fs/repo.js";
+import { resolvePresetIdAlias } from "../model/presetAliases.js";
 import type {
   Band,
   Musician,
@@ -39,7 +40,9 @@ function createRepo(args: {
       return args.project;
     },
     getPreset: (id: string) => {
-      const preset = args.presets[id];
+      // Mirrors catalogRepository.ts: resolves legacy ids through the alias map
+      // before looking them up, exactly like the real repo does.
+      const preset = args.presets[resolvePresetIdAlias(id)];
       if (!preset) throw new Error(`Unknown preset ${id}`);
       return preset;
     },
@@ -621,5 +624,70 @@ describe("buildDocument PDF regression model", () => {
       keys: { hasPowerBadge: true, powerBadgeText: "2x 230 V" },
       vocs: { hasPowerBadge: false, powerBadgeText: "" },
     });
+  });
+
+  it("resolves a legacy monitor ref through the alias map when building monitor table rows", () => {
+    const band: Band = {
+      id: "band-legacy-monitor",
+      name: "Legacy Monitor Band",
+      bandLeader: "voc-1",
+      defaultLineup: { vocs: ["voc-1"] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
+    };
+    const musicians: Record<string, Musician> = {
+      "voc-1": {
+        id: "voc-1",
+        firstName: "Vera",
+        lastName: "Vocal",
+        gender: "f",
+        group: "vocs",
+        presets: [
+          { kind: "preset", ref: "vocal_wireless" },
+          { kind: "monitor", ref: "wedge" },
+        ],
+      },
+    };
+    const projectJson: ProjectJsonV2 = {
+      id: "project-legacy-monitor",
+      bandRef: band.id,
+      purpose: "generic",
+      documentDate: "2026-05-29",
+      lineup: { vocs: ["voc-1"] },
+    };
+    const project = normalizeProject(projectJson);
+    const presets: Record<string, PresetEntity> = {
+      vocal_wireless: {
+        type: "preset",
+        id: "vocal_wireless",
+        label: "Wireless vocal",
+        group: "vocs",
+        inputs: [{ key: "voc_wireless", label: "Wireless vocal", group: "vocs" }],
+      },
+      talkback: {
+        type: "talkback_type",
+        id: "talkback",
+        label: "Talkback",
+        group: "talkback",
+        input: { key: "tb_{ownerKey}", label: "Talkback - {ownerLabel}" },
+      },
+      // Only the new catalog id exists — "wedge" must resolve through the alias map.
+      wedge_foh: {
+        type: "monitor",
+        id: "wedge_foh",
+        label: "Wedge monitor (provided by FOH)",
+        kind: "wedge",
+        supplier: "foh",
+      },
+    };
+    const repo = createRepo({ band, musicians, presets, project });
+
+    expect(() => buildDocument(project, repo)).not.toThrow();
+    const vm = buildDocument(project, repo);
+    expect(vm.monitors).toEqual([
+      { id: "voc-1:wedge_foh", label: "Wedge monitor (provided by FOH)", kind: "wedge" },
+    ]);
+    expect(vm.monitorTableRows).toEqual([
+      expect.objectContaining({ note: "Wedge monitor (provided by FOH)" }),
+    ]);
   });
 });

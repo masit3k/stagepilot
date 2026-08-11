@@ -61,6 +61,13 @@ describe("resolveMusicianDefaultSetupForRole", () => {
       mode: "stereo",
       wireless: true,
     },
+    wedge_foh: {
+      type: "monitor",
+      id: "wedge_foh",
+      label: "Wedge monitor (provided by FOH)",
+      kind: "wedge",
+      supplier: "foh",
+    },
   };
 
   it("resolves guitar defaults from musician presets", () => {
@@ -123,6 +130,34 @@ describe("resolveMusicianDefaultSetupForRole", () => {
 
     expect(resolved.monitoring.monitorRef).toBe("iem_stereo_wireless_foh");
     expect(resolved.inputs.map((item) => item.key)).toEqual(["gtr_mic"]);
+  });
+
+  it("resolves a legacy monitor ref from a musician preset item through the alias map instead of throwing", () => {
+    // The catalog only has the new "_foh"/"_own" ids (the legacy monitor JSON files were
+    // deleted). A musician whose stored preset still references the old "wedge" id must
+    // not crash the setup editor when its default setup is resolved.
+    expect(() =>
+      resolveMusicianDefaultSetupForRole({
+        role: "vocs",
+        presetItems: [{ kind: "monitor", ref: "wedge" }],
+        presetCatalog: catalog,
+        bandDefaults: {
+          inputs: [{ key: "voc_input", label: "Vocal" }],
+          monitoring: { monitorRef: "wedge_foh" },
+        },
+      }),
+    ).not.toThrow();
+
+    const resolved = resolveMusicianDefaultSetupForRole({
+      role: "vocs",
+      presetItems: [{ kind: "monitor", ref: "wedge" }],
+      presetCatalog: catalog,
+      bandDefaults: {
+        inputs: [{ key: "voc_input", label: "Vocal" }],
+        monitoring: { monitorRef: "wedge_foh" },
+      },
+    });
+    expect(resolved.monitoring.monitorRef).toBe("wedge");
   });
 });
 

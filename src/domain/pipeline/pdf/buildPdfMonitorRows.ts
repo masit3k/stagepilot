@@ -4,6 +4,7 @@ import {
   formatMonitoringLabel,
 } from "../../formatters/index.js";
 import type { Group } from "../../model/groups.js";
+import { resolvePresetIdAlias } from "../../model/presetAliases.js";
 import type { DocumentViewModel, Musician } from "../../model/types.js";
 import {
   type MonitorPresetIndex,
@@ -77,7 +78,7 @@ function resolveMonitorLabel(args: {
   if (!musician) return "";
   const effective = effectiveSetupByMusicianId.get(musician.id);
   if (!effective) return "";
-  const monitorRef = effective.monitoring.monitorRef;
+  const monitorRef = resolvePresetIdAlias(effective.monitoring.monitorRef);
   if (!monitorsById[monitorRef]) {
     const monitorEntity = repo.getPreset(monitorRef);
     if (monitorEntity.type !== "monitor") {

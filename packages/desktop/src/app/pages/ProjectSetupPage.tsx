@@ -30,6 +30,7 @@ import type {
   PresetEntity,
   PresetItem,
 } from "../../../../../src/domain/model/types";
+import { resolvePresetIdAlias } from "../../../../../src/domain/model/presetAliases";
 import { resolveEffectiveMusicianSetup } from "../../../../../src/domain/setup/resolveEffectiveMusicianSetup";
 import { resolveDrumInputs } from "../../../../../src/domain/drums/resolveDrumInputs";
 import {
@@ -1403,7 +1404,7 @@ export function ProjectSetupPage({
     (musicianId: string): InputChannel[] =>
       resolveMusicianCapabilityInputs({
         presetItems: setupData?.musicianPresetsById?.[musicianId],
-        getPresetByRef: (ref) => presetCatalog[ref],
+        getPresetByRef: (ref) => presetCatalog[resolvePresetIdAlias(ref)],
       }),
     [presetCatalog, setupData],
   );
