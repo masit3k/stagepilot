@@ -37,7 +37,7 @@ function createRepo(): DataRepository {
     },
     getPreset: (id: string) => {
       if (id === "el_bass_xlr_pedalboard") return bassPreset;
-      if (id === "wedge") return { type: "monitor", id, label: "Wedge" };
+      if (id === "wedge_foh") return { type: "monitor", id, label: "Wedge", kind: "wedge", supplier: "foh" };
       if (id === "talkback") {
         return {
           type: "talkback_type",

@@ -299,12 +299,27 @@ export interface TalkbackType {
   };
 }
 
+/** Kdo odposlech na místě dodává. */
+export type MonitorSupplier = "band" | "foh";
+
 /** Monitor mix typ (zatím se nepromítá do FOH input listu). */
-export interface Monitor {
-  type: "monitor";
-  id: string;
-  label: string;
-}
+export type Monitor =
+  | {
+      type: "monitor";
+      id: string;
+      label: string;
+      kind: "iem";
+      supplier: MonitorSupplier;
+      mode: "mono" | "stereo";
+      wireless: boolean;
+    }
+  | {
+      type: "monitor";
+      id: string;
+      label: string;
+      kind: "wedge";
+      supplier: MonitorSupplier;
+    };
 
 /** Union všech entit v data/assets/presets */
 export type PresetEntity = Preset | TalkbackType | Monitor;

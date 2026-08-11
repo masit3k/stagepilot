@@ -54,7 +54,7 @@ describe("stageplan render plan", () => {
       );
 
       expect(drumsBox?.monitorBullets).toEqual(
-        expect.arrayContaining(["IEM STEREO wired (5)"])
+        expect.arrayContaining(["IEM STEREO wired (provided by FOH) (5)"])
       );
       expect(drumsBox?.extraBullets).toEqual(
         expect.arrayContaining(["Drum riser 3x2"])

@@ -26,7 +26,7 @@ describe("buildDocument setup overrides", () => {
       group: "bass",
       presets: [
         { kind: "preset", ref: "el_bass_xlr_pedalboard" },
-        { kind: "monitor", ref: "iem_stereo_wireless" },
+        { kind: "monitor", ref: "iem_stereo_wireless_foh" },
       ],
     };
     const bassPreset: Preset = {
@@ -59,7 +59,7 @@ describe("buildDocument setup overrides", () => {
           musicianId: "bass-1",
           presetOverride: {
             monitoring: {
-              monitorRef: "iem_stereo_wired",
+              monitorRef: "iem_stereo_wired_foh",
               additionalWedgeCount: 2,
             },
             inputs: {
@@ -86,11 +86,11 @@ describe("buildDocument setup overrides", () => {
       getProject: () => project,
       getPreset: (id: string) => {
         if (id === "el_bass_xlr_pedalboard") return bassPreset;
-        if (id === "iem_stereo_wireless")
-          return { type: "monitor", id, label: "IEM STEREO wireless" };
-        if (id === "wedge") return { type: "monitor", id, label: "Wedge" };
-        if (id === "iem_stereo_wired")
-          return { type: "monitor", id, label: "IEM STEREO wired" };
+        if (id === "iem_stereo_wireless_foh")
+          return { type: "monitor", id, label: "IEM STEREO wireless", kind: "iem", supplier: "foh", mode: "stereo", wireless: true };
+        if (id === "wedge_foh") return { type: "monitor", id, label: "Wedge", kind: "wedge", supplier: "foh" };
+        if (id === "iem_stereo_wired_foh")
+          return { type: "monitor", id, label: "IEM STEREO wired", kind: "iem", supplier: "foh", mode: "stereo", wireless: false };
         if (id === "talkback")
           return {
             type: "talkback_type",
@@ -165,9 +165,9 @@ describe("buildDocument setup overrides", () => {
       getProject: () => project,
       getPreset: (id: string) => {
         if (id === "el_bass_xlr_pedalboard") return bassPreset;
-        if (id === "iem_stereo_wireless")
-          return { type: "monitor", id, label: "IEM STEREO wireless" };
-        if (id === "wedge") return { type: "monitor", id, label: "Wedge" };
+        if (id === "iem_stereo_wireless_foh")
+          return { type: "monitor", id, label: "IEM STEREO wireless", kind: "iem", supplier: "foh", mode: "stereo", wireless: true };
+        if (id === "wedge_foh") return { type: "monitor", id, label: "Wedge", kind: "wedge", supplier: "foh" };
         if (id === "talkback")
           return {
             type: "talkback_type",
@@ -200,7 +200,7 @@ describe("buildDocument setup overrides", () => {
       group: "vocs",
       presets: [
         { kind: "preset", ref: "vocal_lead_no_mic" },
-        { kind: "monitor", ref: "wedge" },
+        { kind: "monitor", ref: "wedge_foh" },
       ],
     };
     const guitar: Musician = {
@@ -210,7 +210,7 @@ describe("buildDocument setup overrides", () => {
       group: "guitar",
       presets: [
         { kind: "preset", ref: "el_guitar" },
-        { kind: "monitor", ref: "iem_stereo_wireless" },
+        { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         { kind: "preset", ref: "vocal_back_no_mic" },
       ],
     };
@@ -267,10 +267,10 @@ describe("buildDocument setup overrides", () => {
               { key: "gtr", label: "Guitar", group: "guitar", note: "Own DI" },
             ],
           };
-        if (id === "wedge")
-          return { type: "monitor", id, label: "Wedge monitor" };
-        if (id === "iem_stereo_wireless")
-          return { type: "monitor", id, label: "IEM STEREO wireless" };
+        if (id === "wedge_foh")
+          return { type: "monitor", id, label: "Wedge monitor", kind: "wedge", supplier: "foh" };
+        if (id === "iem_stereo_wireless_foh")
+          return { type: "monitor", id, label: "IEM STEREO wireless", kind: "iem", supplier: "foh", mode: "stereo", wireless: true };
         if (id === "talkback")
           return {
             type: "talkback_type",
@@ -370,8 +370,8 @@ describe("buildDocument setup overrides", () => {
             group: "guitar",
             inputs: [{ key: "gtr", label: "Guitar", group: "guitar" }],
           };
-        if (id === "wedge")
-          return { type: "monitor", id, label: "Wedge monitor" };
+        if (id === "wedge_foh")
+          return { type: "monitor", id, label: "Wedge monitor", kind: "wedge", supplier: "foh" };
         if (id === "talkback")
           return {
             type: "talkback_type",
@@ -406,7 +406,7 @@ describe("buildDocument setup overrides", () => {
       group: "vocs",
       presets: [
         { kind: "preset", ref: "vocal_lead_no_mic" },
-        { kind: "monitor", ref: "wedge" },
+        { kind: "monitor", ref: "wedge_foh" },
       ],
     };
     const keys: Musician = {
@@ -416,7 +416,7 @@ describe("buildDocument setup overrides", () => {
       group: "keys",
       presets: [
         { kind: "preset", ref: "keys" },
-        { kind: "monitor", ref: "wedge" },
+        { kind: "monitor", ref: "wedge_foh" },
       ],
     };
     const project: Project = {
@@ -458,7 +458,7 @@ describe("buildDocument setup overrides", () => {
             group: "vocs",
             inputs: [{ key: "voc_lead", label: "Lead vocal", group: "vocs" }],
           };
-        if (id === "wedge") return { type: "monitor", id, label: "Wedge" };
+        if (id === "wedge_foh") return { type: "monitor", id, label: "Wedge", kind: "wedge", supplier: "foh" };
         if (id === "talkback")
           return {
             type: "talkback_type",
@@ -494,7 +494,7 @@ describe("buildDocument setup overrides", () => {
       group: "vocs",
       presets: [
         { kind: "preset", ref: "vocal_lead_no_mic" },
-        { kind: "monitor", ref: "wedge" },
+        { kind: "monitor", ref: "wedge_foh" },
       ],
     };
     const voc2: Musician = {
@@ -504,7 +504,7 @@ describe("buildDocument setup overrides", () => {
       group: "vocs",
       presets: [
         { kind: "preset", ref: "vocal_lead_no_mic" },
-        { kind: "monitor", ref: "wedge" },
+        { kind: "monitor", ref: "wedge_foh" },
       ],
     };
     const keys: Musician = {
@@ -514,7 +514,7 @@ describe("buildDocument setup overrides", () => {
       group: "keys",
       presets: [
         { kind: "preset", ref: "keys_with_lead" },
-        { kind: "monitor", ref: "wedge" },
+        { kind: "monitor", ref: "wedge_foh" },
       ],
     };
     const project: Project = {
@@ -565,7 +565,7 @@ describe("buildDocument setup overrides", () => {
             inputs: [{ key: "voc_lead", label: "Lead vocal", group: "vocs" }],
           };
         }
-        if (id === "wedge") return { type: "monitor", id, label: "Wedge" };
+        if (id === "wedge_foh") return { type: "monitor", id, label: "Wedge", kind: "wedge", supplier: "foh" };
         if (id === "talkback") {
           return {
             type: "talkback_type",
@@ -609,7 +609,7 @@ describe("buildDocument setup overrides", () => {
       group: "vocs",
       presets: [
         { kind: "preset", ref: "vocal_lead_no_mic" },
-        { kind: "monitor", ref: "wedge" },
+        { kind: "monitor", ref: "wedge_foh" },
       ],
     };
     const project: Project = {
@@ -641,7 +641,7 @@ describe("buildDocument setup overrides", () => {
             inputs: [{ key: "voc_lead", label: "Lead vocal", group: "vocs" }],
           };
         }
-        if (id === "wedge") return { type: "monitor", id, label: "Wedge" };
+        if (id === "wedge_foh") return { type: "monitor", id, label: "Wedge", kind: "wedge", supplier: "foh" };
         if (id === "talkback") {
           return {
             type: "talkback_type",
@@ -676,7 +676,7 @@ describe("buildDocument setup overrides", () => {
       presets: [
         { kind: "preset", ref: "el_bass_xlr_pedalboard" },
         { kind: "preset", ref: "vocal_lead_no_mic" },
-        { kind: "monitor", ref: "wedge" },
+        { kind: "monitor", ref: "wedge_foh" },
       ],
     };
     const drummer: Musician = {
@@ -687,7 +687,7 @@ describe("buildDocument setup overrides", () => {
       presets: [
         { kind: "drum_setup", setup: createDefaultDrumDefinition() },
         { kind: "preset", ref: "vocal_lead_no_mic" },
-        { kind: "monitor", ref: "wedge" },
+        { kind: "monitor", ref: "wedge_foh" },
       ],
     };
     const project: Project = {
@@ -732,7 +732,7 @@ describe("buildDocument setup overrides", () => {
             inputs: [{ key: "voc_lead", label: "Lead vocal", group: "vocs" }],
           };
         }
-        if (id === "wedge") return { type: "monitor", id, label: "Wedge" };
+        if (id === "wedge_foh") return { type: "monitor", id, label: "Wedge", kind: "wedge", supplier: "foh" };
         if (id === "talkback") {
           return {
             type: "talkback_type",
@@ -774,7 +774,7 @@ describe("buildDocument setup overrides", () => {
       group: "vocs",
       presets: [
         { kind: "preset", ref: "vocal_lead_no_mic" },
-        { kind: "monitor", ref: "wedge" },
+        { kind: "monitor", ref: "wedge_foh" },
       ],
     };
     const guitar: Musician = {
@@ -784,7 +784,7 @@ describe("buildDocument setup overrides", () => {
       group: "guitar",
       presets: [
         { kind: "preset", ref: "el_guitar" },
-        { kind: "monitor", ref: "wedge" },
+        { kind: "monitor", ref: "wedge_foh" },
       ],
     };
     const keys: Musician = {
@@ -794,7 +794,7 @@ describe("buildDocument setup overrides", () => {
       group: "keys",
       presets: [
         { kind: "preset", ref: "keys_with_lead" },
-        { kind: "monitor", ref: "wedge" },
+        { kind: "monitor", ref: "wedge_foh" },
       ],
     };
     const project: Project = {
@@ -863,7 +863,7 @@ describe("buildDocument setup overrides", () => {
             inputs: [{ key: "voc_back", label: "Back vocal", group: "vocs" }],
           };
         }
-        if (id === "wedge") return { type: "monitor", id, label: "Wedge" };
+        if (id === "wedge_foh") return { type: "monitor", id, label: "Wedge", kind: "wedge", supplier: "foh" };
         if (id === "talkback") {
           return {
             type: "talkback_type",
@@ -910,7 +910,7 @@ describe("buildDocument setup overrides", () => {
       group: "vocs",
       presets: [
         { kind: "preset", ref: "vocal_lead_no_mic" },
-        { kind: "monitor", ref: "wedge" },
+        { kind: "monitor", ref: "wedge_foh" },
       ],
     };
     const notes: NotesTemplate = {
@@ -966,8 +966,8 @@ describe("buildDocument setup overrides", () => {
               },
             ],
           };
-        if (id === "wedge")
-          return { type: "monitor", id, label: "Wedge monitor" };
+        if (id === "wedge_foh")
+          return { type: "monitor", id, label: "Wedge monitor", kind: "wedge", supplier: "foh" };
         if (id === "talkback")
           return {
             type: "talkback_type",
@@ -1062,7 +1062,7 @@ describe("buildDocument setup overrides", () => {
             group: "vocs",
             inputs: [{ key: "voc_lead", label: "Lead vocal", group: "vocs" }],
           };
-        if (id === "wedge") return { type: "monitor", id, label: "Wedge" };
+        if (id === "wedge_foh") return { type: "monitor", id, label: "Wedge", kind: "wedge", supplier: "foh" };
         if (id === "talkback")
           return {
             type: "talkback_type",
@@ -1110,27 +1110,27 @@ describe("buildDocument setup overrides", () => {
     const musicians: Record<string, Musician> = {
       "dr-1": makeMusician("dr-1", "drums", [
         { kind: "preset", ref: "drum_preset" },
-        { kind: "monitor", ref: "wedge" },
+        { kind: "monitor", ref: "wedge_foh" },
       ]),
       "bs-1": makeMusician("bs-1", "bass", [
         { kind: "preset", ref: "bass_preset" },
-        { kind: "monitor", ref: "wedge" },
+        { kind: "monitor", ref: "wedge_foh" },
       ]),
       "gt-1": makeMusician("gt-1", "guitar", [
         { kind: "preset", ref: "gtr_preset" },
-        { kind: "monitor", ref: "wedge" },
+        { kind: "monitor", ref: "wedge_foh" },
       ]),
       "ky-1": makeMusician("ky-1", "keys", [
         { kind: "preset", ref: "keys_preset" },
-        { kind: "monitor", ref: "wedge" },
+        { kind: "monitor", ref: "wedge_foh" },
       ]),
       "vc-1": makeMusician("vc-1", "vocs", [
         { kind: "preset", ref: "vocal_lead_no_mic" },
-        { kind: "monitor", ref: "wedge" },
+        { kind: "monitor", ref: "wedge_foh" },
       ]),
       "vc-2": makeMusician("vc-2", "vocs", [
         { kind: "preset", ref: "vocal_lead_no_mic" },
-        { kind: "monitor", ref: "wedge" },
+        { kind: "monitor", ref: "wedge_foh" },
       ]),
     };
     const project: Project = {
@@ -1159,7 +1159,7 @@ describe("buildDocument setup overrides", () => {
       getMusician: (id: string) => musicians[id]!,
       getProject: () => project,
       getPreset: (id: string) => {
-        if (id === "wedge") return { type: "monitor", id, label: "Wedge" };
+        if (id === "wedge_foh") return { type: "monitor", id, label: "Wedge", kind: "wedge", supplier: "foh" };
         if (id === "talkback")
           return {
             type: "talkback_type",
@@ -1250,11 +1250,11 @@ describe("buildDocument setup overrides", () => {
         group: id === "gt-1" ? "guitar" : "vocs",
         presets: [
           { kind: "preset", ref: id === "gt-1" ? "gtr" : "voc" },
-          { kind: "monitor", ref: "wedge" },
+          { kind: "monitor", ref: "wedge_foh" },
         ],
       }),
       getPreset: (id: string) => {
-        if (id === "wedge") return { type: "monitor", id, label: "Wedge" };
+        if (id === "wedge_foh") return { type: "monitor", id, label: "Wedge", kind: "wedge", supplier: "foh" };
         if (id === "talkback")
           return {
             type: "talkback_type",
@@ -1337,7 +1337,7 @@ describe("buildDocument setup overrides", () => {
       getMusician: () => drummer,
       getProject: () => project,
       getPreset: (id: string) => {
-        if (id === "wedge") return { type: "monitor", id, label: "Wedge" };
+        if (id === "wedge_foh") return { type: "monitor", id, label: "Wedge", kind: "wedge", supplier: "foh" };
         if (id === "talkback")
           return {
             type: "talkback_type",
@@ -1509,7 +1509,7 @@ describe("buildDocument setup overrides", () => {
               },
             ],
           };
-        if (id === "wedge") return { type: "monitor", id, label: "Wedge" };
+        if (id === "wedge_foh") return { type: "monitor", id, label: "Wedge", kind: "wedge", supplier: "foh" };
         if (id === "talkback")
           return {
             type: "talkback_type",
@@ -1600,7 +1600,7 @@ describe("buildDocument setup overrides", () => {
       group: "keys",
       presets: [
         { kind: "preset", ref: "keys_stereo_xlr" },
-        { kind: "monitor", ref: "wedge" },
+        { kind: "monitor", ref: "wedge_foh" },
       ],
     };
     const notes: NotesTemplate = {
@@ -1682,7 +1682,7 @@ describe("buildDocument setup overrides", () => {
       getProject: () => project,
       getPreset: (id: string) => {
         if (id === "keys_stereo_xlr") return keyPreset;
-        if (id === "wedge") return { type: "monitor", id, label: "Wedge" };
+        if (id === "wedge_foh") return { type: "monitor", id, label: "Wedge", kind: "wedge", supplier: "foh" };
         throw new Error(`unknown preset ${id}`);
       },
       getNotesTemplate: () => notes,

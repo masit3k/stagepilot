@@ -63,7 +63,7 @@ describe("buildDocument vocal overlay composition", () => {
         group: "guitar",
         presets: [
           { kind: "preset", ref: "el_guitar" },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
       },
       "bass-1": {
@@ -75,7 +75,7 @@ describe("buildDocument vocal overlay composition", () => {
         presets: [
           { kind: "preset", ref: "el_bass_xlr_pedalboard" },
           { kind: "preset", ref: "vocal_lead_no_mic" },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
       },
       "drm-1": {
@@ -86,7 +86,7 @@ describe("buildDocument vocal overlay composition", () => {
         group: "drums",
         presets: [
           { kind: "preset", ref: "drums_basic" },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
       },
       "voc-1": {
@@ -97,7 +97,7 @@ describe("buildDocument vocal overlay composition", () => {
         group: "vocs",
         presets: [
           { kind: "preset", ref: "vocal_lead_no_mic" },
-          { kind: "monitor", ref: "wedge" },
+          { kind: "monitor", ref: "wedge_foh" },
         ],
       },
     };
@@ -172,11 +172,15 @@ describe("buildDocument vocal overlay composition", () => {
         group: "talkback",
         input: { key: "tb_{ownerKey}", label: "Talkback - {ownerLabel}" },
       },
-      wedge: { type: "monitor", id: "wedge", label: "Wedge monitor" },
-      iem_stereo_wireless: {
+      wedge_foh: { type: "monitor", id: "wedge_foh", label: "Wedge monitor (provided by FOH)", kind: "wedge", supplier: "foh" },
+      iem_stereo_wireless_foh: {
         type: "monitor",
-        id: "iem_stereo_wireless",
-        label: "IEM STEREO wireless",
+        id: "iem_stereo_wireless_foh",
+        label: "IEM STEREO wireless (provided by FOH)",
+        kind: "iem",
+        supplier: "foh",
+        mode: "stereo",
+        wireless: true,
       },
     };
 
@@ -244,7 +248,7 @@ describe("buildDocument vocal overlay composition", () => {
         presets: [
           { kind: "preset", ref: "drums_basic" },
           { kind: "preset", ref: "vocal_wired" },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
       },
       "bass-1": {
@@ -256,7 +260,7 @@ describe("buildDocument vocal overlay composition", () => {
         presets: [
           { kind: "preset", ref: "el_bass_xlr_pedalboard" },
           { kind: "preset", ref: "vocal_wired" },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
       },
       "gtr-1": {
@@ -267,7 +271,7 @@ describe("buildDocument vocal overlay composition", () => {
         group: "guitar",
         presets: [
           { kind: "preset", ref: "el_guitar" },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
       },
       "keys-1": {
@@ -278,7 +282,7 @@ describe("buildDocument vocal overlay composition", () => {
         group: "keys",
         presets: [
           { kind: "preset", ref: "keys_stereo_xlr" },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
       },
       "voc-1": {
@@ -289,7 +293,7 @@ describe("buildDocument vocal overlay composition", () => {
         group: "vocs",
         presets: [
           { kind: "preset", ref: "vocal_lead_no_mic" },
-          { kind: "monitor", ref: "wedge" },
+          { kind: "monitor", ref: "wedge_foh" },
         ],
       },
       "voc-2": {
@@ -300,7 +304,7 @@ describe("buildDocument vocal overlay composition", () => {
         group: "vocs",
         presets: [
           { kind: "preset", ref: "vocal_wired" },
-          { kind: "monitor", ref: "wedge" },
+          { kind: "monitor", ref: "wedge_foh" },
         ],
       },
     };
@@ -390,11 +394,15 @@ describe("buildDocument vocal overlay composition", () => {
         group: "talkback",
         input: { key: "tb_{ownerKey}", label: "Talkback - {ownerLabel}" },
       },
-      wedge: { type: "monitor", id: "wedge", label: "Wedge monitor" },
-      iem_stereo_wireless: {
+      wedge_foh: { type: "monitor", id: "wedge_foh", label: "Wedge monitor (provided by FOH)", kind: "wedge", supplier: "foh" },
+      iem_stereo_wireless_foh: {
         type: "monitor",
-        id: "iem_stereo_wireless",
-        label: "IEM STEREO wireless",
+        id: "iem_stereo_wireless_foh",
+        label: "IEM STEREO wireless (provided by FOH)",
+        kind: "iem",
+        supplier: "foh",
+        mode: "stereo",
+        wireless: true,
       },
     };
 
@@ -465,7 +473,7 @@ describe("buildDocument vocal overlay composition", () => {
         group: "guitar",
         presets: [
           { kind: "preset", ref: "el_guitar" },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
       },
       "keys-1": {
@@ -476,7 +484,7 @@ describe("buildDocument vocal overlay composition", () => {
         group: "keys",
         presets: [
           { kind: "preset", ref: "keys_stereo_xlr" },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
       },
       "bass-1": {
@@ -488,7 +496,7 @@ describe("buildDocument vocal overlay composition", () => {
         presets: [
           { kind: "preset", ref: "el_bass_xlr_pedalboard" },
           { kind: "preset", ref: "vocal_wired" },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
       },
       "drm-1": {
@@ -500,7 +508,7 @@ describe("buildDocument vocal overlay composition", () => {
         presets: [
           { kind: "preset", ref: "drums_basic" },
           { kind: "preset", ref: "vocal_wired" },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
       },
       "voc-m": {
@@ -511,7 +519,7 @@ describe("buildDocument vocal overlay composition", () => {
         group: "vocs",
         presets: [
           { kind: "preset", ref: "vocal_lead_no_mic" },
-          { kind: "monitor", ref: "wedge" },
+          { kind: "monitor", ref: "wedge_foh" },
         ],
       },
       "voc-f": {
@@ -522,7 +530,7 @@ describe("buildDocument vocal overlay composition", () => {
         group: "vocs",
         presets: [
           { kind: "preset", ref: "vocal_lead_no_mic" },
-          { kind: "monitor", ref: "wedge" },
+          { kind: "monitor", ref: "wedge_foh" },
         ],
       },
     };
@@ -616,11 +624,15 @@ describe("buildDocument vocal overlay composition", () => {
         group: "talkback",
         input: { key: "tb_{ownerKey}", label: "Talkback - {ownerLabel}" },
       },
-      wedge: { type: "monitor", id: "wedge", label: "Wedge monitor" },
-      iem_stereo_wireless: {
+      wedge_foh: { type: "monitor", id: "wedge_foh", label: "Wedge monitor (provided by FOH)", kind: "wedge", supplier: "foh" },
+      iem_stereo_wireless_foh: {
         type: "monitor",
-        id: "iem_stereo_wireless",
-        label: "IEM STEREO wireless",
+        id: "iem_stereo_wireless_foh",
+        label: "IEM STEREO wireless (provided by FOH)",
+        kind: "iem",
+        supplier: "foh",
+        mode: "stereo",
+        wireless: true,
       },
     };
 
@@ -699,7 +711,7 @@ describe("buildDocument vocal overlay composition", () => {
         group: "guitar",
         presets: [
           { kind: "preset", ref: "el_guitar" },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
       },
       "bass-1": {
@@ -710,7 +722,7 @@ describe("buildDocument vocal overlay composition", () => {
         group: "bass",
         presets: [
           { kind: "preset", ref: "el_bass_xlr_pedalboard" },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
       },
       "drm-1": {
@@ -721,7 +733,7 @@ describe("buildDocument vocal overlay composition", () => {
         group: "drums",
         presets: [
           { kind: "preset", ref: "drums_basic" },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
       },
       "voc-1": {
@@ -732,7 +744,7 @@ describe("buildDocument vocal overlay composition", () => {
         group: "vocs",
         presets: [
           { kind: "preset", ref: "vocal_wireless" },
-          { kind: "monitor", ref: "wedge" },
+          { kind: "monitor", ref: "wedge_foh" },
         ],
       },
       "voc-2": {
@@ -743,7 +755,7 @@ describe("buildDocument vocal overlay composition", () => {
         group: "vocs",
         presets: [
           { kind: "preset", ref: "vocal_wired" },
-          { kind: "monitor", ref: "wedge" },
+          { kind: "monitor", ref: "wedge_foh" },
         ],
       },
     };
@@ -809,11 +821,15 @@ describe("buildDocument vocal overlay composition", () => {
         group: "talkback",
         input: { key: "tb_{ownerKey}", label: "Talkback - {ownerLabel}" },
       },
-      wedge: { type: "monitor", id: "wedge", label: "Wedge monitor" },
-      iem_stereo_wireless: {
+      wedge_foh: { type: "monitor", id: "wedge_foh", label: "Wedge monitor (provided by FOH)", kind: "wedge", supplier: "foh" },
+      iem_stereo_wireless_foh: {
         type: "monitor",
-        id: "iem_stereo_wireless",
-        label: "IEM STEREO wireless",
+        id: "iem_stereo_wireless_foh",
+        label: "IEM STEREO wireless (provided by FOH)",
+        kind: "iem",
+        supplier: "foh",
+        mode: "stereo",
+        wireless: true,
       },
     };
 
@@ -883,7 +899,7 @@ describe("buildDocument vocal overlay composition", () => {
         group: "guitar",
         presets: [
           { kind: "preset", ref: "el_guitar" },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
       },
       "bass-1": {
@@ -894,7 +910,7 @@ describe("buildDocument vocal overlay composition", () => {
         group: "bass",
         presets: [
           { kind: "preset", ref: "el_bass_xlr_pedalboard" },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
       },
       "drm-1": {
@@ -905,7 +921,7 @@ describe("buildDocument vocal overlay composition", () => {
         group: "drums",
         presets: [
           { kind: "preset", ref: "drums_basic" },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
       },
       "voc-1": {
@@ -916,7 +932,7 @@ describe("buildDocument vocal overlay composition", () => {
         group: "vocs",
         presets: [
           { kind: "preset", ref: "vocal_wireless" },
-          { kind: "monitor", ref: "wedge" },
+          { kind: "monitor", ref: "wedge_foh" },
         ],
       },
       "voc-2": {
@@ -927,7 +943,7 @@ describe("buildDocument vocal overlay composition", () => {
         group: "vocs",
         presets: [
           { kind: "preset", ref: "vocal_wired" },
-          { kind: "monitor", ref: "wedge" },
+          { kind: "monitor", ref: "wedge_foh" },
         ],
       },
     };
@@ -991,11 +1007,15 @@ describe("buildDocument vocal overlay composition", () => {
         group: "talkback",
         input: { key: "tb_{ownerKey}", label: "Talkback - {ownerLabel}" },
       },
-      wedge: { type: "monitor", id: "wedge", label: "Wedge monitor" },
-      iem_stereo_wireless: {
+      wedge_foh: { type: "monitor", id: "wedge_foh", label: "Wedge monitor (provided by FOH)", kind: "wedge", supplier: "foh" },
+      iem_stereo_wireless_foh: {
         type: "monitor",
-        id: "iem_stereo_wireless",
-        label: "IEM STEREO wireless",
+        id: "iem_stereo_wireless_foh",
+        label: "IEM STEREO wireless (provided by FOH)",
+        kind: "iem",
+        supplier: "foh",
+        mode: "stereo",
+        wireless: true,
       },
     };
 

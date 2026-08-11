@@ -1,7 +1,9 @@
 import { GROUP_ORDER } from "../model/groups.js";
+import { resolvePresetIdAlias } from "../model/presetAliases.js";
 import type {
   InputChannel,
   InputReplacePatch,
+  Monitor,
   MusicianSetupPreset,
   PresetOverridePatch,
 } from "../model/types.js";
@@ -113,9 +115,12 @@ export type EffectivePresetValidation = {
   };
 };
 
-function getRequiredMonitorMixCount(preset: MusicianSetupPreset): number {
-  if (preset.monitoring.monitorRef === "wedge") return 0;
-  return 1;
+function getRequiredMonitorMixCount(
+  preset: MusicianSetupPreset,
+  monitorsById: Record<string, Monitor>,
+): number {
+  const monitor = monitorsById[resolvePresetIdAlias(preset.monitoring.monitorRef)];
+  return monitor?.kind === "wedge" ? 0 : 1;
 }
 
 export function applyPresetOverride(
@@ -192,12 +197,14 @@ function applyInputReplacements(inputs: InputChannel[], replace: InputReplacePat
 
 export function validateEffectivePresets(
   effectivePresets: Array<{ group: string; preset: MusicianSetupPreset }>,
+  monitorsById: Record<string, Monitor>,
 ): string[] {
-  return summarizeEffectivePresetValidation(effectivePresets).errors;
+  return summarizeEffectivePresetValidation(effectivePresets, monitorsById).errors;
 }
 
 export function summarizeEffectivePresetValidation(
   effectivePresets: Array<{ group: string; preset: MusicianSetupPreset }>,
+  monitorsById: Record<string, Monitor>,
 ): EffectivePresetValidation {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -210,7 +217,7 @@ export function summarizeEffectivePresetValidation(
   }
 
   const monitorMixTotal = effectivePresets.reduce(
-    (sum, slot) => sum + getRequiredMonitorMixCount(slot.preset),
+    (sum, slot) => sum + getRequiredMonitorMixCount(slot.preset, monitorsById),
     0,
   );
   if (monitorMixTotal > DEFAULT_MONITOR_MIX_LIMIT) {
@@ -268,7 +275,7 @@ export function createDefaultMusicianPreset(): MusicianSetupPreset {
   return {
     inputs: [] as InputChannel[],
     monitoring: {
-      monitorRef: "wedge",
+      monitorRef: "wedge_foh",
     },
   };
 }

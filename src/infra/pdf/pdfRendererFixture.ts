@@ -52,7 +52,7 @@ const TEST_MUSICIANS: Musician[] = [
     group: "drums",
     presets: [
       { kind: "drum_setup", setup: TEST_DRUM_SETUP },
-      { kind: "monitor", ref: "iem_stereo_wired" },
+      { kind: "monitor", ref: "iem_stereo_wired_foh" },
     ],
   },
   {
@@ -62,7 +62,7 @@ const TEST_MUSICIANS: Musician[] = [
     group: "bass",
     presets: [
       { kind: "preset", ref: "el_bass_xlr_amp" },
-      { kind: "monitor", ref: "iem_stereo_wired" },
+      { kind: "monitor", ref: "iem_stereo_wired_foh" },
     ],
   },
   {
@@ -72,7 +72,7 @@ const TEST_MUSICIANS: Musician[] = [
     group: "guitar",
     presets: [
       { kind: "preset", ref: "el_guitar_mic" },
-      { kind: "monitor", ref: "iem_stereo_wired" },
+      { kind: "monitor", ref: "iem_stereo_wired_foh" },
     ],
   },
   {
@@ -82,7 +82,7 @@ const TEST_MUSICIANS: Musician[] = [
     group: "keys",
     presets: [
       { kind: "preset", ref: "keys_stereo_jack" },
-      { kind: "monitor", ref: "iem_stereo_wired" },
+      { kind: "monitor", ref: "iem_stereo_wired_foh" },
     ],
   },
   {
@@ -92,7 +92,7 @@ const TEST_MUSICIANS: Musician[] = [
     group: "vocs",
     presets: [
       { kind: "preset", ref: "vocal_wired" },
-      { kind: "monitor", ref: "iem_stereo_wired" },
+      { kind: "monitor", ref: "iem_stereo_wired_foh" },
     ],
   },
 ];

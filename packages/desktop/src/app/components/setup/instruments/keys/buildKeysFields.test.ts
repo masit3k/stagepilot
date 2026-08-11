@@ -65,7 +65,7 @@ const defaultPreset: MusicianSetupPreset = {
       note: "XLR out from rack",
     },
   ],
-  monitoring: { monitorRef: "wedge" },
+  monitoring: { monitorRef: "wedge_foh" },
 };
 
 describe("buildKeysFields", () => {

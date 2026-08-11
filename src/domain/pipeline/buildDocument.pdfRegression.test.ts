@@ -95,7 +95,7 @@ describe("buildDocument PDF regression model", () => {
               tracks: { enabled: true },
             },
           },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
       },
       "bass-1": {
@@ -106,7 +106,7 @@ describe("buildDocument PDF regression model", () => {
         group: "bass",
         presets: [
           { kind: "preset", ref: "el_bass_xlr_pedalboard" },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
       },
       "gtr-1": {
@@ -118,7 +118,7 @@ describe("buildDocument PDF regression model", () => {
         presets: [
           { kind: "preset", ref: "el_guitar" },
           { kind: "preset", ref: "vocal_back_no_mic" },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
       },
       "keys-1": {
@@ -130,7 +130,7 @@ describe("buildDocument PDF regression model", () => {
         presets: [
           { kind: "preset", ref: "keys_stereo_xlr" },
           { kind: "preset", ref: "vocal_lead_no_mic" },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
         requirements: { power: { voltage: 230, sockets: 2 } },
       },
@@ -142,7 +142,7 @@ describe("buildDocument PDF regression model", () => {
         group: "vocs",
         presets: [
           { kind: "preset", ref: "vocal_wireless" },
-          { kind: "monitor", ref: "wedge" },
+          { kind: "monitor", ref: "wedge_foh" },
         ],
       },
       "voc-m": {
@@ -153,7 +153,7 @@ describe("buildDocument PDF regression model", () => {
         group: "vocs",
         presets: [
           { kind: "preset", ref: "vocal_wired" },
-          { kind: "monitor", ref: "wedge" },
+          { kind: "monitor", ref: "wedge_foh" },
         ],
       },
     };
@@ -172,7 +172,7 @@ describe("buildDocument PDF regression model", () => {
             musicianId: "bass-1",
             presetOverride: {
               monitoring: {
-                monitorRef: "wedge",
+                monitorRef: "wedge_foh",
                 additionalWedgeCount: 1,
               },
             },
@@ -319,11 +319,21 @@ describe("buildDocument PDF regression model", () => {
           note: "Switched talkback mic",
         },
       },
-      wedge: { type: "monitor", id: "wedge", label: "Wedge monitor" },
-      iem_stereo_wireless: {
+      wedge_foh: {
         type: "monitor",
-        id: "iem_stereo_wireless",
-        label: "IEM STEREO wireless",
+        id: "wedge_foh",
+        label: "Wedge monitor (provided by FOH)",
+        kind: "wedge",
+        supplier: "foh",
+      },
+      iem_stereo_wireless_foh: {
+        type: "monitor",
+        id: "iem_stereo_wireless_foh",
+        label: "IEM STEREO wireless (provided by FOH)",
+        kind: "iem",
+        supplier: "foh",
+        mode: "stereo",
+        wireless: true,
       },
     };
 
@@ -455,7 +465,7 @@ describe("buildDocument PDF regression model", () => {
       {
         no: "1",
         output: "Guitar",
-        note: "IEM STEREO wireless",
+        note: "IEM STEREO wireless (provided by FOH)",
         ownerRole: "guitar",
         ownerMusicianId: "gtr-1",
       },
@@ -476,7 +486,7 @@ describe("buildDocument PDF regression model", () => {
       {
         no: "4",
         output: "Keys",
-        note: "IEM STEREO wireless",
+        note: "IEM STEREO wireless (provided by FOH)",
         ownerRole: "keys",
         ownerMusicianId: "keys-1",
       },
@@ -490,7 +500,7 @@ describe("buildDocument PDF regression model", () => {
       {
         no: "6",
         output: "Drums",
-        note: "IEM STEREO wireless",
+        note: "IEM STEREO wireless (provided by FOH)",
         ownerRole: "drums",
         ownerMusicianId: "drm-1",
       },
@@ -498,23 +508,23 @@ describe("buildDocument PDF regression model", () => {
 
     expect(vm.monitors).toEqual([
       {
-        id: "drm-1:iem_stereo_wireless",
-        label: "IEM STEREO wireless",
+        id: "drm-1:iem_stereo_wireless_foh",
+        label: "IEM STEREO wireless (provided by FOH)",
         kind: "iem",
       },
-      { id: "bass-1:wedge", label: "Wedge monitor", kind: "wedge" },
+      { id: "bass-1:wedge_foh", label: "Wedge monitor (provided by FOH)", kind: "wedge" },
       {
-        id: "gtr-1:iem_stereo_wireless",
-        label: "IEM STEREO wireless",
+        id: "gtr-1:iem_stereo_wireless_foh",
+        label: "IEM STEREO wireless (provided by FOH)",
         kind: "iem",
       },
       {
-        id: "keys-1:iem_stereo_wireless",
-        label: "IEM STEREO wireless",
+        id: "keys-1:iem_stereo_wireless_foh",
+        label: "IEM STEREO wireless (provided by FOH)",
         kind: "iem",
       },
-      { id: "voc-f:wedge", label: "Wedge monitor", kind: "wedge" },
-      { id: "voc-m:wedge", label: "Wedge monitor", kind: "wedge" },
+      { id: "voc-f:wedge_foh", label: "Wedge monitor (provided by FOH)", kind: "wedge" },
+      { id: "voc-m:wedge_foh", label: "Wedge monitor (provided by FOH)", kind: "wedge" },
     ]);
 
     expect(vm.stageplan.lineupByRole).toMatchObject({
@@ -532,7 +542,7 @@ describe("buildDocument PDF regression model", () => {
       {
         no: 1,
         output: "Guitar",
-        note: "IEM STEREO wireless",
+        note: "IEM STEREO wireless (provided by FOH)",
         ownerRole: "guitar",
         ownerMusicianId: "gtr-1",
       },
@@ -553,7 +563,7 @@ describe("buildDocument PDF regression model", () => {
       {
         no: 4,
         output: "Keys",
-        note: "IEM STEREO wireless",
+        note: "IEM STEREO wireless (provided by FOH)",
         ownerRole: "keys",
         ownerMusicianId: "keys-1",
       },
@@ -567,7 +577,7 @@ describe("buildDocument PDF regression model", () => {
       {
         no: 6,
         output: "Drums",
-        note: "IEM STEREO wireless",
+        note: "IEM STEREO wireless (provided by FOH)",
         ownerRole: "drums",
         ownerMusicianId: "drm-1",
       },

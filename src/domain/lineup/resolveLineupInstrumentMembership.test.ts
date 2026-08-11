@@ -133,7 +133,7 @@ describe("resolveMusicianCapabilityInputs", () => {
       presetItems: [
         { kind: "preset", ref: "ac_guitar" },
         { kind: "preset", ref: "vocal_lead_no_mic" },
-        { kind: "monitor", ref: "wedge" },
+        { kind: "monitor", ref: "wedge_foh" },
       ],
       getPresetByRef: (ref) => {
         if (ref === "ac_guitar") {
@@ -154,8 +154,8 @@ describe("resolveMusicianCapabilityInputs", () => {
             inputs: [{ key: "voc_lead", label: "Lead vocal" }],
           };
         }
-        if (ref === "wedge") {
-          return { type: "monitor", id: "wedge", label: "Wedge" };
+        if (ref === "wedge_foh") {
+          return { type: "monitor", id: "wedge_foh", label: "Wedge", kind: "wedge", supplier: "foh" };
         }
         return undefined;
       },

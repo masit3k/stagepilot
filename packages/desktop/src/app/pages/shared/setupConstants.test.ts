@@ -52,10 +52,14 @@ describe("resolveMusicianDefaultSetupForRole", () => {
       group: "vocs",
       inputs: [{ key: "voc_input", label: "Vocal" }],
     },
-    iem_stereo_wireless: {
+    iem_stereo_wireless_foh: {
       type: "monitor",
-      id: "iem_stereo_wireless",
+      id: "iem_stereo_wireless_foh",
       label: "IEM stereo wireless",
+      kind: "iem",
+      supplier: "foh",
+      mode: "stereo",
+      wireless: true,
     },
   };
 
@@ -66,7 +70,7 @@ describe("resolveMusicianDefaultSetupForRole", () => {
       presetCatalog: catalog,
       bandDefaults: {
         inputs: [{ key: "gtr_mic", label: "Guitar mic" }],
-        monitoring: { monitorRef: "wedge" },
+        monitoring: { monitorRef: "wedge_foh" },
       },
     });
 
@@ -83,7 +87,7 @@ describe("resolveMusicianDefaultSetupForRole", () => {
       presetCatalog: catalog,
       bandDefaults: {
         inputs: [{ key: "el_bass_xlr_amp", label: "Amp" }],
-        monitoring: { monitorRef: "wedge" },
+        monitoring: { monitorRef: "wedge_foh" },
       },
     });
 
@@ -99,7 +103,7 @@ describe("resolveMusicianDefaultSetupForRole", () => {
       presetCatalog: catalog,
       bandDefaults: {
         inputs: [{ key: "voc_input", label: "Vocal" }],
-        monitoring: { monitorRef: "wedge" },
+        monitoring: { monitorRef: "wedge_foh" },
       },
     });
 
@@ -109,15 +113,15 @@ describe("resolveMusicianDefaultSetupForRole", () => {
   it("prefers explicit monitoring override defaults and falls back when no preset refs exist", () => {
     const resolved = resolveMusicianDefaultSetupForRole({
       role: "guitar",
-      musicianDefaults: { monitoring: { monitorRef: "iem_stereo_wireless" } },
+      musicianDefaults: { monitoring: { monitorRef: "iem_stereo_wireless_foh" } },
       presetCatalog: catalog,
       bandDefaults: {
         inputs: [{ key: "gtr_mic", label: "Guitar mic" }],
-        monitoring: { monitorRef: "wedge" },
+        monitoring: { monitorRef: "wedge_foh" },
       },
     });
 
-    expect(resolved.monitoring.monitorRef).toBe("iem_stereo_wireless");
+    expect(resolved.monitoring.monitorRef).toBe("iem_stereo_wireless_foh");
     expect(resolved.inputs.map((item) => item.key)).toEqual(["gtr_mic"]);
   });
 });

@@ -7,17 +7,17 @@ const defaults: MusicianSetupPreset = {
     { key: "dr_kick_in", label: "Kick", group: "drums" },
     { key: "dr_snare_top", label: "Snare", group: "drums" },
   ],
-  monitoring: { monitorRef: "iem_stereo_wireless" },
+  monitoring: { monitorRef: "iem_stereo_wireless_foh" },
 };
 
 describe("resolveEffectiveMusicianSetup", () => {
   it("applies monitoring monitorRef override over defaults", () => {
     const result = resolveEffectiveMusicianSetup({
       musicianDefaults: defaults,
-      eventOverride: { monitoring: { monitorRef: "iem_stereo_wired" } },
+      eventOverride: { monitoring: { monitorRef: "iem_stereo_wired_foh" } },
       group: "drums",
     });
-    expect(result.effectiveMonitoring.monitorRef).toBe("iem_stereo_wired");
+    expect(result.effectiveMonitoring.monitorRef).toBe("iem_stereo_wired_foh");
     expect(result.diffMeta.monitoring.monitorRef.origin).toBe("override");
   });
 
@@ -46,7 +46,7 @@ describe("resolveEffectiveMusicianSetup", () => {
 
   it("remains deterministic", () => {
     const override: PresetOverridePatch = {
-      monitoring: { monitorRef: "iem_stereo_wired", additionalWedgeCount: 2 },
+      monitoring: { monitorRef: "iem_stereo_wired_foh", additionalWedgeCount: 2 },
       inputs: { add: [{ key: "dr_oh_l", label: "OH L", group: "drums" }] },
     };
     const first = resolveEffectiveMusicianSetup({ musicianDefaults: defaults, eventOverride: override, group: "drums" });

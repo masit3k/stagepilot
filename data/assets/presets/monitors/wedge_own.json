@@ -1,0 +1,7 @@
+{
+    "type": "monitor",
+    "id": "wedge_own",
+    "label": "Wedge monitor (own)",
+    "kind": "wedge",
+    "supplier": "band"
+}

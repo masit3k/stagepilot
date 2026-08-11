@@ -1,0 +1,9 @@
+{
+    "type": "monitor",
+    "id": "iem_stereo_wired_own",
+    "label": "IEM STEREO wired (own)",
+    "kind": "iem",
+    "supplier": "band",
+    "mode": "stereo",
+    "wireless": false
+}

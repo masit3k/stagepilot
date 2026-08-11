@@ -1,0 +1,9 @@
+{
+    "type": "monitor",
+    "id": "iem_mono_wireless_own",
+    "label": "IEM MONO wireless (own)",
+    "kind": "iem",
+    "supplier": "band",
+    "mode": "mono",
+    "wireless": true
+}

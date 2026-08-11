@@ -797,6 +797,18 @@ export function ProjectSetupPage({
         .sort((a, b) => a.label.localeCompare(b.label)),
     [presetCatalog],
   );
+  const monitorsById = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.values(presetCatalog)
+          .filter(
+            (preset): preset is Extract<PresetEntity, { type: "monitor" }> =>
+              preset.type === "monitor",
+          )
+          .map((preset) => [preset.id, preset]),
+      ),
+    [presetCatalog],
+  );
   const templateMusicians = selectedOptions;
   const selectedTemplateMusicians = useMemo<Musician[]>(() => {
     if (!setupData) return [];
@@ -1323,8 +1335,9 @@ export function ProjectSetupPage({
           group: slot.role,
           preset: slot.effective,
         })),
+        monitorsById,
       ),
-    [effectiveSlotPresets],
+    [effectiveSlotPresets, monitorsById],
   );
 
   const overrideValidationErrors = overrideValidation.errors;
@@ -2064,6 +2077,7 @@ export function ProjectSetupPage({
                     },
                   };
                 }),
+                monitorsById,
               );
               return (
                 <div

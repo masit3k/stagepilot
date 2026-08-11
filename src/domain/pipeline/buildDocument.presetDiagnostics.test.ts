@@ -78,19 +78,21 @@ const bassPreset: PresetEntity = {
 
 const wedgeMonitor: PresetEntity = {
   type: "monitor",
-  id: "wedge",
+  id: "wedge_foh",
   label: "Wedge monitor",
+  kind: "wedge",
+  supplier: "foh",
 };
 
 describe("buildDocument preset diagnostics", () => {
   it("fails fast for a missing explicit musician preset ref", () => {
     const musician = createMusician([
       { kind: "preset", ref: "missing_bass_di" },
-      { kind: "monitor", ref: "wedge" },
+      { kind: "monitor", ref: "wedge_foh" },
     ]);
     const repo = createRepo({
       musician,
-      presets: { wedge: wedgeMonitor },
+      presets: { wedge_foh: wedgeMonitor },
     });
 
     expect(() => buildDocument(createProject(), repo)).toThrow(
@@ -105,7 +107,7 @@ describe("buildDocument preset diagnostics", () => {
     ]);
     const repo = createRepo({
       musician,
-      presets: { bass_di: bassPreset, wedge: wedgeMonitor },
+      presets: { bass_di: bassPreset, wedge_foh: wedgeMonitor },
     });
 
     expect(() => buildDocument(createProject(), repo)).toThrow(
@@ -129,7 +131,7 @@ describe("buildDocument preset diagnostics", () => {
     const repo = createRepo({
       project,
       musician,
-      presets: { bass_di: bassPreset, wedge: wedgeMonitor },
+      presets: { bass_di: bassPreset, wedge_foh: wedgeMonitor },
     });
 
     expect(() => buildDocument(project, repo)).toThrow(
@@ -140,7 +142,7 @@ describe("buildDocument preset diagnostics", () => {
   it("fails fast when a musician preset ref resolves to the wrong type", () => {
     const musician = createMusician([
       { kind: "preset", ref: "bass_ref_is_monitor" },
-      { kind: "monitor", ref: "wedge" },
+      { kind: "monitor", ref: "wedge_foh" },
     ]);
     const repo = createRepo({
       musician,
@@ -149,8 +151,10 @@ describe("buildDocument preset diagnostics", () => {
           type: "monitor",
           id: "bass_ref_is_monitor",
           label: "Not a bass preset",
+          kind: "wedge",
+          supplier: "foh",
         },
-        wedge: wedgeMonitor,
+        wedge_foh: wedgeMonitor,
       },
     });
 
@@ -175,7 +179,7 @@ describe("buildDocument preset diagnostics", () => {
           group: "bass",
           inputs: [],
         },
-        wedge: wedgeMonitor,
+        wedge_foh: wedgeMonitor,
       },
     });
 
@@ -193,12 +197,12 @@ describe("buildDocument preset diagnostics", () => {
     };
     const musician = createMusician([
       { kind: "preset", ref: "bass_di" },
-      { kind: "monitor", ref: "wedge" },
+      { kind: "monitor", ref: "wedge_foh" },
     ]);
     const repo = createRepo({
       project,
       musician,
-      presets: { bass_di: bassPreset, wedge: wedgeMonitor },
+      presets: { bass_di: bassPreset, wedge_foh: wedgeMonitor },
     });
 
     expect(() => buildDocument(project, repo)).toThrow(

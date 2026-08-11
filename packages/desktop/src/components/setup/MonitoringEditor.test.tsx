@@ -10,8 +10,8 @@ import {
   isMonitoringFieldModified,
 } from "./MonitoringEditor";
 
-const baseMonitoring = { monitorRef: "wedge" };
-const monitorOptions = [{ value: "wedge", label: "Wedge" }];
+const baseMonitoring = { monitorRef: "wedge_foh" };
+const monitorOptions = [{ value: "wedge_foh", label: "Wedge" }];
 
 const baseDiffMeta: SetupDiffMeta = {
   inputs: [],
@@ -43,24 +43,24 @@ describe("MonitoringEditor", () => {
     const html = renderToStaticMarkup(
       <MonitoringEditor
         monitorOptions={[
-          { value: "iem_stereo_wireless", label: "IEM stereo wireless" },
-          { value: "wedge", label: "Wedge" },
+          { value: "iem_stereo_wireless_foh", label: "IEM stereo wireless" },
+          { value: "wedge_foh", label: "Wedge" },
         ]}
-        effectiveMonitoring={{ monitorRef: "iem_stereo_wireless" }}
+        effectiveMonitoring={{ monitorRef: "iem_stereo_wireless_foh" }}
         diffMeta={baseDiffMeta}
         onChangePatch={() => {}}
       />,
     );
 
-    expect(html).toContain('value="iem_stereo_wireless"');
+    expect(html).toContain('value="iem_stereo_wireless_foh"');
     expect(html).toContain("IEM stereo wireless");
-    expect(html).toContain('value="wedge"');
+    expect(html).toContain('value="wedge_foh"');
   });
 
   it("shows empty selection when effective monitor ref is missing from runtime options", () => {
     const html = renderToStaticMarkup(
       <MonitoringEditor
-        monitorOptions={[{ value: "wedge", label: "Wedge" }]}
+        monitorOptions={[{ value: "wedge_foh", label: "Wedge" }]}
         effectiveMonitoring={{ monitorRef: "missing_monitor" }}
         diffMeta={baseDiffMeta}
         onChangePatch={() => {}}
@@ -75,16 +75,16 @@ describe("MonitoringEditor", () => {
     const html = renderToStaticMarkup(
       <MonitoringEditor
         monitorOptions={[
-          { value: "iem_stereo_wireless", label: "IEM stereo wireless" },
-          { value: "wedge", label: "Wedge" },
+          { value: "iem_stereo_wireless_foh", label: "IEM stereo wireless" },
+          { value: "wedge_foh", label: "Wedge" },
         ]}
-        effectiveMonitoring={{ monitorRef: "wedge" }}
+        effectiveMonitoring={{ monitorRef: "wedge_foh" }}
         diffMeta={baseDiffMeta}
         onChangePatch={() => {}}
       />,
     );
 
-    expect(html.indexOf('value="wedge"')).toBeLessThan(
+    expect(html.indexOf('value="wedge_foh"')).toBeLessThan(
       html.indexOf('value="">No monitor selected</option>'),
     );
   });

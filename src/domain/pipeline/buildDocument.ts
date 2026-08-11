@@ -164,7 +164,7 @@ function applyInputOverridePatch(
       group: item.group,
       note: item.note,
     })),
-    monitoring: { monitorRef: "wedge" as const },
+    monitoring: { monitorRef: "wedge_foh" as const },
   };
   const patched = applyPresetOverride(defaultPreset, patch).inputs;
   return patched.map((input) => ({
@@ -458,7 +458,7 @@ export function buildDocument(
       monitors.push({
         id: `${musician.id}:${monitorEntity.id}`,
         label: monitorEntity.label,
-        kind: monitorEntity.id === "wedge" ? "wedge" : "iem",
+        kind: monitorEntity.kind,
       });
     }
 

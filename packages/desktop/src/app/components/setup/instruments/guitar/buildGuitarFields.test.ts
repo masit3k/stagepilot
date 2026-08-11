@@ -13,7 +13,7 @@ describe("buildGuitarFields", () => {
   it("keeps exact connection option order", () => {
     const field = buildGuitarFields(presets).find((item) => item.kind === "dropdown");
     if (!field || field.kind !== "dropdown") throw new Error("missing field");
-    expect(field.options({ defaultPreset: { inputs: [], monitoring: { monitorRef: "wedge" } }, effectivePreset: { inputs: [], monitoring: { monitorRef: "wedge" } } }).map((item) => item.label)).toEqual([
+    expect(field.options({ defaultPreset: { inputs: [], monitoring: { monitorRef: "wedge_foh" } }, effectivePreset: { inputs: [], monitoring: { monitorRef: "wedge_foh" } } }).map((item) => item.label)).toEqual([
       "Electric guitar (mic)",
       "Electric guitar (XLR mono)",
       "Electric guitar (XLR stereo)",

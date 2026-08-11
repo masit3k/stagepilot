@@ -50,7 +50,7 @@ describe("serializeLineupForProject", () => {
           musicianId: "drummer-1",
           presetOverride: {
             monitoring: {
-              monitorRef: "iem_mono_wired",
+              monitorRef: "iem_mono_wired_foh",
             },
           },
         },
@@ -63,7 +63,7 @@ describe("serializeLineupForProject", () => {
         musicianId: "drummer-1",
         presetOverride: {
           monitoring: {
-            monitorRef: "iem_mono_wired",
+            monitorRef: "iem_mono_wired_foh",
           },
         },
       },

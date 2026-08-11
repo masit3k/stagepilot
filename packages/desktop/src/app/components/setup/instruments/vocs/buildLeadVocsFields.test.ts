@@ -12,7 +12,7 @@ describe("buildLeadVocsFields", () => {
   it("keeps exact dropdown option order", () => {
     const field = buildLeadVocsFields(presets).find((item) => item.kind === "dropdown");
     if (!field || field.kind !== "dropdown") throw new Error("missing");
-    expect(field.options({ defaultPreset: { inputs: [], monitoring: { monitorRef: "wedge" } }, effectivePreset: { inputs: [], monitoring: { monitorRef: "wedge" } } }).map((item) => item.label)).toEqual([
+    expect(field.options({ defaultPreset: { inputs: [], monitoring: { monitorRef: "wedge_foh" } }, effectivePreset: { inputs: [], monitoring: { monitorRef: "wedge_foh" } } }).map((item) => item.label)).toEqual([
       "Own wireless mic",
       "Own wired mic",
       "No own mic",

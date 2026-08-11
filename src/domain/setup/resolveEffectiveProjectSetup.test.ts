@@ -65,7 +65,7 @@ describe("resolveEffectiveProjectSetup", () => {
         group: "bass",
         presets: [
           { kind: "preset", ref: "el_bass_xlr_pedalboard" },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
       },
       "gtr-1": {
@@ -85,7 +85,7 @@ describe("resolveEffectiveProjectSetup", () => {
         bass: {
           musicianId: "bass-1",
           presetOverride: {
-            monitoring: { monitorRef: "iem_stereo_wired" },
+            monitoring: { monitorRef: "iem_stereo_wired_foh" },
           },
         },
       },
@@ -106,8 +106,8 @@ describe("resolveEffectiveProjectSetup", () => {
         group: "guitar",
         inputs: [{ key: "el_guitar_mic", label: "Electric guitar", group: "guitar" }],
       } as PresetEntity,
-      iem_stereo_wireless: { type: "monitor", id: "iem_stereo_wireless", label: "IEM STEREO wireless" } as PresetEntity,
-      iem_stereo_wired: { type: "monitor", id: "iem_stereo_wired", label: "IEM STEREO wired" } as PresetEntity,
+      iem_stereo_wireless_foh: { type: "monitor", id: "iem_stereo_wireless_foh", label: "IEM STEREO wireless", kind: "iem", supplier: "foh", mode: "stereo", wireless: true } as PresetEntity,
+      iem_stereo_wired_foh: { type: "monitor", id: "iem_stereo_wired_foh", label: "IEM STEREO wired", kind: "iem", supplier: "foh", mode: "stereo", wireless: false } as PresetEntity,
     };
 
     const resolved = resolveEffectiveProjectSetup({
@@ -120,7 +120,7 @@ describe("resolveEffectiveProjectSetup", () => {
 
     expect(resolved.lineup.bass).toEqual(["bass-1"]);
     expect(resolved.lineup.guitar).toEqual(["gtr-1"]);
-    expect(resolved.byMusicianId.get("bass-1")?.monitoring.monitorRef).toBe("iem_stereo_wired");
+    expect(resolved.byMusicianId.get("bass-1")?.monitoring.monitorRef).toBe("iem_stereo_wired_foh");
     expect(resolved.byMusicianId.get("gtr-1")?.inputs).toEqual([
       { key: "el_guitar_mic", label: "Electric guitar", group: "guitar" },
     ]);
@@ -175,7 +175,7 @@ describe("resolveEffectiveProjectSetup", () => {
       group: "bass",
       presets: [
         { kind: "preset", ref: "el_bass_xlr_pedalboard" },
-        { kind: "monitor", ref: "iem_stereo_wireless" },
+        { kind: "monitor", ref: "iem_stereo_wireless_foh" },
       ],
     };
     const project: Project = {
@@ -187,7 +187,7 @@ describe("resolveEffectiveProjectSetup", () => {
         bass: {
           musicianId: "bass-1",
           presetOverride: {
-            monitoring: { monitorRef: "iem_stereo_wired" },
+            monitoring: { monitorRef: "iem_stereo_wired_foh" },
           },
         },
       },
@@ -202,8 +202,8 @@ describe("resolveEffectiveProjectSetup", () => {
         setupGroup: "electric_bass",
         inputs: [{ key: "el_bass_xlr_pedalboard", label: "Electric bass guitar", group: "bass" }],
       } as PresetEntity,
-      iem_stereo_wireless: { type: "monitor", id: "iem_stereo_wireless", label: "IEM STEREO wireless" } as PresetEntity,
-      iem_stereo_wired: { type: "monitor", id: "iem_stereo_wired", label: "IEM STEREO wired" } as PresetEntity,
+      iem_stereo_wireless_foh: { type: "monitor", id: "iem_stereo_wireless_foh", label: "IEM STEREO wireless", kind: "iem", supplier: "foh", mode: "stereo", wireless: true } as PresetEntity,
+      iem_stereo_wired_foh: { type: "monitor", id: "iem_stereo_wired_foh", label: "IEM STEREO wired", kind: "iem", supplier: "foh", mode: "stereo", wireless: false } as PresetEntity,
     };
 
     const resolved = resolveEffectiveProjectSetup({
@@ -214,7 +214,7 @@ describe("resolveEffectiveProjectSetup", () => {
       getPresetByRef: (ref) => presets[ref],
     });
 
-    expect(resolved.byMusicianId.get("bass-1")?.monitoring.monitorRef).toBe("iem_stereo_wired");
+    expect(resolved.byMusicianId.get("bass-1")?.monitoring.monitorRef).toBe("iem_stereo_wired_foh");
   });
 
 

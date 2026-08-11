@@ -237,7 +237,7 @@ export function buildVisibleLineupSections(args: {
 export function getGroupDefaultPreset(group: Group): MusicianSetupPreset {
   return {
     inputs: (GROUP_INPUT_LIBRARY[group] ?? []).map((item) => ({ ...item })),
-    monitoring: { monitorRef: "wedge" },
+    monitoring: { monitorRef: "wedge_foh" },
   };
 }
 
