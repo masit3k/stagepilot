@@ -7,7 +7,7 @@ use tauri::Manager;
 
 const USER_DATA_DIR_NAME: &str = "StagePilot";
 const STORAGE_SCHEMA_VERSION: u32 = 3;
-const STORAGE_SEED_VERSION: u32 = 3;
+const STORAGE_SEED_VERSION: u32 = 4;
 const MAX_ID_LEN: usize = 120;
 const LINEUP_ROLE_KEYS: [&str; 5] = ["drums", "bass", "guitar", "keys", "vocs"];
 #[derive(Debug)]
@@ -259,6 +259,52 @@ fn merge_notes_section(
     target.extend(additions);
 }
 
+/// Pokusí se sloučit nové položky výchozí šablony do existujícího uživatelského
+/// souboru. `Ok(None)` znamená, že soubor je už na aktuální verzi (nic k zápisu).
+/// `Ok(Some(_))` obsahuje sloučený obsah k zápisu. `Err` signalizuje, že
+/// existující soubor nelze bezpečně sloučit (poškozený JSON nebo neočekávaný
+/// tvar) — volající v takovém případě merge přeskočí a soubor nechá beze změny,
+/// aby poškozená uživatelská data nikdy neshodila start aplikace.
+fn merge_existing_notes_template(
+    existing_raw: &str,
+    default: &serde_json::Value,
+) -> Result<Option<serde_json::Value>, StorageError> {
+    let mut existing: serde_json::Value = serde_json::from_str(existing_raw)
+        .map_err(|e| StorageError::Resolve(format!("Invalid user notes template JSON: {e}")))?;
+
+    if existing.as_object().is_none() {
+        return Err(StorageError::Resolve(
+            "User notes template root is not a JSON object".into(),
+        ));
+    }
+
+    let installed = template_version(&existing);
+    let latest = template_version(default);
+    if installed >= latest {
+        return Ok(None);
+    }
+
+    for section in ["inputs", "monitors"] {
+        match existing.get(section).cloned() {
+            None => {
+                existing[section] = serde_json::Value::Array(Vec::new());
+            }
+            Some(serde_json::Value::Array(_)) => {}
+            Some(_) => {
+                return Err(StorageError::Resolve(format!(
+                    "User notes template field \"{section}\" is not an array"
+                )));
+            }
+        }
+    }
+
+    for section in ["inputs", "monitors"] {
+        merge_notes_section(&mut existing, default, section, installed);
+    }
+    existing["version"] = serde_json::Value::from(latest);
+    Ok(Some(existing))
+}
+
 fn ensure_default_notes_template(root: &Path) -> Result<(), StorageError> {
     let templates_dir = root.join("catalog/templates/notes");
     fs::create_dir_all(&templates_dir)?;
@@ -271,30 +317,23 @@ fn ensure_default_notes_template(root: &Path) -> Result<(), StorageError> {
 
     let merged = if target.exists() {
         let existing_raw = fs::read_to_string(&target)?;
-        let mut existing: serde_json::Value = serde_json::from_str(&existing_raw).map_err(|e| {
-            StorageError::Resolve(format!("Invalid user notes template JSON: {e}"))
-        })?;
-        let installed = template_version(&existing);
-        let latest = template_version(&parsed);
-        if installed >= latest {
-            return Ok(());
-        }
-        for section in ["inputs", "monitors"] {
-            if existing.get(section).and_then(|v| v.as_array()).is_none() {
-                existing[section] = serde_json::Value::Array(Vec::new());
+        match merge_existing_notes_template(&existing_raw, &parsed) {
+            Ok(Some(merged)) => merged,
+            Ok(None) => return Ok(()),
+            Err(err) => {
+                eprintln!(
+                    "StagePilot: notes template at {} could not be merged, leaving it untouched: {err:?}",
+                    target.display()
+                );
+                return Ok(());
             }
-            merge_notes_section(&mut existing, &parsed, section, installed);
         }
-        existing["version"] = serde_json::Value::from(latest);
-        existing
     } else {
         parsed
     };
 
     let bytes = serde_json::to_vec_pretty(&merged).map_err(|e| {
-        StorageError::Resolve(format!(
-            "Failed to serialize default notes template: {e}"
-        ))
+        StorageError::Resolve(format!("Failed to serialize default notes template: {e}"))
     })?;
     atomic_write_bytes(&target, &bytes)?;
     Ok(())
@@ -738,7 +777,12 @@ mod tests {
 
         let merged: serde_json::Value =
             serde_json::from_str(&fs::read_to_string(&target).unwrap()).unwrap();
-        assert!(merged.get("monitors").unwrap().as_array().unwrap().is_empty());
+        assert!(merged
+            .get("monitors")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .is_empty());
 
         fs::remove_dir_all(&root).ok();
     }
@@ -752,6 +796,108 @@ mod tests {
 
         let notes_path = root.join("catalog/templates/notes/notes_default_cs.json");
         assert!(notes_path.exists());
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn ensure_user_storage_at_root_reseeds_notes_template_for_already_seeded_installs() {
+        // Reprodukuje reálnou instalaci: storage.json už hlásí starou
+        // STORAGE_SEED_VERSION (3) a seedCompleted: true, s notes šablonou
+        // bez verzování (predchází Tasku 6). Brána v `ensure_user_storage_at_root`
+        // musí i tak spustit seed_catalog znovu, jinak nové poznámky nikdy
+        // nedorazí k existujícím uživatelům.
+        let root = temp_test_dir("gate-reseeds-existing-install");
+        fs::create_dir_all(&root).unwrap();
+        let notes_dir = root.join("catalog/templates/notes");
+        fs::create_dir_all(&notes_dir).unwrap();
+        fs::write(
+            notes_dir.join("notes_default_cs.json"),
+            br#"{"id":"notes_default_cs","lang":"cs","inputs":[],"monitors":[]}"#,
+        )
+        .unwrap();
+        fs::write(
+            storage_meta_path(&root),
+            br#"{"schemaVersion":3,"seedVersion":3,"seedCompleted":true,"createdAt":"0Z"}"#,
+        )
+        .unwrap();
+
+        let meta = ensure_user_storage_at_root(&root).unwrap();
+        assert_eq!(meta.seed_version, STORAGE_SEED_VERSION);
+
+        let notes: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(notes_dir.join("notes_default_cs.json")).unwrap(),
+        )
+        .unwrap();
+        let monitor_ids: Vec<&str> = notes
+            .get("monitors")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|m| m.get("id").and_then(|v| v.as_str()))
+            .collect();
+        assert!(monitor_ids.contains(&"band_supplied_iem"));
+        assert!(monitor_ids.contains(&"foh_supplied_iem"));
+        assert_eq!(notes.get("version").unwrap().as_i64().unwrap(), 1);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn ensure_default_notes_template_skips_merge_and_starts_up_on_corrupt_json() {
+        let root = temp_test_dir("notes-corrupt-json");
+        let notes_dir = root.join("catalog/templates/notes");
+        fs::create_dir_all(&notes_dir).unwrap();
+        let target = notes_dir.join("notes_default_cs.json");
+
+        let corrupt = b"{ this is not valid json";
+        fs::write(&target, corrupt).unwrap();
+
+        // Nesmí vrátit Err (to by shodilo start aplikace) a nesmí zapsat nic
+        // do poškozeného souboru.
+        ensure_default_notes_template(&root).unwrap();
+
+        let after = fs::read(&target).unwrap();
+        assert_eq!(after, corrupt);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn ensure_default_notes_template_skips_merge_when_root_is_not_an_object() {
+        let root = temp_test_dir("notes-non-object-root");
+        let notes_dir = root.join("catalog/templates/notes");
+        fs::create_dir_all(&notes_dir).unwrap();
+        let target = notes_dir.join("notes_default_cs.json");
+
+        let non_object = b"[]";
+        fs::write(&target, non_object).unwrap();
+
+        ensure_default_notes_template(&root).unwrap();
+
+        let after = fs::read(&target).unwrap();
+        assert_eq!(after, non_object);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn ensure_default_notes_template_skips_merge_when_section_is_not_an_array() {
+        let root = temp_test_dir("notes-non-array-section");
+        let notes_dir = root.join("catalog/templates/notes");
+        fs::create_dir_all(&notes_dir).unwrap();
+        let target = notes_dir.join("notes_default_cs.json");
+
+        // `inputs` je objekt, ne pole — nesmí být tiše nahrazeno prázdným polem.
+        let malshaped =
+            br#"{"id":"notes_default_cs","lang":"cs","inputs":{"note":"keep me"},"monitors":[]}"#;
+        fs::write(&target, malshaped).unwrap();
+
+        ensure_default_notes_template(&root).unwrap();
+
+        let after = fs::read(&target).unwrap();
+        assert_eq!(after, malshaped);
 
         let _ = fs::remove_dir_all(&root);
     }
@@ -945,10 +1091,17 @@ mod tests {
 
 pub fn ensure_user_storage(app: &tauri::AppHandle) -> Result<UserStorageMeta, StorageError> {
     let root = stagepilot_user_data_dir(app)?;
-    fs::create_dir_all(&root)?;
-    ensure_dirs(&root)?;
+    ensure_user_storage_at_root(&root)
+}
 
-    let meta_path = storage_meta_path(&root);
+/// Skutečná logika za `ensure_user_storage`, oddělená od `tauri::AppHandle`,
+/// aby šlo v testech přímo zavolat bránu `seed_version` na dočasném adresáři
+/// (bez potřeby běžící Tauri aplikace).
+fn ensure_user_storage_at_root(root: &Path) -> Result<UserStorageMeta, StorageError> {
+    fs::create_dir_all(root)?;
+    ensure_dirs(root)?;
+
+    let meta_path = storage_meta_path(root);
     let mut metadata_migrated = false;
     let mut meta = if !meta_path.exists() {
         UserStorageMeta {
@@ -1011,15 +1164,15 @@ pub fn ensure_user_storage(app: &tauri::AppHandle) -> Result<UserStorageMeta, St
         }
     };
 
-    let migrated = migrate_legacy_library(&root)?;
-    let lineup_migrated = migrate_lineup_assignments(&root)?;
-    let vocal_cleanup_migrated = cleanup_vocal_overlays(&root)?;
+    let migrated = migrate_legacy_library(root)?;
+    let lineup_migrated = migrate_lineup_assignments(root)?;
+    let vocal_cleanup_migrated = cleanup_vocal_overlays(root)?;
     if migrated || lineup_migrated || vocal_cleanup_migrated || metadata_migrated {
         meta.last_migrated_at = Some(now_iso());
     }
 
     if !meta.seed_completed || meta.seed_version != STORAGE_SEED_VERSION {
-        seed_catalog(&root)?;
+        seed_catalog(root)?;
         meta.seed_completed = true;
         meta.seed_version = STORAGE_SEED_VERSION;
     }
