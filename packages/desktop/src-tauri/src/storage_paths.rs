@@ -305,7 +305,22 @@ fn merge_existing_notes_template(
     Ok(Some(existing))
 }
 
-fn ensure_default_notes_template(root: &Path) -> Result<(), StorageError> {
+/// Výsledek pokusu o seed/merge katalogu notes šablon.
+///
+/// `Skipped` musí bránu v `ensure_user_storage_at_root` zabránit v tom, aby
+/// zaznamenala novou `seed_version` — jinak by se náprava poškozeného
+/// uživatelského souboru nikdy nedostala k dalšímu merge (verze by už
+/// odpovídala aktuální, takže by se brána znovu neotevřela).
+#[derive(Debug, PartialEq, Eq)]
+enum NotesTemplateOutcome {
+    /// Šablona byla vytvořena, sloučena, nebo už je na aktuální verzi.
+    Applied,
+    /// Existující soubor nešlo bezpečně sloučit (poškozený JSON nebo
+    /// neočekávaný tvar) — merge byl přeskočen, soubor zůstal beze změny.
+    Skipped,
+}
+
+fn ensure_default_notes_template(root: &Path) -> Result<NotesTemplateOutcome, StorageError> {
     let templates_dir = root.join("catalog/templates/notes");
     fs::create_dir_all(&templates_dir)?;
 
@@ -319,13 +334,13 @@ fn ensure_default_notes_template(root: &Path) -> Result<(), StorageError> {
         let existing_raw = fs::read_to_string(&target)?;
         match merge_existing_notes_template(&existing_raw, &parsed) {
             Ok(Some(merged)) => merged,
-            Ok(None) => return Ok(()),
+            Ok(None) => return Ok(NotesTemplateOutcome::Applied),
             Err(err) => {
                 eprintln!(
                     "StagePilot: notes template at {} could not be merged, leaving it untouched: {err:?}",
                     target.display()
                 );
-                return Ok(());
+                return Ok(NotesTemplateOutcome::Skipped);
             }
         }
     } else {
@@ -336,12 +351,11 @@ fn ensure_default_notes_template(root: &Path) -> Result<(), StorageError> {
         StorageError::Resolve(format!("Failed to serialize default notes template: {e}"))
     })?;
     atomic_write_bytes(&target, &bytes)?;
-    Ok(())
+    Ok(NotesTemplateOutcome::Applied)
 }
 
-fn seed_catalog(root: &Path) -> Result<(), StorageError> {
-    ensure_default_notes_template(root)?;
-    Ok(())
+fn seed_catalog(root: &Path) -> Result<NotesTemplateOutcome, StorageError> {
+    ensure_default_notes_template(root)
 }
 
 fn normalize_musician_id(value: &serde_json::Value) -> Option<String> {
@@ -845,6 +859,63 @@ mod tests {
     }
 
     #[test]
+    fn ensure_user_storage_at_root_retries_notes_merge_after_user_repairs_corrupt_template() {
+        // Instalace na staré seed_version s POŠKOZENOU notes šablonou: startup
+        // musí uspět a seed_version se NESMÍ zvednout, jinak by náprava
+        // souboru uživatelem nikdy znovu neotevřela bránu a nové poznámky by
+        // se ztratily navěky.
+        let root = temp_test_dir("gate-retries-after-repair");
+        fs::create_dir_all(&root).unwrap();
+        let notes_dir = root.join("catalog/templates/notes");
+        fs::create_dir_all(&notes_dir).unwrap();
+        let notes_path = notes_dir.join("notes_default_cs.json");
+        fs::write(&notes_path, b"{ this is not valid json").unwrap();
+        fs::write(
+            storage_meta_path(&root),
+            br#"{"schemaVersion":3,"seedVersion":3,"seedCompleted":true,"createdAt":"0Z"}"#,
+        )
+        .unwrap();
+
+        let meta_after_corrupt = ensure_user_storage_at_root(&root).unwrap();
+        assert_eq!(
+            meta_after_corrupt.seed_version, 3,
+            "seed_version must stay at the pre-upgrade value while the template is unreadable"
+        );
+        assert_eq!(
+            fs::read(&notes_path).unwrap(),
+            b"{ this is not valid json",
+            "corrupt file must be left untouched"
+        );
+
+        // Uživatel soubor opraví (nebo jednoduše smaže) — další start musí
+        // bránu znovu otevřít, protože seed_version pořád neodpovídá.
+        fs::write(
+            &notes_path,
+            br#"{"id":"notes_default_cs","lang":"cs","inputs":[],"monitors":[]}"#,
+        )
+        .unwrap();
+
+        let meta_after_repair = ensure_user_storage_at_root(&root).unwrap();
+        assert_eq!(meta_after_repair.seed_version, STORAGE_SEED_VERSION);
+
+        let notes: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&notes_path).unwrap()).unwrap();
+        let monitor_ids: Vec<&str> = notes
+            .get("monitors")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|m| m.get("id").and_then(|v| v.as_str()))
+            .collect();
+        assert!(monitor_ids.contains(&"band_supplied_iem"));
+        assert!(monitor_ids.contains(&"foh_supplied_iem"));
+        assert_eq!(notes.get("version").unwrap().as_i64().unwrap(), 1);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
     fn ensure_default_notes_template_skips_merge_and_starts_up_on_corrupt_json() {
         let root = temp_test_dir("notes-corrupt-json");
         let notes_dir = root.join("catalog/templates/notes");
@@ -856,7 +927,8 @@ mod tests {
 
         // Nesmí vrátit Err (to by shodilo start aplikace) a nesmí zapsat nic
         // do poškozeného souboru.
-        ensure_default_notes_template(&root).unwrap();
+        let outcome = ensure_default_notes_template(&root).unwrap();
+        assert_eq!(outcome, NotesTemplateOutcome::Skipped);
 
         let after = fs::read(&target).unwrap();
         assert_eq!(after, corrupt);
@@ -874,7 +946,8 @@ mod tests {
         let non_object = b"[]";
         fs::write(&target, non_object).unwrap();
 
-        ensure_default_notes_template(&root).unwrap();
+        let outcome = ensure_default_notes_template(&root).unwrap();
+        assert_eq!(outcome, NotesTemplateOutcome::Skipped);
 
         let after = fs::read(&target).unwrap();
         assert_eq!(after, non_object);
@@ -894,7 +967,8 @@ mod tests {
             br#"{"id":"notes_default_cs","lang":"cs","inputs":{"note":"keep me"},"monitors":[]}"#;
         fs::write(&target, malshaped).unwrap();
 
-        ensure_default_notes_template(&root).unwrap();
+        let outcome = ensure_default_notes_template(&root).unwrap();
+        assert_eq!(outcome, NotesTemplateOutcome::Skipped);
 
         let after = fs::read(&target).unwrap();
         assert_eq!(after, malshaped);
@@ -1172,9 +1246,16 @@ fn ensure_user_storage_at_root(root: &Path) -> Result<UserStorageMeta, StorageEr
     }
 
     if !meta.seed_completed || meta.seed_version != STORAGE_SEED_VERSION {
-        seed_catalog(root)?;
+        let outcome = seed_catalog(root)?;
         meta.seed_completed = true;
-        meta.seed_version = STORAGE_SEED_VERSION;
+        // Pokud byl merge šablony přeskočen (poškozený/neočekávaný uživatelský
+        // soubor), seed_version se NEZVEDÁ — brána se tak znovu otevře při
+        // každém dalším startu, dokud si uživatel soubor neopraví. Jednorázový
+        // pokus by nápravu souboru navěky odsoudil k tomu, že nové poznámky
+        // nikdy nedorazí.
+        if outcome == NotesTemplateOutcome::Applied {
+            meta.seed_version = STORAGE_SEED_VERSION;
+        }
     }
 
     let json = serde_json::to_vec_pretty(&meta)
