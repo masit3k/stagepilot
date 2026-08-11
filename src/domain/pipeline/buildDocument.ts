@@ -459,6 +459,7 @@ export function buildDocument(
         id: `${musician.id}:${monitorEntity.id}`,
         label: monitorEntity.label,
         kind: monitorEntity.kind,
+        supplier: monitorEntity.supplier,
       });
     }
 
@@ -617,10 +618,17 @@ export function buildDocument(
 
   // Notes template resolution
   const notesTemplateId = band.notesTemplateRef ?? "notes_default_cs";
-  const hasWedge = monitors.some((m) => m.kind === "wedge");
   const notes = buildPdfNotes({
     template: repo.getNotesTemplate(notesTemplateId),
-    hasWedge,
+    monitors: {
+      hasWedge: monitors.some((m) => m.kind === "wedge"),
+      hasBandSuppliedIem: monitors.some(
+        (m) => m.kind === "iem" && m.supplier === "band",
+      ),
+      hasFohSuppliedIem: monitors.some(
+        (m) => m.kind === "iem" && m.supplier === "foh",
+      ),
+    },
   });
 
   return {

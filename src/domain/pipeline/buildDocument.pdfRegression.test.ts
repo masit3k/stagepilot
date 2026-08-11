@@ -514,20 +514,38 @@ describe("buildDocument PDF regression model", () => {
         id: "drm-1:iem_stereo_wireless_foh",
         label: "IEM STEREO wireless (provided by FOH)",
         kind: "iem",
+        supplier: "foh",
       },
-      { id: "bass-1:wedge_foh", label: "Wedge monitor (provided by FOH)", kind: "wedge" },
+      {
+        id: "bass-1:wedge_foh",
+        label: "Wedge monitor (provided by FOH)",
+        kind: "wedge",
+        supplier: "foh",
+      },
       {
         id: "gtr-1:iem_stereo_wireless_foh",
         label: "IEM STEREO wireless (provided by FOH)",
         kind: "iem",
+        supplier: "foh",
       },
       {
         id: "keys-1:iem_stereo_wireless_foh",
         label: "IEM STEREO wireless (provided by FOH)",
         kind: "iem",
+        supplier: "foh",
       },
-      { id: "voc-f:wedge_foh", label: "Wedge monitor (provided by FOH)", kind: "wedge" },
-      { id: "voc-m:wedge_foh", label: "Wedge monitor (provided by FOH)", kind: "wedge" },
+      {
+        id: "voc-f:wedge_foh",
+        label: "Wedge monitor (provided by FOH)",
+        kind: "wedge",
+        supplier: "foh",
+      },
+      {
+        id: "voc-m:wedge_foh",
+        label: "Wedge monitor (provided by FOH)",
+        kind: "wedge",
+        supplier: "foh",
+      },
     ]);
 
     expect(vm.stageplan.lineupByRole).toMatchObject({
@@ -684,7 +702,12 @@ describe("buildDocument PDF regression model", () => {
     expect(() => buildDocument(project, repo)).not.toThrow();
     const vm = buildDocument(project, repo);
     expect(vm.monitors).toEqual([
-      { id: "voc-1:wedge_foh", label: "Wedge monitor (provided by FOH)", kind: "wedge" },
+      {
+        id: "voc-1:wedge_foh",
+        label: "Wedge monitor (provided by FOH)",
+        kind: "wedge",
+        supplier: "foh",
+      },
     ]);
     expect(vm.monitorTableRows).toEqual([
       expect.objectContaining({ note: "Wedge monitor (provided by FOH)" }),

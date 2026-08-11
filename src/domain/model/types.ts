@@ -330,7 +330,13 @@ export type PresetEntity = Preset | TalkbackType | Monitor;
 
 export type NoteSeverity = "info" | "warning";
 
-export type NoteCondition = { monitors: { hasWedge: true } };
+export type NoteCondition = {
+  monitors: {
+    hasWedge?: true;
+    hasBandSuppliedIem?: true;
+    hasFohSuppliedIem?: true;
+  };
+};
 
 export interface NoteLine {
   id: string;
@@ -441,6 +447,7 @@ export interface DocumentViewModel {
     id: string;
     label: string;
     kind: "iem" | "wedge";
+    supplier: MonitorSupplier;
   }>;
 
   /** Poznámky pod tabulkami (už vyfiltrované podle podmínek). */
