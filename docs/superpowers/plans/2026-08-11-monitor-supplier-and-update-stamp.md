@@ -461,17 +461,22 @@ git commit -m "feat: read contentUpdatedAt in the pdf header"
 
 Fáze B musí být hotová před fázemi C a D, které na typu `Monitor` staví.
 
-### Task 4: Rozlišený svaz `Monitor` a katalog deseti presetů
+### Task 4: Rozlišený svaz `Monitor`, katalog deseti presetů a odstranění hádání druhu z názvu
+
+Typ, katalog i oprava všech volajících patří do jednoho tasku: jakmile se `Monitor` stane rozlišeným svazem, přestanou se překládat volající, kteří druh odposlechu odvozují z `id`. Commit je proto až na konci, se zelenou sadou testů.
 
 **Files:**
 - Modify: `src/domain/model/types.ts:296-301`
 - Modify: `src/domain/model/presetAliases.ts`
 - Create: 10 souborů v `data/assets/presets/monitors/`
 - Delete: `data/assets/presets/monitors/iem_mono_wired.json`, `iem_mono_wireless.json`, `iem_stereo_wired.json`, `iem_stereo_wireless.json`, `wedge.json`
-- Test: `src/domain/model/presetAliases.test.ts` (nový)
+- Modify: `src/domain/pipeline/buildDocument.ts:454-461`
+- Modify: `src/domain/rules/presetOverride.ts:116-119`, `:193-201`, `:212-215`
+- Modify: `packages/desktop/src/app/pages/ProjectSetupPage.tsx:1325`, `:2048`
+- Test: `src/domain/model/presetAliases.test.ts` (nový), `src/domain/rules/presetOverride.test.ts`, `src/domain/pipeline/buildDocument.pdfRegression.test.ts`
 
 **Interfaces:**
-- Produces: `MonitorSupplier = "band" | "foh"`, `Monitor` jako rozlišený svaz podle `kind`
+- Produces: `MonitorSupplier = "band" | "foh"`, `Monitor` jako rozlišený svaz podle `kind`, `validateEffectivePresets(effectivePresets, monitorsById)` a `summarizeEffectivePresetValidation(effectivePresets, monitorsById)`, kde `monitorsById: Record<string, Monitor>`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -589,38 +594,14 @@ Dva wedge soubory — `wedge_foh.json`:
 
 a `wedge_own.json` s `"id": "wedge_own"`, `"label": "Wedge monitor (own)"`, `"supplier": "band"`.
 
-- [ ] **Step 6: Run test to verify it passes**
+- [ ] **Step 6: Run the alias test to verify it passes**
 
 Run: `npx vitest run src/domain/model/presetAliases.test.ts`
 Expected: PASS.
 
-- [ ] **Step 7: Run the suite**
+V tuto chvíli sada jako celek ještě neprojde — `presetOverride.test.ts` a `buildDocument.pdfRegression.test.ts` odkazují na stará ID a na `Monitor` bez `kind`. Opravují je následující kroky téhož tasku. Necommituj dřív, než bude `npm test` zelené.
 
-Run: `npm test`
-Expected: FAIL v `presetOverride.test.ts` a `buildDocument.pdfRegression.test.ts` — odkazují na stará ID a na `Monitor` bez `kind`. To je očekávané; opraví je Task 5. TypeScript chyby z `kind`/`supplier` jsou rovněž očekávané.
-
-- [ ] **Step 8: Commit**
-
-```bash
-git add src/domain/model data/assets/presets/monitors
-git commit -m "feat: model monitor supplier as a catalog dimension"
-```
-
----
-
-### Task 5: Odstranění hádání druhu odposlechu z názvu
-
-**Files:**
-- Modify: `src/domain/pipeline/buildDocument.ts:454-461`
-- Modify: `src/domain/rules/presetOverride.ts:116-119`, `:193-201`, `:212-215`
-- Modify: `packages/desktop/src/app/pages/ProjectSetupPage.tsx:1325`, `:2048`
-- Test: `src/domain/rules/presetOverride.test.ts`, `src/domain/pipeline/buildDocument.pdfRegression.test.ts`
-
-**Interfaces:**
-- Consumes: `Monitor`, `MonitorSupplier` z Tasku 4
-- Produces: `validateEffectivePresets(effectivePresets, monitorsById)` a `summarizeEffectivePresetValidation(effectivePresets, monitorsById)`, kde `monitorsById: Record<string, Monitor>`
-
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 7: Write the failing validation test**
 
 Do `src/domain/rules/presetOverride.test.ts` přidej nahoru vedle stávajícího `basePreset` katalog a testy. Stávající `monitorRef: "iem_stereo_wired"` v `basePreset` (řádek 19) změň na `"iem_stereo_wired_foh"` a `"wedge"` na `"wedge_foh"` ve všech testech souboru:
 
@@ -691,12 +672,12 @@ describe("monitor mix counting", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 8: Run the validation test to verify it fails**
 
 Run: `npx vitest run src/domain/rules/presetOverride.test.ts`
 Expected: FAIL — `summarizeEffectivePresetValidation` bere jeden argument.
 
-- [ ] **Step 3: Change the validation signatures**
+- [ ] **Step 9: Change the validation signatures**
 
 V `src/domain/rules/presetOverride.ts` doplň import a přepiš tři funkce:
 
@@ -736,7 +717,7 @@ a uvnitř `summarizeEffectivePresetValidation` uprav součet (řádky 212-215):
 
 Neznámý `monitorRef` se počítá jako jeden mix — bezpečnější odhad než nula, protože chybějící preset nesmí tiše snížit počet požadovaných aux sendů.
 
-- [ ] **Step 4: Read the kind from the catalog in buildDocument**
+- [ ] **Step 10: Read the kind from the catalog in buildDocument**
 
 V `src/domain/pipeline/buildDocument.ts` nahraď řádek 460:
 
@@ -746,7 +727,7 @@ V `src/domain/pipeline/buildDocument.ts` nahraď řádek 460:
 
 Ověř, že `monitorEntity` je v tomto místě typován jako `Monitor`. Pokud je typován jako `PresetEntity`, zužuj přes `monitorEntity.type === "monitor"` dřív, než se k `kind` přistoupí.
 
-- [ ] **Step 5: Pass the catalog from the setup page**
+- [ ] **Step 11: Pass the catalog from the setup page**
 
 V `packages/desktop/src/app/pages/ProjectSetupPage.tsx` vytvoř vedle `monitorOptions` (řádek 794) index a předej ho oběma volajícím:
 
@@ -767,29 +748,29 @@ V `packages/desktop/src/app/pages/ProjectSetupPage.tsx` vytvoř vedle `monitorOp
 
 Na řádku 1325 změň volání na `summarizeEffectivePresetValidation(<stávající argument>, monitorsById)` a na řádku 2048 na `validateEffectivePresets(<stávající argument>, monitorsById)`. Doplň `monitorsById` do pole závislostí obklopujícího `useMemo`/`useCallback`, pokud tam volání leží.
 
-- [ ] **Step 6: Update the regression fixture**
+- [ ] **Step 12: Update the regression fixture**
 
-V `src/domain/pipeline/buildDocument.pdfRegression.test.ts` přepiš stará monitor ID na nová (`"wedge"` → `"wedge_foh"`, `"iem_stereo_wireless"` → `"iem_stereo_wireless_foh"`) a v očekávaných labelech doplň příponu podle katalogu z Tasku 4 — například na řádku 502 `"IEM STEREO wireless"` → `"IEM STEREO wireless (provided by FOH)"`. Testovací repozitář v tomto souboru musí monitor entity vracet i s poli `kind` a `supplier`.
+V `src/domain/pipeline/buildDocument.pdfRegression.test.ts` přepiš stará monitor ID na nová (`"wedge"` → `"wedge_foh"`, `"iem_stereo_wireless"` → `"iem_stereo_wireless_foh"`) a v očekávaných labelech doplň příponu podle katalogu ze Stepu 5 — například na řádku 502 `"IEM STEREO wireless"` → `"IEM STEREO wireless (provided by FOH)"`. Testovací repozitář v tomto souboru musí monitor entity vracet i s poli `kind` a `supplier`.
 
 Totéž zkontroluj v `src/infra/pdf/pdfRendererFixture.ts`, pokud definuje monitor presety.
 
-- [ ] **Step 7: Run the suite and lint**
+- [ ] **Step 13: Run the suite and lint**
 
 Run: `npm test && npm run lint`
-Expected: PASS. Zbylá selhání znamenají nedohledaný odkaz na staré ID — oprav ho.
+Expected: PASS. Zbylá selhání znamenají nedohledaný odkaz na staré ID — oprav ho. Teprve teď je task hotový k commitu.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 14: Commit**
 
 ```bash
-git add src packages/desktop/src
-git commit -m "refactor: derive monitor kind from the catalog instead of the id"
+git add src packages/desktop/src data/assets/presets/monitors
+git commit -m "feat: model monitor supplier and derive kind from the catalog"
 ```
 
 ---
 
 ## Fáze C — poznámky podle dodavatele
 
-### Task 6: Vyhodnocení podmínek poznámek
+### Task 5: Vyhodnocení podmínek poznámek
 
 **Files:**
 - Modify: `src/domain/model/types.ts:312` (`NoteCondition`), `:416-420` (`DocumentViewModel.monitors`)
@@ -973,7 +954,7 @@ git commit -m "feat: evaluate monitor notes by supplier"
 
 ---
 
-### Task 7: Verzování a doplnění šablony poznámek
+### Task 6: Verzování a doplnění šablony poznámek
 
 **Files:**
 - Modify: `src/infra/storage/defaultNotesTemplate.notes_default_cs.json`
@@ -982,7 +963,7 @@ git commit -m "feat: evaluate monitor notes by supplier"
 - Test: `packages/desktop/src-tauri/src/storage_paths.rs` (modul `tests` na řádku 524)
 
 **Interfaces:**
-- Consumes: `NoteCondition` z Tasku 6
+- Consumes: `NoteCondition` z Tasku 5
 - Produces: šablona s poli `version` (na úrovni dokumentu) a `since` (na úrovni položky)
 
 - [ ] **Step 1: Add version metadata to the template type**
@@ -1219,7 +1200,7 @@ git commit -m "feat: merge new notes template entries by version"
 
 ## Fáze D — výběr odposlechu ve dvou osách
 
-### Task 8: Čistá logika dvou os
+### Task 7: Čistá logika dvou os
 
 **Files:**
 - Create: `packages/desktop/src/components/setup/monitorAxes.ts`
@@ -1444,7 +1425,7 @@ git commit -m "feat: project monitor catalog onto type and supplier axes"
 
 ---
 
-### Task 9: Přepínač dodavatele v MonitoringEditor
+### Task 8: Přepínač dodavatele v MonitoringEditor
 
 **Files:**
 - Modify: `packages/desktop/src/components/setup/MonitoringEditor.tsx`
@@ -1453,7 +1434,7 @@ git commit -m "feat: project monitor catalog onto type and supplier axes"
 - Modify: `packages/desktop/src/styles` — soubor s třídami `setup-*` (najdi podle `setup-toggle-grid`)
 
 **Interfaces:**
-- Consumes: `buildMonitorAxes`, `resolveMonitorSelection`, `resolveMonitorRef` z Tasku 8
+- Consumes: `buildMonitorAxes`, `resolveMonitorSelection`, `resolveMonitorRef` z Tasku 7
 - Produces: `MonitoringEditor` s propem `monitors: Monitor[]` místo `monitorOptions: MonitoringOption[]`
 
 - [ ] **Step 1: Write the failing test**
@@ -1762,7 +1743,7 @@ Použité proměnné (`--setup-field-border`, `--setup-accent-soft`) nahraď tě
 
 - [ ] **Step 5: Repoint the setup page**
 
-V `packages/desktop/src/app/pages/ProjectSetupPage.tsx` nahraď `monitorOptions` (řádky 794-804) seznamem entit. Pokud jsi v Tasku 5 přidal `monitorsById`, odvoď obojí z jednoho filtru:
+V `packages/desktop/src/app/pages/ProjectSetupPage.tsx` nahraď `monitorOptions` (řádky 794-804) seznamem entit. Pokud jsi v Tasku 4 přidal `monitorsById`, odvoď obojí z jednoho filtru:
 
 ```tsx
   const monitorEntities = useMemo(
