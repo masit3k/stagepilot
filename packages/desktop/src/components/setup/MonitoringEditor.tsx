@@ -1,4 +1,6 @@
 import type {
+  Monitor,
+  MonitorSupplier,
   MusicianSetupPreset,
   PresetOverridePatch,
 } from "../../../../../src/domain/model/types";
@@ -7,6 +9,11 @@ import type {
   SetupDiffOrigin,
 } from "../../../../../src/domain/setup/computeSetupDiff";
 import { SetupCounterControl } from "../../app/components/setup/fields/SetupCounterControl";
+import {
+  buildMonitorAxes,
+  resolveMonitorRef,
+  resolveMonitorSelection,
+} from "./monitorAxes";
 export const MIN_ADDITIONAL_WEDGE_COUNT = 1;
 export const MAX_ADDITIONAL_WEDGE_COUNT = 4;
 
@@ -27,10 +34,8 @@ export function isMonitoringFieldModified(origin: SetupDiffOrigin): boolean {
   return origin === "override";
 }
 
-type MonitoringOption = { value: string; label: string };
-
 type MonitoringEditorProps = {
-  monitorOptions: MonitoringOption[];
+  monitors: Monitor[];
   effectiveMonitoring: MusicianSetupPreset["monitoring"];
   patch?: PresetOverridePatch;
   diffMeta: SetupDiffMeta;
@@ -38,19 +43,24 @@ type MonitoringEditorProps = {
 };
 
 export function MonitoringEditor({
-  monitorOptions,
+  monitors,
   effectiveMonitoring,
   patch,
   diffMeta,
   onChangePatch,
 }: MonitoringEditorProps) {
   const additionalWedgeControlId = "setup-additional-wedge";
+  const axes = buildMonitorAxes(monitors);
   const currentMonitorRef =
     patch?.monitoring?.monitorRef ?? effectiveMonitoring.monitorRef ?? "";
-  const hasCurrentMonitorOption = monitorOptions.some(
-    (option) => option.value === currentMonitorRef,
-  );
-  const normalizedMonitorRef = hasCurrentMonitorOption ? currentMonitorRef : "";
+  const selection = resolveMonitorSelection(axes, currentMonitorRef);
+
+  const commitMonitorRef = (nextRef: string | undefined) => {
+    onChangePatch({
+      ...patch,
+      monitoring: { ...patch?.monitoring, monitorRef: nextRef ?? "" },
+    });
+  };
   const explicitAdditionalWedgeCount = patch?.monitoring?.additionalWedgeCount;
   const effectiveAdditionalWedgeCount =
     effectiveMonitoring.additionalWedgeCount;
@@ -89,26 +99,53 @@ export function MonitoringEditor({
           <select
             className="setup-field-control"
             aria-label="Monitoring"
-            value={normalizedMonitorRef}
+            value={selection?.typeKey ?? ""}
             onChange={(e) =>
-              onChangePatch({
-                ...patch,
-                monitoring: {
-                  ...patch?.monitoring,
-                  monitorRef: e.target.value,
-                },
-              })
+              commitMonitorRef(
+                resolveMonitorRef(
+                  axes,
+                  e.target.value,
+                  selection?.supplier ?? "foh",
+                ),
+              )
             }
           >
-            {monitorOptions.map((option) => (
-              <option key={option.value} value={option.value}>
+            {axes.types.map((option) => (
+              <option key={option.key} value={option.key}>
                 {option.label}
               </option>
             ))}
-            <option value="">No monitor selected</option>
+            {selection ? null : <option value="">No monitor selected</option>}
           </select>
         </div>
       </label>
+
+      <div
+        className="setup-field-row setup-supplier-switch"
+        role="group"
+        aria-label="Dodavatel odposlechu"
+      >
+        {(["band", "foh"] as MonitorSupplier[]).map((supplier) => (
+          <button
+            key={supplier}
+            type="button"
+            className={`setup-supplier-switch__option ${
+              selection?.supplier === supplier
+                ? "setup-supplier-switch__option--active"
+                : ""
+            }`}
+            aria-pressed={selection?.supplier === supplier}
+            disabled={!selection}
+            onClick={() =>
+              commitMonitorRef(
+                resolveMonitorRef(axes, selection?.typeKey ?? "", supplier),
+              )
+            }
+          >
+            {supplier === "band" ? "Vlastní" : "Pořadatel"}
+          </button>
+        ))}
+      </div>
 
       <div className="setup-toggle-grid">
         <div
