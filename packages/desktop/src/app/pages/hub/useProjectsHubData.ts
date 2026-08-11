@@ -3,7 +3,6 @@ import { getTodayIsoLocal, isPastIsoDate } from "../../../projectRules";
 import { refreshProjectsAndMigrate } from "../../services/projectMaintenance";
 import * as projectsApi from "../../services/projectsApi";
 import type { BandOption, NewProjectPayload, ProjectSummary } from "../../shell/types";
-import { toPersistableProject } from "../../shell/types";
 
 type NavigateImmediateFn = (path: string, replace?: boolean) => void;
 
@@ -43,9 +42,10 @@ export function useProjectsHubData(navigateImmediate: NavigateImmediateFn) {
       const project = JSON.parse(raw) as NewProjectPayload;
       const now = new Date();
       const updatedProject = updater(project, now);
-      await projectsApi.saveProject({
+      await projectsApi.saveProjectPayload({
         projectId,
-        json: JSON.stringify(toPersistableProject(updatedProject), null, 2),
+        payload: updatedProject,
+        intent: "lifecycle",
       });
       await refreshProjects();
     },
@@ -59,7 +59,6 @@ export function useProjectsHubData(navigateImmediate: NavigateImmediateFn) {
         templateType: source.templateType ?? source.purpose,
         status: "archived",
         archivedAt: now.toISOString(),
-        updatedAt: now.toISOString(),
       }));
       setStatus("Project archived.");
     },
@@ -68,11 +67,10 @@ export function useProjectsHubData(navigateImmediate: NavigateImmediateFn) {
 
   const unarchiveProject = useCallback(
     async (project: ProjectSummary) => {
-      await updateProjectLifecycle(project.id, (source, now) => ({
+      await updateProjectLifecycle(project.id, (source) => ({
         ...source,
         templateType: source.templateType ?? source.purpose,
         status: "active",
-        updatedAt: now.toISOString(),
       }));
       setStatus("Project moved to Active.");
     },
@@ -90,7 +88,6 @@ export function useProjectsHubData(navigateImmediate: NavigateImmediateFn) {
           status: "trashed",
           trashedAt: now.toISOString(),
           purgeAt: purgeAt.toISOString(),
-          updatedAt: now.toISOString(),
         };
       });
       setStatus("Project moved to Trash.");
@@ -113,7 +110,6 @@ export function useProjectsHubData(navigateImmediate: NavigateImmediateFn) {
           status: restoreStatus,
           trashedAt: undefined,
           purgeAt: undefined,
-          updatedAt: now.toISOString(),
         };
       });
       setStatus("Project restored.");

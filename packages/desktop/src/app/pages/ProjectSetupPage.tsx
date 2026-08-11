@@ -69,7 +69,6 @@ import type {
   MemberOption,
   NewProjectPayload,
 } from "../shell/types";
-import { toPersistableProject } from "../shell/types";
 import { serializeLineupForProject } from "../shell/lineupSerialize";
 import { buildCanonicalProjectFromSetupState } from "../shell/canonicalProject";
 import type { ProjectRouteProps } from "./shared/pageTypes";
@@ -666,11 +665,11 @@ export function ProjectSetupPage({
           lineup: serializeLineupForProject(initialState.lineup, ROLE_ORDER),
           bandLeaderId: initialState.bandLeaderId || undefined,
           talkbackOwnerId: parsedTalkbackOwnerId,
-          updatedAt: new Date().toISOString(),
         };
-        await projectsApi.saveProject({
+        await projectsApi.saveProjectPayload({
           projectId: id,
-          json: JSON.stringify(toPersistableProject(updatedProject), null, 2),
+          payload: updatedProject,
+          intent: "system",
         });
         setProject(updatedProject);
       } else {
@@ -685,15 +684,11 @@ export function ProjectSetupPage({
           const migratedProject: NewProjectPayload = {
             ...parsed,
             lineup: migratedLineup,
-            updatedAt: new Date().toISOString(),
           };
-          await projectsApi.saveProject({
+          await projectsApi.saveProjectPayload({
             projectId: id,
-            json: JSON.stringify(
-              toPersistableProject(migratedProject),
-              null,
-              2,
-            ),
+            payload: migratedProject,
+            intent: "system",
           });
           setProject(migratedProject);
         }
@@ -1100,9 +1095,10 @@ export function ProjectSetupPage({
   async function persistProject(next?: Partial<NewProjectPayload>) {
     if (!canonicalProjectDraft) return;
     const payload: NewProjectPayload = { ...canonicalProjectDraft, ...next };
-    await projectsApi.saveProject({
+    await projectsApi.saveProjectPayload({
       projectId: id,
-      json: JSON.stringify(toPersistableProject(payload), null, 2),
+      payload,
+      intent: "content",
     });
     setProject(payload);
     initialSnapshotRef.current = createLineupDirtyBaseline({

@@ -5,7 +5,7 @@ vi.mock("./projectsApi", () => ({
   listBands: vi.fn(),
   listProjects: vi.fn(),
   readProject: vi.fn(),
-  saveProject: vi.fn(),
+  saveProjectPayload: vi.fn(),
   deleteProjectPermanently: vi.fn(),
   parseProjectPayload: (raw: string) => JSON.parse(raw),
 }));
@@ -33,10 +33,11 @@ describe("refreshProjectsAndMigrate", () => {
 
     await refreshProjectsAndMigrate();
 
-    expect(mocked.saveProject).toHaveBeenCalledTimes(1);
-    const args = mocked.saveProject.mock.calls[0][0];
+    expect(mocked.saveProjectPayload).toHaveBeenCalledTimes(1);
+    const args = mocked.saveProjectPayload.mock.calls[0][0];
     expect(args.legacyProjectId).toBe("legacy-id");
     expect(args.projectId).not.toBe("legacy-id");
+    expect(args.intent).toBe("system");
   });
 
   it("purges trashed project when purgeAt is in the past", async () => {

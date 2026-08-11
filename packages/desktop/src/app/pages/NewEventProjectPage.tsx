@@ -135,6 +135,7 @@ export function NewEventProjectPage({
         documentDate: todayIso,
         createdAt: existingProject?.createdAt ?? nowIso,
         updatedAt: nowIso,
+        contentUpdatedAt: nowIso,
         lineup: existingProject?.lineup,
         overlays: existingProject?.overlays,
         bandLeaderId: existingProject?.bandLeaderId,
