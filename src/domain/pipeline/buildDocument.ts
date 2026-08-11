@@ -57,6 +57,7 @@ function buildMetaLine(project: Project): MetaLineModel {
     documentDate: project.documentDate,
     note: project.note,
     updatedAt: project.updatedAt,
+    contentUpdatedAt: project.contentUpdatedAt,
   });
 }
 
@@ -636,6 +637,7 @@ export function buildDocument(
       note: project.note,
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
+      contentUpdatedAt: project.contentUpdatedAt,
 
       metaLine: buildMetaLine(project),
       logoFile: band.logoFile,

@@ -377,6 +377,9 @@ export interface DocumentViewModel {
   createdAt?: string;
   updatedAt?: string;
 
+    /** Poslední změna obsahu rideru. Čte ji hlavička PDF. */
+    contentUpdatedAt?: string;
+
     /** Už připravený meta řádek k vytištění */
     metaLine: MetaLineModel;
 
