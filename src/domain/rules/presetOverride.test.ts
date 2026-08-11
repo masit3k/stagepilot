@@ -200,6 +200,24 @@ describe("applyPresetOverride", () => {
     expect(normalized).toBeUndefined();
   });
 
+  it("drops overrides that only restate a legacy default under its canonical alias", () => {
+    const legacyWedgeDefault: MusicianSetupPreset = {
+      inputs: basePreset.inputs,
+      monitoring: { monitorRef: "wedge" },
+    };
+    expect(
+      normalizeSetupOverridePatch(legacyWedgeDefault, { monitoring: { monitorRef: "wedge_foh" } }),
+    ).toBeUndefined();
+
+    const legacyIemDefault: MusicianSetupPreset = {
+      inputs: basePreset.inputs,
+      monitoring: { monitorRef: "iem_stereo_wired" },
+    };
+    expect(
+      normalizeSetupOverridePatch(legacyIemDefault, { monitoring: { monitorRef: "iem_stereo_wired_foh" } }),
+    ).toBeUndefined();
+  });
+
 
   it("throws on duplicate add key collision", () => {
     expect(() =>

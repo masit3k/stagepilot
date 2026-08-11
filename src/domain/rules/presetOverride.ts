@@ -80,7 +80,11 @@ export function normalizeBassConnectionOverridePatch(
 }
 
 function presetsEqual(a: MusicianSetupPreset, b: MusicianSetupPreset): boolean {
-  if (a.monitoring.monitorRef !== b.monitoring.monitorRef) return false;
+  // Real user data may hold a legacy monitor id (e.g. "wedge") where the current
+  // catalog uses its canonical alias (e.g. "wedge_foh"). Resolve both sides before
+  // comparing so a patch that only restates the default under its canonical id is
+  // not treated as a real change.
+  if (resolvePresetIdAlias(a.monitoring.monitorRef) !== resolvePresetIdAlias(b.monitoring.monitorRef)) return false;
   if ((a.monitoring.additionalWedgeCount ?? 0) !== (b.monitoring.additionalWedgeCount ?? 0)) return false;
   if (a.inputs.length !== b.inputs.length) return false;
   return a.inputs.every((input, index) => {
