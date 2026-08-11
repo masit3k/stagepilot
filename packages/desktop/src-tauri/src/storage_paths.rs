@@ -206,22 +206,94 @@ fn migrate_legacy_library(root: &Path) -> Result<bool, StorageError> {
     Ok(migrated)
 }
 
+fn template_version(value: &serde_json::Value) -> i64 {
+    value.get("version").and_then(|v| v.as_i64()).unwrap_or(0)
+}
+
+fn entry_since(entry: &serde_json::Value) -> i64 {
+    entry.get("since").and_then(|v| v.as_i64()).unwrap_or(0)
+}
+
+/// Doplní do uživatelské šablony položky přidané ve vyšší verzi.
+/// Existující položky se nikdy nepřepisují — ruční úpravy textů zůstávají.
+fn merge_notes_section(
+    current: &mut serde_json::Value,
+    default: &serde_json::Value,
+    section: &str,
+    installed_version: i64,
+) {
+    let Some(default_entries) = default.get(section).and_then(|v| v.as_array()) else {
+        return;
+    };
+    let existing_ids: Vec<String> = current
+        .get(section)
+        .and_then(|v| v.as_array())
+        .map(|entries| {
+            entries
+                .iter()
+                .filter_map(|e| e.get("id").and_then(|v| v.as_str()).map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let additions: Vec<serde_json::Value> = default_entries
+        .iter()
+        .filter(|entry| entry_since(entry) > installed_version)
+        .filter(|entry| {
+            entry
+                .get("id")
+                .and_then(|v| v.as_str())
+                .map(|id| !existing_ids.iter().any(|existing| existing == id))
+                .unwrap_or(false)
+        })
+        .cloned()
+        .collect();
+
+    if additions.is_empty() {
+        return;
+    }
+    let target = current
+        .get_mut(section)
+        .and_then(|v| v.as_array_mut())
+        .expect("notes section must be an array");
+    target.extend(additions);
+}
+
 fn ensure_default_notes_template(root: &Path) -> Result<(), StorageError> {
     let templates_dir = root.join("catalog/templates/notes");
     fs::create_dir_all(&templates_dir)?;
 
     let target = templates_dir.join(format!("{}.json", DEFAULT_NOTES_TEMPLATE_ID));
-    if target.exists() {
-        return Ok(());
-    }
-
     let parsed: serde_json::Value =
         serde_json::from_str(DEFAULT_NOTES_TEMPLATE_JSON).map_err(|e| {
             StorageError::Resolve(format!("Invalid embedded default notes template JSON: {e}"))
         })?;
-    let bytes = serde_json::to_vec_pretty(&parsed).map_err(|e| {
+
+    let merged = if target.exists() {
+        let existing_raw = fs::read_to_string(&target)?;
+        let mut existing: serde_json::Value = serde_json::from_str(&existing_raw).map_err(|e| {
+            StorageError::Resolve(format!("Invalid user notes template JSON: {e}"))
+        })?;
+        let installed = template_version(&existing);
+        let latest = template_version(&parsed);
+        if installed >= latest {
+            return Ok(());
+        }
+        for section in ["inputs", "monitors"] {
+            if existing.get(section).and_then(|v| v.as_array()).is_none() {
+                existing[section] = serde_json::Value::Array(Vec::new());
+            }
+            merge_notes_section(&mut existing, &parsed, section, installed);
+        }
+        existing["version"] = serde_json::Value::from(latest);
+        existing
+    } else {
+        parsed
+    };
+
+    let bytes = serde_json::to_vec_pretty(&merged).map_err(|e| {
         StorageError::Resolve(format!(
-            "Failed to serialize embedded default notes template: {e}"
+            "Failed to serialize default notes template: {e}"
         ))
     })?;
     atomic_write_bytes(&target, &bytes)?;
@@ -573,6 +645,7 @@ mod tests {
             fs::read_to_string(root.join("catalog/templates/notes/notes_default_cs.json")).unwrap();
         assert!(first.contains("\"id\": \"notes_default_cs\""));
 
+        // Simuluje instalaci z doby před zavedením verzování (bez pole "version").
         fs::write(
             root.join("catalog/templates/notes/notes_default_cs.json"),
             b"{\"id\":\"notes_default_cs\",\"lang\":\"cs\",\"inputs\":[]}",
@@ -580,14 +653,94 @@ mod tests {
         .unwrap();
 
         ensure_default_notes_template(&root).unwrap();
-        let second =
-            fs::read_to_string(root.join("catalog/templates/notes/notes_default_cs.json")).unwrap();
-        assert_eq!(
-            second,
-            "{\"id\":\"notes_default_cs\",\"lang\":\"cs\",\"inputs\":[]}"
-        );
+        let target_path = root.join("catalog/templates/notes/notes_default_cs.json");
+        let second: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&target_path).unwrap()).unwrap();
+
+        // Soubor bez "version" má implicitně verzi 0: položky se since <= 0 se
+        // nedoplňují (uživatel je má, i když je třeba smazal), pouze ty se
+        // since: 1, a "version" se zvedne na aktuální.
+        assert_eq!(second.get("version").unwrap().as_i64().unwrap(), 1);
+        assert!(second.get("inputs").unwrap().as_array().unwrap().is_empty());
+        let monitor_ids: Vec<&str> = second
+            .get("monitors")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|m| m.get("id").and_then(|v| v.as_str()))
+            .collect();
+        assert!(monitor_ids.contains(&"band_supplied_iem"));
+        assert!(monitor_ids.contains(&"foh_supplied_iem"));
+
+        // Druhé spuštění na už-aktuální verzi nesmí nic měnit.
+        let before_rerun = fs::read_to_string(&target_path).unwrap();
+        ensure_default_notes_template(&root).unwrap();
+        let after_rerun = fs::read_to_string(&target_path).unwrap();
+        assert_eq!(before_rerun, after_rerun);
 
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn merges_new_template_entries_without_touching_existing_text() {
+        let root = temp_test_dir("notes-merge");
+        let notes_dir = root.join("catalog/templates/notes");
+        fs::create_dir_all(&notes_dir).unwrap();
+        let target = notes_dir.join("notes_default_cs.json");
+
+        // Instalace z doby před verzí 1, s ručně upraveným textem.
+        fs::write(
+            &target,
+            br#"{"id":"notes_default_cs","lang":"cs","inputs":[{"id":"no_foh_engineer","text":"UPRAVENO"}],"monitors":[]}"#,
+        )
+        .unwrap();
+
+        ensure_default_notes_template(&root).unwrap();
+
+        let merged: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&target).unwrap()).unwrap();
+        let monitors = merged.get("monitors").unwrap().as_array().unwrap();
+        let monitor_ids: Vec<&str> = monitors
+            .iter()
+            .filter_map(|m| m.get("id").and_then(|v| v.as_str()))
+            .collect();
+
+        assert!(monitor_ids.contains(&"band_supplied_iem"));
+        assert!(monitor_ids.contains(&"foh_supplied_iem"));
+        assert_eq!(merged.get("version").unwrap().as_i64().unwrap(), 1);
+
+        let inputs = merged.get("inputs").unwrap().as_array().unwrap();
+        let kept = inputs
+            .iter()
+            .find(|i| i.get("id").and_then(|v| v.as_str()) == Some("no_foh_engineer"))
+            .unwrap();
+        assert_eq!(kept.get("text").unwrap().as_str().unwrap(), "UPRAVENO");
+
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn does_not_restore_entries_the_user_deleted() {
+        let root = temp_test_dir("notes-deleted");
+        let notes_dir = root.join("catalog/templates/notes");
+        fs::create_dir_all(&notes_dir).unwrap();
+        let target = notes_dir.join("notes_default_cs.json");
+
+        // Soubor už je na verzi 1, uživatel jednu novinku smazal.
+        fs::write(
+            &target,
+            br#"{"id":"notes_default_cs","lang":"cs","version":1,"inputs":[],"monitors":[]}"#,
+        )
+        .unwrap();
+
+        ensure_default_notes_template(&root).unwrap();
+
+        let merged: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&target).unwrap()).unwrap();
+        assert!(merged.get("monitors").unwrap().as_array().unwrap().is_empty());
+
+        fs::remove_dir_all(&root).ok();
     }
 
     #[test]

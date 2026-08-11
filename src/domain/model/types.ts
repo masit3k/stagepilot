@@ -343,6 +343,8 @@ export interface NoteLine {
   text: string;
   severity?: NoteSeverity;
   when?: NoteCondition;
+  /** Verze šablony, ve které položka přibyla. Chybí-li, platí 0. */
+  since?: number;
 }
 
 /** Notes template držíme jako data (JSON), ne hardcode v šabloně. */
@@ -351,6 +353,8 @@ export interface NotesTemplate {
   lang: "cs";
   inputs: NoteLine[];
   monitors: NoteLine[];
+  /** Verze výchozí šablony, ze které soubor pochází. Chybí-li, platí 0. */
+  version?: number;
 }
 
 /* ============================================================
