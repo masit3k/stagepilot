@@ -145,33 +145,29 @@ export function renderInputlistHtml(vm: DocumentViewModel, opts: RenderTemplateO
   const stageplanHtml = renderStageplanSection(vm, opts.stageplan);
 
   const inputListBodyHtml = `
-  <div class="tableBlock">
-    <table class="table inputTable">
-      <thead>
+  <table class="table inputTable">
+    <thead>
+      <tr>
+        <th class="colNo">no.</th>
+        <th class="colInput">input</th>
+        <th class="colNote">note</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${vm.inputRows
+        .map(
+          (r) => `
         <tr>
-          <th class="colNo">no.</th>
-          <th class="colInput">input</th>
-          <th class="colNote">note</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${vm.inputRows
-          .map(
-            (r) => `
-          <tr>
-            <td class="colNo">${esc(r.no)}</td>
-            <td class="colInput">${esc(r.label)}</td>
-            <td class="colNote">${r.note ? esc(r.note) : ""}</td>
-          </tr>`,
-          )
-          .join("")}
-      </tbody>
-    </table>
-  </div>
+          <td class="colNo">${esc(r.no)}</td>
+          <td class="colInput">${esc(r.label)}</td>
+          <td class="colNote">${r.note ? esc(r.note) : ""}</td>
+        </tr>`,
+        )
+        .join("")}
+    </tbody>
+  </table>
 
-  <div class="tableBlock">
-    ${monitorTableHtml}
-  </div>
+  ${monitorTableHtml}
 
   <div class="notesBlock">
     <div class="notes">

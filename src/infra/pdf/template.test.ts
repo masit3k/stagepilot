@@ -279,4 +279,14 @@ describe("document footer", () => {
     const { page1 } = splitPages(html);
     expect(page1).toContain("1 / 2");
   });
+
+  it("renders the tables without a frame wrapper", () => {
+    const html = renderInputlistHtml(vm, {
+      tabTitle: "Doc",
+      baseHref: "file:///tmp/",
+    });
+
+    // Tady stačí hledat v celém dokumentu: úkol ruší .tableBlock i ze stylopisu.
+    expect(html).not.toContain("tableBlock");
+  });
 });

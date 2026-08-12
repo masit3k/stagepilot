@@ -80,7 +80,6 @@ export const pdfLayout = {
       size: "9pt",
       lineHeight: 1.2,
       inputWeight: 500 as const,
-      headerWeight: 700 as const,
     },
     footer: { size: "7.2pt", lineHeight: 1.4, tracking: "0.04em" },
   },

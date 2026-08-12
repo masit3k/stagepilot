@@ -78,9 +78,9 @@ body {
   --block-gap: 14pt;
 
   /* line color + widths (single source of truth) */
-  --c-line: #000;
-  --w-frame: 2pt;   /* outer frame + header separator */
-  --w-grid: 0.5pt;  /* inner grid */
+  --c-line: ${pdfTokens.ink};
+  --w-frame: 2pt;   /* linka pod hlavičkou dokumentu */
+  --w-grid: 0.5pt;  /* linky mezi řádky tabulky */
 }
 
 /* ===============================
@@ -173,16 +173,7 @@ body {
 }
 
 /* ===============================
-   Table blocks (outer thick frame)
-   =============================== */
-.tableBlock {
-  border: var(--w-frame) solid var(--c-line);
-  padding: 0;
-  margin: 0 0 var(--block-gap) 0;
-}
-
-/* ===============================
-   Table (thin inner grid)
+   Tabulka — drží ji linky, ne rámeček
    =============================== */
 .table {
   width: 100%;
@@ -190,41 +181,51 @@ body {
   table-layout: fixed;
   font-size: ${pdfLayout.typography.table.size};
   line-height: ${pdfLayout.typography.table.lineHeight};
-}
-
-/* Spacing between two consecutive tables (works even without .tableBlock) */
-.table + .table {
-  margin-top: 12pt;
+  margin: 0 0 var(--block-gap) 0;
 }
 
 .table th,
 .table td {
-  border: var(--w-grid) solid var(--c-line);
+  border: 0;
+  border-bottom: var(--w-grid) solid ${pdfTokens.lineFaint};
   padding: ${pdfLayout.table.padY} ${pdfLayout.table.padX};
   vertical-align: middle;
 }
 
-/* Header row: left aligned, vertically centered, thick bottom border */
-.table thead th {
-  font-weight: ${pdfLayout.typography.table.headerWeight};
-  text-align: left;
-  vertical-align: middle;
-  line-height: 1;
-  padding-top: 4pt;
-  padding-bottom: 4pt;
-  border-bottom: var(--w-frame) solid var(--c-line);
+.table tbody tr:last-child > * {
+  border-bottom: 0;
 }
 
-/* keep "no." header centered horizontally */
+.table thead th {
+  font-family: '${pdfLayout.typography.monoFamily}', Consolas, monospace;
+  font-size: ${pdfLayout.typography.tableHead.size};
+  font-weight: ${pdfLayout.typography.tableHead.weight};
+  line-height: ${pdfLayout.typography.tableHead.lineHeight};
+  letter-spacing: ${pdfLayout.typography.tableHead.tracking};
+  text-transform: uppercase;
+  color: ${pdfTokens.steel};
+  text-align: left;
+  border-bottom: var(--w-grid) solid ${pdfTokens.line};
+}
+
 .table thead th.colNo {
   text-align: center;
 }
 
-/* ===== Remove outer cell borders (avoid double line with .tableBlock frame) ===== */
-.tableBlock .table tr > *:first-child { border-left: none; }
-.tableBlock .table tr > *:last-child { border-right: none; }
-.tableBlock .table thead tr:first-child > * { border-top: none; }
-.tableBlock .table tbody tr:last-child > * { border-bottom: none; }
+.table tbody td.colNo {
+  font-family: '${pdfLayout.typography.monoFamily}', Consolas, monospace;
+  font-weight: 400;
+  color: ${pdfTokens.steel};
+}
+
+.table tbody td.colInput {
+  font-weight: ${pdfLayout.typography.table.inputWeight};
+  color: ${pdfTokens.ink};
+}
+
+.table tbody td.colNote {
+  color: ${pdfTokens.body};
+}
 
 /* Columns */
 .colNo {
@@ -245,11 +246,6 @@ body {
   white-space: normal;
   overflow-wrap: anywhere;
   word-break: break-word;
-}
-
-/* no. in body bold */
-.table tbody td.colNo {
-  font-weight: 700;
 }
 
 /* ===============================

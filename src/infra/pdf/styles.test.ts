@@ -23,3 +23,16 @@ describe("pdf notes typography", () => {
     expect(pdfStyles).toContain("word-break: break-word;");
   });
 });
+
+describe("pdf table", () => {
+  it("carries rows on hairlines instead of a frame", () => {
+    expect(pdfStyles).not.toContain(".tableBlock");
+    expect(pdfStyles).toContain("--w-grid");
+  });
+
+  it("sets the channel number in mono", () => {
+    expect(pdfStyles).toContain(
+      `font-family: '${pdfLayout.typography.monoFamily}'`,
+    );
+  });
+});
