@@ -143,6 +143,7 @@ Kontakt (`opts.contactLine`) se stěhuje z hlavičky do patičky, verzálkami p�
 | `--sp-steel` | `#6b6d71` | záznam `STAGEPILOT / UPD`, hlavička tabulky, čísla kanálů, patička |
 | `--sp-line` | `#e4e1da` | linka pod hlavičkou tabulky, linka nad patičkou |
 | `--sp-line-faint` | `#f0ede7` | linky mezi řádky tabulky |
+| `--sp-signal` | `#ff5b1f` | horní pin ve znaku XLR — jediná barva v hlavičce |
 
 **Odchylka od mocku:** mock používá na mono texty `#8A8D92`. F1 tuhle hodnotu kvůli kontrastu ztmavil na `--sp-steel` `#6b6d71` a původní nechal jako `--sp-steel-decor` (rozhodnutí F1 R1). Na papíře v šeru dává původní hodnota 2,98:1, což je u 7,2pt textu málo, takže dokument bere ztmavenou variantu — stejnou úvahou, z jaké vznikla.
 
@@ -210,7 +211,20 @@ Odhad z hodnot v R1, ne měření. Ověří se až renderem.
 | zrušený nadpis `Stageplan` | — | −12,7 mm |
 | **celkem** | **−1,1 mm** | **+17,3 mm** |
 
-Strana 1 vychází zhruba nastejno. **Strana 2 se o 17 mm utáhne** a je to hlavní riziko implementace. Když se plán nevejde, první páky jsou `containerPad` a `containerMarginTop` v `sections/stageplan.ts` (obojí 24 pt).
+Strana 1 vychází zhruba nastejno.
+
+**Strana 2 je změřená, ne odhadnutá.** `buildStageplanPlan` v `sections/stageplan.ts:375` má vlastní výškový rozpočet v čistém TS, takže jde spočítat bez Chromia. Pro fixture projekt (layout `layout_5_party`) vychází:
+
+| | dnes | po F4 |
+|---|---|---|
+| plocha stage planu | 63,28 mm | 63,28 mm |
+| obsazeno celkem | 101,38 mm | 88,68 mm |
+| dostupná výška | 262,00 mm | 231,97 mm |
+| **rezerva** | **160,62 mm** | **143,29 mm** |
+
+Utažení o 17 mm je tedy reálné, ale ani zdaleka svazující — plán zabírá něco přes čtvrtinu dostupné výšky. Páky `containerPad` a `containerMarginTop` nebudou potřeba.
+
+Nezměřená zůstává **strana 1**. Její výška závisí na zalomení sloupce `note`, což bez prohlížeče spočítat nejde.
 
 ## Testování
 
@@ -229,7 +243,8 @@ Strana 1 vychází zhruba nastejno. **Strana 2 se o 17 mm utáhne** a je to hlav
 
 | Riziko | Mitigace |
 |---|---|
-| Strana 2 se po přidání hlavičky a patičky nevejde | bilance výšky výše dává −12,7 mm zrušeným nadpisem; když nestačí, snížit `containerPad` a `containerMarginTop` |
+| ~~Strana 2 se po přidání hlavičky a patičky nevejde~~ | **vyřešeno měřením** — po F4 zbývá 143,29 mm rezervy, viz bilance výšky |
+| Strana 1 se po přidání patičky nevejde | jediná neověřitelná část; tabulka si drží dnešní hustotu (R8) a hlavička se zmenšuje, takže bilance vychází na −1,1 mm; ověří `npm run pdf:dev` |
 | Skutečné vejití se nejde ověřit v tomto prostředí | `pdf.test.ts` se dnes na Windows vždy přeskočí (`hasChromiumDeps` hledá linuxové `.so`) a Chromium pro Puppeteer nainstalované není; podmínka se opraví, ale **ověření dvěma stranami je na uživateli** — jedno spuštění `npm run pdf:dev` po implementaci |
 | Variabilní Space Grotesk se v Chromiu nenačte přes `truetype-variations` | ověřit hned prvním renderem; záskok je statický řez, ne návrat k Interu |
 | Zrušení `MetaLineModel` sáhne do domény i testů | `metaLine` čte jen PDF renderer; grep na `metaLine` a `MetaLineModel` po dokončení musí být prázdný |
