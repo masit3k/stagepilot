@@ -4,7 +4,7 @@ import {
   type StageplanPrintSlot,
   buildPdfStageplanPrintModel,
 } from "../../../domain/pipeline/pdf/buildPdfStageplanPrintModel.js";
-import { parsePt, pdfLayout } from "../layout.js";
+import { parsePt, pdfChromeHeights, pdfLayout } from "../layout.js";
 import {
   type StageplanRenderOptions,
   resolveStageplanRenderOptions,
@@ -30,14 +30,6 @@ type StageplanLayoutDefinition = {
     };
   };
 };
-
-function parseMm(value: string): number {
-  const m = /([0-9.]+)\s*mm/i.exec(value);
-  if (!m) {
-    throw new Error(`Stageplan layout expects mm values, got "${value}"`);
-  }
-  return Number.parseFloat(m[1] ?? "0");
-}
 
 const stageplanTextLineHeight = 1.3;
 const boxTitleGapPt = 6;
@@ -366,8 +358,11 @@ export function buildStageplanPlan(
 ): StageplanPlan {
   const built = buildStageplanBoxes(vm, options);
   const areaHeightMm = built.areaHeightMm;
+  // Hlavička a patička ukrajují ze zrcadla dřív, než na plán vůbec dojde.
   const availableHeightMm =
-    297 - parseMm(pdfLayout.page.margins.top) - parseMm(pdfLayout.page.margins.bottom);
+    pdfLayout.page.contentHeightMm -
+    pdfChromeHeights.headerMm -
+    pdfChromeHeights.footerMm;
   const containerMarginTopMm =
     parsePt(stageplanLayout.containerMarginTop) / MM_TO_PT;
   const containerPadMm = (parsePt(stageplanLayout.containerPad) / MM_TO_PT) * 2;

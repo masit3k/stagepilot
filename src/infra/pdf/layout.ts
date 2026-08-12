@@ -83,7 +83,6 @@ export const pdfLayout = {
       headerWeight: 700 as const,
     },
     footer: { size: "7.2pt", lineHeight: 1.4, tracking: "0.04em" },
-    contact: { size: "11pt", weight: 700 as const, lineHeight: 1.3 },
   },
 
   header: {

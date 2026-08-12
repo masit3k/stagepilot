@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import { loadRepository } from "../../fs/repo.js";
 import { buildDocument } from "../../../domain/pipeline/buildDocument.js";
 import { __stageplanTestExports, buildStageplanPlan, matchStageplanLayout } from "./stageplan.js";
-import { pdfLayout } from "../layout.js";
+import { pdfChromeHeights, pdfLayout } from "../layout.js";
 import {
   createPdfRendererFixtureProject,
   createPdfRendererFixtureRoot,
@@ -294,7 +294,10 @@ describe("stageplan render plan", () => {
     // Přišpuntěná hodnota, ne nerovnost: úkol 7 tenhle vzorec mění, takže se
     // musí projevit v testu, ne v tichu.
     expect(plan.budget.totalHeightMm).toBeCloseTo(62.1, 1);
-    expect(plan.budget.availableHeightMm).toBe(262);
+    expect(plan.budget.availableHeightMm).toBeCloseTo(
+      262 - pdfChromeHeights.headerMm - pdfChromeHeights.footerMm,
+      2,
+    );
   });
 
   it("collapses stereo inputs and keeps monitor bullets intact", () => {

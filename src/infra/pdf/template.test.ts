@@ -61,6 +61,17 @@ function createDocumentViewModelFixture(
   };
 }
 
+// Stylopis je vložený do <head> a obsahuje třídy vždycky, takže hledat je v
+// celém dokumentu by nic neprokázalo. Assertce o třídách míří jen do <body>.
+const bodyOf = (html: string) => html.slice(html.indexOf("<body>"));
+
+// Hlavička běží na obou stranách, takže id druhé strany je jediný spolehlivý
+// řez mezi nimi.
+const splitPages = (html: string): { page1: string; page2: string } => {
+  const page2Start = html.indexOf(`id="${pdfLayout.ids.page2}"`);
+  return { page1: html.slice(0, page2Start), page2: html.slice(page2Start) };
+};
+
 describe("inputlist template layout", () => {
   it("renders page 1 without stageplan and page 2 with stageplan boxes", async () => {
     const tmpRoot = await createPdfRendererFixtureRoot();
@@ -100,7 +111,7 @@ describe("inputlist template layout", () => {
     }
   });
 
-  it("hides names only on stageplan; contact line is a no-op until task 7 restores it in the footer", async () => {
+  it("hides names only on stageplan; contact line renders in the footer, not the header", async () => {
     const tmpRoot = await createPdfRendererFixtureRoot();
 
     try {
@@ -115,7 +126,9 @@ describe("inputlist template layout", () => {
         stageplan: { hideMusicianNames: true },
       });
 
-      expect(html).not.toContain("Kontaktní osoba");
+      const headerEnd = html.indexOf("</header>");
+      expect(html.slice(0, headerEnd)).not.toContain("Kontaktní osoba");
+      expect(html).toContain("Kontaktní osoba");
       expect(html).toContain("BASS");
       expect(html).not.toContain("BASS – MATEJ");
     } finally {
@@ -192,10 +205,6 @@ describe("document header", () => {
     expect(html).not.toContain("INPUT LIST ·");
   });
 
-  // Stylopis je vložený do <head> a obsahuje obě třídy vždycky, takže hledat
-  // je v celém dokumentu by nic neprokázalo. Assertce míří jen do <body>.
-  const bodyOf = (html: string) => html.slice(html.indexOf("<body>"));
-
   it("falls back to the XLR mark when the band has no logo", () => {
     const body = bodyOf(
       renderInputlistHtml(vm, { tabTitle: "Doc", baseHref: "file:///tmp/" }),
@@ -216,5 +225,58 @@ describe("document header", () => {
 
     expect(body).toContain("docHeader__logo");
     expect(body).not.toContain("docHeader__mark");
+  });
+});
+
+describe("document footer", () => {
+  const vm = createDocumentViewModelFixture({
+    meta: {
+      bandName: "Friday Night Band",
+      header: { contextParts: ["22. 8. 2026"], updatedDate: "12. 8. 2026" },
+    },
+    inputRows: [],
+    notes: { inputs: [], monitors: [] },
+  });
+
+  it("numbers the pages from their position, not from a literal", () => {
+    const html = renderInputlistHtml(vm, {
+      tabTitle: "Doc",
+      baseHref: "file:///tmp/",
+    });
+
+    const { page1, page2 } = splitPages(html);
+    expect(page1).toContain("1 / 2");
+    expect(page2).toContain("2 / 2");
+  });
+
+  it("moves the contact line from the header into the footer", () => {
+    const html = renderInputlistHtml(vm, {
+      tabTitle: "Doc",
+      baseHref: "file:///tmp/",
+      contactLine: "Matěj Krečmer · +420 731 247 870",
+    });
+
+    const { page1, page2 } = splitPages(html);
+
+    for (const page of [page1, page2]) {
+      const headerEnd = page.indexOf("</header>");
+      expect(page.slice(0, headerEnd)).not.toContain("Matěj Krečmer");
+    }
+
+    // Přesně jedna kopie na každé straně, ne jen dvě celkem — to by prošlo
+    // i kdyby obě skončily na stejné straně.
+    expect(page1.match(/Matěj Krečmer/g) ?? []).toHaveLength(1);
+    expect(page2.match(/Matěj Krečmer/g) ?? []).toHaveLength(1);
+  });
+
+  it("still numbers the pages when there is no contact line", () => {
+    const html = renderInputlistHtml(vm, {
+      tabTitle: "Doc",
+      baseHref: "file:///tmp/",
+    });
+
+    expect(bodyOf(html)).toContain('class="docFooter"');
+    const { page1 } = splitPages(html);
+    expect(page1).toContain("1 / 2");
   });
 });

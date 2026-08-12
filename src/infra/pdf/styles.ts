@@ -76,7 +76,6 @@ body {
    =============================== */
 :root {
   --block-gap: 14pt;
-  --meta-contact-letter-spacing: 0.2px;
 
   /* line color + widths (single source of truth) */
   --c-line: #000;
@@ -144,16 +143,33 @@ body {
   color: ${pdfTokens.steel};
 }
 
-.contactLine {
-  margin: 0;
-  font-size: ${pdfLayout.typography.contact.size};
-  font-weight: ${pdfLayout.typography.contact.weight};
-  line-height: ${pdfLayout.typography.contact.lineHeight};
-  letter-spacing: var(--meta-contact-letter-spacing);
-  white-space: nowrap;
+/* ===============================
+   Patička dokumentu
+   =============================== */
+.docFooter {
+  display: flex;
+  align-items: baseline;
+  gap: 12pt;
+  padding-top: ${pdfLayout.footer.padTopPt}pt;
+  border-top: ${pdfLayout.footer.rulePt}pt solid ${pdfTokens.line};
+  font-family: '${pdfLayout.typography.monoFamily}', Consolas, monospace;
+  font-size: ${pdfLayout.typography.footer.size};
+  line-height: ${pdfLayout.typography.footer.lineHeight};
+  letter-spacing: ${pdfLayout.typography.footer.tracking};
+  text-transform: uppercase;
+  color: ${pdfTokens.steel};
+}
+
+.docFooter__contact {
+  min-width: 0;
   overflow: hidden;
   text-overflow: clip;
-  color: #111;
+  white-space: nowrap;
+}
+
+.docFooter__page {
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 /* ===============================

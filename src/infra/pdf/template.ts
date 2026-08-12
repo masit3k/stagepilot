@@ -49,6 +49,55 @@ function renderDocumentHeader(args: {
     </header>`;
 }
 
+function renderFooter(args: {
+  contactLine?: string;
+  pageNumber: number;
+  pageCount: number;
+}): string {
+  const contactHtml = args.contactLine
+    ? `<div class="docFooter__contact">${esc(args.contactLine)}</div>`
+    : "";
+
+  return `<footer class="docFooter">
+      ${contactHtml}
+      <div class="docFooter__page">${args.pageNumber} / ${args.pageCount}</div>
+    </footer>`;
+}
+
+type PdfPage = {
+  readonly pageId: string;
+  readonly contentId: string;
+  readonly documentKind: string;
+  readonly body: string;
+};
+
+function renderPage(args: {
+  page: PdfPage;
+  index: number;
+  pageCount: number;
+  vm: DocumentViewModel;
+  opts: RenderTemplateOptions;
+}): string {
+  const isLast = args.index === args.pageCount - 1;
+
+  return `  <div class="pdfPage${isLast ? "" : " pdfPage--break"}" id="${args.page.pageId}">
+    ${renderDocumentHeader({
+      header: args.vm.meta.header,
+      bandName: args.vm.meta.bandName,
+      documentKind: args.page.documentKind,
+      logoHref: args.opts.logoHref,
+    })}
+    <main id="${args.page.contentId}">
+${args.page.body}
+    </main>
+    ${renderFooter({
+      contactLine: args.opts.contactLine,
+      pageNumber: args.index + 1,
+      pageCount: args.pageCount,
+    })}
+  </div>`;
+}
+
 function renderMonitorTable(vm: DocumentViewModel): string {
   const rowsSrc = vm.monitorTableRows;
 
@@ -95,6 +144,61 @@ export function renderInputlistHtml(vm: DocumentViewModel, opts: RenderTemplateO
   // NOTES: vždy až POD oběma tabulkami
   const stageplanHtml = renderStageplanSection(vm, opts.stageplan);
 
+  const inputListBodyHtml = `
+  <div class="tableBlock">
+    <table class="table inputTable">
+      <thead>
+        <tr>
+          <th class="colNo">no.</th>
+          <th class="colInput">input</th>
+          <th class="colNote">note</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${vm.inputRows
+          .map(
+            (r) => `
+          <tr>
+            <td class="colNo">${esc(r.no)}</td>
+            <td class="colInput">${esc(r.label)}</td>
+            <td class="colNote">${r.note ? esc(r.note) : ""}</td>
+          </tr>`,
+          )
+          .join("")}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tableBlock">
+    ${monitorTableHtml}
+  </div>
+
+  <div class="notesBlock">
+    <div class="notes">
+      ${vm.notes.inputs.map((n) => `<div class="noteLine">${esc(n.text)}</div>`).join("")}
+      ${vm.notes.monitors.map((n) => `<div class="noteLine">${esc(n.text)}</div>`).join("")}
+    </div>
+  </div>`;
+
+  const pages: PdfPage[] = [
+    {
+      pageId: pdfLayout.ids.page,
+      contentId: pdfLayout.ids.content,
+      documentKind: "INPUT LIST",
+      body: inputListBodyHtml,
+    },
+    {
+      pageId: pdfLayout.ids.page2,
+      contentId: pdfLayout.ids.content2,
+      documentKind: "STAGE PLAN",
+      body: stageplanHtml,
+    },
+  ];
+
+  const pagesHtml = pages
+    .map((page, index) => renderPage({ page, index, pageCount: pages.length, vm, opts }))
+    .join("\n");
+
   return `<!doctype html>
 <html lang="cs">
 <head>
@@ -107,66 +211,7 @@ ${pdfStyles}
 </head>
 
 <body>
-  <div class="pdfPage pdfPage--break" id="${pdfLayout.ids.page}">
-    ${renderDocumentHeader({
-      header: vm.meta.header,
-      bandName: vm.meta.bandName,
-      documentKind: "INPUT LIST",
-      logoHref: opts.logoHref,
-    })}
-
-<main id="${pdfLayout.ids.content}">
-
-  <!-- INPUT LIST -->
-  <div class="tableBlock">
-    <table class="table inputTable">
-      <thead>
-        <tr>
-          <th class="colNo">no.</th>
-          <th class="colInput">input</th>
-          <th class="colNote">note</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${vm.inputRows.map(r => `
-          <tr>
-            <td class="colNo">${esc(r.no)}</td>
-            <td class="colInput">${esc(r.label)}</td>
-            <td class="colNote">${r.note ? esc(r.note) : ""}</td>
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>
-  </div>
-
-  <!-- MONITORS (spec table) -->
-  <div class="tableBlock">
-    ${monitorTableHtml}
-  </div>
-
-  <!-- NOTES (ALWAYS AFTER BOTH TABLES) -->
-  <div class="notesBlock">
-    <div class="notes">
-      ${vm.notes.inputs.map(n => `<div class="noteLine">${esc(n.text)}</div>`).join("")}
-      ${vm.notes.monitors.map(n => `<div class="noteLine">${esc(n.text)}</div>`).join("")}
-    </div>
-  </div>
-
-</main>
-
-  </div>
-
-  <div class="pdfPage" id="${pdfLayout.ids.page2}">
-    ${renderDocumentHeader({
-      header: vm.meta.header,
-      bandName: vm.meta.bandName,
-      documentKind: "STAGE PLAN",
-      logoHref: opts.logoHref,
-    })}
-    <main id="${pdfLayout.ids.content2}" class="stageplanPageContent">
-      ${stageplanHtml}
-    </main>
-  </div>
+${pagesHtml}
 </body>
 </html>`.trim();
 }
