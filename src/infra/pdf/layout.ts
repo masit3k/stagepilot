@@ -10,7 +10,8 @@ export const pdfLayout = {
   },
 
   typography: {
-    fontFamily: "Inter",
+    fontFamily: "Space Grotesk",
+    monoFamily: "IBM Plex Mono",
     title: { size: "26pt", weight: 700 as const, lineHeight: 1.1 },
     contact: { size: "11pt", weight: 700 as const, lineHeight: 1.3 },
     table: { size: "9pt", lineHeight: 1.2, headerWeight: 700 as const },

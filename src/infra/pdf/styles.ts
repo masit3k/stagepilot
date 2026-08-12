@@ -4,26 +4,31 @@ import { stageplanLayout } from "./sections/stageplan.js";
 export const pdfStyles = `
 /* ===============================
    Local fonts (deterministic)
+
+   Obě rodiny jsou SIL OFL 1.1 a leží v repu vedle licenčních textů. Nic se
+   nestahuje ze sítě — render musí být stejný na každém stroji.
+   Space Grotesk je jeden variabilní soubor pro váhy 300-700, proto jeden
+   @font-face místo tří statických řezů.
    =============================== */
 @font-face {
-  font-family: 'Inter';
+  font-family: 'Space Grotesk';
   font-style: normal;
-  font-weight: 400;
-  src: url('./fonts/Inter/Inter-Regular.ttf') format('truetype');
+  font-weight: 300 700;
+  src: url('./fonts/SpaceGrotesk/SpaceGrotesk-Variable.ttf') format('truetype-variations');
 }
 
 @font-face {
-  font-family: 'Inter';
-  font-style: italic;
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
   font-weight: 400;
-  src: url('./fonts/Inter/Inter-Italic.ttf') format('truetype');
+  src: url('./fonts/IBMPlexMono/IBMPlexMono-Regular.ttf') format('truetype');
 }
 
 @font-face {
-  font-family: 'Inter';
+  font-family: 'IBM Plex Mono';
   font-style: normal;
-  font-weight: 700;
-  src: url('./fonts/Inter/Inter-Bold.ttf') format('truetype');
+  font-weight: 500;
+  src: url('./fonts/IBMPlexMono/IBMPlexMono-Medium.ttf') format('truetype');
 }
 
 /* ===============================
@@ -45,7 +50,7 @@ html, body {
 }
 
 body {
-  font-family: ${pdfLayout.typography.fontFamily}, Helvetica, Arial, sans-serif;
+  font-family: ${pdfLayout.typography.fontFamily}, 'Segoe UI', Helvetica, Arial, sans-serif;
   color: #000;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -108,14 +113,13 @@ body {
   height: auto;
 }
 
-/* Datum/Místo – celé kurzívou */
+/* Datum/Místo – barva rozlišuje */
 .metaLine {
   margin: 0 0 var(--header-gap) 0;
   font-size: ${pdfLayout.typography.contact.size};
   line-height: 1.2;
   letter-spacing: var(--meta-contact-letter-spacing);
   color: #222;
-  font-style: italic;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: clip;
@@ -241,7 +245,6 @@ body {
 
 .notes {
   font-size: ${pdfLayout.typography.table.size};
-  font-style: italic;        /* použije Inter-Italic.ttf */
   line-height: 1.4;
   color: #000000;
 }

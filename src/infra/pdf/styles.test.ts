@@ -3,9 +3,17 @@ import { pdfStyles } from "./styles.js";
 import { pdfLayout } from "./layout.js";
 
 describe("pdf notes typography", () => {
-  it("matches table text size and keeps italic style for note paragraphs", () => {
-    expect(pdfStyles).toContain(`.notes {\n  font-size: ${pdfLayout.typography.table.size};`);
-    expect(pdfStyles).toContain("font-style: italic;");
+  it("matches table text size and drops italic from note paragraphs", () => {
+    expect(pdfStyles).toContain(
+      `.notes {\n  font-size: ${pdfLayout.typography.table.size};`,
+    );
+    expect(pdfStyles).not.toContain("font-style: italic");
+  });
+
+  it("loads only the two brand families", () => {
+    expect(pdfStyles).toContain("font-family: 'Space Grotesk'");
+    expect(pdfStyles).toContain("font-family: 'IBM Plex Mono'");
+    expect(pdfStyles).not.toContain("Inter");
   });
 
   it("allows note cells to wrap long note content", () => {
