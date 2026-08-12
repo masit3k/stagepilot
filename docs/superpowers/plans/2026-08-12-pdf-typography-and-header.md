@@ -1580,8 +1580,11 @@ describe("pdf table", () => {
   });
 
   it("sets the channel number in mono", () => {
+    // Ukotvené na .colNo. Samotné `font-family: 'IBM Plex Mono'` je ve
+    // stylopisu i u hlavičky a patičky, takže by assertce prošla i na kódu
+    // před touhle úlohou a netestovala by nic.
     expect(pdfStyles).toContain(
-      `font-family: '${pdfLayout.typography.monoFamily}'`,
+      `.table tbody td.colNo {\n  font-family: '${pdfLayout.typography.monoFamily}'`,
     );
   });
 });
@@ -1669,13 +1672,14 @@ V `src/infra/pdf/styles.ts` smaž celý blok `Table blocks (outer thick frame)` 
 }
 ```
 
-Konstanty na začátku souboru uprav tak, aby `--c-line` mířila na ink a `--w-frame` zůstala jen pro linku pod hlavičkou:
+Konstanty na začátku souboru uprav tak, aby `--c-line` mířila na ink:
 
 ```css
   --c-line: ${pdfTokens.ink};
-  --w-frame: 2pt;   /* linka pod hlavičkou dokumentu */
   --w-grid: 0.5pt;  /* linky mezi řádky tabulky */
 ```
+
+`--w-frame` **smaž**. Linku pod hlavičkou kreslí `.docHeader` přímo z `pdfLayout.header.rulePt`, ne z téhle proměnné, a její poslední dva skuteční konzumenti (`.tableBlock` a stará `thead th`) mizí právě tady — zůstala by mrtvá. `--w-grid` si nech, dokud ji něco čte.
 
 - [ ] **Krok 4: Zruš obal tabulek v šabloně**
 

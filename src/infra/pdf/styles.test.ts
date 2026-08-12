@@ -32,7 +32,7 @@ describe("pdf table", () => {
 
   it("sets the channel number in mono", () => {
     expect(pdfStyles).toContain(
-      `font-family: '${pdfLayout.typography.monoFamily}'`,
+      `.table tbody td.colNo {\n  font-family: '${pdfLayout.typography.monoFamily}'`,
     );
   });
 });

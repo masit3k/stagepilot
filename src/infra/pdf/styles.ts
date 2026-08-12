@@ -79,7 +79,6 @@ body {
 
   /* line color + widths (single source of truth) */
   --c-line: ${pdfTokens.ink};
-  --w-frame: 2pt;   /* linka pod hlavičkou dokumentu */
   --w-grid: 0.5pt;  /* linky mezi řádky tabulky */
 }
 
