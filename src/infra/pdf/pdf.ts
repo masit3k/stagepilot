@@ -8,7 +8,11 @@ import type { Browser, LaunchOptions } from "puppeteer";
 import type { DocumentViewModel } from "../../domain/model/types.js";
 import { renderInputlistHtml } from "./template.js";
 import { pdfLayout } from "./layout.js";
+import { countPdfPages } from "./pdfPageCount.js";
 import type { StageplanRenderOptions } from "./stageplanRenderOptions.js";
+
+/** Input list a stage plan. Třetí strana znamená, že se obsah nevešel. */
+const EXPECTED_PAGE_COUNT = 2;
 
 const DESKTOP_CHROMIUM_ARGS = [
     "--disable-dev-shm-usage",
@@ -136,6 +140,55 @@ async function launchWithFallback(strategies: LaunchStrategy[]): Promise<Browser
     );
 }
 
+/** Spuštění prohlížeče podle pořadí systémový Chrome → svázaný Chromium → env. */
+export async function launchPdfBrowser(): Promise<Browser> {
+    const executablePath = resolveChromiumExecutablePath();
+    const dumpio = process.env.STAGEPILOT_PDF_DUMPIO === "1";
+    const baseLaunchOptions = {
+        headless: true,
+        dumpio,
+        args: DESKTOP_CHROMIUM_ARGS,
+    } as const satisfies LaunchOptions;
+
+    const launchStrategies: LaunchStrategy[] = [];
+    const explicitExecutablePath = hasExplicitExecutablePath();
+
+    if (!explicitExecutablePath) {
+        launchStrategies.push(...getSystemBrowserFallbacks(baseLaunchOptions));
+    }
+
+    if (executablePath) {
+        launchStrategies.push({
+            name: explicitExecutablePath
+                ? "env:PUPPETEER_EXECUTABLE_PATH"
+                : "puppeteer.executablePath()",
+            executablePath,
+            launchOptions: { ...baseLaunchOptions, executablePath },
+        });
+    } else {
+        launchStrategies.push({
+            name: "puppeteer default resolution",
+            launchOptions: { ...baseLaunchOptions },
+        });
+    }
+
+    console.error("[pdf] chromium launch plan", {
+        platform: process.platform,
+        nodeVersion: process.versions.node,
+        executablePath: executablePath ?? "<puppeteer default>",
+        cwd: process.cwd(),
+        dumpio,
+        args: DESKTOP_CHROMIUM_ARGS,
+        strategies: launchStrategies.map((strategy) => ({
+            name: strategy.name,
+            executablePath: strategy.executablePath ?? null,
+            channel: strategy.launchOptions.channel ?? null,
+        })),
+    });
+
+    return launchWithFallback(launchStrategies);
+}
+
 export interface RenderPdfOptions {
     outFile: string;         // absolutní nebo relativní
     contactLine?: string;    // volitelné (doplníš z usecase)
@@ -169,58 +222,7 @@ export async function renderPdf(vm: DocumentViewModel, opts: RenderPdfOptions): 
 
     await fs.mkdir(path.dirname(opts.outFile), { recursive: true });
 
-    const executablePath = resolveChromiumExecutablePath();
-    const dumpio = process.env.STAGEPILOT_PDF_DUMPIO === "1";
-    const baseLaunchOptions = {
-        headless: true,
-        dumpio,
-        args: DESKTOP_CHROMIUM_ARGS,
-    } as const satisfies LaunchOptions;
-
-    const launchStrategies: LaunchStrategy[] = [];
-
-    const explicitExecutablePath = hasExplicitExecutablePath();
-
-    if (!explicitExecutablePath) {
-        launchStrategies.push(...getSystemBrowserFallbacks(baseLaunchOptions));
-    }
-
-    if (executablePath) {
-        launchStrategies.push({
-            name: explicitExecutablePath
-                ? "env:PUPPETEER_EXECUTABLE_PATH"
-                : "puppeteer.executablePath()",
-            executablePath,
-            launchOptions: {
-                ...baseLaunchOptions,
-                executablePath,
-            },
-        });
-    } else {
-        launchStrategies.push({
-            name: "puppeteer default resolution",
-            launchOptions: {
-                ...baseLaunchOptions,
-            },
-        });
-    }
-
-    console.error("[pdf] chromium launch plan", {
-        platform: process.platform,
-        nodeVersion: process.versions.node,
-        executablePath: executablePath ?? "<puppeteer default>",
-        cwd: process.cwd(),
-        dumpio,
-        args: DESKTOP_CHROMIUM_ARGS,
-        strategies: launchStrategies.map((strategy) => ({
-            name: strategy.name,
-            executablePath: strategy.executablePath ?? null,
-            channel: strategy.launchOptions.channel ?? null,
-        })),
-    });
-
-    let browser;
-    browser = await launchWithFallback(launchStrategies);
+    const browser = await launchPdfBrowser();
 
     try {
         const page = await browser.newPage();
@@ -228,43 +230,34 @@ export async function renderPdf(vm: DocumentViewModel, opts: RenderPdfOptions): 
         // setContent stačí "load" – fonty se načtou přes file://
         await page.setContent(html, { waitUntil: "load" });
 
-        // Overflow check: každý #content musí být uvnitř svého #page (A4/stránka).
-        const pairs = [
-            { pageId: pdfLayout.ids.page, contentId: pdfLayout.ids.content },
-            { pageId: pdfLayout.ids.page2, contentId: pdfLayout.ids.content2 },
-        ];
+        // #content je flex položka s pevnou výškou stránky, takže scrollHeight
+        // nad clientHeight je přímé měření přetečení. Předchozí verze
+        // porovnávala rodiče s jeho vlastním dítětem a nemohla nikdy spadnout.
+        const contentIds = [pdfLayout.ids.content, pdfLayout.ids.content2];
 
-        const overflow = await page.evaluate((pairsArg) => {
-            const d = globalThis as any;
-            const doc = d.document as any;
-            const pairs = pairsArg;
-
+        const overflow = await page.evaluate((ids: string[]) => {
             const tolerancePx = 2;
-            for (const pair of pairs) {
-                const pageEl = doc.getElementById(pair.pageId);
-                const contentEl = doc.getElementById(pair.contentId);
-                if (!pageEl || !contentEl) {
-                    return { ok: false, reason: `missing #${pair.pageId} or #${pair.contentId}` };
+            for (const id of ids) {
+                const el = document.getElementById(id);
+                if (!el) {
+                    return { ok: false as const, reason: `missing #${id}` };
                 }
-
-                const pageRect = pageEl.getBoundingClientRect();
-                const contentRect = contentEl.getBoundingClientRect();
-                const overflowPx = contentRect.bottom - pageRect.bottom;
+                const overflowPx = el.scrollHeight - el.clientHeight;
                 if (overflowPx > tolerancePx) {
-                    return { ok: false, overflowPx, pageId: pair.pageId };
+                    return { ok: false as const, contentId: id, overflowPx };
                 }
             }
+            return { ok: true as const };
+        }, contentIds);
 
-            return { ok: true };
-        }, pairs);
-
-        if (!("ok" in overflow) || overflow.ok === false) {
-            const msg =
-                "PDF overflow: content does not fit A4 page. " +
-                (typeof overflow === "object" && overflow && "overflowPx" in overflow
-                    ? `pageId=${String((overflow as any).pageId)} overflowPx=${String((overflow as any).overflowPx)}`
-                    : "");
-            throw new Error(msg);
+        if (!overflow.ok) {
+            throw new Error(
+                `PDF overflow: content does not fit A4 page. ${
+                    "overflowPx" in overflow
+                        ? `contentId=${overflow.contentId} overflowPx=${overflow.overflowPx}`
+                        : overflow.reason
+                }`,
+            );
         }
 
         await page.pdf({
@@ -273,7 +266,15 @@ export async function renderPdf(vm: DocumentViewModel, opts: RenderPdfOptions): 
             printBackground: true,
             preferCSSPageSize: true,
         });
+
+        const rendered = await fs.readFile(opts.outFile);
+        const pageCount = countPdfPages(rendered);
+        if (pageCount !== EXPECTED_PAGE_COUNT) {
+            throw new Error(
+                `PDF page count mismatch: expected ${EXPECTED_PAGE_COUNT}, got ${pageCount}. Content overflowed the A4 page.`,
+            );
+        }
     } finally {
-        await browser?.close();
+        await browser.close();
     }
 }

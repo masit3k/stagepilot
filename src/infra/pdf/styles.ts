@@ -56,14 +56,23 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Wrappery pro overflow check v pdf.ts */
-#${pdfLayout.ids.page} { }
-#${pdfLayout.ids.content} { }
-#${pdfLayout.ids.page2} { }
-#${pdfLayout.ids.content2} { }
-
+/*
+  Pevná šířka srovná rozložení na obrazovce s tiskem — bez ní se sloupec note
+  zalamuje při měření jinak než na papíře. Pevná výška dá kontrole přetečení
+  co měřit; bez ní je .pdfPage jen tak vysoká jako její obsah.
+*/
 .pdfPage {
   position: relative;
+  width: ${pdfLayout.page.contentWidthMm}mm;
+  height: ${pdfLayout.page.contentHeightMm}mm;
+  display: flex;
+  flex-direction: column;
+}
+
+#${pdfLayout.ids.content},
+#${pdfLayout.ids.content2} {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .pdfPage--break {
