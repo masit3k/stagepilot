@@ -279,8 +279,14 @@ describe("document footer", () => {
     const { page1 } = splitPages(html);
     expect(page1).toContain("1 / 2");
   });
+});
 
+describe("input table", () => {
   it("renders the tables without a frame wrapper", () => {
+    const vm = createDocumentViewModelFixture({
+      meta: { bandName: "Friday Night Band" },
+    });
+
     const html = renderInputlistHtml(vm, {
       tabTitle: "Doc",
       baseHref: "file:///tmp/",
