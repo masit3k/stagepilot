@@ -47,7 +47,6 @@ function parseMm(value: string): number {
   return Number.parseFloat(m[1] ?? "0");
 }
 
-const headingSizePt = parsePt(pdfLayout.typography.title.size) - 6;
 const stageplanTextLineHeight = 1.3;
 const boxTitleGapPt = 6;
 const boxPaddingBottomPt = parsePt(pdfLayout.table.padY);
@@ -60,8 +59,6 @@ const powerBadgeTextGapPt = stageplanLineHeightPt;
 const powerBadgeSpacerHeightPt = powerBadgeReservedPt + powerBadgeTextGapPt;
 
 const stageplanLayout = {
-  headingSize: `${headingSizePt}pt`,
-  headingWeight: 700,
   textSize: pdfLayout.typography.table.size,
   textLineHeight: stageplanTextLineHeight,
   padX: pdfLayout.table.padX,
@@ -69,7 +66,6 @@ const stageplanLayout = {
   boxTitleGap: `${boxTitleGapPt}pt`,
   boxPaddingBottom: `${boxPaddingBottomPt}pt`,
   powerBadgeSpacerHeight: `${powerBadgeSpacerHeightPt}pt`,
-  sectionMarginTop: "16pt",
   containerMarginTop: "24pt",
   containerPad: "24pt",
   areaWidthMm: 180,
@@ -225,7 +221,7 @@ function computeBottomRowGeometry(args: {
 }
 
 export type StageplanPlan = {
-  heading: { text: string; fontSize: string; fontWeight: number };
+  budget: { totalHeightMm: number; availableHeightMm: number };
   textStyle: { fontSize: string; lineHeight: number };
   layout: typeof stageplanLayout & {
     areaHeightMm: number;
@@ -378,33 +374,20 @@ export function buildStageplanPlan(
 ): StageplanPlan {
   const built = buildStageplanBoxes(vm, options);
   const areaHeightMm = built.areaHeightMm;
-  const pageHeightMm = 297;
-  const marginTopMm = parseMm(pdfLayout.page.margins.top);
-  const marginBottomMm = parseMm(pdfLayout.page.margins.bottom);
-  const headingHeightMm = (parsePt(stageplanLayout.headingSize) / MM_TO_PT) * 1;
+  const availableHeightMm =
+    297 - parseMm(pdfLayout.page.margins.top) - parseMm(pdfLayout.page.margins.bottom);
   const containerMarginTopMm =
     parsePt(stageplanLayout.containerMarginTop) / MM_TO_PT;
   const containerPadMm = (parsePt(stageplanLayout.containerPad) / MM_TO_PT) * 2;
-  const sectionMarginTopMm =
-    parsePt(stageplanLayout.sectionMarginTop) / MM_TO_PT;
-  const totalHeightMm =
-    sectionMarginTopMm +
-    headingHeightMm +
-    containerMarginTopMm +
-    containerPadMm +
-    areaHeightMm;
-  const availableHeightMm = pageHeightMm - marginTopMm - marginBottomMm;
+  const totalHeightMm = containerMarginTopMm + containerPadMm + areaHeightMm;
+
   if (totalHeightMm > availableHeightMm) {
     throw new Error(
       `Stageplan layout overflow: required ${totalHeightMm.toFixed(2)}mm exceeds available ${availableHeightMm.toFixed(2)}mm.`,
     );
   }
   return {
-    heading: {
-      text: "Stageplan",
-      fontSize: stageplanLayout.headingSize,
-      fontWeight: stageplanLayout.headingWeight,
-    },
+    budget: { totalHeightMm, availableHeightMm },
     textStyle: {
       fontSize: stageplanLayout.textSize,
       lineHeight: stageplanLayout.textLineHeight,
@@ -484,7 +467,7 @@ export function renderStageplanSection(
     .join("\n");
 
   return `
-<section class="stageplanSection">\n  <div class="stageplanHeading">${plan.heading.text}</div>\n  <div class="stageplanContainer">\n    <div class="stageplanArea" style="height:${areaHeight}mm;">\n      ${boxesHtml}\n    </div>\n  </div>\n</section>`.trim();
+<section class="stageplanSection">\n  <div class="stageplanContainer">\n    <div class="stageplanArea" style="height:${areaHeight}mm;">\n      ${boxesHtml}\n    </div>\n  </div>\n</section>`.trim();
 }
 
 export { stageplanLayout };

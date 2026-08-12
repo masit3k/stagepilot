@@ -31,10 +31,6 @@ describe("stageplan render plan", () => {
       expect(plan.layout.layoutId).toBe("layout_5_party");
       expect(plan.boxes).toHaveLength(5);
 
-      expect(parsePt(plan.heading.fontSize)).toBeLessThan(
-        parsePt(pdfLayout.typography.title.size)
-      );
-
       expect(plan.textStyle.fontSize).toBe(pdfLayout.typography.table.size);
 
       const drumsBox = plan.boxes.find((box) => box.slot === "drums");
@@ -301,17 +297,12 @@ describe("stageplan render plan", () => {
       expect(box.position.yMm + box.position.heightMm).toBeLessThanOrEqual(plan.layout.areaHeightMm);
     }
 
-    const pageHeightMm = 297;
-    const marginTopMm = Number.parseFloat(pdfLayout.page.margins.top);
-    const marginBottomMm = Number.parseFloat(pdfLayout.page.margins.bottom);
-    const availableHeightMm = pageHeightMm - marginTopMm - marginBottomMm;
-    const sectionMarginTopMm = parsePt(plan.layout.sectionMarginTop) / (72 / 25.4);
-    const headingHeightMm = parsePt(plan.heading.fontSize) / (72 / 25.4);
-    const containerMarginTopMm = parsePt(plan.layout.containerMarginTop) / (72 / 25.4);
-    const containerPadMm = (parsePt(plan.layout.containerPad) / (72 / 25.4)) * 2;
-    const totalHeightMm = sectionMarginTopMm + headingHeightMm + containerMarginTopMm + containerPadMm + plan.layout.areaHeightMm;
-
-    expect(totalHeightMm).toBeLessThanOrEqual(availableHeightMm);
+    // Rozpočet počítá produkční kód, test ho jen kontroluje — jinak by se
+    // vzorec musel držet na dvou místech.
+    expect(plan.budget.totalHeightMm).toBeLessThanOrEqual(
+      plan.budget.availableHeightMm,
+    );
+    expect(plan.budget.availableHeightMm).toBe(262);
   });
 
   it("collapses stereo inputs and keeps monitor bullets intact", () => {

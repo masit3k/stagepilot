@@ -33,7 +33,7 @@ describe("inputlist template layout", () => {
       const page2Html = html.slice(page2Start);
 
       expect(page1Html).not.toContain("stageplanSection");
-      expect(page2Html).toContain("Stageplan");
+      expect(page2Html).not.toContain("stageplanHeading");
 
       const boxMatches = page2Html.match(/class="stageplanBox\b/g) ?? [];
       expect(boxMatches).toHaveLength(5);

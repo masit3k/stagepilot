@@ -255,15 +255,6 @@ body {
    =============================== */
 
 .stageplanSection {
-  margin-top: ${stageplanLayout.sectionMarginTop};
-  text-align: center;
-}
-
-.stageplanHeading {
-  font-size: ${stageplanLayout.headingSize};
-  font-weight: ${stageplanLayout.headingWeight};
-  line-height: 1;
-  margin: 0;
   text-align: center;
 }
 
