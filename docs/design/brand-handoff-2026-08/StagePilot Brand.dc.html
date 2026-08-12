@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #E9E7E2; font-family: 'Space Grotesk', sans-serif; }
+  a { color: #FF5B1F; text-decoration: none; }
+  a:hover { color: #101112; }
+</style>
+</helmet>
+
+<section style="padding: 72px 64px 40px; display: flex; flex-direction: column; gap: 44px; background: #E9E7E2; font-family: 'Space Grotesk', sans-serif; color: #101112;">
+
+  <header style="display: flex; flex-direction: column; gap: 14px; max-width: 780px;">
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #FF5B1F;">Kolo 3 · Nové znaky, přeskládané obrazovky</div>
+    <h1 style="margin: 0; font-size: 52px; font-weight: 600; letter-spacing: -0.035em; line-height: 1.02;">Čtyři nové směry — a editor stage planu</h1>
+    <p style="margin: 0; font-size: 18px; line-height: 1.5; color: #55585C; text-wrap: pretty;">Žádná plachetnice: tři znaky vycházejí přímo z techniky (tah faderu, XLR, plán pódia), čtvrtý z navigace. Vybráno: <a href="#3b">3b</a> — všechny obrazovky i PDF už ho nesou. Editor v <a href="#3g">3g</a> je živý — bloky se dají chytit myší a otáčet.</p>
+  </header>
+
+  <div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: stretch;">
+
+    <div id="3a" style="width: 341px; flex: 0 0 auto; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D8D5CE; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 18px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.12em; background: #101112; color: #F4F2ED; padding: 5px 9px; border-radius: 6px;">3A</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A8D92;">Fader</div>
+      </div>
+      <div style="height: 168px; border-radius: 14px; background: #F4F2ED; display: flex; align-items: center; justify-content: center;">
+        <svg viewBox="0 0 64 64" width="104" height="104" fill="none">
+          <rect x="13.5" y="8" width="5" height="48" rx="2.5" fill="#CFCCC5"></rect>
+          <rect x="29.5" y="8" width="5" height="48" rx="2.5" fill="#CFCCC5"></rect>
+          <rect x="45.5" y="8" width="5" height="48" rx="2.5" fill="#CFCCC5"></rect>
+          <rect x="9" y="31" width="14" height="9" rx="3" fill="#101112"></rect>
+          <rect x="25" y="14" width="14" height="9" rx="3" fill="#FF5B1F"></rect>
+          <rect x="41" y="41" width="14" height="9" rx="3" fill="#101112"></rect>
+        </svg>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <svg viewBox="0 0 64 64" width="28" height="28" fill="none">
+          <rect x="13.5" y="8" width="5" height="48" rx="2.5" fill="#CFCCC5"></rect>
+          <rect x="29.5" y="8" width="5" height="48" rx="2.5" fill="#CFCCC5"></rect>
+          <rect x="45.5" y="8" width="5" height="48" rx="2.5" fill="#CFCCC5"></rect>
+          <rect x="9" y="31" width="14" height="9" rx="3" fill="#101112"></rect>
+          <rect x="25" y="14" width="14" height="9" rx="3" fill="#FF5B1F"></rect>
+          <rect x="41" y="41" width="14" height="9" rx="3" fill="#101112"></rect>
+        </svg>
+        <div style="font-size: 22px; font-weight: 600; letter-spacing: -0.035em;">StagePilot</div>
+      </div>
+      <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #55585C; text-wrap: pretty;">Tři fadery v mixu. Nejbližší světu zvukaře, čitelné i v 16 px.</p>
+      <div style="display: flex; align-items: center; gap: 14px; padding-top: 14px; border-top: 1px solid #E4E1DA;">
+        <div style="width: 46px; height: 46px; border-radius: 11px; background: #101112; display: flex; align-items: center; justify-content: center;">
+          <svg viewBox="0 0 64 64" width="28" height="28" fill="none">
+            <rect x="13.5" y="8" width="5" height="48" rx="2.5" fill="#3A3E44"></rect>
+            <rect x="29.5" y="8" width="5" height="48" rx="2.5" fill="#3A3E44"></rect>
+            <rect x="45.5" y="8" width="5" height="48" rx="2.5" fill="#3A3E44"></rect>
+            <rect x="9" y="31" width="14" height="9" rx="3" fill="#F4F2ED"></rect>
+            <rect x="25" y="14" width="14" height="9" rx="3" fill="#FF5B1F"></rect>
+            <rect x="41" y="41" width="14" height="9" rx="3" fill="#F4F2ED"></rect>
+          </svg>
+        </div>
+        <svg viewBox="0 0 64 64" width="16" height="16" fill="none">
+          <rect x="13.5" y="8" width="5" height="48" rx="2.5" fill="#CFCCC5"></rect>
+          <rect x="29.5" y="8" width="5" height="48" rx="2.5" fill="#CFCCC5"></rect>
+          <rect x="45.5" y="8" width="5" height="48" rx="2.5" fill="#CFCCC5"></rect>
+          <rect x="9" y="31" width="14" height="9" rx="3" fill="#101112"></rect>
+          <rect x="25" y="14" width="14" height="9" rx="3" fill="#FF5B1F"></rect>
+          <rect x="41" y="41" width="14" height="9" rx="3" fill="#101112"></rect>
+        </svg>
+        <div style="margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8A8D92;">46 / 16 px</div>
+      </div>
+    </div>
+
+    <div id="3b" style="width: 341px; flex: 0 0 auto; box-sizing: border-box; background: #FFFFFF; border: 2px solid #FF5B1F; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 18px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.12em; background: #FF5B1F; color: #101112; padding: 5px 9px; border-radius: 6px;">3B</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A8D92;">XLR · vybráno</div>
+      </div>
+      <div style="height: 168px; border-radius: 14px; background: #F4F2ED; display: flex; align-items: center; justify-content: center;">
+        <svg viewBox="0 0 64 64" width="104" height="104" fill="none">
+          <rect x="26" y="1" width="12" height="11" rx="3" fill="#101112"></rect>
+          <circle cx="32" cy="34" r="22" stroke="#101112" stroke-width="6"></circle>
+          <circle cx="32" cy="25" r="5.5" fill="#FF5B1F"></circle>
+          <circle cx="23" cy="41" r="5.5" fill="#101112"></circle>
+          <circle cx="41" cy="41" r="5.5" fill="#101112"></circle>
+        </svg>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <svg viewBox="0 0 64 64" width="28" height="28" fill="none">
+          <rect x="26" y="1" width="12" height="11" rx="3" fill="#101112"></rect>
+          <circle cx="32" cy="34" r="22" stroke="#101112" stroke-width="6"></circle>
+          <circle cx="32" cy="25" r="5.5" fill="#FF5B1F"></circle>
+          <circle cx="23" cy="41" r="5.5" fill="#101112"></circle>
+          <circle cx="41" cy="41" r="5.5" fill="#101112"></circle>
+        </svg>
+        <div style="font-size: 22px; font-weight: 600; letter-spacing: -0.035em;">StagePilot</div>
+      </div>
+      <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #55585C; text-wrap: pretty;">Objímka XLR se západkou a třemi piny. Univerzální zkratka pro zvuk — pozná ji každý technik.</p>
+      <div style="display: flex; align-items: center; gap: 14px; padding-top: 14px; border-top: 1px solid #E4E1DA;">
+        <div style="width: 46px; height: 46px; border-radius: 11px; background: #101112; display: flex; align-items: center; justify-content: center;">
+          <svg viewBox="0 0 64 64" width="28" height="28" fill="none">
+            <rect x="26" y="1" width="12" height="11" rx="3" fill="#F4F2ED"></rect>
+            <circle cx="32" cy="34" r="22" stroke="#F4F2ED" stroke-width="6"></circle>
+            <circle cx="32" cy="25" r="5.5" fill="#FF5B1F"></circle>
+            <circle cx="23" cy="41" r="5.5" fill="#F4F2ED"></circle>
+            <circle cx="41" cy="41" r="5.5" fill="#F4F2ED"></circle>
+          </svg>
+        </div>
+        <svg viewBox="0 0 64 64" width="16" height="16" fill="none">
+          <rect x="26" y="1" width="12" height="11" rx="3" fill="#101112"></rect>
+          <circle cx="32" cy="34" r="22" stroke="#101112" stroke-width="6"></circle>
+          <circle cx="32" cy="25" r="5.5" fill="#FF5B1F"></circle>
+          <circle cx="23" cy="41" r="5.5" fill="#101112"></circle>
+          <circle cx="41" cy="41" r="5.5" fill="#101112"></circle>
+        </svg>
+        <div style="margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8A8D92;">46 / 16 px</div>
+      </div>
+    </div>
+
+    <div id="3c" style="width: 341px; flex: 0 0 auto; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D8D5CE; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 18px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.12em; background: #101112; color: #F4F2ED; padding: 5px 9px; border-radius: 6px;">3C</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A8D92;">Kurzor</div>
+      </div>
+      <div style="height: 168px; border-radius: 14px; background: #F4F2ED; display: flex; align-items: center; justify-content: center;">
+        <svg viewBox="0 0 64 64" width="104" height="104" fill="none">
+          <path d="M32 7 L32 42 L12 54 Z" fill="#101112"></path>
+          <path d="M32 7 L52 54 L32 42 Z" fill="#FF5B1F"></path>
+        </svg>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <svg viewBox="0 0 64 64" width="28" height="28" fill="none">
+          <path d="M32 7 L32 42 L12 54 Z" fill="#101112"></path>
+          <path d="M32 7 L52 54 L32 42 Z" fill="#FF5B1F"></path>
+        </svg>
+        <div style="font-size: 22px; font-weight: 600; letter-spacing: -0.035em;">StagePilot</div>
+      </div>
+      <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #55585C; text-wrap: pretty;">Kurzor a zároveň letka. „Pilot“ doslova — a stejný tvar používá nástroj výběru v editoru.</p>
+      <div style="display: flex; align-items: center; gap: 14px; padding-top: 14px; border-top: 1px solid #E4E1DA;">
+        <div style="width: 46px; height: 46px; border-radius: 11px; background: #101112; display: flex; align-items: center; justify-content: center;">
+          <svg viewBox="0 0 64 64" width="28" height="28" fill="none">
+            <path d="M32 7 L32 42 L12 54 Z" fill="#F4F2ED"></path>
+            <path d="M32 7 L52 54 L32 42 Z" fill="#FF5B1F"></path>
+          </svg>
+        </div>
+        <svg viewBox="0 0 64 64" width="16" height="16" fill="none">
+          <path d="M32 7 L32 42 L12 54 Z" fill="#101112"></path>
+          <path d="M32 7 L52 54 L32 42 Z" fill="#FF5B1F"></path>
+        </svg>
+        <div style="margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8A8D92;">46 / 16 px</div>
+      </div>
+    </div>
+
+    <div id="3d" style="width: 341px; flex: 0 0 auto; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D8D5CE; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 18px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.12em; background: #101112; color: #F4F2ED; padding: 5px 9px; border-radius: 6px;">3D</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A8D92;">Půdorys</div>
+      </div>
+      <div style="height: 168px; border-radius: 14px; background: #F4F2ED; display: flex; align-items: center; justify-content: center;">
+        <svg viewBox="0 0 64 64" width="104" height="104" fill="none">
+          <rect x="9" y="9" width="46" height="46" rx="12" stroke="#101112" stroke-width="6"></rect>
+          <rect x="20" y="20" width="16" height="16" rx="4" fill="#FF5B1F"></rect>
+        </svg>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <svg viewBox="0 0 64 64" width="28" height="28" fill="none">
+          <rect x="9" y="9" width="46" height="46" rx="12" stroke="#101112" stroke-width="6"></rect>
+          <rect x="20" y="20" width="16" height="16" rx="4" fill="#FF5B1F"></rect>
+        </svg>
+        <div style="font-size: 22px; font-weight: 600; letter-spacing: -0.035em;">StagePilot</div>
+      </div>
+      <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #55585C; text-wrap: pretty;">Rám pódia s jedním umístěným blokem. Dva tvary, nic navíc — nejtišší z celé čtveřice.</p>
+      <div style="display: flex; align-items: center; gap: 14px; padding-top: 14px; border-top: 1px solid #E4E1DA;">
+        <div style="width: 46px; height: 46px; border-radius: 11px; background: #101112; display: flex; align-items: center; justify-content: center;">
+          <svg viewBox="0 0 64 64" width="28" height="28" fill="none">
+            <rect x="9" y="9" width="46" height="46" rx="12" stroke="#F4F2ED" stroke-width="6"></rect>
+            <rect x="20" y="20" width="16" height="16" rx="4" fill="#FF5B1F"></rect>
+          </svg>
+        </div>
+        <svg viewBox="0 0 64 64" width="16" height="16" fill="none">
+          <rect x="9" y="9" width="46" height="46" rx="12" stroke="#101112" stroke-width="6"></rect>
+          <rect x="20" y="20" width="16" height="16" rx="4" fill="#FF5B1F"></rect>
+        </svg>
+        <div style="margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8A8D92;">46 / 16 px</div>
+      </div>
+    </div>
+
+    <div id="3e" style="width: 1436px; flex: 0 0 auto; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D8D5CE; border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 20px;">
+      <div style="display: flex; align-items: baseline; gap: 14px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.12em; background: #101112; color: #F4F2ED; padding: 5px 9px; border-radius: 6px;">3E</div>
+        <h2 style="margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.03em;">Ikona ve Windows</h2>
+        <div style="font-size: 15px; color: #8A8D92;">Roh okna, hlavní panel, zástupce na ploše</div>
+      </div>
+
+      <div style="display: flex; gap: 24px; align-items: stretch;">
+        <div style="flex: 1 1 520px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A8D92;">Titulní lišta okna</div>
+          <div style="border: 1px solid #D8D5CE; border-radius: 10px 10px 0 0; overflow: hidden;">
+            <div style="height: 40px; background: #101112; display: flex; align-items: center; padding: 0 4px 0 14px; gap: 10px;">
+              <svg viewBox="0 0 64 64" width="18" height="18" fill="none">
+                <rect x="26" y="1" width="12" height="11" rx="3" fill="#F4F2ED"></rect>
+                <circle cx="32" cy="34" r="22" stroke="#F4F2ED" stroke-width="6"></circle>
+                <circle cx="32" cy="25" r="5.5" fill="#FF5B1F"></circle>
+                <circle cx="23" cy="41" r="5.5" fill="#F4F2ED"></circle>
+                <circle cx="41" cy="41" r="5.5" fill="#F4F2ED"></circle>
+              </svg>
+              <div style="font-size: 13px; font-weight: 500; color: #F4F2ED; letter-spacing: -0.01em;">StagePilot</div>
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #6C7074;">Friday Night Band — 22/08/2026</div>
+              <div style="margin-left: auto; display: flex;">
+                <div style="width: 44px; height: 40px; display: flex; align-items: center; justify-content: center; color: #9AA0A6; font-size: 13px;">—</div>
+                <div style="width: 44px; height: 40px; display: flex; align-items: center; justify-content: center; color: #9AA0A6; font-size: 11px;">▢</div>
+                <div style="width: 44px; height: 40px; display: flex; align-items: center; justify-content: center; color: #F4F2ED; font-size: 13px; background: #E5484D;">✕</div>
+              </div>
+            </div>
+            <div style="height: 54px; background: #F4F2ED; display: flex; align-items: center; padding: 0 14px; gap: 8px;">
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8A8D92; letter-spacing: 0.1em;">PROJECTS &nbsp;·&nbsp; LIBRARY &nbsp;·&nbsp; SETTINGS</div>
+            </div>
+          </div>
+          <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #55585C;">Ikona 18 px vlevo, název projektu hned vedle — v otevřených oknech poznáš, který event je který.</p>
+        </div>
+
+        <div style="flex: 1 1 380px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A8D92;">Hlavní panel</div>
+          <div style="border-radius: 10px; overflow: hidden; border: 1px solid #D8D5CE;">
+            <div style="height: 62px; background: #1B1B1F; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 0 16px;">
+              <div style="width: 34px; height: 34px; border-radius: 8px; background: #2A2A30;"></div>
+              <div style="width: 34px; height: 34px; border-radius: 8px; background: #2A2A30;"></div>
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+                <div style="width: 34px; height: 34px; border-radius: 8px; background: #101112; border: 1px solid #33383E; display: flex; align-items: center; justify-content: center;">
+                  <svg viewBox="0 0 64 64" width="22" height="22" fill="none">
+                    <rect x="26" y="1" width="12" height="11" rx="3" fill="#F4F2ED"></rect>
+                    <circle cx="32" cy="34" r="22" stroke="#F4F2ED" stroke-width="6"></circle>
+                    <circle cx="32" cy="25" r="5.5" fill="#FF5B1F"></circle>
+                    <circle cx="23" cy="41" r="5.5" fill="#F4F2ED"></circle>
+                    <circle cx="41" cy="41" r="5.5" fill="#F4F2ED"></circle>
+                  </svg>
+                </div>
+                <div style="width: 18px; height: 3px; border-radius: 2px; background: #FF5B1F;"></div>
+              </div>
+              <div style="width: 34px; height: 34px; border-radius: 8px; background: #2A2A30;"></div>
+              <div style="margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #6C7074;">19:04</div>
+            </div>
+          </div>
+          <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #55585C;">Na tmavém panelu drží znak tvar i v 22 px; oranžová linka označuje aktivní okno.</p>
+        </div>
+
+        <div style="flex: 0 0 300px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A8D92;">Velikosti ikony</div>
+          <div style="display: flex; align-items: flex-end; gap: 16px; background: #F4F2ED; border-radius: 12px; padding: 20px; flex: 1;">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+              <div style="width: 72px; height: 72px; border-radius: 17px; background: #101112; display: flex; align-items: center; justify-content: center;">
+                <svg viewBox="0 0 64 64" width="44" height="44" fill="none">
+                  <rect x="26" y="1" width="12" height="11" rx="3" fill="#F4F2ED"></rect>
+                  <circle cx="32" cy="34" r="22" stroke="#F4F2ED" stroke-width="6"></circle>
+                  <circle cx="32" cy="25" r="5.5" fill="#FF5B1F"></circle>
+                  <circle cx="23" cy="41" r="5.5" fill="#F4F2ED"></circle>
+                  <circle cx="41" cy="41" r="5.5" fill="#F4F2ED"></circle>
+                </svg>
+              </div>
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #8A8D92;">256</div>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+              <div style="width: 44px; height: 44px; border-radius: 10px; background: #101112; display: flex; align-items: center; justify-content: center;">
+                <svg viewBox="0 0 64 64" width="27" height="27" fill="none">
+                  <rect x="26" y="1" width="12" height="11" rx="3" fill="#F4F2ED"></rect>
+                  <circle cx="32" cy="34" r="22" stroke="#F4F2ED" stroke-width="6"></circle>
+                  <circle cx="32" cy="25" r="5.5" fill="#FF5B1F"></circle>
+                  <circle cx="23" cy="41" r="5.5" fill="#F4F2ED"></circle>
+                  <circle cx="41" cy="41" r="5.5" fill="#F4F2ED"></circle>
+                </svg>
+              </div>
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #8A8D92;">48</div>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+              <div style="width: 28px; height: 28px; border-radius: 7px; background: #101112; display: flex; align-items: center; justify-content: center;">
+                <svg viewBox="0 0 64 64" width="17" height="17" fill="none">
+                  <rect x="26" y="1" width="12" height="11" rx="3" fill="#F4F2ED"></rect>
+                  <circle cx="32" cy="34" r="22" stroke="#F4F2ED" stroke-width="6"></circle>
+                  <circle cx="32" cy="25" r="5.5" fill="#FF5B1F"></circle>
+                  <circle cx="23" cy="41" r="5.5" fill="#F4F2ED"></circle>
+                  <circle cx="41" cy="41" r="5.5" fill="#F4F2ED"></circle>
+                </svg>
+              </div>
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #8A8D92;">32</div>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+              <svg viewBox="0 0 64 64" width="16" height="16" fill="none">
+                <rect x="26" y="1" width="12" height="11" rx="3" fill="#101112"></rect>
+                <circle cx="32" cy="34" r="22" stroke="#101112" stroke-width="6"></circle>
+                <circle cx="32" cy="25" r="5.5" fill="#FF5B1F"></circle>
+                <circle cx="23" cy="41" r="5.5" fill="#101112"></circle>
+                <circle cx="41" cy="41" r="5.5" fill="#101112"></circle>
+              </svg>
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #8A8D92;">16</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="3f" style="width: 1436px; flex: 0 0 auto; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D8D5CE; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: flex; align-items: baseline; gap: 14px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.12em; background: #101112; color: #F4F2ED; padding: 5px 9px; border-radius: 6px;">3F</div>
+        <h2 style="margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.03em;">Lineup Setup</h2>
+        <div style="font-size: 15px; color: #8A8D92;">Presety pod sebou přes celou šířku · Lead Vocs má Setup</div>
+      </div>
+
+      <div style="border: 1px solid #D8D5CE; border-radius: 12px; overflow: hidden; background: #F4F2ED;">
+        <div style="height: 36px; background: #101112; display: flex; align-items: center; padding: 0 4px 0 12px; gap: 10px;">
+          <svg viewBox="0 0 64 64" width="15" height="15" fill="none">
+            <rect x="26" y="1" width="12" height="11" rx="3" fill="#F4F2ED"></rect>
+            <circle cx="32" cy="34" r="22" stroke="#F4F2ED" stroke-width="6"></circle>
+            <circle cx="32" cy="25" r="5.5" fill="#FF5B1F"></circle>
+            <circle cx="23" cy="41" r="5.5" fill="#F4F2ED"></circle>
+            <circle cx="41" cy="41" r="5.5" fill="#F4F2ED"></circle>
+          </svg>
+          <div style="font-size: 12px; font-weight: 500; color: #F4F2ED;">StagePilot</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #6C7074;">Friday Night Band — 22/08/2026</div>
+          <div style="margin-left: auto; display: flex; color: #9AA0A6; font-size: 12px; gap: 0;">
+            <div style="width: 40px; height: 36px; display: flex; align-items: center; justify-content: center;">—</div>
+            <div style="width: 40px; height: 36px; display: flex; align-items: center; justify-content: center;">▢</div>
+            <div style="width: 40px; height: 36px; display: flex; align-items: center; justify-content: center;">✕</div>
+          </div>
+        </div>
+
+        <div style="padding: 22px 28px 26px; display: flex; flex-direction: column; gap: 18px;">
+          <div style="display: flex; align-items: center; gap: 18px;">
+            <div style="display: flex; gap: 6px;">
+              <div style="font-size: 13px; font-weight: 500; background: #101112; color: #F4F2ED; padding: 8px 16px; border-radius: 8px;">Projects</div>
+              <div style="font-size: 13px; font-weight: 500; color: #55585C; background: #FFFFFF; border: 1px solid #D8D5CE; padding: 8px 16px; border-radius: 8px;">Library</div>
+              <div style="font-size: 13px; font-weight: 500; color: #55585C; background: #FFFFFF; border: 1px solid #D8D5CE; padding: 8px 16px; border-radius: 8px;">Settings</div>
+            </div>
+            <div style="margin-left: auto; display: flex; align-items: center; gap: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.1em; color: #8A8D92;">
+              <span style="color: #FF5B1F;">01 LINEUP</span><span>—</span><span>02 INPUTS</span><span>—</span><span>03 STAGE PLAN</span><span>—</span><span>04 EXPORT</span>
+            </div>
+          </div>
+
+          <div style="background: #FFFFFF; border: 1px solid #E4E1DA; border-radius: 14px; overflow: hidden;">
+            <div style="display: flex; align-items: flex-end; gap: 20px; padding: 22px 24px 18px; border-bottom: 1px solid #E4E1DA;">
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <h3 style="margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.03em;">Lineup Setup</h3>
+                <div style="font-size: 14px; color: #55585C;">Sestava pro Input List a Stage Plan. Výchozí hodnoty jsou z uložené sestavy kapely.</div>
+              </div>
+              <div style="margin-left: auto; display: flex; align-items: center; gap: 10px;">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.1em; color: #8A8D92; border: 1px solid #E4E1DA; border-radius: 8px; padding: 9px 12px;">20 INPUTS · 5 IEM</div>
+                <div style="font-size: 13px; font-weight: 500; color: #55585C; border: 1px solid #D8D5CE; border-radius: 9px; padding: 10px 16px; white-space: nowrap;">Reset to defaults</div>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column;">
+              <div style="display: flex; align-items: center; gap: 24px; padding: 16px 24px; border-bottom: 1px solid #F0EDE7;">
+                <div style="width: 150px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.12em; color: #101112;">DRUMS</div>
+                <div style="width: 230px; font-size: 17px; font-weight: 600; letter-spacing: -0.02em;">Ernst Filip</div>
+                <div style="display: flex; gap: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #55585C;">
+                  <span style="background: #F2EFE9; border-radius: 6px; padding: 5px 9px;">CH 1–11</span>
+                  <span style="background: #F2EFE9; border-radius: 6px; padding: 5px 9px;">IEM MONO wired</span>
+                  <span style="background: #FFF1E9; color: #C43F0E; border-radius: 6px; padding: 5px 9px;">RISER 3×2</span>
+                </div>
+                <div style="margin-left: auto; display: flex; gap: 8px;">
+                  <div style="font-size: 13px; color: #55585C; border: 1px solid #D8D5CE; border-radius: 8px; padding: 8px 14px;">Change</div>
+                  <div style="font-size: 13px; font-weight: 500; color: #101112; border: 1px solid #101112; border-radius: 8px; padding: 8px 14px;">Setup</div>
+                </div>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 24px; padding: 16px 24px; border-bottom: 1px solid #F0EDE7;">
+                <div style="width: 150px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.12em; color: #101112;">BASS</div>
+                <div style="width: 230px; font-size: 17px; font-weight: 600; letter-spacing: -0.02em;">Krečmer Matěj</div>
+                <div style="display: flex; gap: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #55585C;">
+                  <span style="background: #F2EFE9; border-radius: 6px; padding: 5px 9px;">CH 12</span>
+                  <span style="background: #F2EFE9; border-radius: 6px; padding: 5px 9px;">IEM STEREO wl</span>
+                  <span style="background: #F2EFE9; border-radius: 6px; padding: 5px 9px;">BAND LEADER</span>
+                </div>
+                <div style="margin-left: auto; display: flex; gap: 8px;">
+                  <div style="font-size: 13px; color: #55585C; border: 1px solid #D8D5CE; border-radius: 8px; padding: 8px 14px;">Change</div>
+                  <div style="font-size: 13px; font-weight: 500; color: #101112; border: 1px solid #101112; border-radius: 8px; padding: 8px 14px;">Setup</div>
+                </div>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 24px; padding: 16px 24px; border-bottom: 1px solid #F0EDE7;">
+                <div style="width: 150px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.12em; color: #101112;">EL. GUITAR</div>
+                <div style="width: 230px; font-size: 17px; font-weight: 600; letter-spacing: -0.02em;">Cetel Tomáš</div>
+                <div style="display: flex; gap: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #55585C;">
+                  <span style="background: #F2EFE9; border-radius: 6px; padding: 5px 9px;">CH 13</span>
+                  <span style="background: #F2EFE9; border-radius: 6px; padding: 5px 9px;">IEM MONO wired</span>
+                </div>
+                <div style="margin-left: auto; display: flex; gap: 8px;">
+                  <div style="font-size: 13px; color: #55585C; border: 1px solid #D8D5CE; border-radius: 8px; padding: 8px 14px;">Change</div>
+                  <div style="font-size: 13px; font-weight: 500; color: #101112; border: 1px solid #101112; border-radius: 8px; padding: 8px 14px;">Setup</div>
+                </div>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 24px; padding: 16px 24px; border-bottom: 1px solid #F0EDE7;">
+                <div style="width: 150px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.12em; color: #101112;">KEYS</div>
+                <div style="width: 230px; font-size: 17px; font-weight: 600; letter-spacing: -0.02em;">Žídek Jakub</div>
+                <div style="display: flex; gap: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #55585C;">
+                  <span style="background: #F2EFE9; border-radius: 6px; padding: 5px 9px;">CH 15+16</span>
+                  <span style="background: #F2EFE9; border-radius: 6px; padding: 5px 9px;">STEREO XLR</span>
+                  <span style="background: #F2EFE9; border-radius: 6px; padding: 5px 9px;">IEM STEREO wired</span>
+                </div>
+                <div style="margin-left: auto; display: flex; gap: 8px;">
+                  <div style="font-size: 13px; color: #55585C; border: 1px solid #D8D5CE; border-radius: 8px; padding: 8px 14px;">Change</div>
+                  <div style="font-size: 13px; font-weight: 500; color: #101112; border: 1px solid #101112; border-radius: 8px; padding: 8px 14px;">Setup</div>
+                </div>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 24px; padding: 16px 24px; border-bottom: 1px solid #F0EDE7; background: #FFFBF8;">
+                <div style="width: 150px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.12em; color: #101112;">LEAD VOCS</div>
+                <div style="width: 230px; font-size: 17px; font-weight: 600; letter-spacing: -0.02em;">Krečmerová Eliška</div>
+                <div style="display: flex; gap: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #55585C;">
+                  <span style="background: #F2EFE9; border-radius: 6px; padding: 5px 9px;">CH 17</span>
+                  <span style="background: #F2EFE9; border-radius: 6px; padding: 5px 9px;">IEM MONO wl</span>
+                  <span style="background: #FFF1E9; color: #C43F0E; border-radius: 6px; padding: 5px 9px;">+ SETUP DOPLNĚN</span>
+                </div>
+                <div style="margin-left: auto; display: flex; gap: 8px;">
+                  <div style="font-size: 13px; color: #55585C; border: 1px solid #D8D5CE; border-radius: 8px; padding: 8px 14px;">Change</div>
+                  <div style="font-size: 13px; font-weight: 500; color: #101112; border: 1px solid #FF5B1F; background: #FFE9DE; border-radius: 8px; padding: 8px 14px;">Setup</div>
+                </div>
+              </div>
+
+              <div style="display: flex; align-items: flex-start; gap: 24px; padding: 16px 24px; border-bottom: 1px solid #F0EDE7;">
+                <div style="width: 150px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.12em; color: #101112; padding-top: 3px;">BACK VOCS</div>
+                <div style="width: 230px; display: flex; flex-direction: column; gap: 4px;">
+                  <div style="font-size: 17px; font-weight: 600; letter-spacing: -0.02em;">Žídek Jakub</div>
+                  <div style="font-size: 17px; font-weight: 600; letter-spacing: -0.02em;">Krečmer Matěj</div>
+                </div>
+                <div style="display: flex; gap: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #55585C; padding-top: 3px;">
+                  <span style="background: #F2EFE9; border-radius: 6px; padding: 5px 9px;">CH 18</span>
+                  <span style="background: #F2EFE9; border-radius: 6px; padding: 5px 9px;">CH 19</span>
+                  <span style="background: #F2EFE9; border-radius: 6px; padding: 5px 9px;">BETA 58A / SE V7 (FOH)</span>
+                </div>
+                <div style="margin-left: auto; display: flex; gap: 8px;">
+                  <div style="font-size: 13px; color: #55585C; border: 1px solid #D8D5CE; border-radius: 8px; padding: 8px 14px;">Change</div>
+                  <div style="font-size: 13px; font-weight: 500; color: #101112; border: 1px solid #101112; border-radius: 8px; padding: 8px 14px;">Setup</div>
+                </div>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 24px; padding: 16px 24px; border-bottom: 1px solid #F0EDE7;">
+                <div style="width: 150px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.12em; color: #101112;">BAND LEADER</div>
+                <div style="width: 230px; font-size: 17px; font-weight: 600; letter-spacing: -0.02em;">Krečmer Matěj</div>
+                <div style="font-size: 13px; color: #8A8D92;">Kontakt na place pro koordinaci a rozhodnutí.</div>
+                <div style="margin-left: auto; display: flex; gap: 8px;">
+                  <div style="font-size: 13px; color: #55585C; border: 1px solid #D8D5CE; border-radius: 8px; padding: 8px 14px;">Change</div>
+                </div>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 24px; padding: 16px 24px;">
+                <div style="width: 150px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.12em; color: #101112;">TALKBACK</div>
+                <div style="width: 230px; font-size: 17px; font-weight: 600; letter-spacing: -0.02em;">Krečmer Matěj</div>
+                <div style="display: flex; gap: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #55585C;">
+                  <span style="background: #F2EFE9; border-radius: 6px; padding: 5px 9px;">CH 20</span>
+                </div>
+                <div style="margin-left: auto; display: flex; gap: 8px;">
+                  <div style="font-size: 13px; color: #55585C; border: 1px solid #D8D5CE; border-radius: 8px; padding: 8px 14px;">Change</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px; padding: 16px 24px; border-top: 1px solid #E4E1DA; background: #FBFAF7;">
+              <div style="font-size: 14px; color: #55585C; border: 1px solid #D8D5CE; border-radius: 10px; padding: 11px 18px;">Edit Project</div>
+              <div style="font-size: 14px; color: #55585C; border: 1px solid #D8D5CE; border-radius: 10px; padding: 11px 18px;">Back to Hub</div>
+              <div style="margin-left: auto; font-size: 14px; font-weight: 600; background: #FF5B1F; color: #101112; border-radius: 10px; padding: 12px 30px;">Continue</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p style="margin: 0; font-size: 14px; line-height: 1.55; color: #55585C; text-wrap: pretty;">Jedna řádka = jedna pozice: role vlevo, jméno, technické čipy uprostřed, akce vpravo. Tím zmizí prázdné bílé plochy původních karet a celá sestava se vejde na obrazovku. Lead Vocs má Setup jako všichni ostatní; oranžový čip je jen upozornění na tuhle změnu.</p>
+    </div>
+
+    <div id="3g" style="width: 1436px; flex: 0 0 auto; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D8D5CE; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: flex; align-items: baseline; gap: 14px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.12em; background: #FF5B1F; color: #101112; padding: 5px 9px; border-radius: 6px;">3G</div>
+        <h2 style="margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.03em;">Stage Plan Editor — živý</h2>
+        <div style="font-size: 15px; color: #8A8D92;">Chyť blok myší a posuň ho; kolečkem nahoře ho otočíš</div>
+      </div>
+
+      <div style="border-radius: 14px; overflow: hidden; border: 1px solid #D8D5CE; background: #101112;">
+        <div style="height: 36px; background: #0A0B0C; display: flex; align-items: center; padding: 0 12px; gap: 10px;">
+          <svg viewBox="0 0 64 64" width="15" height="15" fill="none">
+            <rect x="26" y="1" width="12" height="11" rx="3" fill="#F4F2ED"></rect>
+            <circle cx="32" cy="34" r="22" stroke="#F4F2ED" stroke-width="6"></circle>
+            <circle cx="32" cy="25" r="5.5" fill="#FF5B1F"></circle>
+            <circle cx="23" cy="41" r="5.5" fill="#F4F2ED"></circle>
+            <circle cx="41" cy="41" r="5.5" fill="#F4F2ED"></circle>
+          </svg>
+          <div style="font-size: 12px; font-weight: 500; color: #F4F2ED;">StagePilot</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #6C7074;">Friday Night Band — 22/08/2026 — Zámek Bon Repos</div>
+          <div style="margin-left: auto; display: flex; color: #9AA0A6; font-size: 12px;">
+            <div style="width: 40px; height: 36px; display: flex; align-items: center; justify-content: center;">—</div>
+            <div style="width: 40px; height: 36px; display: flex; align-items: center; justify-content: center;">▢</div>
+            <div style="width: 40px; height: 36px; display: flex; align-items: center; justify-content: center;">✕</div>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid #26282B;">
+          <div style="display: flex; gap: 6px;">
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.1em; color: #101112; background: #F4F2ED; border-radius: 8px; padding: 8px 14px;">STAGE PLAN</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.1em; color: #9AA0A6; border: 1px solid #363B42; border-radius: 8px; padding: 8px 14px;">INPUT LIST</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.1em; color: #9AA0A6; border: 1px solid #363B42; border-radius: 8px; padding: 8px 14px;">PDF PREVIEW</div>
+          </div>
+          <div style="width: 1px; height: 24px; background: #26282B; margin: 0 6px;"></div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 34px; height: 34px; border-radius: 8px; background: #FF5B1F; display: flex; align-items: center; justify-content: center;">
+              <svg viewBox="0 0 64 64" width="17" height="17" fill="none">
+                <path d="M32 7 L32 42 L12 54 Z" fill="#101112"></path>
+                <path d="M32 7 L52 54 L32 42 Z" fill="#101112"></path>
+              </svg>
+            </div>
+            <div style="width: 34px; height: 34px; border-radius: 8px; border: 1px solid #363B42; display: flex; align-items: center; justify-content: center; color: #9AA0A6; font-size: 15px;">✥</div>
+            <div style="width: 34px; height: 34px; border-radius: 8px; border: 1px solid #363B42; display: flex; align-items: center; justify-content: center; color: #9AA0A6; font-size: 15px;">↻</div>
+            <div style="width: 34px; height: 34px; border-radius: 8px; border: 1px solid #363B42; display: flex; align-items: center; justify-content: center; color: #9AA0A6; font-size: 15px;">＋</div>
+          </div>
+          <div onClick="{{ toggleSnap }}" style="{{ snapStyle }}">{{ snapLabel }}</div>
+          <div style="margin-left: auto; display: flex; align-items: center; gap: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #6C7074;">
+            <span>PÓDIUM 12,0 × 8,0 m</span>
+            <span>·</span>
+            <span>ZOOM 100 %</span>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: stretch;">
+          <div ref="{{ canvasRef }}" style="width: 1080px; height: 470px; position: relative; flex: 0 0 auto; background-color: #15171A; background-image: linear-gradient(#20242A 1px, transparent 1px), linear-gradient(90deg, #20242A 1px, transparent 1px); background-size: 30px 30px; overflow: hidden;">
+            <sc-for list="{{ blocks }}" as="block" hint-placeholder-count="5">
+              <div onPointerDown="{{ block.onDown }}" style="{{ block.style }}">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.1em; color: #F4F2ED;">{{ block.label }}</div>
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #9AA0A6; line-height: 1.5;">{{ block.sub }}</div>
+                <div style="font-size: 12px; color: #9AA0A6;">{{ block.extra }}</div>
+                <div style="margin-top: auto; display: flex; align-items: center; gap: 8px;">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; color: #FF5B1F;">{{ block.power }}</div>
+                  <div style="margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #6C7074;">{{ block.rotLabel }}</div>
+                </div>
+                <sc-if value="{{ block.isSelected }}" hint-placeholder-val="{{ false }}">
+                  <div onPointerDown="{{ block.onRotate }}" style="position: absolute; left: 50%; top: -34px; margin-left: -11px; width: 22px; height: 22px; border-radius: 50%; background: #FF5B1F; border: 2px solid #101112; cursor: grab; touch-action: none; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #101112;">↻</div>
+                </sc-if>
+              </div>
+            </sc-for>
+
+            <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 30px; background: linear-gradient(180deg, rgba(16,17,18,0) 0%, rgba(16,17,18,0.92) 100%); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.2em; color: #6C7074; pointer-events: none;">DOWNSTAGE · PUBLIKUM</div>
+          </div>
+
+          <div style="flex: 1; min-width: 0; border-left: 1px solid #26282B; padding: 18px; display: flex; flex-direction: column; gap: 16px;">
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.16em; color: #6C7074;">VYBRANÝ BLOK</div>
+              <div style="font-size: 17px; font-weight: 600; letter-spacing: -0.02em; color: #F4F2ED;">{{ selLabel }}</div>
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #9AA0A6; line-height: 1.6;">{{ selSub }}</div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #6C7074; width: 62px;">ROTACE</div>
+                <div onClick="{{ rotLeft }}" style="width: 30px; height: 30px; border-radius: 8px; border: 1px solid #363B42; color: #F4F2ED; display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; font-size: 13px;">↺</div>
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #F4F2ED; min-width: 42px; text-align: center;">{{ selRot }}</div>
+                <div onClick="{{ rotRight }}" style="width: 30px; height: 30px; border-radius: 8px; border: 1px solid #363B42; color: #F4F2ED; display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; font-size: 13px;">↻</div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #6C7074; width: 62px;">ROZMĚR</div>
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #F4F2ED;">{{ selSize }}</div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #6C7074; width: 62px;">NAPÁJENÍ</div>
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #FF5B1F;">{{ selPower }}</div>
+              </div>
+            </div>
+
+            <div style="height: 1px; background: #26282B;"></div>
+
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.16em; color: #6C7074; margin-bottom: 2px;">BLOKY NA PÓDIU</div>
+              <sc-for list="{{ blockList }}" as="item" hint-placeholder-count="5">
+                <div onClick="{{ item.onClick }}" style="{{ item.style }}">
+                  <span>{{ item.label }}</span>
+                  <span style="margin-left: auto; opacity: 0.7;">{{ item.rotLabel }}</span>
+                </div>
+              </sc-for>
+            </div>
+
+            <div onClick="{{ resetLayout }}" style="margin-top: auto; text-align: center; font-size: 13px; font-weight: 500; color: #9AA0A6; border: 1px solid #363B42; border-radius: 9px; padding: 10px; cursor: pointer; user-select: none;">Reset rozmístění</div>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-top: 1px solid #26282B;">
+          <div style="font-size: 13px; color: #9AA0A6; border: 1px solid #363B42; border-radius: 9px; padding: 10px 16px;">Zpět na Lineup</div>
+          <div style="margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #6C7074;">Změny se propíší do PDF exportu</div>
+          <div style="font-size: 13px; font-weight: 600; background: #FF5B1F; color: #101112; border-radius: 9px; padding: 11px 24px;">Generate PDF</div>
+        </div>
+      </div>
+
+      <p style="margin: 0; font-size: 14px; line-height: 1.55; color: #55585C; text-wrap: pretty;">Editor je tmavý, aby plocha pódia byla jasně oddělená od zbytku aplikace a fungovala i v šeru na place. Bloky drží raster 10 cm, otáčení po 15° (snap se dá vypnout). PDF zůstává jen náhledem — to, co vidíš tady, se do něj vykreslí jedna ku jedné.</p>
+    </div>
+  </div>
+</section>
+
+<section style="padding: 40px 64px 40px; display: flex; flex-direction: column; gap: 44px; background: #E9E7E2; font-family: 'Space Grotesk', sans-serif; color: #101112;">
+
+  <header style="display: flex; flex-direction: column; gap: 14px; max-width: 760px;">
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #FF5B1F;">Kolo 2 · Značka v aplikaci</div>
+    <h1 style="margin: 0; font-size: 52px; font-weight: 600; letter-spacing: -0.035em; line-height: 1.02;">Jak to sedne na tvoje obrazovky</h1>
+    <p style="margin: 0; font-size: 18px; line-height: 1.5; color: #55585C; text-wrap: pretty;">Tvoje současné rozvržení zůstává beze změny — mění se jen typografie, barvy a značka. Ukázáno se znakem <a href="#1a">1a</a>; ostatní dva směry se do stejné šablony vymění jedna ku jedné. Struktura PDF exportu zůstává přesně taková, jakou ji máš.</p>
+  </header>
+
+  <div style="display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start;">
+
+    <div id="2a" style="width: 1180px; flex: 0 0 auto; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D8D5CE; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.12em; background: #101112; color: #F4F2ED; padding: 5px 9px; border-radius: 6px;">2A</div>
+        <div style="font-size: 15px; color: #8A8D92;">Project Hub</div>
+      </div>
+
+      <div style="border: 1px solid #D8D5CE; border-radius: 12px; overflow: hidden; background: #F4F2ED;">
+        <div style="height: 32px; background: #101112; display: flex; align-items: center; padding: 0 12px; gap: 8px;">
+          <div style="width: 9px; height: 9px; border-radius: 50%; background: #33383E;"></div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8A8D92; letter-spacing: 0.06em;">StagePilot</div>
+        </div>
+
+        <div style="padding: 26px 32px 34px; display: flex; flex-direction: column; gap: 22px;">
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <svg viewBox="0 0 64 64" width="38" height="38" fill="none">
+              <rect x="26" y="1" width="12" height="11" rx="3" fill="#101112"></rect>
+              <circle cx="32" cy="34" r="22" stroke="#101112" stroke-width="6"></circle>
+              <circle cx="32" cy="25" r="5.5" fill="#FF5B1F"></circle>
+              <circle cx="23" cy="41" r="5.5" fill="#101112"></circle>
+              <circle cx="41" cy="41" r="5.5" fill="#101112"></circle>
+            </svg>
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+              <div style="font-size: 26px; font-weight: 600; letter-spacing: -0.035em; line-height: 1;">StagePilot</div>
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8A8D92; letter-spacing: 0.06em;">v0.1.0 PREVIEW</div>
+            </div>
+            <div style="margin-left: auto; display: flex; gap: 10px; align-items: center;">
+              <div style="width: 62px; height: 30px; border-radius: 15px; background: #E4E1DA; display: flex; align-items: center; padding: 3px;">
+                <div style="width: 24px; height: 24px; border-radius: 50%; background: #FFFFFF; border: 1px solid #D8D5CE;"></div>
+              </div>
+              <div style="width: 32px; height: 32px; border-radius: 9px; border: 1px solid #D8D5CE; background: #FFFFFF; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #55585C;">i</div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 8px;">
+            <div style="font-size: 14px; font-weight: 500; background: #101112; color: #F4F2ED; padding: 9px 18px; border-radius: 9px;">Projects</div>
+            <div style="font-size: 14px; font-weight: 500; color: #55585C; background: #FFFFFF; border: 1px solid #D8D5CE; padding: 9px 18px; border-radius: 9px;">Library</div>
+            <div style="font-size: 14px; font-weight: 500; color: #55585C; background: #FFFFFF; border: 1px solid #D8D5CE; padding: 9px 18px; border-radius: 9px;">Settings</div>
+          </div>
+
+          <div style="background: #FFFFFF; border: 1px solid #E4E1DA; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 18px;">
+            <div style="display: flex; align-items: center; gap: 16px;">
+              <h3 style="margin: 0; font-size: 21px; font-weight: 600; letter-spacing: -0.03em;">Project Hub</h3>
+              <div style="margin-left: auto; display: flex; gap: 6px;">
+                <div style="width: 34px; height: 34px; border-radius: 9px; background: #101112; display: flex; align-items: center; justify-content: center; gap: 3px; flex-direction: column;">
+                  <div style="width: 15px; height: 2px; background: #F4F2ED;"></div>
+                  <div style="width: 15px; height: 2px; background: #F4F2ED;"></div>
+                  <div style="width: 15px; height: 2px; background: #F4F2ED;"></div>
+                </div>
+                <div style="width: 34px; height: 34px; border-radius: 9px; border: 1px solid #D8D5CE; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 9px; box-sizing: border-box;">
+                  <div style="background: #8A8D92;"></div><div style="background: #8A8D92;"></div>
+                  <div style="background: #8A8D92;"></div><div style="background: #8A8D92;"></div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="font-size: 14px; font-weight: 600; background: #FF5B1F; color: #101112; padding: 11px 20px; border-radius: 10px;">+ New Project</div>
+              <div style="width: 1px; height: 26px; background: #E4E1DA; margin: 0 6px;"></div>
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #101112; background: #EFECE5; padding: 8px 14px; border-radius: 8px;">ACTIVE</div>
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8A8D92; padding: 8px 14px; border-radius: 8px;">ARCHIVED</div>
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8A8D92; padding: 8px 14px; border-radius: 8px;">TRASH</div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="border: 1px solid #E4E1DA; border-left: 3px solid #FF5B1F; border-radius: 12px; padding: 18px 20px; display: flex; align-items: center; gap: 20px;">
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <div style="font-size: 17px; font-weight: 600; letter-spacing: -0.02em;">Friday Night Band — Zámek Bon Repos</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8A8D92; letter-spacing: 0.02em;">EVENT · 22/08/2026 · UPD 15/07/2026 13:10</div>
+                </div>
+                <div style="margin-left: auto; display: flex; align-items: center; gap: 14px;">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #55585C; border: 1px solid #D8D5CE; border-radius: 8px; padding: 8px 12px;">Otevřít</div>
+                  <div style="font-size: 18px; color: #8A8D92; letter-spacing: 0.08em;">···</div>
+                </div>
+              </div>
+              <div style="border: 1px solid #E4E1DA; border-radius: 12px; padding: 18px 20px; display: flex; align-items: center; gap: 20px;">
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <div style="font-size: 17px; font-weight: 600; letter-spacing: -0.02em;">Friday Night Band — šablona sezóny</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8A8D92; letter-spacing: 0.02em;">TEMPLATE · UPD 02/06/2026 09:48</div>
+                </div>
+                <div style="margin-left: auto; display: flex; align-items: center; gap: 14px;">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #55585C; border: 1px solid #D8D5CE; border-radius: 8px; padding: 8px 12px;">Otevřít</div>
+                  <div style="font-size: 18px; color: #8A8D92; letter-spacing: 0.08em;">···</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p style="margin: 0; font-size: 14px; line-height: 1.55; color: #55585C; text-wrap: pretty;">Stejná struktura jako teď. Rozdíl: technické údaje jdou do monospace, primární akce je jediná oranžová plocha na obrazovce a stav projektu nese barevný proužek u karty.</p>
+    </div>
+
+    <div id="2b" style="width: 1180px; flex: 0 0 auto; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D8D5CE; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.12em; background: #101112; color: #F4F2ED; padding: 5px 9px; border-radius: 6px;">2B</div>
+        <div style="font-size: 15px; color: #8A8D92;">Lineup Setup</div>
+      </div>
+
+      <div style="border: 1px solid #D8D5CE; border-radius: 12px; overflow: hidden; background: #F4F2ED;">
+        <div style="height: 32px; background: #101112; display: flex; align-items: center; padding: 0 12px; gap: 8px;">
+          <div style="width: 9px; height: 9px; border-radius: 50%; background: #33383E;"></div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8A8D92; letter-spacing: 0.06em;">StagePilot</div>
+        </div>
+
+        <div style="padding: 26px 32px 30px; display: flex; flex-direction: column; gap: 22px;">
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <svg viewBox="0 0 64 64" width="38" height="38" fill="none">
+              <rect x="26" y="1" width="12" height="11" rx="3" fill="#101112"></rect>
+              <circle cx="32" cy="34" r="22" stroke="#101112" stroke-width="6"></circle>
+              <circle cx="32" cy="25" r="5.5" fill="#FF5B1F"></circle>
+              <circle cx="23" cy="41" r="5.5" fill="#101112"></circle>
+              <circle cx="41" cy="41" r="5.5" fill="#101112"></circle>
+            </svg>
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+              <div style="font-size: 26px; font-weight: 600; letter-spacing: -0.035em; line-height: 1;">StagePilot</div>
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8A8D92; letter-spacing: 0.06em;">v0.1.0 PREVIEW</div>
+            </div>
+            <div style="margin-left: auto; display: flex; gap: 8px;">
+              <div style="font-size: 14px; font-weight: 500; background: #101112; color: #F4F2ED; padding: 9px 18px; border-radius: 9px;">Projects</div>
+              <div style="font-size: 14px; font-weight: 500; color: #55585C; background: #FFFFFF; border: 1px solid #D8D5CE; padding: 9px 18px; border-radius: 9px;">Library</div>
+              <div style="font-size: 14px; font-weight: 500; color: #55585C; background: #FFFFFF; border: 1px solid #D8D5CE; padding: 9px 18px; border-radius: 9px;">Settings</div>
+            </div>
+          </div>
+
+          <div style="background: #FFFFFF; border: 1px solid #E4E1DA; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 18px;">
+            <div style="display: flex; align-items: flex-start; gap: 20px;">
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #FF5B1F;">Krok 2 ze 4 · Lineup</div>
+                <h3 style="margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.03em;">Friday Night Band — 22/08/2026</h3>
+                <div style="font-size: 14px; color: #55585C; line-height: 1.5;">Sestava pro Input List a Stage Plan. Výchozí hodnoty jsou z uložené sestavy kapely.</div>
+              </div>
+              <div style="margin-left: auto; font-size: 13px; font-weight: 500; color: #55585C; border: 1px solid #D8D5CE; border-radius: 9px; padding: 10px 16px; white-space: nowrap;">Reset to defaults</div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div style="border: 1px solid #E4E1DA; border-radius: 12px; padding: 16px 18px; display: flex; align-items: center; gap: 16px;">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.14em; color: #8A8D92;">DRUMS · CH 1–11</div>
+                  <div style="font-size: 16px; font-weight: 600; letter-spacing: -0.02em;">Ernst Filip</div>
+                </div>
+                <div style="margin-left: auto; display: flex; gap: 8px;">
+                  <div style="font-size: 13px; color: #55585C; border: 1px solid #D8D5CE; border-radius: 8px; padding: 8px 13px;">Change</div>
+                  <div style="font-size: 13px; color: #55585C; border: 1px solid #D8D5CE; border-radius: 8px; padding: 8px 13px;">Setup</div>
+                </div>
+              </div>
+              <div style="border: 1px solid #E4E1DA; border-radius: 12px; padding: 16px 18px; display: flex; align-items: center; gap: 16px;">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.14em; color: #8A8D92;">BASS · CH 12, 19, 20</div>
+                  <div style="font-size: 16px; font-weight: 600; letter-spacing: -0.02em;">Krečmer Matěj</div>
+                </div>
+                <div style="margin-left: auto; display: flex; gap: 8px;">
+                  <div style="font-size: 13px; color: #55585C; border: 1px solid #D8D5CE; border-radius: 8px; padding: 8px 13px;">Change</div>
+                  <div style="font-size: 13px; color: #55585C; border: 1px solid #D8D5CE; border-radius: 8px; padding: 8px 13px;">Setup</div>
+                </div>
+              </div>
+              <div style="border: 1px solid #E4E1DA; border-radius: 12px; padding: 16px 18px; display: flex; align-items: center; gap: 16px;">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.14em; color: #8A8D92;">EL. GUITAR · CH 13</div>
+                  <div style="font-size: 16px; font-weight: 600; letter-spacing: -0.02em;">Cetel Tomáš</div>
+                </div>
+                <div style="margin-left: auto; display: flex; gap: 8px;">
+                  <div style="font-size: 13px; color: #55585C; border: 1px solid #D8D5CE; border-radius: 8px; padding: 8px 13px;">Change</div>
+                  <div style="font-size: 13px; color: #55585C; border: 1px solid #D8D5CE; border-radius: 8px; padding: 8px 13px;">Setup</div>
+                </div>
+              </div>
+              <div style="border: 1px solid #E4E1DA; border-radius: 12px; padding: 16px 18px; display: flex; align-items: center; gap: 16px;">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.14em; color: #8A8D92;">KEYS · CH 15+16, 18</div>
+                  <div style="font-size: 16px; font-weight: 600; letter-spacing: -0.02em;">Žídek Jakub</div>
+                </div>
+                <div style="margin-left: auto; display: flex; gap: 8px;">
+                  <div style="font-size: 13px; color: #55585C; border: 1px solid #D8D5CE; border-radius: 8px; padding: 8px 13px;">Change</div>
+                  <div style="font-size: 13px; color: #55585C; border: 1px solid #D8D5CE; border-radius: 8px; padding: 8px 13px;">Setup</div>
+                </div>
+              </div>
+              <div style="border: 1px solid #E4E1DA; border-radius: 12px; padding: 16px 18px; display: flex; align-items: center; gap: 16px; grid-column: span 2;">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.14em; color: #8A8D92;">LEAD VOCS · CH 17</div>
+                  <div style="font-size: 16px; font-weight: 600; letter-spacing: -0.02em;">Krečmerová Eliška</div>
+                </div>
+                <div style="margin-left: auto; display: flex; gap: 8px;">
+                  <div style="font-size: 13px; color: #55585C; border: 1px solid #D8D5CE; border-radius: 8px; padding: 8px 13px;">Change</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px; padding-top: 16px; border-top: 1px solid #E4E1DA;">
+              <div style="font-size: 14px; color: #55585C; border: 1px solid #D8D5CE; border-radius: 10px; padding: 11px 18px;">Edit Project</div>
+              <div style="font-size: 14px; color: #55585C; border: 1px solid #D8D5CE; border-radius: 10px; padding: 11px 18px;">Back to Hub</div>
+              <div style="margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8A8D92;">20 vstupů · 5 IEM</div>
+              <div style="font-size: 14px; font-weight: 600; background: #FF5B1F; color: #101112; border-radius: 10px; padding: 12px 26px;">Continue</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p style="margin: 0; font-size: 14px; line-height: 1.55; color: #55585C; text-wrap: pretty;">Dva sloupce místo jednoho: celá sestava se vejde bez scrollování. Ke každé pozici přibylo číslo kanálu — technik čte totéž značení jako v PDF.</p>
+    </div>
+
+    <div id="2c" style="width: 1180px; flex: 0 0 auto; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D8D5CE; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.12em; background: #101112; color: #F4F2ED; padding: 5px 9px; border-radius: 6px;">2C</div>
+        <div style="font-size: 15px; color: #8A8D92;">PDF export — stejná struktura, jen značka a typografie</div>
+      </div>
+
+      <div style="background: #EFECE5; border-radius: 12px; padding: 28px; display: flex; gap: 24px; justify-content: center;">
+        <div style="width: 496px; background: #FFFFFF; box-shadow: 0 2px 14px rgba(16,17,18,0.1); padding: 34px 36px; display: flex; flex-direction: column; gap: 18px; color: #101112;">
+          <div style="display: flex; align-items: flex-start; gap: 12px; padding-bottom: 14px; border-bottom: 2px solid #101112;">
+            <svg viewBox="0 0 64 64" width="26" height="26" fill="none" style="margin-top: 2px;">
+              <rect x="26" y="1" width="12" height="11" rx="3" fill="#101112"></rect>
+              <circle cx="32" cy="34" r="22" stroke="#101112" stroke-width="6"></circle>
+              <circle cx="32" cy="25" r="5.5" fill="#FF5B1F"></circle>
+              <circle cx="23" cy="41" r="5.5" fill="#101112"></circle>
+              <circle cx="41" cy="41" r="5.5" fill="#101112"></circle>
+            </svg>
+            <div style="display: flex; flex-direction: column; gap: 3px;">
+              <div style="font-size: 19px; font-weight: 600; letter-spacing: -0.025em; line-height: 1;">Friday Night Band</div>
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: #55585C; letter-spacing: 0.04em;">INPUT LIST · 22. 8. 2026 · ZÁMEK BON REPOS</div>
+            </div>
+            <div style="margin-left: auto; text-align: right; font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: #8A8D92; line-height: 1.6;">STAGEPILOT<br>UPD 12. 8. 2026</div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 0;">
+            <div style="display: grid; grid-template-columns: 32px 130px 1fr; gap: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 0.14em; color: #8A8D92; padding-bottom: 6px; border-bottom: 1px solid #E4E1DA;">
+              <div>NO.</div><div>INPUT</div><div>NOTE</div>
+            </div>
+            <div style="display: grid; grid-template-columns: 32px 130px 1fr; gap: 10px; font-size: 10px; padding: 7px 0; border-bottom: 1px solid #F0EDE7;"><div style="font-family: 'IBM Plex Mono', monospace; color: #8A8D92;">01</div><div style="font-weight: 500;">Kick OUT</div><div style="color: #55585C;">Beta 52A / SE V Kick / e602 / D6 / D112 — kick mic stand</div></div>
+            <div style="display: grid; grid-template-columns: 32px 130px 1fr; gap: 10px; font-size: 10px; padding: 7px 0; border-bottom: 1px solid #F0EDE7;"><div style="font-family: 'IBM Plex Mono', monospace; color: #8A8D92;">02</div><div style="font-weight: 500;">Kick IN</div><div style="color: #55585C;">TG D71 / SE BL8 / Beta 91A</div></div>
+            <div style="display: grid; grid-template-columns: 32px 130px 1fr; gap: 10px; font-size: 10px; padding: 7px 0; border-bottom: 1px solid #F0EDE7;"><div style="font-family: 'IBM Plex Mono', monospace; color: #8A8D92;">03</div><div style="font-weight: 500;">Snare TOP</div><div style="color: #55585C;">SM57 / Beta 57A / i5 / TG D57 — small boom mic stand</div></div>
+            <div style="display: grid; grid-template-columns: 32px 130px 1fr; gap: 10px; font-size: 10px; padding: 7px 0; border-bottom: 1px solid #F0EDE7;"><div style="font-family: 'IBM Plex Mono', monospace; color: #8A8D92;">04</div><div style="font-weight: 500;">Snare BOTTOM</div><div style="color: #55585C;">e904 / e604 (alt. SM57 / Beta 57A)</div></div>
+            <div style="display: grid; grid-template-columns: 32px 130px 1fr; gap: 10px; font-size: 10px; padding: 7px 0; border-bottom: 1px solid #F0EDE7;"><div style="font-family: 'IBM Plex Mono', monospace; color: #8A8D92;">05</div><div style="font-weight: 500;">Hi-hat</div><div style="color: #55585C;">Condenser mic — small boom mic stand</div></div>
+            <div style="display: grid; grid-template-columns: 32px 130px 1fr; gap: 10px; font-size: 10px; padding: 7px 0; border-bottom: 1px solid #F0EDE7;"><div style="font-family: 'IBM Plex Mono', monospace; color: #8A8D92;">12</div><div style="font-weight: 500;">Electric bass</div><div style="color: #55585C;">XLR out from pedalboard</div></div>
+            <div style="display: grid; grid-template-columns: 32px 130px 1fr; gap: 10px; font-size: 10px; padding: 7px 0; border-bottom: 1px solid #F0EDE7;"><div style="font-family: 'IBM Plex Mono', monospace; color: #8A8D92;">17</div><div style="font-weight: 500;">Lead vocal</div><div style="color: #55585C;">Own wireless mic — boom mic stand</div></div>
+            <div style="display: grid; grid-template-columns: 32px 130px 1fr; gap: 10px; font-size: 10px; padding: 7px 0;"><div style="font-family: 'IBM Plex Mono', monospace; color: #8A8D92;">20</div><div style="font-weight: 500;">Talkback (bass)</div><div style="color: #55585C;">BETA 58A / SE V7 / SM58 (provided by FOH)</div></div>
+          </div>
+
+          <div style="margin-top: auto; padding-top: 14px; border-top: 1px solid #E4E1DA; display: flex; align-items: center; font-family: 'IBM Plex Mono', monospace; font-size: 8px; color: #8A8D92; letter-spacing: 0.04em;">
+            <div>MATĚJ KREČMER · +420 731 247 870 · MATEJ@KRECMER.EU</div>
+            <div style="margin-left: auto;">1 / 2</div>
+          </div>
+        </div>
+
+        <div style="width: 496px; background: #FFFFFF; box-shadow: 0 2px 14px rgba(16,17,18,0.1); padding: 34px 36px; display: flex; flex-direction: column; gap: 16px; color: #101112;">
+          <div style="display: flex; align-items: flex-start; gap: 12px; padding-bottom: 14px; border-bottom: 2px solid #101112;">
+            <svg viewBox="0 0 64 64" width="26" height="26" fill="none" style="margin-top: 2px;">
+              <rect x="26" y="1" width="12" height="11" rx="3" fill="#101112"></rect>
+              <circle cx="32" cy="34" r="22" stroke="#101112" stroke-width="6"></circle>
+              <circle cx="32" cy="25" r="5.5" fill="#FF5B1F"></circle>
+              <circle cx="23" cy="41" r="5.5" fill="#101112"></circle>
+              <circle cx="41" cy="41" r="5.5" fill="#101112"></circle>
+            </svg>
+            <div style="display: flex; flex-direction: column; gap: 3px;">
+              <div style="font-size: 19px; font-weight: 600; letter-spacing: -0.025em; line-height: 1;">Friday Night Band</div>
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: #55585C; letter-spacing: 0.04em;">STAGE PLAN · 22. 8. 2026 · ZÁMEK BON REPOS</div>
+            </div>
+            <div style="margin-left: auto; text-align: right; font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: #8A8D92; line-height: 1.6;">STAGEPILOT<br>UPD 12. 8. 2026</div>
+          </div>
+
+          <div style="position: relative; height: 300px; border: 1px solid #E4E1DA; background-image: linear-gradient(#F2EFE9 1px, transparent 1px), linear-gradient(90deg, #F2EFE9 1px, transparent 1px); background-size: 24px 24px;">
+            <div style="position: absolute; left: 4%; top: 5%; width: 40%; box-sizing: border-box; border: 1px solid #101112; padding: 8px 10px;">
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 500; letter-spacing: 0.1em;">DRUMS — FILIP</div>
+              <div style="font-size: 9px; color: #55585C; line-height: 1.6; margin-top: 4px;">Drums (1–10) · PAD (11)<br>IEM MONO wired (5)<br>Riser 3×2 · <span style="color: #FF5B1F; font-weight: 600;">3× 230 V</span></div>
+            </div>
+            <div style="position: absolute; right: 4%; top: 5%; width: 40%; box-sizing: border-box; border: 1px solid #101112; padding: 8px 10px;">
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 500; letter-spacing: 0.1em;">KEYS — JAKUB</div>
+              <div style="font-size: 9px; color: #55585C; line-height: 1.6; margin-top: 4px;">Keys (15+16)<br>Back vocal 1 (18)<br>IEM STEREO wired (3) · <span style="color: #FF5B1F; font-weight: 600;">3× 230 V</span></div>
+            </div>
+            <div style="position: absolute; left: 4%; bottom: 16%; width: 40%; box-sizing: border-box; border: 1px solid #101112; padding: 8px 10px;">
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 500; letter-spacing: 0.1em;">BASS — MATĚJ</div>
+              <div style="font-size: 9px; color: #55585C; line-height: 1.6; margin-top: 4px;">Bass (12) · Back vocal 2 (19)<br>Talkback (20)<br>IEM STEREO wl (4) · <span style="color: #FF5B1F; font-weight: 600;">5× 230 V</span></div>
+            </div>
+            <div style="position: absolute; right: 4%; bottom: 16%; width: 40%; box-sizing: border-box; border: 1px solid #101112; padding: 8px 10px;">
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 500; letter-spacing: 0.1em;">GUITAR — TOMÁŠ</div>
+              <div style="font-size: 9px; color: #55585C; line-height: 1.6; margin-top: 4px;">El. guitar (13)<br>IEM MONO wired (1)<br><span style="color: #FF5B1F; font-weight: 600;">3× 230 V</span></div>
+            </div>
+            <div style="position: absolute; left: 30%; right: 30%; bottom: 4%; border: 1px solid #101112; background: #101112; color: #F4F2ED; padding: 6px 8px; text-align: center;">
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 500; letter-spacing: 0.1em;">LEAD VOC — ELIŠKA</div>
+              <div style="font-size: 9px; color: #C9CBCE; margin-top: 3px;">Lead vocal (17) · IEM MONO wl (2)</div>
+            </div>
+          </div>
+
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 0.16em; color: #8A8D92; text-align: center;">↓ DOWNSTAGE / AUDIENCE ↓</div>
+
+          <div style="margin-top: auto; padding-top: 12px; border-top: 1px solid #E4E1DA; display: flex; align-items: center; font-family: 'IBM Plex Mono', monospace; font-size: 8px; color: #8A8D92; letter-spacing: 0.04em;">
+            <div>MATĚJ KREČMER · +420 731 247 870 · MATEJ@KRECMER.EU</div>
+            <div style="margin-left: auto;">2 / 2</div>
+          </div>
+        </div>
+      </div>
+
+      <p style="margin: 0; font-size: 14px; line-height: 1.55; color: #55585C; text-wrap: pretty;">Obsah i pořadí stránek beze změny. Přidaná je jen hlavička se značkou, monospace pro čísla kanálů a oranžové zvýraznění napájení — to je na place první věc, kterou technik hledá.</p>
+    </div>
+  </div>
+</section>
+
+<section style="padding: 40px 64px 96px; display: flex; flex-direction: column; gap: 44px; background: #E9E7E2; font-family: 'Space Grotesk', sans-serif; color: #101112;">
+
+  <header style="display: flex; flex-direction: column; gap: 14px; max-width: 720px;">
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #FF5B1F;">Kolo 1 · Značka</div>
+    <h1 style="margin: 0; font-size: 52px; font-weight: 600; letter-spacing: -0.035em; line-height: 1.02;">StagePilot</h1>
+    <p style="margin: 0; font-size: 18px; line-height: 1.5; color: #55585C; text-wrap: pretty;">Tři jednoduché značky pro aplikaci na tvorbu stage planů. Všechny stojí na jednom geometrickém principu, jedné akcentní barvě a fungují od 16&nbsp;px výš. Napiš mi číslo směru (<a href="#1a">1a</a>, <a href="#1b">1b</a>, <a href="#1c">1c</a>) a dotáhnu ho.</p>
+  </header>
+
+  <div style="display: flex; gap: 28px; flex-wrap: wrap; align-items: stretch;">
+
+    <div id="1a" style="width: 460px; flex: 0 0 auto; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D8D5CE; border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 22px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.12em; background: #101112; color: #F4F2ED; padding: 5px 9px; border-radius: 6px;">1A</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A8D92;">Odposlech</div>
+      </div>
+
+      <div style="position: relative; height: 220px; border-radius: 14px; background: #F4F2ED; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+        <sc-if value="{{ showConstruction }}" hint-placeholder-val="{{ false }}">
+          <div style="position: absolute; inset: 0; background-image: linear-gradient(#D8D5CE 1px, transparent 1px), linear-gradient(90deg, #D8D5CE 1px, transparent 1px); background-size: 20px 20px; opacity: 0.7;"></div>
+        </sc-if>
+        <svg viewBox="0 0 64 64" width="132" height="132" fill="none" style="position: relative;">
+          <path d="M10 43 L46 43 L46 11 Z" fill="#101112"></path>
+          <path d="M32 27 L46 27 L46 11 Z" fill="#FF5B1F"></path>
+          <rect x="6" y="49" width="52" height="7" rx="3.5" fill="#101112"></rect>
+        </svg>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <svg viewBox="0 0 64 64" width="34" height="34" fill="none">
+          <path d="M10 43 L46 43 L46 11 Z" fill="#101112"></path>
+          <path d="M32 27 L46 27 L46 11 Z" fill="#FF5B1F"></path>
+          <rect x="6" y="49" width="52" height="7" rx="3.5" fill="#101112"></rect>
+        </svg>
+        <sc-if value="{{ twoToneWordmark }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size: 27px; font-weight: 600; letter-spacing: -0.035em;">Stage<span style="color: #FF5B1F;">Pilot</span></div>
+        </sc-if>
+        <sc-if value="{{ oneToneWordmark }}" hint-placeholder-val="{{ true }}">
+          <div style="font-size: 27px; font-weight: 600; letter-spacing: -0.035em;">StagePilot</div>
+        </sc-if>
+      </div>
+
+      <p style="margin: 0; font-size: 14px; line-height: 1.55; color: #55585C; text-wrap: pretty;">Silueta pódiového odposlechu z profilu — nejjednodušší symbol, který technik pozná okamžitě. Klín zároveň ukazuje směr, tedy „pilot“.</p>
+
+      <div style="display: flex; align-items: center; gap: 18px; padding-top: 18px; border-top: 1px solid #E4E1DA;">
+        <div style="width: 56px; height: 56px; border-radius: 13px; background: #101112; display: flex; align-items: center; justify-content: center;">
+          <svg viewBox="0 0 64 64" width="34" height="34" fill="none">
+            <path d="M10 43 L46 43 L46 11 Z" fill="#F4F2ED"></path>
+            <path d="M32 27 L46 27 L46 11 Z" fill="#FF5B1F"></path>
+            <rect x="6" y="49" width="52" height="7" rx="3.5" fill="#F4F2ED"></rect>
+          </svg>
+        </div>
+        <svg viewBox="0 0 64 64" width="24" height="24" fill="none">
+          <path d="M10 43 L46 43 L46 11 Z" fill="#101112"></path>
+          <path d="M32 27 L46 27 L46 11 Z" fill="#FF5B1F"></path>
+          <rect x="6" y="49" width="52" height="7" rx="3.5" fill="#101112"></rect>
+        </svg>
+        <svg viewBox="0 0 64 64" width="16" height="16" fill="none">
+          <path d="M10 43 L46 43 L46 11 Z" fill="#101112"></path>
+          <path d="M32 27 L46 27 L46 11 Z" fill="#FF5B1F"></path>
+          <rect x="6" y="49" width="52" height="7" rx="3.5" fill="#101112"></rect>
+        </svg>
+        <div style="margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8A8D92;">56 / 24 / 16 px</div>
+      </div>
+    </div>
+
+    <div id="1b" style="width: 460px; flex: 0 0 auto; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D8D5CE; border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 22px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.12em; background: #101112; color: #F4F2ED; padding: 5px 9px; border-radius: 6px;">1B</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A8D92;">Šipka</div>
+      </div>
+
+      <div style="position: relative; height: 220px; border-radius: 14px; background: #F4F2ED; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+        <sc-if value="{{ showConstruction }}" hint-placeholder-val="{{ false }}">
+          <div style="position: absolute; inset: 0; background-image: linear-gradient(#D8D5CE 1px, transparent 1px), linear-gradient(90deg, #D8D5CE 1px, transparent 1px); background-size: 20px 20px; opacity: 0.7;"></div>
+        </sc-if>
+        <svg viewBox="0 0 64 64" width="132" height="132" fill="none" style="position: relative;">
+          <path d="M11 34 L32 12 L53 34" stroke="#101112" stroke-width="9" stroke-linecap="square"></path>
+          <path d="M18 52 L32 38 L46 52" stroke="#FF5B1F" stroke-width="9" stroke-linecap="square"></path>
+        </svg>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <svg viewBox="0 0 64 64" width="34" height="34" fill="none">
+          <path d="M11 34 L32 12 L53 34" stroke="#101112" stroke-width="9" stroke-linecap="square"></path>
+          <path d="M18 52 L32 38 L46 52" stroke="#FF5B1F" stroke-width="9" stroke-linecap="square"></path>
+        </svg>
+        <sc-if value="{{ twoToneWordmark }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size: 27px; font-weight: 600; letter-spacing: -0.035em;">Stage<span style="color: #FF5B1F;">Pilot</span></div>
+        </sc-if>
+        <sc-if value="{{ oneToneWordmark }}" hint-placeholder-val="{{ true }}">
+          <div style="font-size: 27px; font-weight: 600; letter-spacing: -0.035em;">StagePilot</div>
+        </sc-if>
+      </div>
+
+      <p style="margin: 0; font-size: 14px; line-height: 1.55; color: #55585C; text-wrap: pretty;">Dva šípy nad sebou: letecké „wings“ a zároveň sklon odposlechu. Nejabstraktnější a nejlépe škálovatelný směr — funguje i jako favicon.</p>
+
+      <div style="display: flex; align-items: center; gap: 18px; padding-top: 18px; border-top: 1px solid #E4E1DA;">
+        <div style="width: 56px; height: 56px; border-radius: 13px; background: #101112; display: flex; align-items: center; justify-content: center;">
+          <svg viewBox="0 0 64 64" width="34" height="34" fill="none">
+            <path d="M11 34 L32 12 L53 34" stroke="#F4F2ED" stroke-width="9" stroke-linecap="square"></path>
+            <path d="M18 52 L32 38 L46 52" stroke="#FF5B1F" stroke-width="9" stroke-linecap="square"></path>
+          </svg>
+        </div>
+        <svg viewBox="0 0 64 64" width="24" height="24" fill="none">
+          <path d="M11 34 L32 12 L53 34" stroke="#101112" stroke-width="9" stroke-linecap="square"></path>
+          <path d="M18 52 L32 38 L46 52" stroke="#FF5B1F" stroke-width="9" stroke-linecap="square"></path>
+        </svg>
+        <svg viewBox="0 0 64 64" width="16" height="16" fill="none">
+          <path d="M11 34 L32 12 L53 34" stroke="#101112" stroke-width="9" stroke-linecap="square"></path>
+          <path d="M18 52 L32 38 L46 52" stroke="#FF5B1F" stroke-width="9" stroke-linecap="square"></path>
+        </svg>
+        <div style="margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8A8D92;">56 / 24 / 16 px</div>
+      </div>
+    </div>
+
+    <div id="1c" style="width: 460px; flex: 0 0 auto; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D8D5CE; border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 22px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.12em; background: #101112; color: #F4F2ED; padding: 5px 9px; border-radius: 6px;">1C</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A8D92;">Plán</div>
+      </div>
+
+      <div style="position: relative; height: 220px; border-radius: 14px; background: #F4F2ED; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+        <sc-if value="{{ showConstruction }}" hint-placeholder-val="{{ false }}">
+          <div style="position: absolute; inset: 0; background-image: linear-gradient(#D8D5CE 1px, transparent 1px), linear-gradient(90deg, #D8D5CE 1px, transparent 1px); background-size: 20px 20px; opacity: 0.7;"></div>
+        </sc-if>
+        <svg viewBox="0 0 64 64" width="132" height="132" fill="none" style="position: relative;">
+          <rect x="10" y="10" width="12" height="12" rx="2" fill="#101112"></rect>
+          <rect x="26" y="10" width="12" height="12" rx="2" fill="#101112"></rect>
+          <rect x="42" y="10" width="12" height="12" rx="2" fill="#101112"></rect>
+          <rect x="10" y="26" width="12" height="12" rx="2" fill="#101112"></rect>
+          <path d="M26 26 L38 32 L26 38 Z" fill="#FF5B1F"></path>
+          <rect x="42" y="26" width="12" height="12" rx="2" fill="#101112"></rect>
+          <rect x="10" y="42" width="12" height="12" rx="2" fill="#101112"></rect>
+          <rect x="26" y="42" width="12" height="12" rx="2" fill="#101112"></rect>
+          <rect x="42" y="42" width="12" height="12" rx="2" fill="#101112"></rect>
+        </svg>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <svg viewBox="0 0 64 64" width="34" height="34" fill="none">
+          <rect x="10" y="10" width="12" height="12" rx="2" fill="#101112"></rect>
+          <rect x="26" y="10" width="12" height="12" rx="2" fill="#101112"></rect>
+          <rect x="42" y="10" width="12" height="12" rx="2" fill="#101112"></rect>
+          <rect x="10" y="26" width="12" height="12" rx="2" fill="#101112"></rect>
+          <path d="M26 26 L38 32 L26 38 Z" fill="#FF5B1F"></path>
+          <rect x="42" y="26" width="12" height="12" rx="2" fill="#101112"></rect>
+          <rect x="10" y="42" width="12" height="12" rx="2" fill="#101112"></rect>
+          <rect x="26" y="42" width="12" height="12" rx="2" fill="#101112"></rect>
+          <rect x="42" y="42" width="12" height="12" rx="2" fill="#101112"></rect>
+        </svg>
+        <sc-if value="{{ twoToneWordmark }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size: 27px; font-weight: 600; letter-spacing: -0.035em;">Stage<span style="color: #FF5B1F;">Pilot</span></div>
+        </sc-if>
+        <sc-if value="{{ oneToneWordmark }}" hint-placeholder-val="{{ true }}">
+          <div style="font-size: 27px; font-weight: 600; letter-spacing: -0.035em;">StagePilot</div>
+        </sc-if>
+      </div>
+
+      <p style="margin: 0; font-size: 14px; line-height: 1.55; color: #55585C; text-wrap: pretty;">Rastr stage planu, do kterého je „umístěná“ jedna pozice. Doslovný popis produktu: mřížka + prvek na scéně.</p>
+
+      <div style="display: flex; align-items: center; gap: 18px; padding-top: 18px; border-top: 1px solid #E4E1DA;">
+        <div style="width: 56px; height: 56px; border-radius: 13px; background: #101112; display: flex; align-items: center; justify-content: center;">
+          <svg viewBox="0 0 64 64" width="34" height="34" fill="none">
+            <rect x="10" y="10" width="12" height="12" rx="2" fill="#F4F2ED"></rect>
+            <rect x="26" y="10" width="12" height="12" rx="2" fill="#F4F2ED"></rect>
+            <rect x="42" y="10" width="12" height="12" rx="2" fill="#F4F2ED"></rect>
+            <rect x="10" y="26" width="12" height="12" rx="2" fill="#F4F2ED"></rect>
+            <path d="M26 26 L38 32 L26 38 Z" fill="#FF5B1F"></path>
+            <rect x="42" y="26" width="12" height="12" rx="2" fill="#F4F2ED"></rect>
+            <rect x="10" y="42" width="12" height="12" rx="2" fill="#F4F2ED"></rect>
+            <rect x="26" y="42" width="12" height="12" rx="2" fill="#F4F2ED"></rect>
+            <rect x="42" y="42" width="12" height="12" rx="2" fill="#F4F2ED"></rect>
+          </svg>
+        </div>
+        <svg viewBox="0 0 64 64" width="24" height="24" fill="none">
+          <rect x="10" y="10" width="12" height="12" rx="2" fill="#101112"></rect>
+          <rect x="26" y="10" width="12" height="12" rx="2" fill="#101112"></rect>
+          <rect x="42" y="10" width="12" height="12" rx="2" fill="#101112"></rect>
+          <rect x="10" y="26" width="12" height="12" rx="2" fill="#101112"></rect>
+          <path d="M26 26 L38 32 L26 38 Z" fill="#FF5B1F"></path>
+          <rect x="42" y="26" width="12" height="12" rx="2" fill="#101112"></rect>
+          <rect x="10" y="42" width="12" height="12" rx="2" fill="#101112"></rect>
+          <rect x="26" y="42" width="12" height="12" rx="2" fill="#101112"></rect>
+          <rect x="42" y="42" width="12" height="12" rx="2" fill="#101112"></rect>
+        </svg>
+        <svg viewBox="0 0 64 64" width="16" height="16" fill="none">
+          <rect x="10" y="10" width="12" height="12" rx="2" fill="#101112"></rect>
+          <rect x="26" y="10" width="12" height="12" rx="2" fill="#101112"></rect>
+          <rect x="42" y="10" width="12" height="12" rx="2" fill="#101112"></rect>
+          <rect x="10" y="26" width="12" height="12" rx="2" fill="#101112"></rect>
+          <path d="M26 26 L38 32 L26 38 Z" fill="#FF5B1F"></path>
+          <rect x="42" y="26" width="12" height="12" rx="2" fill="#101112"></rect>
+          <rect x="10" y="42" width="12" height="12" rx="2" fill="#101112"></rect>
+          <rect x="26" y="42" width="12" height="12" rx="2" fill="#101112"></rect>
+          <rect x="42" y="42" width="12" height="12" rx="2" fill="#101112"></rect>
+        </svg>
+        <div style="margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8A8D92;">56 / 24 / 16 px</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="1d" style="width: 1436px; flex: 0 0 auto; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D8D5CE; border-radius: 20px; padding: 36px; display: flex; flex-direction: column; gap: 32px;">
+    <div style="display: flex; align-items: baseline; gap: 14px;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.12em; background: #101112; color: #F4F2ED; padding: 5px 9px; border-radius: 6px;">1D</div>
+      <h2 style="margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.03em;">Grafický styl</h2>
+      <div style="font-size: 15px; color: #8A8D92;">Platí pro všechny tři směry</div>
+    </div>
+
+    <div style="display: flex; gap: 28px; flex-wrap: wrap;">
+      <div style="flex: 1 1 420px; display: flex; flex-direction: column; gap: 14px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A8D92;">Barvy</div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="height: 92px; border-radius: 12px; background: #101112;"></div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #55585C;">#101112<br>Ink</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="height: 92px; border-radius: 12px; background: #FF5B1F;"></div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #55585C;">#FF5B1F<br>Signal</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="height: 92px; border-radius: 12px; background: #F4F2ED; border: 1px solid #E4E1DA;"></div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #55585C;">#F4F2ED<br>Paper</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="height: 92px; border-radius: 12px; background: #8A8D92;"></div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #55585C;">#8A8D92<br>Steel</div>
+          </div>
+        </div>
+        <p style="margin: 0; font-size: 14px; line-height: 1.55; color: #55585C; text-wrap: pretty;">Jedna akcentní barva, jinak čistě neutrály. Signal používej výhradně pro aktivní stav, vybraný prvek a jeden detail ve znaku — nikdy jako plochu na pozadí.</p>
+      </div>
+
+      <div style="flex: 1 1 420px; display: flex; flex-direction: column; gap: 14px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A8D92;">Typografie</div>
+        <div style="border: 1px solid #E4E1DA; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+          <div>
+            <div style="font-size: 40px; font-weight: 600; letter-spacing: -0.035em; line-height: 1.05;">Stage plan za pět minut</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8A8D92; margin-top: 6px;">Space Grotesk 600 · tracking −3,5 %</div>
+          </div>
+          <div style="height: 1px; background: #E4E1DA;"></div>
+          <div>
+            <div style="font-size: 17px; font-weight: 400; color: #33363A; line-height: 1.5;">Rozvržení pódia, odposlechy, kanály a stage box — jeden dokument pro celý štáb.</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8A8D92; margin-top: 6px;">Space Grotesk 400</div>
+          </div>
+          <div style="height: 1px; background: #E4E1DA;"></div>
+          <div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 500; letter-spacing: 0.02em;">CH 01–48 · XLR · 230 V · 12,0 × 8,0 m</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8A8D92; margin-top: 6px;">IBM Plex Mono 500 — čísla, kanály, technické popisky</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <sc-if value="{{ showAppPreview }}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A8D92;">Aplikace v praxi</div>
+        <div style="border-radius: 16px; overflow: hidden; border: 1px solid #E4E1DA; background: #101112; display: flex; flex-direction: column;">
+
+          <div style="display: flex; align-items: center; gap: 14px; padding: 14px 20px; border-bottom: 1px solid #26282B;">
+            <svg viewBox="0 0 64 64" width="24" height="24" fill="none">
+              <path d="M10 43 L46 43 L46 11 Z" fill="#F4F2ED"></path>
+              <path d="M32 27 L46 27 L46 11 Z" fill="#FF5B1F"></path>
+              <rect x="6" y="49" width="52" height="7" rx="3.5" fill="#F4F2ED"></rect>
+            </svg>
+            <div style="font-size: 16px; font-weight: 600; letter-spacing: -0.03em; color: #F4F2ED;">StagePilot</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8A8D92; margin-left: 10px;">Rock for People · Stage 2 · 12,0 × 8,0 m</div>
+            <div style="margin-left: auto; display: flex; gap: 10px;">
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #C9CBCE; border: 1px solid #33363A; border-radius: 8px; padding: 7px 12px;">Export PDF</div>
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #101112; background: #FF5B1F; border-radius: 8px; padding: 7px 12px; font-weight: 500;">Sdílet</div>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: stretch;">
+            <div style="width: 232px; border-right: 1px solid #26282B; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px;">
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #6C7074;">Kanály</div>
+              <div style="display: flex; flex-direction: column; gap: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #C9CBCE;">
+                <div style="display: flex; gap: 12px;"><span style="color: #6C7074;">01</span><span>Kick In</span></div>
+                <div style="display: flex; gap: 12px;"><span style="color: #6C7074;">02</span><span>Snare Top</span></div>
+                <div style="display: flex; gap: 12px;"><span style="color: #6C7074;">03</span><span>Hi-Hat</span></div>
+                <div style="display: flex; gap: 12px; color: #FF5B1F;"><span>12</span><span>Bass DI</span></div>
+                <div style="display: flex; gap: 12px;"><span style="color: #6C7074;">14</span><span>Gtr L · SM57</span></div>
+                <div style="display: flex; gap: 12px;"><span style="color: #6C7074;">21</span><span>Vox Lead</span></div>
+              </div>
+              <div style="margin-top: 6px; height: 1px; background: #26282B;"></div>
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #6C7074;">Odposlechy</div>
+              <div style="display: flex; flex-direction: column; gap: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #C9CBCE;">
+                <div style="display: flex; gap: 12px;"><span style="color: #6C7074;">M1</span><span>Wedge — Vox</span></div>
+                <div style="display: flex; gap: 12px;"><span style="color: #6C7074;">M3</span><span>Drum fill</span></div>
+              </div>
+            </div>
+
+            <div style="flex: 1; min-width: 0; position: relative; height: 372px; background-color: #15171A; background-image: linear-gradient(#212429 1px, transparent 1px), linear-gradient(90deg, #212429 1px, transparent 1px); background-size: 32px 32px;">
+              <div style="position: absolute; left: 5%; top: 44px; width: 21%; height: 96px; border-radius: 8px; background: #22262B; border: 1px solid #33383E; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #C9CBCE;">DRUMS · riser</div>
+              <div style="position: absolute; left: 31%; top: 60px; width: 17%; height: 64px; border-radius: 8px; background: #FF5B1F; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #101112; font-weight: 500;">BASS · DI 12</div>
+              <div style="position: absolute; left: 52%; top: 48px; width: 17%; height: 88px; border-radius: 8px; background: #22262B; border: 1px solid #33383E; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #C9CBCE;">GTR L</div>
+              <div style="position: absolute; left: 73%; top: 48px; width: 17%; height: 88px; border-radius: 8px; background: #22262B; border: 1px solid #33383E; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #C9CBCE;">KEYS</div>
+              <div style="position: absolute; left: 40%; top: 208px; width: 20%; height: 52px; border-radius: 8px; background: #22262B; border: 1px solid #33383E; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #C9CBCE;">VOX LEAD</div>
+              <div style="position: absolute; left: 40%; top: 286px; width: 20%; height: 26px; border-radius: 5px; background: #33383E; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.1em; color: #C9CBCE;">M1</div>
+              <div style="position: absolute; left: 8%; top: 286px; width: 16%; height: 26px; border-radius: 5px; background: #33383E; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.1em; color: #C9CBCE;">M3</div>
+              <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 34px; background: #101112; border-top: 1px solid #26282B; display: flex; align-items: center; padding: 0 16px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.14em; color: #6C7074;">DOWNSTAGE / PUBLIKUM</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showConstruction&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prezentace&quot;},&quot;twoToneWordmark&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Značka&quot;},&quot;showAppPreview&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prezentace&quot;}}">
+const INITIAL_BLOCKS = [
+  { id: 'drums', label: 'DRUMS — FILIP', sub: 'CH 1–11 · PAD 11 · IEM 5', extra: 'Riser 3×2 m', power: '3× 230 V', x: 80, y: 36, w: 250, h: 140, rot: 0 },
+  { id: 'keys', label: 'KEYS — JAKUB', sub: 'CH 15+16 · BV 18 · IEM 3', extra: 'Stereo XLR z racku', power: '3× 230 V', x: 750, y: 36, w: 250, h: 130, rot: 0 },
+  { id: 'bass', label: 'BASS — MATĚJ', sub: 'CH 12 · BV 19 · TB 20 · IEM 4', extra: 'Band leader', power: '5× 230 V', x: 80, y: 280, w: 240, h: 130, rot: 0 },
+  { id: 'guitar', label: 'GUITAR — TOMÁŠ', sub: 'CH 13 · IEM 1', extra: 'XLR z pedalboardu', power: '3× 230 V', x: 760, y: 280, w: 240, h: 130, rot: 0 },
+  { id: 'vox', label: 'LEAD VOC — ELIŠKA', sub: 'CH 17 · IEM 2', extra: 'Vlastní bezdrát', power: '3× 230 V', x: 425, y: 300, w: 230, h: 110, rot: 0 },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.canvasRef = React.createRef();
+    this.state = {
+      blocks: INITIAL_BLOCKS.map(b => ({ ...b })),
+      selected: 'drums',
+      snap: true,
+    };
+  }
+
+  scale() {
+    const el = this.canvasRef.current;
+    if (!el || !el.offsetWidth) return 1;
+    return el.getBoundingClientRect().width / el.offsetWidth || 1;
+  }
+
+  patch(id, fields) {
+    this.setState(st => ({ blocks: st.blocks.map(b => (b.id === id ? { ...b, ...fields } : b)) }));
+  }
+
+  startDrag(id, e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const b = this.state.blocks.find(x => x.id === id);
+    if (!b) return;
+    this.setState({ selected: id });
+    const s = this.scale();
+    const sx = e.clientX, sy = e.clientY, ox = b.x, oy = b.y;
+    const move = ev => {
+      let nx = ox + (ev.clientX - sx) / s;
+      let ny = oy + (ev.clientY - sy) / s;
+      if (this.state.snap) { nx = Math.round(nx / 10) * 10; ny = Math.round(ny / 10) * 10; }
+      nx = Math.max(-20, Math.min(nx, 1080 - b.w + 20));
+      ny = Math.max(-20, Math.min(ny, 470 - b.h + 20));
+      this.patch(id, { x: nx, y: ny });
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  }
+
+  startRotate(id, e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = this.canvasRef.current;
+    const b = this.state.blocks.find(x => x.id === id);
+    if (!el || !b) return;
+    this.setState({ selected: id });
+    const s = this.scale();
+    const r = el.getBoundingClientRect();
+    const cx = r.left + (b.x + b.w / 2) * s;
+    const cy = r.top + (b.y + b.h / 2) * s;
+    const step = this.state.snap ? 15 : 1;
+    const move = ev => {
+      let a = Math.atan2(ev.clientY - cy, ev.clientX - cx) * 180 / Math.PI + 90;
+      a = Math.round(a / step) * step;
+      a = ((a % 360) + 360) % 360;
+      this.patch(id, { rot: a });
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  }
+
+  rotateBy(d) {
+    const b = this.state.blocks.find(x => x.id === this.state.selected);
+    if (!b) return;
+    this.patch(b.id, { rot: ((Math.round((b.rot + d) / 15) * 15 % 360) + 360) % 360 });
+  }
+
+  renderVals() {
+    const twoTone = this.props.twoToneWordmark ?? false;
+    const sel = this.state.blocks.find(b => b.id === this.state.selected) || this.state.blocks[0];
+
+    const blocks = this.state.blocks.map(b => {
+      const isSel = b.id === this.state.selected;
+      return {
+        ...b,
+        isSelected: isSel,
+        rotLabel: b.rot + '°',
+        onDown: e => this.startDrag(b.id, e),
+        onRotate: e => this.startRotate(b.id, e),
+        style: {
+          position: 'absolute',
+          left: b.x + 'px',
+          top: b.y + 'px',
+          width: b.w + 'px',
+          height: b.h + 'px',
+          transform: 'rotate(' + b.rot + 'deg)',
+          transformOrigin: '50% 50%',
+          boxSizing: 'border-box',
+          cursor: 'grab',
+          userSelect: 'none',
+          touchAction: 'none',
+          borderRadius: '12px',
+          padding: '14px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '6px',
+          background: isSel ? '#2A211B' : '#20242A',
+          border: isSel ? '2px solid #FF5B1F' : '1px solid #363B42',
+          boxShadow: isSel ? '0 10px 28px rgba(255,91,31,0.22)' : '0 2px 8px rgba(0,0,0,0.3)',
+        },
+      };
+    });
+
+    const list = this.state.blocks.map(b => ({
+      id: b.id,
+      label: b.label,
+      rotLabel: b.rot + '°',
+      isSelected: b.id === this.state.selected,
+      onClick: () => this.setState({ selected: b.id }),
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        padding: '9px 12px',
+        borderRadius: '9px',
+        cursor: 'pointer',
+        fontFamily: "'IBM Plex Mono', monospace",
+        fontSize: '11px',
+        letterSpacing: '0.06em',
+        background: b.id === this.state.selected ? '#FF5B1F' : 'transparent',
+        color: b.id === this.state.selected ? '#101112' : '#9AA0A6',
+        border: '1px solid ' + (b.id === this.state.selected ? '#FF5B1F' : '#2A2E34'),
+      },
+    }));
+
+    return {
+      showConstruction: this.props.showConstruction ?? false,
+      showAppPreview: this.props.showAppPreview ?? true,
+      twoToneWordmark: twoTone,
+      oneToneWordmark: !twoTone,
+      canvasRef: this.canvasRef,
+      blocks,
+      blockList: list,
+      selLabel: sel ? sel.label : '',
+      selSub: sel ? sel.sub : '',
+      selPower: sel ? sel.power : '',
+      selRot: sel ? sel.rot + '°' : '0°',
+      selSize: sel ? Math.round(sel.w / 90 * 10) / 10 + ' × ' + Math.round(sel.h / 90 * 10) / 10 + ' m' : '',
+      snapLabel: this.state.snap ? 'SNAP 10 CM · 15°' : 'SNAP OFF',
+      snapStyle: {
+        fontFamily: "'IBM Plex Mono', monospace",
+        fontSize: '11px',
+        letterSpacing: '0.1em',
+        padding: '8px 12px',
+        borderRadius: '8px',
+        cursor: 'pointer',
+        userSelect: 'none',
+        background: this.state.snap ? '#FF5B1F' : 'transparent',
+        color: this.state.snap ? '#101112' : '#9AA0A6',
+        border: '1px solid ' + (this.state.snap ? '#FF5B1F' : '#363B42'),
+      },
+      toggleSnap: () => this.setState(st => ({ snap: !st.snap })),
+      rotLeft: () => this.rotateBy(-15),
+      rotRight: () => this.rotateBy(15),
+      resetLayout: () => this.setState({ blocks: INITIAL_BLOCKS.map(b => ({ ...b })), selected: 'drums' }),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+{
+  "color": {
+    "ink": "#101112",
+    "inkSoft": "#33363A",
+    "steel": "#8A8D92",
+    "body": "#55585C",
+    "paper": "#F4F2ED",
+    "paperDeep": "#E9E7E2",
+    "surface": "#FFFFFF",
+    "line": "#E4E1DA",
+    "lineStrong": "#D8D5CE",
+    "lineFaint": "#F0EDE7",
+    "signal": "#FF5B1F",
+    "signalText": "#C43F0E",
+    "signalWash": "#FFF1E9",
+    "signalWash2": "#FFE9DE",
+    "rowHighlight": "#FFFBF8",
+    "canvas": "#15171A",
+    "canvasGrid": "#20242A",
+    "block": "#20242A",
+    "blockSelected": "#2A211B",
+    "borderDark": "#363B42",
+    "borderDark2": "#26282B",
+    "textDark": "#F4F2ED",
+    "textDarkMid": "#9AA0A6",
+    "textDarkDim": "#6C7074",
+    "titlebar": "#101112",
+    "taskbar": "#1B1B1F",
+    "taskbarItem": "#2A2A30",
+    "closeHover": "#E5484D"
+  },
+  "font": {
+    "sans": "Space Grotesk",
+    "mono": "IBM Plex Mono"
+  },
+  "radius": {
+    "chip": 6,
+    "btn": 8,
+    "btnLg": 10,
+    "card": 12,
+    "cardLg": 14,
+    "panel": 20,
+    "icon": 11,
+    "tile": 17
+  },
+  "editor": {
+    "gridPx": 30,
+    "gridMeters": 0.5,
+    "snapTranslatePx": 10,
+    "snapRotateDeg": 15,
+    "canvas": [
+      1080,
+      470
+    ],
+    "stageMeters": [
+      12,
+      8
+    ]
+  }
+}
