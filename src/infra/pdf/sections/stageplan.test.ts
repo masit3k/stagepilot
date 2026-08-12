@@ -9,14 +9,6 @@ import {
   createPdfRendererFixtureRoot,
 } from "../pdfRendererFixture.js";
 
-function parsePt(value: string): number {
-  const match = /([0-9.]+)\s*pt/i.exec(value);
-  if (!match) {
-    throw new Error(`Expected pt value, got: ${value}`);
-  }
-  return Number.parseFloat(match[1] ?? "0");
-}
-
 describe("stageplan render plan", () => {
   it("builds boxes and respects typography for test fixture data", async () => {
     const tmpRoot = await createPdfRendererFixtureRoot();
@@ -299,9 +291,9 @@ describe("stageplan render plan", () => {
 
     // Rozpočet počítá produkční kód, test ho jen kontroluje — jinak by se
     // vzorec musel držet na dvou místech.
-    expect(plan.budget.totalHeightMm).toBeLessThanOrEqual(
-      plan.budget.availableHeightMm,
-    );
+    // Přišpuntěná hodnota, ne nerovnost: úkol 7 tenhle vzorec mění, takže se
+    // musí projevit v testu, ne v tichu.
+    expect(plan.budget.totalHeightMm).toBeCloseTo(62.1, 1);
     expect(plan.budget.availableHeightMm).toBe(262);
   });
 
