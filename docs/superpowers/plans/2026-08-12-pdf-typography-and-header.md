@@ -42,7 +42,7 @@ Pořadí úkolů drží dvě pravidla: **repo je zelené po každém commitu** a
 
 ---
 
-### Úkol 1: Anglické popisky přepínače odposlechu
+### Task 1 — Anglické popisky přepínače odposlechu
 
 Nezávislé na zbytku plánu, jde první, protože nic neblokuje a odblokuje se tím rozpracovaná drobnost. Spec: dodatek.
 
@@ -139,7 +139,7 @@ git commit -m "fix(setup): label the monitor supplier switch in English"
 
 ---
 
-### Úkol 2: Zrušení nadpisu Stageplan na straně 2
+### Task 2 — Zrušení nadpisu Stageplan na straně 2
 
 Musí předcházet změně typografie, protože `headingSizePt` je dnes odvozený z `typography.title.size` — kdyby se pořadí otočilo, nadpis by se potichu zmenšil. Zároveň se výškový rozpočet strany 2 vytáhne z testu do produkčního kódu, aby ho úkol 7 měnil na jednom místě. Spec: R10.
 
@@ -282,7 +282,7 @@ git commit -m "refactor(pdf): drop the stageplan heading and own the height budg
 
 ---
 
-### Úkol 3: Písma identity místo Interu
+### Task 3 — Písma identity místo Interu
 
 Spec: R9.
 
@@ -409,7 +409,7 @@ git commit -m "feat(pdf): swap Inter for the brand typefaces"
 
 ---
 
-### Úkol 4: Barvy, škála a tiskové zrcadlo v `layout.ts`
+### Task 4 — Barvy, škála a tiskové zrcadlo v `layout.ts`
 
 Jediné místo, odkud další úkoly berou čísla. Staré klíče (`typography.contact`, `typography.table.headerWeight`) se **nemažou** — mizí až s posledním konzumentem v úkolech 7 a 8, aby každý commit zůstal zelený. Spec: R1, R7, R11.
 
@@ -705,7 +705,7 @@ git commit -m "feat(pdf): derive the print box, type scale and colour tokens"
 
 ---
 
-### Úkol 5: `DocumentHeaderModel` v doméně
+### Task 5 — `DocumentHeaderModel` v doméně
 
 Šablona se v tomhle úkolu upraví jen minimálně — jen tak, aby zůstala zelená. Skutečnou hlavičku staví úkol 6. Spec: R2, R3, R4.
 
@@ -1009,7 +1009,7 @@ git commit -m "refactor(domain): replace the meta line with a structured documen
 
 ---
 
-### Úkol 6: Hlavička na obou stranách
+### Task 6 — Hlavička na obou stranách
 
 Spec: R3, R5, R7.
 
@@ -1269,7 +1269,7 @@ git commit -m "feat(pdf): brand the header on both pages"
 
 ---
 
-### Úkol 7: Patička a číslování stran
+### Task 7 — Patička a číslování stran
 
 Zároveň se výškový rozpočet strany 2 dozví o hlavičce a patičce. Spec: R6, R11.
 
@@ -1552,7 +1552,7 @@ git commit -m "feat(pdf): add the document footer and page numbering"
 
 ---
 
-### Úkol 8: Tabulka bez rámečků
+### Task 8 — Tabulka bez rámečků
 
 Spec: R8.
 
@@ -1702,7 +1702,7 @@ git commit -m "feat(pdf): rebuild the input table on hairlines"
 
 ---
 
-### Úkol 9: Pojistka proti přetečení A4
+### Task 9 — Pojistka proti přetečení A4
 
 Poslední, protože měří výsledek všech předchozích. Spec: R11.
 
