@@ -167,12 +167,14 @@ a nahraď blok na řádcích 304–315 (od `const pageHeightMm = 297;` po `expec
 
 ```ts
     // Rozpočet počítá produkční kód, test ho jen kontroluje — jinak by se
-    // vzorec musel držet na dvou místech.
-    expect(plan.budget.totalHeightMm).toBeLessThanOrEqual(
-      plan.budget.availableHeightMm,
-    );
+    // vzorec musel držet na dvou místech. Obě hodnoty se přišpuntí; nerovnost
+    // mezi nimi by netestovala nic, protože buildStageplanPlan při přetečení
+    // hodí výjimku dřív, než rozpočet vůbec vrátí.
+    expect(plan.budget.totalHeightMm).toBeCloseTo(<ACTUAL>, 1);
     expect(plan.budget.availableHeightMm).toBe(262);
 ```
+
+`<ACTUAL>` odečti z reálného běhu, neodhaduj ho — fixture v tomhle testu se rozpadá na `layout_6_2_vocs`, ne na pětičlenné rozložení, takže čísla naměřená jinde neplatí. Do komentáře u assertce zapiš složení hodnoty (`containerMarginTop + containerPad + areaHeightMm`).
 
 Číslo 262 tu stojí natvrdo záměrně: `pdfLayout.page.contentHeightMm` vzniká až v úkolu 4 a úkol 7 tuhle assertci stejně přepíše na odvozenou hodnotu.
 
