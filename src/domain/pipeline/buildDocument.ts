@@ -3,16 +3,16 @@ import { parsePersistedDrumDefinition } from "../drums/drumDefinition.js";
 import { resolveDrumInputs } from "../drums/resolveDrumInputs.js";
 import {
   formatBackVocalPdfLabel,
+  formatDocumentHeader,
   formatDrumInputDisplayLabel,
   formatLeadVocalPdfLabel,
-  formatProjectMetaLine,
   groupActiveDrumInputsByFamily,
 } from "../formatters/index.js";
 import type { Group } from "../model/groups.js";
 import type {
+  DocumentHeaderModel,
   DocumentViewModel,
   InputChannel,
-  MetaLineModel,
   Musician,
   PresetEntity,
   PresetItem,
@@ -48,9 +48,9 @@ import { resolveEffectivePresetsForProject } from "./resolveEffectivePresetsForP
  * Helpers
  * ============================================================ */
 
-function buildMetaLine(project: Project): MetaLineModel {
+function buildDocumentHeader(project: Project): DocumentHeaderModel {
   const purpose = project.purpose === "event" ? "event" : "general";
-  return formatProjectMetaLine({
+  return formatDocumentHeader({
     purpose,
     eventDate: project.eventDate,
     eventVenue: project.eventVenue,
@@ -647,7 +647,7 @@ export function buildDocument(
       updatedAt: project.updatedAt,
       contentUpdatedAt: project.contentUpdatedAt,
 
-      metaLine: buildMetaLine(project),
+      header: buildDocumentHeader(project),
       logoFile: band.logoFile,
     },
 

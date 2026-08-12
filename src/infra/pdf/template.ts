@@ -1,9 +1,8 @@
-import type { DocumentViewModel } from "../../domain/model/types.js";
-import type { MetaLineModel } from "../../domain/model/types.js";
-import { pdfStyles } from "./styles.js";
+import type { DocumentHeaderModel, DocumentViewModel } from "../../domain/model/types.js";
 import { pdfLayout } from "./layout.js";
 import { renderStageplanSection } from "./sections/stageplan.js";
 import type { StageplanRenderOptions } from "./stageplanRenderOptions.js";
+import { pdfStyles } from "./styles.js";
 
 function esc(s: unknown): string {
   const str = s == null ? "" : String(s);
@@ -14,32 +13,9 @@ function esc(s: unknown): string {
     .replaceAll('"', "&quot;");
 }
 
-function renderMetaLine(metaLine: MetaLineModel, esc: (s: string) => string): string {
-  if (metaLine.kind === "labeled") {
-    return `
-      <div class="metaLine">
-        <span class="metaLabel">${esc(metaLine.label)}</span> ${esc(metaLine.value)}
-      </div>
-    `.trim();
-  }
-
-  if (metaLine.kind === "split") {
-    const subtitleHtml = metaLine.subtitle
-      ? `<div class="metaLine">${esc(metaLine.subtitle)}</div>`
-      : "";
-    return `
-      ${subtitleHtml}
-      <div class="metaLine">
-        <span class="metaLabel">${esc(metaLine.updateDateLabel)}</span> ${esc(metaLine.updateDateValue)}
-      </div>
-    `.trim();
-  }
-
-  return `
-    <div class="metaLine">
-      ${esc(metaLine.value)}
-    </div>
-  `.trim();
+function renderMetaLine(header: DocumentHeaderModel, esc: (s: string) => string): string {
+  const parts = [...header.contextParts, `UPD ${header.updatedDate}`];
+  return `<div class="metaLine">${esc(parts.join(" · "))}</div>`;
 }
 
 function renderMonitorTable(vm: DocumentViewModel): string {
@@ -86,7 +62,7 @@ export function renderInputlistHtml(vm: DocumentViewModel, opts: RenderTemplateO
     ? `<div class="contactLine">${esc(opts.contactLine)}</div>`
     : "";
 
-  const metaHtml = renderMetaLine(vm.meta.metaLine, esc);
+  const metaHtml = renderMetaLine(vm.meta.header, esc);
 
   // TABLES
   const monitorTableHtml = renderMonitorTable(vm);

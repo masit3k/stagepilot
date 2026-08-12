@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
+import type { Band, Musician, NotesTemplate, Preset, ProjectJsonV2 } from "../../domain/model/types.js";
+import { buildDocument } from "../../domain/pipeline/buildDocument.js";
 import type { DataRepository } from "../../infra/fs/repo.js";
 import { renderInputlistHtml } from "../../infra/pdf/template.js";
-import type { ProjectJsonV2, Band, Musician, NotesTemplate, Preset } from "../../domain/model/types.js";
 import { normalizeProject } from "./normalizeProject.js";
-import { buildDocument } from "../../domain/pipeline/buildDocument.js";
 
 function createRepo(): DataRepository {
   const band: Band = {
@@ -68,13 +68,12 @@ describe("pdf header integration (project json -> normalize -> buildDocument -> 
     const vm = buildDocument(normalizeProject(json), repo);
     const html = renderInputlistHtml(vm, { tabTitle: "Stageplan", baseHref: "file:///tmp/" });
 
-    expect(html).toContain("Léto s Blaníkem 2026 (datum aktualizace: 16. 3. 2026)");
-    expect(html).not.toContain("<span class=\"metaLabel\">datum aktualizace:</span>");
-    expect(html).not.toContain("datum aktualizace: 1. 1. 2026");
-    expect((html.match(/datum aktualizace:/g) ?? []).length).toBe(1);
+    expect(html).toContain("Léto s Blaníkem 2026 · UPD 16. 3. 2026");
+    expect(html).not.toContain("UPD 1. 1. 2026");
+    expect((html.match(/UPD /g) ?? []).length).toBe(1);
   });
 
-  it("keeps event subtitle behavior and uses updatedAt for update date", () => {
+  it("renders event date and venue with the updatedAt date", () => {
     const repo = createRepo();
     const json: ProjectJsonV2 = {
       id: "e-meta",
@@ -89,9 +88,8 @@ describe("pdf header integration (project json -> normalize -> buildDocument -> 
     const vm = buildDocument(normalizeProject(json), repo);
     const html = renderInputlistHtml(vm, { tabTitle: "Stageplan", baseHref: "file:///tmp/" });
 
-    expect(html).toContain("Datum akce a místo konání:");
-    expect(html).toContain("10. 3. 2026, Klub (datum aktualizace: 12. 3. 2026)");
-    expect(html).not.toContain("10. 3. 2026, Klub (datum aktualizace: 1. 1. 2026)");
+    expect(html).toContain("10. 3. 2026 · Klub · UPD 12. 3. 2026");
+    expect(html).not.toContain("UPD 1. 1. 2026");
   });
 
   it("prefers contentUpdatedAt over updatedAt when both stamps are present", () => {
@@ -110,7 +108,7 @@ describe("pdf header integration (project json -> normalize -> buildDocument -> 
     const vm = buildDocument(normalizeProject(json), repo);
     const html = renderInputlistHtml(vm, { tabTitle: "Stageplan", baseHref: "file:///tmp/" });
 
-    expect(html).toContain("datum aktualizace: 15. 7. 2026");
-    expect(html).not.toContain("datum aktualizace: 30. 7. 2026");
+    expect(html).toContain("UPD 15. 7. 2026");
+    expect(html).not.toContain("UPD 30. 7. 2026");
   });
 });

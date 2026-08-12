@@ -362,29 +362,18 @@ export interface NotesTemplate {
  * ============================================================ */
 
 /**
- * Meta řádek je buď:
- * - labeled: "Label: value"
- * - plain: jeden textový řádek (např. "Tour 35 let – datum aktualizace: ...")
+ * Hlavička dokumentu rozložená na části.
  *
- * Tohle je přenosný formát mezi pipeline a template,
- * aby template nemusel hádat sémantiku projektu.
+ * Druh strany (INPUT LIST / STAGE PLAN) doplňuje renderer — liší se stránku od
+ * stránky a doména nemá vědět, kolik má dokument stran. Verzálky dělá CSS, aby
+ * v datech zůstaly názvy tak, jak je uživatel zadal.
  */
-export type MetaLineModel =
-  | {
-      kind: "labeled";
-      label: string;
-      value: string;
-    }
-  | {
-      kind: "plain";
-      value: string;
-    }
-  | {
-      kind: "split";
-      subtitle: string;
-      updateDateLabel: string;
-      updateDateValue: string;
-    };
+export interface DocumentHeaderModel {
+  /** event: ["22. 8. 2026", "Zámek Bon Repos"] · general: ["Univerzální stage plan 2026"] */
+  readonly contextParts: readonly string[];
+  /** "12. 8. 2026" */
+  readonly updatedDate: string;
+}
 
 /** Výstup pipeline – připraveno pro render (PDF) nebo export. */
 export interface DocumentViewModel {
@@ -405,8 +394,8 @@ export interface DocumentViewModel {
     /** Poslední změna obsahu rideru. Čte ji hlavička PDF. */
     contentUpdatedAt?: string;
 
-    /** Už připravený meta řádek k vytištění */
-    metaLine: MetaLineModel;
+    /** Části hlavičky, které renderer poskládá do mono řádku */
+    header: DocumentHeaderModel;
 
     /** Volitelné: relativní cesta k logu (od root projektu) */
     logoFile?: string;

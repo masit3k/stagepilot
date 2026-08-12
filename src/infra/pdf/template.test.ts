@@ -1,14 +1,65 @@
-import { describe, expect, it } from "vitest";
 import fs from "node:fs/promises";
-import { loadRepository } from "../fs/repo.js";
+import { describe, expect, it } from "vitest";
+import type { DocumentViewModel } from "../../domain/model/types.js";
 import { buildDocument } from "../../domain/pipeline/buildDocument.js";
-import { renderInputlistHtml } from "./template.js";
+import { loadRepository } from "../fs/repo.js";
 import { pdfLayout } from "./layout.js";
-import { buildStageplanPlan } from "./sections/stageplan.js";
 import {
   createPdfRendererFixtureProject,
   createPdfRendererFixtureRoot,
 } from "./pdfRendererFixture.js";
+import { buildStageplanPlan } from "./sections/stageplan.js";
+import { renderInputlistHtml } from "./template.js";
+
+/**
+ * Builds a real, fully-populated `DocumentViewModel` for template-level tests
+ * that render a view model directly (i.e. without going through
+ * `buildDocument`). Every required field carries a plausible default value;
+ * pass `overrides` to vary just the parts a test cares about.
+ *
+ * Later PDF-rendering tests (header, footer, table) should reuse this rather
+ * than hand-assembling view models.
+ */
+type DocumentViewModelFixtureOverrides = Partial<
+  Omit<DocumentViewModel, "meta">
+> & {
+  meta?: Partial<DocumentViewModel["meta"]>;
+};
+
+function createDocumentViewModelFixture(
+  overrides: DocumentViewModelFixtureOverrides = {},
+): DocumentViewModel {
+  const { meta: metaOverrides, ...rest } = overrides;
+
+  return {
+    meta: {
+      projectId: "fixture-project",
+      bandName: "Fixture Band",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+      header: { contextParts: ["Meta"], updatedDate: "1. 1. 2026" },
+      ...metaOverrides,
+    },
+    inputs: [],
+    inputRows: [
+      {
+        no: "1",
+        label: "Lead vocal",
+        note: "BETA 58A, SE V7, SM58 – boom mic stand (provided by FOH)",
+      },
+    ],
+    monitors: [],
+    notes: { inputs: [], monitors: [] },
+    monitorTableRows: [],
+    stageplan: {
+      lineupByRole: {},
+      inputs: [],
+      monitorOutputs: [],
+      powerByRole: {},
+    },
+    ...rest,
+  };
+}
 
 describe("inputlist template layout", () => {
   it("renders page 1 without stageplan and page 2 with stageplan boxes", async () => {
@@ -74,32 +125,14 @@ describe("inputlist template layout", () => {
 
 
   it("renders full input note text including trailing parenthetical suffix", () => {
-    const html = renderInputlistHtml(
-      {
-        meta: {
-          bandName: "Band",
-          metaLine: { kind: "plain", value: "Meta" },
-        },
-        inputRows: [
-          {
-            no: "1",
-            label: "Lead vocal",
-            note: "BETA 58A, SE V7, SM58 – boom mic stand (provided by FOH)",
-          },
-        ],
-        notes: { inputs: [], monitors: [] },
-        stageplan: {
-          lineupByRole: {},
-          inputs: [],
-          monitorOutputs: [],
-          powerByRole: {},
-        },
-      } as any,
-      {
-        tabTitle: "Stageplan",
-        baseHref: "file:///tmp/",
-      }
-    );
+    const vm = createDocumentViewModelFixture({
+      meta: { bandName: "Band" },
+    });
+
+    const html = renderInputlistHtml(vm, {
+      tabTitle: "Stageplan",
+      baseHref: "file:///tmp/",
+    });
 
     expect(html).toContain("BETA 58A, SE V7, SM58 – boom mic stand (provided by FOH)");
   });

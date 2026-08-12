@@ -1,4 +1,4 @@
-import type { MetaLineModel } from "../model/types.js";
+import type { DocumentHeaderModel } from "../model/types.js";
 
 export function formatDocumentDate(isoDate: string): string {
   const normalized = (isoDate ?? "").trim();
@@ -33,7 +33,7 @@ function extractYearFromIso(isoDate: string): string {
   return match?.[1] ?? "";
 }
 
-export function formatProjectMetaLine(args: {
+export function formatDocumentHeader(args: {
   purpose: "event" | "general";
   eventDate?: string;
   eventVenue?: string;
@@ -41,7 +41,7 @@ export function formatProjectMetaLine(args: {
   updatedAt?: string;
   contentUpdatedAt?: string;
   note?: string;
-}): MetaLineModel {
+}): DocumentHeaderModel {
   const updatedDate = formatDocumentDate(
     resolveUpdatedDateIso({
       contentUpdatedAt: args.contentUpdatedAt,
@@ -51,23 +51,18 @@ export function formatProjectMetaLine(args: {
   );
 
   if (args.purpose === "event") {
-    const eventDate = formatDocumentDate(args.eventDate ?? "");
-    const venue = (args.eventVenue ?? "").trim();
-    return {
-      kind: "labeled",
-      label: "Datum akce a místo konání:",
-      value: `${eventDate}, ${venue} (datum aktualizace: ${updatedDate})`,
-    };
+    // Prázdné části vypadnou, jinak by v řádku zůstal osamocený oddělovač.
+    const contextParts = [
+      formatDocumentDate(args.eventDate ?? ""),
+      (args.eventVenue ?? "").trim(),
+    ].filter((part) => part.length > 0);
+
+    return { contextParts, updatedDate };
   }
 
   const note = args.note?.trim() ?? "";
   const validityYear = extractYearFromIso(args.documentDate);
   const subtitle = [note, validityYear].filter(Boolean).join(" ");
-  const updatePart = `datum aktualizace: ${updatedDate}`;
-  const value = subtitle ? `${subtitle} (${updatePart})` : `(${updatePart})`;
 
-  return {
-    kind: "plain",
-    value,
-  };
+  return { contextParts: subtitle ? [subtitle] : [], updatedDate };
 }
