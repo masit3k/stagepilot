@@ -14,7 +14,7 @@ designový board, implementuje se **kolo 3** (`3a`–`3d` varianty značky, vybr
 | F0 + F1 | Identita, ikona aplikace, dvouvrstvá tokenová architektura, tmavé téma | hotovo | [2026-08-12-brand-identity-and-token-foundation-design.md](../superpowers/specs/2026-08-12-brand-identity-and-token-foundation-design.md) | `56b05cb` |
 | F2 | Ikonový set, toasty, prázdné stavy, skeleton, pozice jako řádky | hotovo | [2026-08-12-components-and-interaction-design.md](../superpowers/specs/2026-08-12-components-and-interaction-design.md) | `56b05cb` |
 | F3 | Custom titlebar, pilulková navigace, procesní stopa, velikost okna, téma v Settings | hotovo | [2026-08-12-shell-and-information-architecture-design.md](../superpowers/specs/2026-08-12-shell-and-information-architecture-design.md) | `17c4580`, `cebabcf` |
-| **F4** | **Typografie a hlavička PDF** | **další v řadě** | zatím není | — |
+| **F4** | **Typografie a hlavička PDF** | **spec schválen, čeká na implementaci** | [2026-08-12-pdf-typography-and-header-design.md](../superpowers/specs/2026-08-12-pdf-typography-and-header-design.md) | — |
 | F5 | Stage Plan Editor (drag & rotate) | neotevřeno | zatím není | — |
 
 ## F4 — typografie a hlavička PDF
@@ -22,16 +22,18 @@ designový board, implementuje se **kolo 3** (`3a`–`3d` varianty značky, vybr
 **Vstup:** handoff sekce `4` (PDF export) a `2c`, plus `FNB_Inputlist_Stageplan_22-08-2026_Zamek-Bon-Repos.pdf`
 jako současný stav exportu.
 
-Struktura, pořadí stran ani obsah PDF se **nemění**. Mění se jen:
+Struktura, pořadí stran ani obsah PDF se **nemění**. Mění se hlavička a patička obou stran,
+typografie podle tokenů z F1 (Space Grotesk a IBM Plex Mono místo Interu) a tabulka, která
+ztrácí rámečky. Detaily a všech jedenáct rozhodnutí jsou ve specu.
 
-- **Hlavička každé strany:** znak 26 px + název kapely (19 px / 600 / −0,025em) + řádek
-  `INPUT LIST · 22. 8. 2026 · ZÁMEK BON REPOS` (mono 9 px, `0.04em`, `--sp-body`); vpravo
-  `STAGEPILOT / UPD <datum>` (mono 9 px, `--sp-steel`). Pod hlavičkou linka `2px solid --sp-ink`.
-- **Typografie** dokumentu podle tokenů z F1.
+Bloky stage planu si vzhled nechají a řeší se až v F5 — editor je stejně přepisuje kvůli
+rotaci a pozicím.
 
-**Známé riziko, které fázi definuje:** renderer v `src/infra/pdf/pdf.ts` úmyslně shodí export,
-když se obsah nevejde na A4. Změna typografie tedy může rozbít existující dokumenty a fáze
-potřebuje golden testy, ne jen vizuální kontrolu.
+**Riziko, které fázi definuje, je jinde, než roadmapa původně tvrdila.** Pojistka proti
+přetečení A4 v `src/infra/pdf/pdf.ts` nefunguje: porovnává `#content.bottom` proti
+`#page.bottom`, jenže `#content` je přímý potomek `#page` a `.pdfPage` nemá v CSS výšku, takže
+rozdíl je vždy zhruba nula. Navíc měří v šířce okna prohlížeče, ne tiskového zrcadla. Přetečení
+by tedy nespadlo, jen by tiše vylezla třetí strana. F4 pojistku opravuje (spec R11).
 
 ## F5 — Stage Plan Editor
 
