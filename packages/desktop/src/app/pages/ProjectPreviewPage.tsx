@@ -1,13 +1,15 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { PdfPageSkeleton } from "../../components/ui/Skeleton";
+import { useToast } from "../../components/ui/toast/useToast";
 import { buildExportFileName } from "../../projectRules";
-import { withFrom } from "../shell/routes";
 import { mapExportError } from "../exportErrors";
-import type { NewProjectPayload } from "../shell/types";
 import {
-  ExportResultModal,
   type ExportModalState,
+  ExportResultModal,
 } from "../modals/ExportResultModal";
+import { withFrom } from "../shell/routes";
+import type { NewProjectPayload } from "../shell/types";
 import type { ProjectRouteProps } from "./shared/pageTypes";
 
 export type PreviewRequestLifecycle = {
@@ -72,6 +74,7 @@ export function ProjectPreviewPage({
   const lifecycleRef = useRef<PreviewRequestLifecycle>(
     createPreviewRequestLifecycle(),
   );
+  const { notify } = useToast();
   const hasSeenHideNamesEffect = useRef(false);
   const hideMusicianNamesRef = useRef(hideMusicianNames);
   const cleanupPreviewKeyRef = useRef(id);
@@ -83,64 +86,75 @@ export function ProjectPreviewPage({
     });
   }
 
-  const startPreviewGeneration = useCallback(async () => {
-    const request = lifecycleRef.current.startRequest();
-    if (!request.accepted) {
-      return;
-    }
-
-    setPreviewState({ kind: "generating" });
-    setStatus("");
-    releasePreviewUrl();
-
-    try {
-      const result = await invoke<{ previewPdfPath: string }>(
-        "build_project_pdf_preview",
-        { projectId: id, hideMusicianNames: hideMusicianNamesRef.current },
-      );
-      console.info("[preview] generated", {
-        previewPath: result.previewPdfPath,
-      });
-      const bytes = await invoke<number[]>("read_preview_pdf_bytes", {
-        previewPdfPath: result.previewPdfPath,
-      });
-      const blob = new Blob([new Uint8Array(bytes)], {
-        type: "application/pdf",
-      });
-      const nextUrl = URL.createObjectURL(blob);
-
-      if (!lifecycleRef.current.isCurrentRequest(request.requestId)) {
-        URL.revokeObjectURL(nextUrl);
+  /**
+   * `announce` is only set for regeneration the user asked for. The automatic
+   * run on mount would otherwise pop a toast on every visit to the page.
+   */
+  const startPreviewGeneration = useCallback(
+    async (announce = false) => {
+      const request = lifecycleRef.current.startRequest();
+      if (!request.accepted) {
         return;
       }
 
-      setPreviewUrl((current) => {
-        if (current) URL.revokeObjectURL(current);
-        return nextUrl;
-      });
-      setPreviewState({ kind: "ready", path: result.previewPdfPath });
-    } catch (err) {
-      if (!lifecycleRef.current.isCurrentRequest(request.requestId)) {
-        return;
-      }
+      setPreviewState({ kind: "generating" });
+      setStatus("");
+      releasePreviewUrl();
 
-      const message =
-        typeof err === "object" && err !== null && "message" in err
-          ? String((err as { message?: string }).message ?? "Failed to generate preview.")
-          : "Failed to generate preview.";
-      setStatus(`Preview failed: ${message}`);
-      const missingPreview = message.includes("os error 2");
-      setPreviewState({
-        kind: "error",
-        message: missingPreview
-          ? "Preview is no longer available because the temporary file was removed after export. Generate preview again."
-          : `Preview failed: ${message}`,
-        missingPreview,
-      });
-    } finally {
-      lifecycleRef.current.finishRequest(request.requestId);
-    }
-  }, [id]);
+      try {
+        const result = await invoke<{ previewPdfPath: string }>(
+          "build_project_pdf_preview",
+          { projectId: id, hideMusicianNames: hideMusicianNamesRef.current },
+        );
+        console.info("[preview] generated", {
+          previewPath: result.previewPdfPath,
+        });
+        const bytes = await invoke<number[]>("read_preview_pdf_bytes", {
+          previewPdfPath: result.previewPdfPath,
+        });
+        const blob = new Blob([new Uint8Array(bytes)], {
+          type: "application/pdf",
+        });
+        const nextUrl = URL.createObjectURL(blob);
+
+        if (!lifecycleRef.current.isCurrentRequest(request.requestId)) {
+          URL.revokeObjectURL(nextUrl);
+          return;
+        }
+
+        setPreviewUrl((current) => {
+          if (current) URL.revokeObjectURL(current);
+          return nextUrl;
+        });
+        setPreviewState({ kind: "ready", path: result.previewPdfPath });
+        if (announce) notify("success", "Preview regenerated.");
+      } catch (err) {
+        if (!lifecycleRef.current.isCurrentRequest(request.requestId)) {
+          return;
+        }
+
+        const message =
+          typeof err === "object" && err !== null && "message" in err
+            ? String(
+                (err as { message?: string }).message ??
+                  "Failed to generate preview.",
+              )
+            : "Failed to generate preview.";
+        setStatus(`Preview failed: ${message}`);
+        const missingPreview = message.includes("os error 2");
+        setPreviewState({
+          kind: "error",
+          message: missingPreview
+            ? "Preview is no longer available because the temporary file was removed after export. Generate preview again."
+            : `Preview failed: ${message}`,
+          missingPreview,
+        });
+      } finally {
+        lifecycleRef.current.finishRequest(request.requestId);
+      }
+    },
+    [id, notify],
+  );
 
   useEffect(() => {
     invoke<string>("read_project", { projectId: id })
@@ -172,9 +186,9 @@ export function ProjectPreviewPage({
       lifecycleRef.current.invalidateRequests();
       releasePreviewUrl();
       // Uses slug (human doc key), not id (UUID).
-      invoke("cleanup_preview_pdf", { previewKey: cleanupPreviewKeyRef.current }).catch(
-        () => undefined,
-      );
+      invoke("cleanup_preview_pdf", {
+        previewKey: cleanupPreviewKeyRef.current,
+      }).catch(() => undefined);
     };
   }, [id, startPreviewGeneration]);
 
@@ -250,9 +264,14 @@ export function ProjectPreviewPage({
         <div className="preview-container">
           {previewState.kind === "generating" ||
           previewState.kind === "idle" ? (
-            <p className="status status--loading" aria-live="polite">
-              Generating preview…
-            </p>
+            <>
+              {/* The skeleton carries this visually; the live region keeps it
+                  available to screen readers. */}
+              <p className="visually-hidden" aria-live="polite">
+                Generating preview…
+              </p>
+              <PdfPageSkeleton />
+            </>
           ) : null}
           {previewState.kind === "ready" && previewUrl ? (
             <iframe
@@ -267,7 +286,7 @@ export function ProjectPreviewPage({
               <button
                 type="button"
                 className="button-secondary"
-                onClick={startPreviewGeneration}
+                onClick={() => startPreviewGeneration(true)}
               >
                 {previewState.missingPreview
                   ? "Generate preview again"
@@ -297,7 +316,7 @@ export function ProjectPreviewPage({
         <button
           type="button"
           className="button-secondary"
-          onClick={startPreviewGeneration}
+          onClick={() => startPreviewGeneration(true)}
           disabled={isRegeneratingPreview}
         >
           {isRegeneratingPreview ? "Regenerating…" : "Regenerate preview"}

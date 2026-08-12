@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import stagePilotIcon from "../../../assets/icons/StagePilot_Icon_StageLayout_CurrentColor.svg";
 import desktopPackage from "../../../package.json";
+import { BrandMark } from "../../components/ui/BrandMark";
+import { Info, Moon, Sun } from "../../components/ui/icons";
 import { TopTabs } from "../../pages/ShellPages";
 import { AboutModal } from "../modals/AboutModal";
 import { UnsavedChangesModal } from "../modals/UnsavedChangesModal";
@@ -21,15 +22,15 @@ function AppShell() {
     saveAndExit,
   } = useAppNavigation();
   const [isAboutOpen, setIsAboutOpen] = useState(false);
-  const [isDark, setIsDark] = useState(() => {
-    const saved = localStorage.getItem("theme");
-    const dark = saved === "dark";
-    if (dark) document.documentElement.dataset.theme = "dark";
-    return dark;
-  });
+  const [isDark, setIsDark] = useState(
+    // index.html has already resolved the theme before first paint — stored
+    // preference first, system setting otherwise. Read it back rather than
+    // recomputing, so the two can never disagree.
+    () => document.documentElement.dataset.theme === "dark",
+  );
 
   useEffect(() => {
-    document.documentElement.dataset.theme = isDark ? "dark" : "";
+    document.documentElement.dataset.theme = isDark ? "dark" : "light";
     localStorage.setItem("theme", isDark ? "dark" : "light");
   }, [isDark]);
   const { projects, bands, status, refreshProjects, actions } =
@@ -40,13 +41,11 @@ function AppShell() {
       <header className="app-header">
         <div className="app-header__brand">
           <div className="app-header__icon-slot" aria-hidden="true">
-            <img src={stagePilotIcon} className="app-header__icon" alt="" />
+            <BrandMark size={24} className="app-header__icon" />
           </div>
           <div>
             <h1>StagePilot</h1>
-            <p className="subtle">
-              StagePilot v{desktopPackage.version} (Preview)
-            </p>
+            <p className="subtle">v{desktopPackage.version} · Preview</p>
           </div>
         </div>
         <div className="app-header__controls">
@@ -60,22 +59,9 @@ function AppShell() {
           >
             <span className="theme-toggle__thumb">
               {isDark ? (
-                <svg
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                  className="theme-toggle__icon"
-                >
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                </svg>
+                <Moon size={11} className="theme-toggle__icon" />
               ) : (
-                <svg
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                  className="theme-toggle__icon"
-                >
-                  <circle cx="12" cy="12" r="5" />
-                  <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-                </svg>
+                <Sun size={11} className="theme-toggle__icon" />
               )}
             </span>
           </button>
@@ -85,15 +71,7 @@ function AppShell() {
             onClick={() => setIsAboutOpen(true)}
             aria-label="About StagePilot"
           >
-            <svg
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              className="app-header__about-icon"
-            >
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 11v5" />
-              <circle cx="12" cy="8" r="1" fill="currentColor" stroke="none" />
-            </svg>
+            <Info />
           </button>
         </div>
       </header>

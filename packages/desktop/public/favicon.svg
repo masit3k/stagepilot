@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <!--
+    StagePilot app icon tile.
+
+    Tile radius 56 / 256 = 21.9% of the side (handoff: 22%).
+
+    Mark scale follows the handoff prose: the mark's largest dimension is 61% of
+    the tile side. The mark is taller than it is wide because of the latch, so
+    height decides. Ink spans y=1 (latch top) to y=59 (ring bottom + stroke) in
+    the 64-unit mark viewBox, i.e. 58 units:
+
+      scale = 256 * 0.61 / 58 = 2.6924
+      ink height = 58 * 2.6924 = 156px (61% of 256)
+      ink width  = 50 * 2.6924 = 135px (52% of 256)
+
+    Centred on both axes:
+      translate x = (256 - 135) / 2 - 7 * 2.6924 = 41.84
+      translate y = (256 - 156) / 2 - 1 * 2.6924 = 47.23
+  -->
+  <rect width="256" height="256" rx="56" fill="#101112"></rect>
+  <g transform="translate(41.84 47.23) scale(2.6924)">
+    <rect x="26" y="1" width="12" height="11" rx="3" fill="#F4F2ED"></rect>
+    <circle cx="32" cy="34" r="22" stroke="#F4F2ED" stroke-width="6"></circle>
+    <circle cx="32" cy="25" r="5.5" fill="#FF5B1F"></circle>
+    <circle cx="23" cy="41" r="5.5" fill="#F4F2ED"></circle>
+    <circle cx="41" cy="41" r="5.5" fill="#F4F2ED"></circle>
+  </g>
+</svg>

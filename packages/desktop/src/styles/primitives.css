@@ -1,0 +1,139 @@
+/* ==========================================================================
+   PRIMITIVES — layer 1
+
+   Raw brand values from docs/design/brand-handoff-2026-08/tokens/design-tokens.css.
+   These are theme-independent: a primitive names a value, never a role.
+
+   Components must NOT reference the colour primitives directly — they consume
+   the semantic layer in semantic.css, which is what the light and dark themes
+   override. Typography, spacing and radius primitives do not vary by theme, so
+   components use those directly.
+
+   Three values deviate from the handoff, each for a measured accessibility
+   reason (see docs/superpowers/specs/2026-08-12-brand-identity-and-token-foundation-design.md):
+     R1  --sp-steel        text variant darkened; handoff value kept as -decor
+     R2  --sp-text-dark-dim lightened
+     R3  --sp-line-structural added
+   ========================================================================== */
+
+:root {
+  /* ---- Neutrals ---------------------------------------------------------- */
+  --sp-ink: #101112;
+  --sp-ink-soft: #33363a;
+  --sp-body: #55585c;
+  /* R1: handoff #8A8D92 gives 2.98:1 on paper — below AA for text. This value
+     clears 4.5:1 on all three light backgrounds (worst case 4.52 on the chip). */
+  --sp-steel: #6b6d71;
+  --sp-steel-decor: #8a8d92;
+  --sp-paper: #f4f2ed;
+  --sp-paper-deep: #e9e7e2;
+  --sp-surface: #ffffff;
+  --sp-chip: #f2efe9;
+  --sp-line: #e4e1da;
+  --sp-line-strong: #d8d5ce;
+  --sp-line-faint: #f0ede7;
+  /* R3: card fill differs from paper by only 1.12:1, so a structural edge
+     needs to carry the boundary on its own. */
+  --sp-line-structural: #a6a39e;
+
+  /* ---- Accent — the only decorative colour in the UI --------------------- */
+  --sp-signal: #ff5b1f;
+  --sp-signal-text: #c43f0e;
+  --sp-signal-wash: #fff1e9;
+  --sp-signal-wash-2: #ffe9de;
+  --sp-row-highlight: #fffbf8;
+
+  /* ---- Dark surfaces ---------------------------------------------------- */
+  --sp-canvas: #15171a;
+  --sp-canvas-deep: #0d0e10;
+  --sp-block: #20242a;
+  --sp-block-raised: #1d2024;
+  --sp-block-selected: #2a211b;
+  --sp-border-dark: #363b42;
+  --sp-border-dark-2: #2a2e34;
+  --sp-border-dark-3: #22262b;
+  --sp-text-dark: #f4f2ed;
+  --sp-text-dark-body: #c4c7cb;
+  --sp-text-dark-mid: #9aa0a6;
+  /* R2: handoff #6C7074 gives 3.60:1 on canvas, and the design uses it at 10px. */
+  --sp-text-dark-dim: #8b9095;
+  --sp-titlebar: #101112;
+
+  /* ---- State colours ----------------------------------------------------- */
+  --sp-danger: #b3261e;
+  --sp-danger-wash: #fdecea;
+  --sp-danger-line: #f0c4bf;
+  --sp-danger-dark: #ff8a80;
+  --sp-danger-wash-dark: #2a1a18;
+  --sp-danger-line-dark: #5a2a26;
+
+  --sp-success: #1f6b3b;
+  --sp-success-wash: #eaf5ee;
+  --sp-success-line: #bedcc8;
+  --sp-success-dark: #6fd08c;
+  --sp-success-wash-dark: #172a1f;
+  --sp-success-line-dark: #275a3c;
+
+  /* ---- Typography -------------------------------------------------------- */
+  --sp-font-sans: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --sp-font-mono: "IBM Plex Mono", Consolas, ui-monospace, monospace;
+
+  --sp-display: 600 52px / 1.02 var(--sp-font-sans);
+  --sp-h1: 600 26px / 1.1 var(--sp-font-sans);
+  --sp-h2: 600 24px / 1.15 var(--sp-font-sans);
+  --sp-h3: 600 21px / 1.2 var(--sp-font-sans);
+  --sp-row: 600 17px / 1.2 var(--sp-font-sans);
+  --sp-body-md: 400 15px / 1.5 var(--sp-font-sans);
+  --sp-body-sm: 400 14px / 1.55 var(--sp-font-sans);
+  --sp-ui: 500 13px / 1 var(--sp-font-sans);
+  --sp-mono-md: 500 13px / 1.4 var(--sp-font-mono);
+  --sp-mono-sm: 400 12px / 1.4 var(--sp-font-mono);
+  --sp-mono-xs: 500 11px / 1.4 var(--sp-font-mono);
+  --sp-mono-2xs: 500 10px / 1.4 var(--sp-font-mono);
+
+  /* Letter-spacing that belongs with the sizes above. Headings tighten, mono
+     labels open up and go uppercase. */
+  --sp-track-display: -0.035em;
+  --sp-track-heading: -0.03em;
+  --sp-track-row: -0.02em;
+  --sp-track-mono: 0.02em;
+  --sp-track-mono-label: 0.12em;
+  --sp-track-mono-label-wide: 0.16em;
+
+  /* ---- Radius ------------------------------------------------------------ */
+  --sp-r-chip: 6px;
+  --sp-r-btn: 8px;
+  --sp-r-btn-lg: 10px;
+  --sp-r-card: 12px;
+  --sp-r-card-lg: 14px;
+  --sp-r-panel: 20px;
+  --sp-r-pill: 999px;
+
+  /* ---- Spacing ----------------------------------------------------------- */
+  --sp-1: 4px;
+  --sp-2: 6px;
+  --sp-3: 8px;
+  --sp-4: 10px;
+  --sp-5: 12px;
+  --sp-6: 14px;
+  --sp-7: 16px;
+  --sp-8: 18px;
+  --sp-9: 20px;
+  --sp-10: 24px;
+  --sp-11: 28px;
+  --sp-12: 32px;
+  --sp-13: 44px;
+
+  /* ---- Control sizing ---------------------------------------------------- */
+  /* The pre-rebrand CSS forced a 44px touch target on every button and then
+     overrode it in ten places. These are the sizes the design actually uses. */
+  --sp-control-sm: 32px;
+  --sp-control-md: 36px;
+  --sp-control-lg: 42px;
+  --sp-control-xl: 48px;
+
+  /* ---- Motion ------------------------------------------------------------ */
+  --sp-duration-fast: 120ms;
+  --sp-duration-base: 160ms;
+  --sp-ease: ease-out;
+}

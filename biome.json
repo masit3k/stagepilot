@@ -10,5 +10,11 @@
         "enabled": true,
         "indentStyle": "space",
         "indentWidth": 2
+    },
+    "files": {
+        "ignore": [
+            "docs/design/**",
+            "dist-icons/**"
+        ]
     }
 }

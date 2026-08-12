@@ -1,0 +1,409 @@
+/* ==========================================================================
+   LINEUP — position cards, assignment editor, musician multiselect
+   ========================================================================== */
+
+.lineup-grid {
+  display: grid;
+  gap: var(--sp-7);
+}
+
+.lineup-meta {
+  margin: var(--sp-10) 0;
+}
+
+.band-name {
+  font: var(--sp-row);
+  letter-spacing: var(--sp-track-row);
+}
+
+.lineup-list__name {
+  font-weight: 500;
+}
+
+.lineup-helper {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--sp-7);
+  margin-top: var(--sp-3);
+}
+
+.lineup-helper .subtle {
+  margin: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Bordered block
+
+   Positions no longer use this — they are rows now. It stays because the Library
+   screens use it as a generic bordered block (Members, Default lineup) and the
+   assignment editor uses __add. The header/body/actions parts that only the old
+   position cards used are gone.
+   -------------------------------------------------------------------------- */
+.lineup-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--sp-r-card);
+  padding: var(--sp-5);
+  background: var(--color-surface);
+  display: grid;
+  gap: var(--sp-3);
+  align-content: start;
+}
+
+.lineup-card__add {
+  margin-top: var(--sp-3);
+}
+
+/* --------------------------------------------------------------------------
+   Position rows
+
+   One position is one full-width row, not a card. Eight positions in eight
+   cards produced eight nested frames; rows line the role, the name and the
+   actions up into columns you can read down.
+   -------------------------------------------------------------------------- */
+.lineup-rows {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border);
+  border-radius: var(--sp-r-card);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.lineup-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-10);
+  padding: var(--sp-7) var(--sp-10);
+  border-bottom: 1px solid var(--color-border-faint);
+  transition: background-color var(--sp-duration-fast) var(--sp-ease);
+}
+
+.lineup-row:last-child {
+  border-bottom: none;
+}
+
+.lineup-row:hover {
+  background: var(--color-row-highlight);
+}
+
+/* More than one name stacks, so the row aligns to the top instead of centring
+   a tall name column against a short role label. */
+.lineup-row--stacked {
+  align-items: flex-start;
+}
+
+.lineup-row__role {
+  flex: 0 0 150px;
+  font: var(--sp-mono-xs);
+  letter-spacing: var(--sp-track-mono-label);
+  text-transform: uppercase;
+  color: var(--color-text);
+}
+
+.lineup-row--stacked .lineup-row__role {
+  padding-top: 2px;
+}
+
+.lineup-row__name {
+  flex: 0 1 230px;
+  min-width: 0;
+  display: grid;
+  gap: var(--sp-1);
+}
+
+.lineup-row__name .lineup-list__name {
+  font: var(--sp-row);
+  letter-spacing: var(--sp-track-row);
+  color: var(--color-text);
+}
+
+.lineup-row__name .lineup-list__name.is-placeholder {
+  color: var(--color-text-secondary);
+  font-weight: 400;
+}
+
+/* Was a paragraph floating above the card it described. */
+.lineup-row__hint {
+  font: var(--sp-body-sm);
+  color: var(--color-text-secondary);
+}
+
+/* Takes the slack between the name and the actions, so a hint has room to sit
+   on one line. */
+.lineup-row__meta {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.lineup-row__actions {
+  margin-left: auto;
+  display: flex;
+  gap: var(--sp-3);
+  flex-shrink: 0;
+}
+
+/* Sized from the parent rather than by adding a class to each button, so the
+   markup of the shared secondary button stays untouched. */
+.lineup-row__actions .button-secondary {
+  min-height: var(--sp-control-md);
+  padding: var(--sp-3) var(--sp-6);
+}
+
+.section-divider {
+  border-top: 1px solid var(--color-border-faint);
+  padding-top: var(--sp-3);
+}
+
+@media (max-width: 900px) {
+  .lineup-row {
+    flex-wrap: wrap;
+    gap: var(--sp-5);
+  }
+
+  .lineup-row__role {
+    flex-basis: 100%;
+  }
+
+  .lineup-row__name {
+    flex-basis: auto;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Assigned musicians
+   -------------------------------------------------------------------------- */
+.lineup-list {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.lineup-list__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-6);
+  flex-wrap: wrap;
+}
+
+.lineup-list--compact {
+  gap: var(--sp-3);
+}
+
+.lineup-list--compact .lineup-list__row {
+  justify-content: space-between;
+}
+
+.lineup-list__actions {
+  display: flex;
+  gap: var(--sp-3);
+}
+
+.lineup-assignment-editor {
+  display: grid;
+  gap: var(--sp-7);
+}
+
+.lineup-assignment-editor__section {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.lineup-assignment-editor__section h4 {
+  margin: 0;
+  font: var(--sp-mono-xs);
+  letter-spacing: var(--sp-track-mono-label);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.lineup-assignment-editor .lineup-list__name {
+  font-weight: 400;
+}
+
+.lineup-assignment-editor__add {
+  display: grid;
+  gap: var(--sp-3);
+  align-items: start;
+}
+
+/* --------------------------------------------------------------------------
+   Musician multiselect
+   -------------------------------------------------------------------------- */
+.lineup-multiselect {
+  display: grid;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+.lineup-multiselect__trigger {
+  width: 100%;
+  min-height: var(--sp-control-lg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-5);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--sp-r-btn);
+  background: var(--color-surface);
+  color: var(--color-text);
+  padding: var(--sp-3) var(--sp-5);
+  text-align: left;
+  font-weight: 400;
+}
+
+.lineup-multiselect__trigger:hover:not(:disabled) {
+  background: var(--color-secondary-hover);
+  border-color: var(--color-border-structural);
+}
+
+.lineup-multiselect__trigger span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lineup-multiselect__chevron {
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.lineup-multiselect__popover {
+  position: fixed;
+  z-index: 10002;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  overflow: hidden;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--sp-r-card);
+  background: var(--color-surface);
+  box-shadow: var(--elevation-popover);
+}
+
+.lineup-multiselect__popover--inline {
+  position: static;
+  width: 100%;
+  max-height: 320px;
+}
+
+.lineup-multiselect__options {
+  display: grid;
+  gap: var(--sp-1);
+  overflow: auto;
+  padding: var(--sp-2);
+}
+
+.lineup-multiselect__option {
+  width: 100%;
+  min-height: var(--sp-control-md);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--sp-4);
+  border: none;
+  border-radius: var(--sp-r-chip);
+  background: transparent;
+  color: var(--color-text);
+  padding: var(--sp-4);
+  text-align: left;
+  font-weight: 400;
+}
+
+.lineup-multiselect__option:hover,
+.lineup-multiselect__option.is-selected {
+  background: var(--color-secondary-hover);
+}
+
+.lineup-multiselect__empty {
+  margin: 0;
+  padding: var(--sp-4);
+  color: var(--color-text-secondary);
+  font: var(--sp-body-sm);
+}
+
+.lineup-multiselect__option input {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.lineup-multiselect__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-7);
+  border-top: 1px solid var(--color-border);
+  padding: var(--sp-3) var(--sp-4);
+  color: var(--color-text-secondary);
+  font: var(--sp-body-sm);
+}
+
+.lineup-multiselect__footer .button-secondary {
+  min-height: var(--sp-control-sm);
+  padding: var(--sp-1) var(--sp-4);
+}
+
+/* --------------------------------------------------------------------------
+   Musician selector chips
+   -------------------------------------------------------------------------- */
+.setup-musician-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+
+.setup-musician-selector__item {
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--sp-r-btn);
+  background: var(--color-surface);
+  color: var(--color-text);
+  min-height: var(--sp-control-md);
+  padding: var(--sp-3) var(--sp-5);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.setup-musician-selector__item:hover {
+  background: var(--color-secondary-hover);
+  border-color: var(--color-border-structural);
+}
+
+.setup-musician-selector__item--active {
+  background: var(--color-selected-surface);
+  border-color: var(--color-selected-border);
+  color: var(--color-selected-text);
+  font-weight: 500;
+}
+
+/* --------------------------------------------------------------------------
+   Badges
+   -------------------------------------------------------------------------- */
+.setup-badge {
+  font: var(--sp-mono-2xs);
+  letter-spacing: var(--sp-track-mono-label);
+  text-transform: uppercase;
+  padding: var(--sp-1) var(--sp-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--sp-r-chip);
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+}
+
+.setup-badge--override {
+  border-color: var(--color-warning-border);
+  background: var(--color-accent-wash);
+  color: var(--color-accent-text);
+}
+
+@media (max-width: 760px) {
+  .lineup-helper {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

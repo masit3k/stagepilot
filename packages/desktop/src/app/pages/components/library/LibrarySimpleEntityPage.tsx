@@ -1,5 +1,6 @@
-import { ModalOverlay } from "../../../../components/ui/Modal";
 import type { ReactNode } from "react";
+import { ModalOverlay } from "../../../../components/ui/Modal";
+import { Close } from "../../../../components/ui/icons";
 
 export function LibrarySimpleEntityPage({
   title,
@@ -71,7 +72,7 @@ export function LibrarySimpleEntityPage({
             onClick={onCloseModal}
             aria-label="Close"
           >
-            ×
+            <Close />
           </button>
           <div className="selector-dialog__body">{modal}</div>
         </div>
@@ -79,4 +80,3 @@ export function LibrarySimpleEntityPage({
     </section>
   );
 }
-

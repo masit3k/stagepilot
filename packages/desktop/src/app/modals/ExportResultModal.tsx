@@ -5,6 +5,7 @@ import {
   ModalOverlay,
   useModalBehavior,
 } from "../../components/ui/Modal";
+import { Close } from "../../components/ui/icons";
 
 export type ExportModalState =
   | { kind: "success"; path: string }
@@ -41,7 +42,7 @@ export function ExportResultModal({
           onClick={onClose}
           aria-label="Close"
         >
-          ×
+          <Close />
         </button>
         <ModalHeader>
           <h3 id="export-result-title">
@@ -79,7 +80,9 @@ export function ExportResultModal({
               <button
                 type="button"
                 className="button-secondary"
-                onClick={() => invoke("reveal_in_explorer", { path: state.path })}
+                onClick={() =>
+                  invoke("reveal_in_explorer", { path: state.path })
+                }
               >
                 Open folder
               </button>
@@ -100,7 +103,11 @@ export function ExportResultModal({
               >
                 Retry
               </button>
-              <button type="button" className="button-primary" onClick={onClose}>
+              <button
+                type="button"
+                className="button-primary"
+                onClick={onClose}
+              >
                 Close
               </button>
             </>

@@ -1,7 +1,12 @@
-import { StrictMode, type ReactNode } from "react";
+import { type ReactNode, StrictMode } from "react";
+import { ToastProvider } from "../../components/ui/toast/ToastProvider";
 
 function AppProviders({ children }: { children: ReactNode }) {
-  return <StrictMode>{children}</StrictMode>;
+  return (
+    <StrictMode>
+      <ToastProvider>{children}</ToastProvider>
+    </StrictMode>
+  );
 }
 
 export default AppProviders;

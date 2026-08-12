@@ -1,0 +1,45 @@
+/* ==========================================================================
+   EMPTY STATE
+   ========================================================================== */
+
+.empty-state {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: var(--sp-5);
+  padding: var(--sp-12) var(--sp-7);
+  border: 1px dashed var(--color-border-structural);
+  border-radius: var(--sp-r-card);
+  background: var(--color-surface);
+  text-align: center;
+}
+
+/* Dashed border plus a muted icon: reads as "nothing here yet" rather than
+   "something failed", which the old grey status box could not distinguish. */
+.empty-state__icon {
+  display: grid;
+  place-items: center;
+  width: var(--sp-13);
+  height: var(--sp-13);
+  border-radius: var(--sp-r-pill);
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+}
+
+.empty-state__title {
+  margin: 0;
+  font: var(--sp-row);
+  letter-spacing: var(--sp-track-row);
+  color: var(--color-text);
+}
+
+.empty-state__description {
+  margin: 0;
+  max-width: 46ch;
+  font: var(--sp-body-sm);
+  color: var(--color-text-body);
+}
+
+.empty-state__action {
+  margin-top: var(--sp-1);
+}

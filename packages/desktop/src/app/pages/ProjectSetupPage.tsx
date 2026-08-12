@@ -1,27 +1,19 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ModalOverlay, useModalBehavior } from "../../components/ui/Modal";
+import { resolveDrumInputs } from "../../../../../src/domain/drums/resolveDrumInputs";
 import {
-  type LineupMap,
-  type LineupSlotValue,
-  type PresetOverridePatch,
-  addMusiciansToLineupSlots,
-  getDefaultLineupSlotsForRole,
-  getUniqueSelectedMusicians,
-  getRoleDisplayName,
-  normalizeLineupSlots,
-  getRoleSlotLimit,
-  resolveBandLeaderId,
-  resolveTalkbackOwnerId,
-  validateLineup,
-} from "../../projectRules";
+  resolveDistinctInstrumentLabels,
+  resolveEffectiveInstrumentGroups,
+} from "../../../../../src/domain/lineup/effectiveInstrumentGroups";
 import {
-  summarizeEffectivePresetValidation,
-  validateEffectivePresets,
-  normalizeSetupOverridePatch,
-} from "../../../../../src/domain/rules/presetOverride";
+  type SetupCapabilitySection,
+  resolveInputsForCapabilitySection,
+  resolveMusicianCapabilityInputs,
+  supportsCapabilitySection,
+} from "../../../../../src/domain/lineup/resolveLineupInstrumentMembership";
 import type { Group } from "../../../../../src/domain/model/groups";
+import { resolvePresetIdAlias } from "../../../../../src/domain/model/presetAliases";
 import type {
   InputChannel,
   Musician,
@@ -30,73 +22,88 @@ import type {
   PresetEntity,
   PresetItem,
 } from "../../../../../src/domain/model/types";
-import { resolvePresetIdAlias } from "../../../../../src/domain/model/presetAliases";
+import {
+  normalizeSetupOverridePatch,
+  summarizeEffectivePresetValidation,
+  validateEffectivePresets,
+} from "../../../../../src/domain/rules/presetOverride";
 import { resolveEffectiveMusicianSetup } from "../../../../../src/domain/setup/resolveEffectiveMusicianSetup";
-import { resolveDrumInputs } from "../../../../../src/domain/drums/resolveDrumInputs";
+import { DrumsPartsEditor } from "../../components/setup/DrumsPartsEditor";
+import { MonitoringEditor } from "../../components/setup/MonitoringEditor";
 import {
   MusicianSelector,
   type SetupMusicianItem,
 } from "../../components/setup/MusicianSelector";
-import { DrumsPartsEditor } from "../../components/setup/DrumsPartsEditor";
-import { MonitoringEditor } from "../../components/setup/MonitoringEditor";
-import { SetupModalShell } from "../components/setup/SetupModalShell";
-import { SetupSection } from "../components/setup/SetupSection";
-import { SchemaRenderer } from "../components/setup/SchemaRenderer";
-import { migrateProjectTalkbackOwner } from "../domain/project/migrateProjectTalkbackOwner";
+import { ModalOverlay, useModalBehavior } from "../../components/ui/Modal";
 import {
-  createLineupDirtyBaseline,
-  hasUnsavedLineupChanges,
-  type LineupDirtyComparisonState,
-} from "../domain/ui/isLineupSetupDirty";
+  ArrowDown,
+  ArrowUp,
+  ChevronDown,
+  Close,
+} from "../../components/ui/icons";
+import { LineupRow } from "../components/roles/LineupRow";
 import {
-  areSetupsEqual,
-  resetOverrides,
-  shouldEnableSetupReset,
-  type EventSetupEditState,
-} from "../components/setup/adapters/eventSetupAdapter";
+  type LineupMap,
+  type LineupSlotValue,
+  type PresetOverridePatch,
+  addMusiciansToLineupSlots,
+  getDefaultLineupSlotsForRole,
+  getRoleDisplayName,
+  getRoleSlotLimit,
+  getUniqueSelectedMusicians,
+  normalizeLineupSlots,
+  resolveBandLeaderId,
+  resolveTalkbackOwnerId,
+  validateLineup,
+} from "../../projectRules";
 import { BackVocsBlock } from "../components/roles/BackVocsBlock";
 import { LeadVocsBlock } from "../components/roles/LeadVocsBlock";
 import { ChangeBackVocsModal } from "../components/roles/modals/ChangeBackVocsModal";
 import { ChangeLeadVocsModal } from "../components/roles/modals/ChangeLeadVocsModal";
 import { sanitizeBackVocsSelection } from "../components/roles/utils/backVocs";
+import { SchemaRenderer } from "../components/setup/SchemaRenderer";
+import { SetupModalShell } from "../components/setup/SetupModalShell";
+import { SetupSection } from "../components/setup/SetupSection";
+import {
+  type EventSetupEditState,
+  areSetupsEqual,
+  resetOverrides,
+  shouldEnableSetupReset,
+} from "../components/setup/adapters/eventSetupAdapter";
+import { migrateProjectTalkbackOwner } from "../domain/project/migrateProjectTalkbackOwner";
 import { ensureMusiciansInLineup } from "../domain/roles/ensureMusiciansInLineup";
 import { resolveLeadVocalCandidates } from "../domain/roles/resolveLeadVocalCandidates";
 import { resolveLineupVocalCandidates } from "../domain/roles/resolveLineupVocalCandidates";
 import { enforceVocalSelectionInvariant } from "../domain/roles/vocalSelectionInvariant";
-import { withFrom } from "../shell/routes";
+import {
+  type LineupDirtyComparisonState,
+  createLineupDirtyBaseline,
+  hasUnsavedLineupChanges,
+} from "../domain/ui/isLineupSetupDirty";
+import { resolveMusicianDisplayName } from "../domain/ui/musicianDisplayName";
+import { composeSetupModalTitle } from "../domain/ui/setupModalTitle";
 import * as projectsApi from "../services/projectsApi";
+import { buildCanonicalProjectFromSetupState } from "../shell/canonicalProject";
+import { serializeLineupForProject } from "../shell/lineupSerialize";
+import { withFrom } from "../shell/routes";
 import type {
   BandSetupData,
   MemberOption,
   NewProjectPayload,
 } from "../shell/types";
-import { serializeLineupForProject } from "../shell/lineupSerialize";
-import { buildCanonicalProjectFromSetupState } from "../shell/canonicalProject";
+import { resolveDrumsSetupDefinition } from "./domain/ui/resolveDrumsSetupDefinition";
 import type { ProjectRouteProps } from "./shared/pageTypes";
-import { resolveTalkbackSummaryLabel } from "./shared/talkbackSummary";
 import {
-  buildSetupFieldCatalog,
-  buildVisibleLineupSections,
   ROLE_ORDER,
   buildInputsPatchFromTarget,
+  buildSetupFieldCatalog,
+  buildVisibleLineupSections,
   createFallbackSetupData,
   getGroupDefaultPreset,
   resolveMusicianDefaultSetupForRole,
   resolveSetupCardLabel,
 } from "./shared/setupConstants";
-import {
-  resolveInputsForCapabilitySection,
-  resolveMusicianCapabilityInputs,
-  supportsCapabilitySection,
-  type SetupCapabilitySection,
-} from "../../../../../src/domain/lineup/resolveLineupInstrumentMembership";
-import {
-  resolveDistinctInstrumentLabels,
-  resolveEffectiveInstrumentGroups,
-} from "../../../../../src/domain/lineup/effectiveInstrumentGroups";
-import { resolveMusicianDisplayName } from "../domain/ui/musicianDisplayName";
-import { composeSetupModalTitle } from "../domain/ui/setupModalTitle";
-import { resolveDrumsSetupDefinition } from "./domain/ui/resolveDrumsSetupDefinition";
+import { resolveTalkbackSummaryLabel } from "./shared/talkbackSummary";
 
 function hasOwnKey(value: unknown, key: string): boolean {
   return (
@@ -319,7 +326,7 @@ function AddMusiciansMultiSelect({
           {options.length === 0 ? "All musicians assigned" : placeholder}
         </span>
         <span aria-hidden="true" className="lineup-multiselect__chevron">
-          ▾
+          <ChevronDown size={14} />
         </span>
       </button>
       {isOpen && panelPosition && typeof document !== "undefined"
@@ -1543,60 +1550,41 @@ export function ProjectSetupPage({
           Reset to defaults
         </button>
       </div>
-      <div className="lineup-grid">
+      <div className="lineup-rows">
         {visibleLineupSections.map((section) => {
           if (section.kind === "acoustic_guitar") {
-            return (
-              <article key="acoustic-guitar" className="lineup-card">
-                <h3>AC. GUITAR</h3>
-                <div
-                  className={
-                    section.members.length === 0
-                      ? "lineup-card__body section-divider lineup-card__body--empty"
-                      : section.members.length === 1
-                        ? "lineup-card__body section-divider lineup-card__body--single"
-                        : "lineup-card__body section-divider lineup-card__body--multiple"
-                  }
-                >
-                  <div className="lineup-list lineup-list--single">
-                    {section.members.map((member) => {
-                      const sourceRoleSlotLimit = getRoleSlotLimit(
-                        member.sourceRole,
-                      );
-                      const sourceSlots = normalizeLineupSlots(
-                        lineup[member.sourceRole],
-                        sourceRoleSlotLimit,
-                      );
-                      const sourceSlot = sourceSlots[member.sourceSlotIndex];
-                      const musicianId =
-                        sourceSlot?.musicianId ?? member.musicianId;
-                      const sourceMembers = resolveEligibleMembersForSection(
-                        "acoustic_guitar",
-                        member.sourceRole,
-                      );
-                      const selectedName = musicianId
-                        ? resolveMusicianDisplayName({
-                            musicianId,
-                            preferredName: sourceMembers.find(
-                              (m) => m.id === musicianId,
-                            )?.name,
-                          })
-                        : "Not selected";
+            // Derived from the guitar slots, so there is nothing to change here.
+            const names = section.members.map((member) => {
+              const sourceSlots = normalizeLineupSlots(
+                lineup[member.sourceRole],
+                getRoleSlotLimit(member.sourceRole),
+              );
+              const musicianId =
+                sourceSlots[member.sourceSlotIndex]?.musicianId ??
+                member.musicianId;
+              const sourceMembers = resolveEligibleMembersForSection(
+                "acoustic_guitar",
+                member.sourceRole,
+              );
+              return {
+                key: `${member.sourceRole}-${member.sourceSlotIndex}`,
+                label: musicianId
+                  ? resolveMusicianDisplayName({
+                      musicianId,
+                      preferredName: sourceMembers.find(
+                        (m) => m.id === musicianId,
+                      )?.name,
+                    })
+                  : "Not selected",
+              };
+            });
 
-                      return (
-                        <div
-                          key={`acoustic-guitar-${member.sourceRole}-${member.sourceSlotIndex}-${member.musicianId}`}
-                          className="lineup-list__row"
-                        >
-                          <span className="lineup-list__name">
-                            {selectedName}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </article>
+            return (
+              <LineupRow
+                key="acoustic-guitar"
+                roleLabel="AC. GUITAR"
+                names={names}
+              />
             );
           }
 
@@ -1610,22 +1598,44 @@ export function ProjectSetupPage({
             role,
           );
 
+          const hasOverride = slots.some((slot) =>
+            Boolean(slot.presetOverride),
+          );
+
           return (
-            <article key={role} className="lineup-card">
-              <div className="lineup-card__header">
-                <h3>
-                  {role === "guitar"
-                    ? resolveSetupCardLabel({
-                        role: "guitar",
-                        musicianId: slots[0]?.musicianId,
-                        resolveInputs: (musicianId) =>
-                          resolveSlotSetup("guitar", musicianId).resolved
-                            .defaultPreset.inputs,
-                        fallback: getRoleDisplayName(role),
-                      })
-                    : getRoleDisplayName(role)}
-                </h3>
-                <div className="lineup-card__actions">
+            <LineupRow
+              key={role}
+              roleLabel={
+                role === "guitar"
+                  ? resolveSetupCardLabel({
+                      role: "guitar",
+                      musicianId: slots[0]?.musicianId,
+                      resolveInputs: (musicianId) =>
+                        resolveSlotSetup("guitar", musicianId).resolved
+                          .defaultPreset.inputs,
+                      fallback: getRoleDisplayName(role),
+                    })
+                  : getRoleDisplayName(role)
+              }
+              names={slots.map((slot, index) => ({
+                key: `${role}-${index}`,
+                label: resolveMusicianDisplayName({
+                  musicianId: slot.musicianId,
+                  preferredName: members.find((m) => m.id === slot.musicianId)
+                    ?.name,
+                }),
+              }))}
+              emptyLabel={getRoleEmptyLabel(role)}
+              meta={
+                // Was a bare "•" appended to the Setup button label.
+                hasOverride ? (
+                  <span className="setup-badge setup-badge--override">
+                    Setup edited
+                  </span>
+                ) : null
+              }
+              actions={
+                <>
                   <button
                     type="button"
                     className="button-secondary"
@@ -1640,49 +1650,10 @@ export function ProjectSetupPage({
                     onClick={() => openSetupForRole(role)}
                   >
                     Setup
-                    {slots.some((slot) => Boolean(slot.presetOverride))
-                      ? " •"
-                      : ""}
                   </button>
-                </div>
-              </div>
-              <div
-                className={
-                  slots.length === 0
-                    ? "lineup-card__body section-divider lineup-card__body--empty"
-                    : slots.length === 1
-                      ? "lineup-card__body section-divider lineup-card__body--single"
-                      : "lineup-card__body section-divider lineup-card__body--multiple"
-                }
-              >
-                <div className="lineup-list lineup-list--single">
-                  {slots.length === 0 ? (
-                    <div className="lineup-list__row">
-                      <span className="lineup-list__name">
-                        {getRoleEmptyLabel(role)}
-                      </span>
-                    </div>
-                  ) : (
-                    slots.map((slot, index) => (
-                      <div
-                        key={`${role}-${index}`}
-                        className="lineup-list__row"
-                      >
-                        <span className="lineup-list__name">
-                          {slots.length > 1 ? `${index + 1}. ` : ""}
-                          {resolveMusicianDisplayName({
-                            musicianId: slot.musicianId,
-                            preferredName: members.find(
-                              (m) => m.id === slot.musicianId,
-                            )?.name,
-                          })}
-                        </span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </article>
+                </>
+              }
+            />
           );
         })}
         <LeadVocsBlock
@@ -1695,69 +1666,68 @@ export function ProjectSetupPage({
           changeDisabled={lineupVocalCandidates.length === 0}
           onChange={() => setIsBackVocsModalOpen(true)}
         />
-        <p className="subtle">
-          Select the on-site band lead for coordination and decisions.
-        </p>
-        <article className="lineup-card">
-          <div className="lineup-card__header">
-            <h3>BAND LEADER</h3>
-            <div className="lineup-card__actions">
-              <button
-                type="button"
-                className="button-secondary"
-                disabled={
-                  selectedOptions.filter((m) => m.id !== bandLeaderId)
-                    .length === 0
-                }
-                onClick={() =>
-                  setEditing({
-                    role: "leader",
-                    slotIndex: 0,
-                    currentSelectedId: bandLeaderId,
-                  })
-                }
-              >
-                Change
-              </button>
-            </div>
-          </div>
-          <div className="lineup-card__body section-divider">
-            <span className="lineup-list__name">
-              {selectedOptions.find((m) => m.id === bandLeaderId)?.name ||
-                "Not selected"}
-            </span>
-          </div>
-        </article>
-        <p className="subtle">Assign talkback microphone owner.</p>
-        <article className="lineup-card">
-          <div className="lineup-card__header">
-            <h3>TALKBACK</h3>
-            <div className="lineup-card__actions">
-              <button
-                type="button"
-                className="button-secondary"
-                disabled={selectedOptions.length === 0}
-                onClick={() =>
-                  setEditing({
-                    role: "talkback",
-                    slotIndex: 0,
-                    currentSelectedId: talkbackCurrentOwnerId,
-                  })
-                }
-              >
-                Change
-              </button>
-            </div>
-          </div>
-          <div className="lineup-card__body section-divider">
-            <span className="lineup-list__name">
-              {resolveTalkbackSummaryLabel(
+        {/* These two hints used to be paragraphs floating above their cards;
+            as rows they sit with the position they describe. */}
+        <LineupRow
+          roleLabel="BAND LEADER"
+          names={[
+            {
+              key: "band-leader",
+              label:
+                selectedOptions.find((m) => m.id === bandLeaderId)?.name ||
+                "Not selected",
+            },
+          ]}
+          hint="On-site band lead for coordination and decisions."
+          actions={
+            <button
+              type="button"
+              className="button-secondary"
+              disabled={
+                selectedOptions.filter((m) => m.id !== bandLeaderId).length ===
+                0
+              }
+              onClick={() =>
+                setEditing({
+                  role: "leader",
+                  slotIndex: 0,
+                  currentSelectedId: bandLeaderId,
+                })
+              }
+            >
+              Change
+            </button>
+          }
+        />
+        <LineupRow
+          roleLabel="TALKBACK"
+          names={[
+            {
+              key: "talkback",
+              label: resolveTalkbackSummaryLabel(
                 selectedOptions.find((m) => m.id === talkbackCurrentOwnerId)
                   ?.name,
-              )}
-            </span>
-          </div>
-        </article>
+              ),
+            },
+          ]}
+          hint="Owner of the talkback microphone."
+          actions={
+            <button
+              type="button"
+              className="button-secondary"
+              disabled={selectedOptions.length === 0}
+              onClick={() =>
+                setEditing({
+                  role: "talkback",
+                  slotIndex: 0,
+                  currentSelectedId: talkbackCurrentOwnerId,
+                })
+              }
+            >
+              Change
+            </button>
+          }
+        />
       </div>
       {errors.length + overrideValidationErrors.length > 0 ? (
         <div className="status status--error" role="alert">
@@ -1839,7 +1809,7 @@ export function ProjectSetupPage({
             onClick={() => setShowResetConfirmation(false)}
             aria-label="Close"
           >
-            ×
+            <Close />
           </button>
           <div className="panel__header panel__header--stack selector-dialog__title">
             <h3 id="reset-defaults-title">Reset to defaults?</h3>
@@ -2087,7 +2057,7 @@ export function ProjectSetupPage({
                     }}
                     aria-label="Close"
                   >
-                    ×
+                    <Close />
                   </button>
                   <SetupModalShell
                     open={Boolean(editingSetup && selectedSetupMusician)}
@@ -2526,7 +2496,7 @@ export function ProjectSetupPage({
                     onClick={() => setAssignmentEditor(null)}
                     aria-label="Close"
                   >
-                    ×
+                    <Close />
                   </button>
                   <div className="panel__header panel__header--stack selector-dialog__title">
                     <h3 id="assignment-editor-title">{roleCopy.title}</h3>
@@ -2572,7 +2542,7 @@ export function ProjectSetupPage({
                                     })
                                   }
                                 >
-                                  ↑
+                                  <ArrowUp size={16} />
                                 </button>
                                 <button
                                   type="button"
@@ -2593,7 +2563,7 @@ export function ProjectSetupPage({
                                     })
                                   }
                                 >
-                                  ↓
+                                  <ArrowDown size={16} />
                                 </button>
                                 <button
                                   type="button"
@@ -2718,7 +2688,7 @@ export function ProjectSetupPage({
               onClick={() => setEditing(null)}
               aria-label="Close"
             >
-              ×
+              <Close />
             </button>
             <div className="panel__header panel__header--stack selector-dialog__title">
               <h3 id="musician-selector-title">

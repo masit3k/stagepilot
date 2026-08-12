@@ -1,4 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+} from "../../../components/ui/icons";
 
 export function EventDateInput({
   value,
@@ -78,10 +83,7 @@ export function EventDateInput({
           aria-label="Toggle calendar"
           onClick={() => setIsOpen((current) => !current)}
         >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="3.5" y="5.5" width="17" height="15" rx="2.5" />
-            <path d="M7 3.5v4M17 3.5v4M3.5 9.5h17" />
-          </svg>
+          <Calendar />
         </button>
       </div>
       {isOpen ? (
@@ -90,6 +92,7 @@ export function EventDateInput({
             <button
               type="button"
               className="button-secondary"
+              aria-label="Previous month"
               onClick={() =>
                 setMonthCursor(
                   (current) =>
@@ -97,7 +100,7 @@ export function EventDateInput({
                 )
               }
             >
-              ←
+              <ChevronLeft />
             </button>
             <strong>
               {new Intl.DateTimeFormat("en-GB", {
@@ -108,6 +111,7 @@ export function EventDateInput({
             <button
               type="button"
               className="button-secondary"
+              aria-label="Next month"
               onClick={() =>
                 setMonthCursor(
                   (current) =>
@@ -115,7 +119,7 @@ export function EventDateInput({
                 )
               }
             >
-              →
+              <ChevronRight />
             </button>
           </div>
           <div className="calendar-grid">
@@ -156,4 +160,3 @@ export function EventDateInput({
     </div>
   );
 }
-

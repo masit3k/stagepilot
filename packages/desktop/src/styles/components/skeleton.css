@@ -1,0 +1,91 @@
+/* ==========================================================================
+   SKELETON — placeholders while work is in flight
+   ========================================================================== */
+
+.skeleton {
+  background: var(--color-surface-raised);
+  border-radius: var(--sp-r-chip);
+  /* The global prefers-reduced-motion rule in base.css disables this. */
+  animation: skeletonPulse 1600ms var(--sp-ease) infinite;
+}
+
+@keyframes skeletonPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   PDF page placeholder
+   -------------------------------------------------------------------------- */
+.pdf-skeleton {
+  display: grid;
+  place-items: start center;
+  width: 100%;
+}
+
+/* A4 proportion (1:1.414), always white — it stands in for paper, not for a
+   surface of the UI, so it does not follow the theme. */
+.pdf-skeleton__page {
+  width: min(100%, 620px);
+  aspect-ratio: 1 / 1.414;
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--sp-r-chip);
+  box-shadow: var(--elevation-card);
+  padding: var(--sp-11) var(--sp-10);
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: var(--sp-7);
+}
+
+.pdf-skeleton__title {
+  height: 22px;
+  width: 55%;
+  justify-self: center;
+}
+
+.pdf-skeleton__meta {
+  height: 12px;
+  width: 38%;
+  justify-self: center;
+}
+
+.pdf-skeleton__table {
+  display: grid;
+  grid-auto-rows: 14px;
+  gap: var(--sp-3);
+  align-content: start;
+}
+
+/* Uneven row lengths so the block reads as table content rather than a loading
+   bar. Positional rather than per-row classes, so nothing is composed in a
+   template literal on the TSX side. */
+.pdf-skeleton__row {
+  width: 92%;
+}
+.pdf-skeleton__row:nth-child(1) {
+  width: 96%;
+}
+.pdf-skeleton__row:nth-child(4) {
+  width: 78%;
+}
+.pdf-skeleton__row:nth-child(6) {
+  width: 84%;
+}
+.pdf-skeleton__row:nth-child(8) {
+  width: 72%;
+}
+.pdf-skeleton__row:nth-child(9) {
+  width: 86%;
+}
+
+.pdf-skeleton__stage {
+  height: 22%;
+  width: 78%;
+  justify-self: center;
+}

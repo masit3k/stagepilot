@@ -1,15 +1,40 @@
 import { useEffect, useRef } from "react";
-import { getFocusableElements, getFocusableSelector, lockBodyScroll } from "./modalUtils";
+import {
+  getFocusableElements,
+  getFocusableSelector,
+  lockBodyScroll,
+} from "./modalUtils";
 
-export function useModalBehavior(open: boolean, onClose: () => void, allowEscapeClose = true) {
+export function useModalBehavior(
+  open: boolean,
+  onClose: () => void,
+  allowEscapeClose = true,
+) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
     const cleanupScroll = lockBodyScroll();
-    const focusable = dialogRef.current?.querySelector<HTMLElement>(getFocusableSelector());
+    // Remember what opened the dialog so focus can go back there on close —
+    // otherwise keyboard users are dropped at the top of the document.
+    previouslyFocusedRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const focusable = dialogRef.current?.querySelector<HTMLElement>(
+      getFocusableSelector(),
+    );
     focusable?.focus();
-    return cleanupScroll;
+
+    return () => {
+      cleanupScroll();
+      const trigger = previouslyFocusedRef.current;
+      previouslyFocusedRef.current = null;
+      // Skip if the trigger has since left the document (e.g. the row it lived
+      // in was deleted by the very action the dialog confirmed).
+      if (trigger?.isConnected) trigger.focus();
+    };
   }, [open]);
 
   useEffect(() => {

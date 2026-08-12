@@ -4,6 +4,7 @@ import {
   ModalOverlay,
   useModalBehavior,
 } from "../../components/ui/Modal";
+import { Close } from "../../components/ui/icons";
 
 export function AboutModal({
   open,
@@ -28,7 +29,7 @@ export function AboutModal({
           onClick={onClose}
           aria-label="Close"
         >
-          ×
+          <Close />
         </button>
         <ModalHeader>
           <h3 id="about-stagepilot-title">About StagePilot</h3>

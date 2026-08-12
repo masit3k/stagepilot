@@ -1,0 +1,47 @@
+/* ==========================================================================
+   PROJECT TYPE CHOICE — the two cards on "New Project"
+   ========================================================================== */
+
+.choice-grid {
+  display: grid;
+  gap: var(--sp-7);
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.choice-card {
+  position: relative;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--sp-r-card);
+  display: grid;
+  gap: var(--sp-7);
+  min-height: 220px;
+  align-content: center;
+  justify-items: center;
+  padding: var(--sp-10);
+  text-align: center;
+  transition: background-color var(--sp-duration-fast) var(--sp-ease),
+    border-color var(--sp-duration-fast) var(--sp-ease);
+}
+
+.choice-card:hover {
+  background: var(--color-row-highlight);
+  border-color: var(--color-border-structural);
+}
+
+/* There was a .choice-card__check tick here, hidden at opacity 0 and revealed
+   by .choice-card--selected — a modifier no component ever applied. Both cards
+   navigate on click and have no selected state, so the tick was dead markup and
+   has been removed from ChooseProjectTypePage too. */
+
+.choice-card__title {
+  font: var(--sp-h2);
+  letter-spacing: var(--sp-track-heading);
+}
+
+.choice-card__desc {
+  color: var(--color-text-body);
+  max-width: 40ch;
+  font: var(--sp-body-sm);
+}

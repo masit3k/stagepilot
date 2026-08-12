@@ -1,0 +1,129 @@
+/* ==========================================================================
+   DATE INPUT AND CALENDAR
+   ========================================================================== */
+
+.date-input-wrap {
+  position: relative;
+}
+
+.date-input-control {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--sp-r-btn);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.date-input-control:focus-within {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.date-input-control input {
+  flex: 1;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: var(--sp-3) var(--sp-4);
+}
+
+.date-input-control input:focus-visible {
+  outline: none;
+}
+
+.date-input-calendar-toggle {
+  min-height: var(--sp-control-lg);
+  width: var(--sp-control-lg);
+  min-width: var(--sp-control-lg);
+  border: none;
+  border-left: 1px solid var(--color-border-strong);
+  border-radius: 0;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  padding: 0;
+}
+
+.date-input-calendar-toggle svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.date-input-calendar-toggle:hover {
+  background: var(--color-secondary-hover);
+  color: var(--color-text);
+}
+
+.calendar-popover {
+  position: absolute;
+  top: calc(100% + var(--sp-3));
+  left: 0;
+  width: 340px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--sp-r-card);
+  box-shadow: var(--elevation-popover);
+  padding: var(--sp-7);
+  z-index: 500;
+}
+
+.calendar-popover__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--sp-6);
+}
+
+.calendar-popover__header .button-secondary {
+  min-height: var(--sp-control-sm);
+  min-width: var(--sp-control-sm);
+  padding: 0;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--sp-3);
+}
+
+.calendar-grid__weekday {
+  text-align: center;
+  font: var(--sp-mono-2xs);
+  letter-spacing: var(--sp-track-mono-label);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.calendar-grid__day {
+  min-height: var(--sp-control-md);
+  width: 100%;
+  min-width: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  border-radius: var(--sp-r-btn);
+  padding: 0;
+  font: var(--sp-mono-sm);
+}
+
+.calendar-grid__day:hover:not(:disabled) {
+  background: var(--color-secondary-hover);
+}
+
+/* Was a hard-coded pale blue that stayed light in the dark theme, leaving
+   accent text on it at 3.39:1. */
+.calendar-grid__day.is-selected {
+  border-color: var(--color-selected-border);
+  background: var(--color-selected-surface);
+  color: var(--color-selected-text);
+  font-weight: 500;
+}
+
+.calendar-grid__day.is-outside {
+  color: var(--color-text-secondary);
+}

@@ -16,6 +16,10 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "../../src/domain/projectNaming.ts"],
+  "include": [
+    "src",
+    "../../src/domain/projectNaming.ts",
+    "../../src/domain/design/contrast.ts"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

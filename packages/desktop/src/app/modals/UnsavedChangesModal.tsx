@@ -4,6 +4,7 @@ import {
   ModalOverlay,
   useModalBehavior,
 } from "../../components/ui/Modal";
+import { Close } from "../../components/ui/icons";
 
 export function UnsavedChangesModal({
   open,
@@ -37,7 +38,7 @@ export function UnsavedChangesModal({
           onClick={onStay}
           aria-label="Close"
         >
-          ×
+          <Close />
         </button>
         <ModalHeader>
           <h3 id="unsaved-changes-title">Unsaved changes</h3>

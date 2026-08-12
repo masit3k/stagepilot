@@ -1,0 +1,175 @@
+/* ==========================================================================
+   SEMANTIC LAYER — layer 2
+
+   Every colour a component may use lives here, named by role rather than by
+   value. The dark theme overrides this layer and nothing else, which is the
+   whole point: before this split, components reached for raw values and the
+   dark theme silently missed 56 of them.
+
+   Both themes are checked by semantic.contrast.test.ts. Adding a text/background
+   pair here without adding it to that test's matrix is the one way to
+   reintroduce the bug this layer exists to prevent.
+
+   The active theme is always explicit — index.html stamps data-theme before
+   first paint from the stored preference, falling back to the system setting.
+   ========================================================================== */
+
+:root {
+  /* ---- Surfaces ---------------------------------------------------------- */
+  --color-bg: var(--sp-paper);
+  --color-surface: var(--sp-surface);
+  --color-surface-raised: var(--sp-chip);
+  --color-surface-sunken: var(--sp-paper-deep);
+  --color-overlay: rgba(16, 17, 18, 0.52);
+
+  /* ---- Text -------------------------------------------------------------- */
+  --color-text: var(--sp-ink);
+  --color-text-body: var(--sp-body);
+  --color-text-secondary: var(--sp-steel);
+  --color-text-inverse: var(--sp-text-dark);
+
+  /* ---- Borders ----------------------------------------------------------- */
+  --color-border: var(--sp-line);
+  --color-border-strong: var(--sp-line-strong);
+  --color-border-structural: var(--sp-line-structural);
+  --color-border-faint: var(--sp-line-faint);
+
+  /* ---- Brand accent ------------------------------------------------------ */
+  /* Identical in both themes: the brand rules forbid recolouring the accent. */
+  --color-brand-accent: var(--sp-signal);
+  --color-accent-text: var(--sp-signal-text);
+  --color-accent-wash: var(--sp-signal-wash);
+  --color-accent-wash-strong: var(--sp-signal-wash-2);
+  --color-row-highlight: var(--sp-row-highlight);
+
+  /* ---- Primary action ---------------------------------------------------- */
+  /* Accent fill with ink text — 6.09:1, and the same in both themes so the
+     main action never changes character. */
+  --color-primary: var(--sp-signal);
+  --color-primary-hover: #ff6d38;
+  --color-primary-active: #e84d14;
+  --color-primary-text: var(--sp-ink);
+
+  /* ---- Secondary and ghost actions -------------------------------------- */
+  --color-secondary: var(--sp-surface);
+  --color-secondary-hover: var(--sp-chip);
+  --color-secondary-text: var(--sp-ink);
+  --color-secondary-border: var(--sp-line-strong);
+  --color-ghost-hover: var(--sp-chip);
+
+  /* ---- Selected state ---------------------------------------------------- */
+  --color-selected-surface: var(--sp-signal-wash);
+  --color-selected-border: var(--sp-signal);
+  --color-selected-text: var(--sp-signal-text);
+
+  /* ---- Focus ------------------------------------------------------------- */
+  /* Opaque ink, not the accent. The old ring was translucent — the weakest
+     possible indicator — and the accent only reaches 3.10:1 on white, dropping
+     to 2.77:1 on paper and 2.70:1 on the chip. Ink clears 3:1 on every surface
+     with room to spare (16.9:1 on paper), which is what a focus indicator needs. */
+  --color-focus: var(--sp-ink);
+
+  /* ---- States ------------------------------------------------------------ */
+  --color-danger-text: var(--sp-danger);
+  --color-danger-surface: var(--sp-danger-wash);
+  --color-danger-border: var(--sp-danger-line);
+  --color-danger-solid: var(--sp-danger);
+  --color-danger-solid-hover: #93201a;
+  --color-danger-solid-text: #ffffff;
+
+  --color-warning-text: var(--sp-signal-text);
+  --color-warning-surface: var(--sp-signal-wash);
+  --color-warning-border: var(--sp-signal-wash-2);
+
+  --color-success-text: var(--sp-success);
+  --color-success-surface: var(--sp-success-wash);
+  --color-success-border: var(--sp-success-line);
+
+  --color-info-text: var(--sp-body);
+  --color-info-surface: var(--sp-chip);
+  --color-info-border: var(--sp-line);
+
+  /* ---- Elevation --------------------------------------------------------- */
+  /* The design forbids decorative shadows; these carry structure only. */
+  --elevation-card: 0 2px 14px rgba(16, 17, 18, 0.1);
+  --elevation-popover: 0 12px 24px rgba(16, 17, 18, 0.16);
+  --elevation-modal: 0 8px 24px rgba(16, 17, 18, 0.12), 0 32px 64px
+    rgba(16, 17, 18, 0.18);
+}
+
+:root[data-theme="dark"] {
+  /* ---- Surfaces ---------------------------------------------------------- */
+  --color-bg: var(--sp-canvas);
+  --color-surface: var(--sp-block-raised);
+  --color-surface-raised: var(--sp-block);
+  --color-surface-sunken: var(--sp-canvas-deep);
+  --color-overlay: rgba(0, 0, 0, 0.7);
+
+  /* ---- Text -------------------------------------------------------------- */
+  --color-text: var(--sp-text-dark);
+  --color-text-body: var(--sp-text-dark-body);
+  --color-text-secondary: var(--sp-text-dark-mid);
+  --color-text-inverse: var(--sp-ink);
+
+  /* ---- Borders ----------------------------------------------------------- */
+  --color-border: var(--sp-border-dark-2);
+  --color-border-strong: var(--sp-border-dark);
+  --color-border-structural: var(--sp-border-dark);
+  --color-border-faint: var(--sp-border-dark-3);
+
+  /* ---- Brand accent ------------------------------------------------------ */
+  --color-brand-accent: var(--sp-signal);
+  --color-accent-text: var(--sp-signal);
+  --color-accent-wash: var(--sp-block-selected);
+  --color-accent-wash-strong: #33261d;
+  --color-row-highlight: #1f2126;
+
+  /* ---- Primary action ---------------------------------------------------- */
+  --color-primary: var(--sp-signal);
+  --color-primary-hover: #ff6d38;
+  --color-primary-active: #e84d14;
+  --color-primary-text: var(--sp-ink);
+
+  /* ---- Secondary and ghost actions -------------------------------------- */
+  --color-secondary: var(--sp-block-raised);
+  --color-secondary-hover: var(--sp-block);
+  --color-secondary-text: var(--sp-text-dark);
+  --color-secondary-border: var(--sp-border-dark);
+  --color-ghost-hover: var(--sp-block);
+
+  /* ---- Selected state ---------------------------------------------------- */
+  --color-selected-surface: var(--sp-block-selected);
+  --color-selected-border: var(--sp-signal);
+  --color-selected-text: var(--sp-signal);
+
+  /* ---- Focus ------------------------------------------------------------- */
+  --color-focus: var(--sp-text-dark);
+
+  /* ---- States ------------------------------------------------------------ */
+  --color-danger-text: var(--sp-danger-dark);
+  --color-danger-surface: var(--sp-danger-wash-dark);
+  --color-danger-border: var(--sp-danger-line-dark);
+  --color-danger-solid: var(--sp-danger);
+  --color-danger-solid-hover: #c62f26;
+  --color-danger-solid-text: #ffffff;
+
+  --color-warning-text: var(--sp-signal);
+  --color-warning-surface: var(--sp-block-selected);
+  --color-warning-border: #5a3a22;
+
+  --color-success-text: var(--sp-success-dark);
+  --color-success-surface: var(--sp-success-wash-dark);
+  --color-success-border: var(--sp-success-line-dark);
+
+  --color-info-text: var(--sp-text-dark-body);
+  --color-info-surface: var(--sp-block);
+  --color-info-border: var(--sp-border-dark-2);
+
+  /* ---- Elevation --------------------------------------------------------- */
+  /* Ink-tinted shadows vanish on dark surfaces, so these go to black and
+     deepen — this is what made elevation disappear in the old dark theme. */
+  --elevation-card: 0 2px 14px rgba(0, 0, 0, 0.5);
+  --elevation-popover: 0 12px 28px rgba(0, 0, 0, 0.6);
+  --elevation-modal: 0 8px 24px rgba(0, 0, 0, 0.55), 0 32px 64px
+    rgba(0, 0, 0, 0.7);
+}

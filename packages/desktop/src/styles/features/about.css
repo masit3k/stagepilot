@@ -1,0 +1,48 @@
+/* ==========================================================================
+   ABOUT DIALOG
+   ========================================================================== */
+
+.about-dialog {
+  width: min(700px, 95vw);
+}
+
+.about-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: var(--sp-10);
+  row-gap: var(--sp-7);
+  margin-top: var(--sp-7);
+  padding-top: var(--sp-3);
+}
+
+.selector-dialog__body.about-grid {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.about-item {
+  margin: 0;
+  display: grid;
+  gap: var(--sp-1);
+  align-content: start;
+}
+
+.about-item span {
+  font: var(--sp-mono-2xs);
+  letter-spacing: var(--sp-track-mono-label);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.about-item strong {
+  font: var(--sp-body-sm);
+  color: var(--color-text);
+  word-break: break-word;
+}
+
+@media (max-width: 760px) {
+  .about-grid {
+    grid-template-columns: 1fr;
+    gap: var(--sp-7);
+  }
+}

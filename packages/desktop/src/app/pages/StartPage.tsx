@@ -1,15 +1,32 @@
-import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useState } from "react";
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { EmptyState } from "../../components/ui/EmptyState";
 import {
   ModalFooter,
   ModalHeader,
   ModalOverlay,
   useModalBehavior,
 } from "../../components/ui/Modal";
+import {
+  Archive,
+  GridView,
+  Inbox,
+  ListView,
+  MoreHorizontal,
+  Trash,
+} from "../../components/ui/icons";
 import { formatIsoToDateTimeDisplay } from "../../projectRules";
 import { withFrom } from "../shell/routes";
 import type { ProjectSummary } from "../shell/types";
 import { ProjectContextMenuPortal } from "./components/ProjectContextMenuPortal";
-import { formatProjectDate, getProjectPurposeLabel } from "./shared/projectHubUtils";
+import {
+  formatProjectDate,
+  getProjectPurposeLabel,
+} from "./shared/projectHubUtils";
 
 type ProjectStatusTab = "active" | "archived" | "trashed";
 
@@ -313,7 +330,7 @@ export function StartPage({
               );
             }}
           >
-            ⋯
+            <MoreHorizontal />
           </button>
           {cardMenu}
         </div>
@@ -321,10 +338,41 @@ export function StartPage({
     );
   }
 
-  function getEmptyStateCopy(tab: ProjectStatusTab) {
-    if (tab === "active") return "No active projects.";
-    if (tab === "archived") return "No archived projects.";
-    return "Trash is empty.";
+  function renderEmptyState(tab: ProjectStatusTab) {
+    if (tab === "active") {
+      return (
+        <EmptyState
+          icon={<Inbox size={22} />}
+          title="No projects yet"
+          description="A project holds one show or a reusable template — the lineup, the input list and the stage plan that get exported to PDF."
+          action={
+            <button
+              type="button"
+              className="button-primary"
+              onClick={() => navigate("/projects/new")}
+            >
+              + New Project
+            </button>
+          }
+        />
+      );
+    }
+    if (tab === "archived") {
+      return (
+        <EmptyState
+          icon={<Archive size={22} />}
+          title="Nothing archived"
+          description="Archived projects stay readable and exportable but drop out of the active list."
+        />
+      );
+    }
+    return (
+      <EmptyState
+        icon={<Trash size={22} />}
+        title="Trash is empty"
+        description="Deleted projects wait here for 30 days before they are removed for good."
+      />
+    );
   }
 
   return (
@@ -352,7 +400,7 @@ export function StartPage({
             }
             onClick={() => setViewMode("list")}
           >
-            ≣
+            <ListView />
           </button>
           <button
             type="button"
@@ -365,7 +413,7 @@ export function StartPage({
             }
             onClick={() => setViewMode("tiles")}
           >
-            ⊞
+            <GridView />
           </button>
         </div>
       </div>
@@ -397,9 +445,7 @@ export function StartPage({
         )}
       </div>
       {visibleProjects.length === 0 ? (
-        <p className="status status--empty" aria-live="polite">
-          {getEmptyStateCopy(activeTab)}
-        </p>
+        <div aria-live="polite">{renderEmptyState(activeTab)}</div>
       ) : (
         <div className="project-sections">
           <section className="project-section">
@@ -480,4 +526,3 @@ export function StartPage({
     </section>
   );
 }
-

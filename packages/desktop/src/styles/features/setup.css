@@ -1,0 +1,430 @@
+/* ==========================================================================
+   SETUP EDITOR — inputs and monitoring, plus the page-level action bar
+   ========================================================================== */
+
+.setup-action-bar {
+  position: sticky;
+  bottom: 0;
+  margin-top: var(--sp-10);
+  border: 1px solid var(--color-border);
+  border-radius: var(--sp-r-card-lg);
+  background: var(--color-surface);
+  box-shadow: var(--elevation-card);
+  padding: var(--sp-7);
+  display: flex;
+  gap: var(--sp-7);
+  justify-content: space-between;
+  z-index: 50;
+}
+
+.setup-action-bar button {
+  min-width: 140px;
+  min-height: var(--sp-control-lg);
+}
+
+/* Three pages applied this modifier and no rule existed, so their action bars
+   fell back to space-between and spread unevenly. */
+.setup-action-bar--equal button {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Editor layout
+   -------------------------------------------------------------------------- */
+.setup-editor-grid,
+.setup-musician-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-10);
+  align-items: start;
+}
+
+.setup-editor-body {
+  display: grid;
+  gap: var(--sp-10);
+  min-height: 0;
+  overflow: auto;
+  padding-bottom: var(--sp-7);
+}
+
+.setup-editor-column {
+  display: grid;
+  gap: var(--sp-5);
+  align-content: start;
+  min-width: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Section card
+   -------------------------------------------------------------------------- */
+.setup-section-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--sp-r-card);
+  background: var(--color-surface);
+  padding: var(--sp-7);
+  display: grid;
+  gap: var(--sp-7);
+  min-width: 0;
+}
+
+/* SetupSection applies this when the section carries an event override. The old
+   rule was `box-shadow: none` on a card that had no shadow — a no-op, so the
+   marker was invisible. It now matches how overrides are marked everywhere
+   else: a 2px accent edge. */
+.setup-section-card--modified {
+  border-left: 2px solid var(--color-brand-accent);
+}
+
+.setup-section-card__header {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.setup-section-card__header h4 {
+  margin: 0;
+  font: var(--sp-mono-xs);
+  letter-spacing: var(--sp-track-mono-label);
+  text-transform: uppercase;
+  color: var(--color-text);
+}
+
+.setup-section-card__header .subtle {
+  margin: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Lists of selected inputs
+   -------------------------------------------------------------------------- */
+.setup-editor-list,
+.setup-removed-list,
+.setup-available-list {
+  display: grid;
+  gap: var(--sp-4);
+  margin: 0;
+}
+
+.setup-editor-list__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sp-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--sp-r-btn);
+  padding: var(--sp-4);
+  background: var(--color-surface);
+  min-width: 0;
+}
+
+.setup-input-row__main {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.setup-input-row__main strong,
+.setup-input-row__main span,
+.setup-input-row__main div {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.setup-row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-3);
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+
+.setup-row-actions .button-secondary {
+  min-height: var(--sp-control-md);
+  padding: var(--sp-2) var(--sp-4);
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+   Overridden values
+   -------------------------------------------------------------------------- */
+.setup-section-modified {
+  margin-left: var(--sp-3);
+  font: var(--sp-mono-2xs);
+  letter-spacing: var(--sp-track-mono-label);
+  text-transform: uppercase;
+  color: var(--color-accent-text);
+}
+
+.setup-field-block--modified {
+  border-left: 2px solid var(--color-brand-accent);
+  padding-left: var(--sp-3);
+}
+
+.setup-editor-list__row--modified {
+  border-left: 2px solid var(--color-brand-accent);
+}
+
+/* --------------------------------------------------------------------------
+   Fields
+   -------------------------------------------------------------------------- */
+.setup-field-block {
+  display: grid;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.setup-field-block__label {
+  margin: 0;
+  font: var(--sp-mono-xs);
+  letter-spacing: var(--sp-track-mono-label);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.setup-editor-stack,
+.setup-schema-fields,
+.setup-field-list,
+.setup-toggle-grid {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.setup-toggle-grid {
+  min-width: 0;
+}
+
+.setup-toggle-grid > * {
+  min-width: 0;
+  width: 100%;
+}
+
+.setup-pad-settings {
+  display: grid;
+  gap: var(--sp-3);
+  margin-top: var(--sp-2);
+  margin-left: var(--sp-9);
+}
+
+.setup-pad-settings__row {
+  display: flex;
+  min-width: 0;
+}
+
+.setup-pad-settings__row label {
+  display: grid;
+  gap: var(--sp-2);
+  width: 100%;
+}
+
+.setup-field-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+.setup-field-row label {
+  color: var(--color-text);
+  font: var(--sp-body-sm);
+}
+
+.setup-field-row select,
+.setup-field-row input {
+  min-width: 0;
+}
+
+.setup-field-control {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: var(--sp-body-sm);
+  color: var(--color-text);
+}
+
+.setup-field-control--compact {
+  width: 96px;
+  min-width: 96px;
+}
+
+/* --------------------------------------------------------------------------
+   Supplier switch (segmented control)
+   -------------------------------------------------------------------------- */
+.setup-supplier-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+.setup-supplier-switch__option {
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text);
+  padding: var(--sp-2) var(--sp-5);
+  cursor: pointer;
+  font: var(--sp-ui);
+}
+
+.setup-supplier-switch__option:first-child {
+  border-radius: var(--sp-r-btn) 0 0 var(--sp-r-btn);
+}
+
+.setup-supplier-switch__option:last-child {
+  border-radius: 0 var(--sp-r-btn) var(--sp-r-btn) 0;
+  border-left-width: 0;
+}
+
+.setup-supplier-switch__option--active {
+  background: var(--color-selected-surface);
+  border-color: var(--color-selected-border);
+  color: var(--color-selected-text);
+  font-weight: 600;
+}
+
+.setup-supplier-switch__option:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------------------------------
+   Toggle row
+   -------------------------------------------------------------------------- */
+.setup-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  width: 100%;
+  min-width: 0;
+  min-height: var(--sp-control-lg);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--sp-r-btn);
+  cursor: pointer;
+}
+
+.setup-toggle-row:hover {
+  background: var(--color-row-highlight);
+}
+
+.setup-toggle-row__text {
+  font: var(--sp-body-sm);
+  color: var(--color-text-secondary);
+}
+
+.setup-toggle-row__trailing {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-3);
+  color: var(--color-text-secondary);
+  font: var(--sp-mono-sm);
+  letter-spacing: var(--sp-track-mono);
+  flex-shrink: 0;
+}
+
+.setup-toggle-row--checked .setup-toggle-row__text,
+.setup-toggle-row--checked .setup-toggle-row__trailing {
+  color: var(--color-text);
+}
+
+.setup-toggle-grid--additional-drums .setup-toggle-row__text,
+.setup-toggle-grid--additional-drums .setup-pad-settings__row label,
+.setup-toggle-grid--additional-drums .setup-field-control {
+  font-size: 13px;
+}
+
+.setup-checkbox {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: var(--color-brand-accent);
+}
+
+/* --------------------------------------------------------------------------
+   Stepper
+   -------------------------------------------------------------------------- */
+.setup-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: var(--sp-control-md);
+  padding: 2px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--sp-r-btn);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.setup-stepper__btn {
+  width: var(--sp-control-sm);
+  min-width: var(--sp-control-sm);
+  height: var(--sp-control-sm);
+  min-height: var(--sp-control-sm);
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--sp-r-chip);
+  background: transparent;
+  line-height: 1;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.setup-stepper__btn:hover:not(:disabled) {
+  background: var(--color-secondary-hover);
+  color: var(--color-text);
+}
+
+.setup-stepper__btn:active:not(:disabled) {
+  background: var(--color-selected-surface);
+  color: var(--color-selected-text);
+}
+
+.setup-stepper__btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.setup-stepper__value {
+  min-width: 30px;
+  height: var(--sp-control-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font: var(--sp-mono-md);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.setup-toggle-row--checked .setup-stepper__btn,
+.setup-toggle-row--checked .setup-stepper__value {
+  color: var(--color-text);
+}
+
+@media (max-width: 520px) {
+  .setup-field-row {
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+  }
+
+  .setup-row-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 760px) {
+  .setup-action-bar {
+    flex-wrap: wrap;
+  }
+}

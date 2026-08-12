@@ -1,0 +1,95 @@
+/* ==========================================================================
+   TOAST — announcements that need no answer
+   ========================================================================== */
+
+.toast-viewport {
+  position: fixed;
+  right: var(--sp-10);
+  bottom: var(--sp-10);
+  display: grid;
+  gap: var(--sp-4);
+  justify-items: end;
+  /* Below the modal overlay (10000): a toast must never cover a dialog that is
+     waiting for a decision. */
+  z-index: 9000;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  min-width: 260px;
+  max-width: 420px;
+  padding: var(--sp-5) var(--sp-5) var(--sp-5) var(--sp-7);
+  border: 1px solid var(--color-border-strong);
+  border-left-width: 3px;
+  border-radius: var(--sp-r-btn-lg);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--elevation-popover);
+  font: var(--sp-body-sm);
+  pointer-events: auto;
+  animation: toastIn var(--sp-duration-base) var(--sp-ease);
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The left edge carries the kind. Colour is the only signal that differs, so it
+   is paired with wording that stands on its own. */
+.toast--success {
+  border-left-color: var(--color-success-text);
+}
+
+.toast--error {
+  border-left-color: var(--color-danger-text);
+}
+
+.toast--info {
+  border-left-color: var(--color-brand-accent);
+}
+
+.toast__message {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast__close {
+  flex-shrink: 0;
+  width: var(--sp-10);
+  height: var(--sp-10);
+  min-height: var(--sp-10);
+  padding: 0;
+  border: none;
+  border-radius: var(--sp-r-chip);
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+.toast__close:hover {
+  background: var(--color-ghost-hover);
+  color: var(--color-text);
+}
+
+@media (max-width: 520px) {
+  .toast-viewport {
+    left: var(--sp-7);
+    right: var(--sp-7);
+    bottom: var(--sp-7);
+    justify-items: stretch;
+  }
+
+  .toast {
+    min-width: 0;
+    max-width: none;
+  }
+}
