@@ -4,7 +4,7 @@ import {
   type StageplanPrintSlot,
   buildPdfStageplanPrintModel,
 } from "../../../domain/pipeline/pdf/buildPdfStageplanPrintModel.js";
-import { pdfLayout } from "../layout.js";
+import { parsePt, pdfLayout } from "../layout.js";
 import {
   type StageplanRenderOptions,
   resolveStageplanRenderOptions,
@@ -30,14 +30,6 @@ type StageplanLayoutDefinition = {
     };
   };
 };
-
-function parsePt(value: string): number {
-  const m = /([0-9.]+)\s*pt/i.exec(value);
-  if (!m) {
-    throw new Error(`Stageplan layout expects pt values, got "${value}"`);
-  }
-  return Number.parseFloat(m[1] ?? "0");
-}
 
 function parseMm(value: string): number {
   const m = /([0-9.]+)\s*mm/i.exec(value);
