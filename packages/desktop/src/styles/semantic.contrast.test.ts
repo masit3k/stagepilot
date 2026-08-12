@@ -200,6 +200,52 @@ function buildPairs(): Pair[] {
     );
   }
 
+  // Title bar chrome. It stays dark in both themes — it is the window frame,
+  // not page content — so the values match, but both themes are still checked so
+  // a future theme cannot quietly recolour the frame out of contrast.
+  // The glyph pairs use the 3:1 minimum: a window control is a graphical object
+  // (WCAG 1.4.11), not text.
+  pairs.push(
+    {
+      foreground: "--color-titlebar-text",
+      background: "--color-titlebar",
+      minimum: AA_NORMAL_TEXT,
+      what: "title bar app name",
+    },
+    {
+      foreground: "--color-titlebar-text-dim",
+      background: "--color-titlebar",
+      minimum: AA_NORMAL_TEXT,
+      what: "title bar project name",
+    },
+    {
+      foreground: "--color-titlebar-control",
+      background: "--color-titlebar",
+      minimum: AA_LARGE_TEXT,
+      what: "window control glyph",
+    },
+    {
+      foreground: "--color-titlebar-text",
+      background: "--color-titlebar-control-hover",
+      minimum: AA_LARGE_TEXT,
+      what: "window control glyph on hover",
+    },
+    {
+      foreground: "--color-titlebar-close-text",
+      background: "--color-titlebar-close-hover",
+      minimum: AA_LARGE_TEXT,
+      what: "close glyph on its hover fill",
+    },
+    // The active navigation pill fills with the text colour and prints the label
+    // in its inverse, so the pair flips with the theme instead of being fixed.
+    {
+      foreground: "--color-text-inverse",
+      background: "--color-text",
+      minimum: AA_NORMAL_TEXT,
+      what: "active navigation pill label",
+    },
+  );
+
   // The focus ring is the one non-text element that must always be visible:
   // it is the sole indicator of keyboard position. Decorative borders are not
   // checked — selection is carried by fill and label colour as well, so no

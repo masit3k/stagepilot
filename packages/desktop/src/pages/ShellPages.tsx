@@ -1,15 +1,6 @@
-import { Header } from "../layout/Header";
 import { Page } from "../layout/Page";
 
 type NavigateFn = (path: string) => void;
-
-export function TopTabs({ pathname, navigate }: { pathname: string; navigate: NavigateFn }) {
-  return <Header pathname={pathname} navigate={navigate} />;
-}
-
-export function SettingsPage() {
-  return <Page title="Settings" description="Settings will be available in a future update." />;
-}
 
 export function LibraryHomePage({ navigate }: { navigate: NavigateFn }) {
   const items = [

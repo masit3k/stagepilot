@@ -1,0 +1,70 @@
+/* ==========================================================================
+   SETTINGS — appearance
+   ========================================================================== */
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-7);
+}
+
+.settings-section__title {
+  margin: 0;
+  font: var(--sp-h3);
+  letter-spacing: var(--sp-track-heading);
+}
+
+.settings-choice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.settings-choice__legend {
+  padding: 0 0 var(--sp-4);
+  font: var(--sp-mono-xs);
+  letter-spacing: var(--sp-track-mono-label);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.settings-choice__option {
+  display: grid;
+  grid-template-columns: auto minmax(120px, auto) 1fr;
+  align-items: center;
+  gap: var(--sp-5);
+  padding: var(--sp-5) var(--sp-7);
+  border: 1px solid var(--color-border);
+  border-radius: var(--sp-r-btn);
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.settings-choice__option:hover {
+  background: var(--color-secondary-hover);
+}
+
+.settings-choice__option:has(input:checked) {
+  border-color: var(--color-selected-border);
+  background: var(--color-selected-surface);
+}
+
+.settings-choice__option input {
+  accent-color: var(--color-brand-accent);
+  width: var(--sp-7);
+  height: var(--sp-7);
+  margin: 0;
+}
+
+.settings-choice__label {
+  font: var(--sp-ui);
+  color: var(--color-text);
+}
+
+.settings-choice__hint {
+  font: var(--sp-body-sm);
+  color: var(--color-text-body);
+}

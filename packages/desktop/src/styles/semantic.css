@@ -34,6 +34,20 @@
   --color-border-structural: var(--sp-line-structural);
   --color-border-faint: var(--sp-line-faint);
 
+  /* ---- Window frame ------------------------------------------------------ */
+  /* The title bar is dark in both themes — it frames the window rather than
+     carrying its content — so these roles repeat the same values in the dark
+     block. They exist so the bar consumes roles like everything else. */
+  --color-titlebar: var(--sp-titlebar);
+  --color-titlebar-text: var(--sp-text-dark);
+  --color-titlebar-text-dim: var(--sp-text-dark-dim);
+  --color-titlebar-control: var(--sp-text-dark-mid);
+  --color-titlebar-control-hover: var(--sp-titlebar-hover);
+  --color-titlebar-close-hover: var(--sp-close-hover);
+  /* Raw white, as with --color-danger-solid-text: the glyph sits on a red fill
+     in both themes, so it has no theme-dependent counterpart. */
+  --color-titlebar-close-text: #ffffff;
+
   /* ---- Brand accent ------------------------------------------------------ */
   /* Identical in both themes: the brand rules forbid recolouring the accent. */
   --color-brand-accent: var(--sp-signal);
@@ -116,6 +130,16 @@
   --color-border-strong: var(--sp-border-dark);
   --color-border-structural: var(--sp-border-dark);
   --color-border-faint: var(--sp-border-dark-3);
+
+  /* ---- Window frame ------------------------------------------------------ */
+  /* Same values as the light theme by design: the frame does not switch. */
+  --color-titlebar: var(--sp-titlebar);
+  --color-titlebar-text: var(--sp-text-dark);
+  --color-titlebar-text-dim: var(--sp-text-dark-dim);
+  --color-titlebar-control: var(--sp-text-dark-mid);
+  --color-titlebar-control-hover: var(--sp-titlebar-hover);
+  --color-titlebar-close-hover: var(--sp-close-hover);
+  --color-titlebar-close-text: #ffffff;
 
   /* ---- Brand accent ------------------------------------------------------ */
   --color-brand-accent: var(--sp-signal);

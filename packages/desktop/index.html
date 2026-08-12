@@ -7,14 +7,17 @@
     <title>StagePilot</title>
     <script>
       // Stamps the theme before first paint so the window never flashes the
-      // wrong background. Falls back to the system setting on first run, which
-      // the app could not do before. AppShell reads the same key.
+      // wrong background. This mirrors parseThemePreference and resolveTheme in
+      // src/app/providers/theme.ts: "light" and "dark" are explicit, anything
+      // else — "system", nothing stored, junk — follows the OS. ThemeProvider
+      // reads the same key back rather than recomputing, so the two agree.
       (function () {
         try {
           var stored = localStorage.getItem("theme");
-          var dark = stored
-            ? stored === "dark"
-            : window.matchMedia("(prefers-color-scheme: dark)").matches;
+          var dark =
+            stored === "dark" ||
+            (stored !== "light" &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
           document.documentElement.dataset.theme = dark ? "dark" : "light";
         } catch (error) {
           document.documentElement.dataset.theme = "light";

@@ -58,6 +58,10 @@
   /* R2: handoff #6C7074 gives 3.60:1 on canvas, and the design uses it at 10px. */
   --sp-text-dark-dim: #8b9095;
   --sp-titlebar: #101112;
+  /* Window frame: hover fill for the minimise and maximise buttons, and the
+     Windows-convention red behind the close button. */
+  --sp-titlebar-hover: #26282b;
+  --sp-close-hover: #e5484d;
 
   /* ---- State colours ----------------------------------------------------- */
   --sp-danger: #b3261e;

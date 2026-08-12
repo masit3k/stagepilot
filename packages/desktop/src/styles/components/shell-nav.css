@@ -1,0 +1,121 @@
+/* ==========================================================================
+   SHELL NAVIGATION — sections, process trail, theme toggle, about
+
+   One row under the title bar. It replaced the old application header, which
+   repeated the mark and the app name the title bar now carries.
+   ========================================================================== */
+
+.shell-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-7);
+  flex-wrap: wrap;
+}
+
+.shell-nav__sections {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.shell-nav__context {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-7);
+}
+
+.shell-nav__about {
+  width: var(--sp-control-md);
+  min-width: var(--sp-control-md);
+  height: var(--sp-control-md);
+  padding: 0;
+  border-radius: var(--sp-r-btn);
+}
+
+/* --------------------------------------------------------------------------
+   Section pills
+   -------------------------------------------------------------------------- */
+.nav-pill {
+  padding: var(--sp-3) var(--sp-7);
+  border-radius: var(--sp-r-pill);
+  border-color: transparent;
+  color: var(--color-text-body);
+  background: transparent;
+  transition: background-color var(--sp-duration-base) var(--sp-ease), color
+    var(--sp-duration-base) var(--sp-ease);
+}
+
+.nav-pill:hover:not(.is-active) {
+  background: var(--color-ghost-hover);
+  color: var(--color-text);
+}
+
+/* Filled with the text colour and labelled in its inverse, so the active pill
+   reads the same way in both themes instead of being a fixed dark chip. */
+.nav-pill.is-active {
+  background: var(--color-text);
+  color: var(--color-text-inverse);
+  font-weight: 500;
+}
+
+/* --------------------------------------------------------------------------
+   Theme toggle — two states, because it switches what is on screen. The third
+   preference ("follow the system") lives in Settings.
+   -------------------------------------------------------------------------- */
+.theme-toggle {
+  position: relative;
+  width: 52px;
+  min-width: 52px;
+  height: var(--sp-11);
+  min-height: var(--sp-11);
+  padding: 0;
+  border-radius: var(--sp-r-pill);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-raised);
+  cursor: pointer;
+  transition: background-color var(--sp-duration-base) var(--sp-ease),
+    border-color var(--sp-duration-base) var(--sp-ease);
+}
+
+.theme-toggle[aria-checked="true"] {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.theme-toggle__thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  /* Sits on the track, so it is coloured against the track, not the page. */
+  background: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--sp-duration-base) var(--sp-ease), background-color
+    var(--sp-duration-base) var(--sp-ease);
+  pointer-events: none;
+}
+
+.theme-toggle[aria-checked="true"] .theme-toggle__thumb {
+  transform: translateX(24px);
+  background: var(--color-primary-text);
+}
+
+/* The glyph is cut out of the thumb, so it takes the colour of what the thumb
+   sits on: the chip track when off, the accent track when on. */
+.theme-toggle__icon {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: var(--color-surface-raised);
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.theme-toggle[aria-checked="true"] .theme-toggle__icon {
+  stroke: var(--color-primary);
+}

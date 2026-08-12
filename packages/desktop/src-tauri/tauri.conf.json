@@ -13,8 +13,12 @@
     "windows": [
       {
         "title": "StagePilot",
-        "width": 800,
-        "height": 600
+        "width": 1400,
+        "height": 900,
+        "minWidth": 1120,
+        "minHeight": 720,
+        "center": true,
+        "decorations": false
       }
     ],
     "security": {

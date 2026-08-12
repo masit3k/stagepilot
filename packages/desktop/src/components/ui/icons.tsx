@@ -1,8 +1,8 @@
 /**
  * The application icon set.
  *
- * Hand-drawn rather than pulled from Lucide or Fluent: only thirteen shapes are
- * needed, the desktop package deliberately carries four runtime dependencies,
+ * Hand-drawn rather than pulled from Lucide or Fluent: only a handful of shapes
+ * are needed, the desktop package deliberately carries four runtime dependencies,
  * and the stroke weight has to match BrandMark at 1.75. Every icon inherits
  * `currentColor`, so it follows the active theme without any per-theme rules.
  *
@@ -179,6 +179,35 @@ export function Trash(props: IconProps) {
     <Icon {...props}>
       <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
       <path d="M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12M10 11v6M14 11v6" />
+    </Icon>
+  );
+}
+
+/* Window controls. Drawn to the Windows convention — a line, a square, and two
+   offset squares — and rendered at 12px, where the 1.75 stroke reads as the
+   hairline the system buttons use. */
+
+export function WindowMinimize(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5 12h14" />
+    </Icon>
+  );
+}
+
+export function WindowMaximize(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="5.5" y="5.5" width="13" height="13" rx="1.5" />
+    </Icon>
+  );
+}
+
+export function WindowRestore(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="4" y="8" width="12" height="12" rx="1.5" />
+      <path d="M8 8V5.5a1.5 1.5 0 0 1 1.5-1.5H18.5A1.5 1.5 0 0 1 20 5.5V14.5A1.5 1.5 0 0 1 18.5 16H16" />
     </Icon>
   );
 }

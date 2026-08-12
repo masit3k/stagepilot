@@ -5,7 +5,10 @@
 @import "./base.css";
 @import "./components.css";
 @import "./components/empty-state.css";
+@import "./components/process-trail.css";
+@import "./components/shell-nav.css";
 @import "./components/skeleton.css";
+@import "./components/titlebar.css";
 @import "./components/toast.css";
 @import "./layout.css";
 @import "./modal.css";
@@ -17,3 +20,4 @@
 @import "./features/setup.css";
 @import "./features/preview.css";
 @import "./features/about.css";
+@import "./features/settings.css";

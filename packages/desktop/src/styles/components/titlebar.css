@@ -1,0 +1,88 @@
+/* ==========================================================================
+   TITLE BAR — the window frame the app draws itself
+
+   The window runs with `decorations: false`, so this bar carries the identity,
+   the open project and the three system buttons. It stays dark in both themes:
+   it frames the window rather than belonging to the page.
+   ========================================================================== */
+
+.titlebar {
+  flex: 0 0 auto;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  padding-left: var(--sp-6);
+  background: var(--color-titlebar);
+  user-select: none;
+}
+
+/* Tauri matches the drag region against the element under the pointer, so
+   nothing inside the bar may take pointer events — otherwise a drag that starts
+   on the app name does nothing. The controls opt back in below. */
+.titlebar__identity {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-4);
+  pointer-events: none;
+}
+
+.titlebar__mark {
+  /* Baseline alignment would sit the mark low against the text. */
+  align-self: center;
+  display: flex;
+  color: var(--color-titlebar-text);
+}
+
+.titlebar__app {
+  font: var(--sp-ui);
+  color: var(--color-titlebar-text);
+  white-space: nowrap;
+}
+
+.titlebar__project {
+  font: var(--sp-mono-xs);
+  letter-spacing: var(--sp-track-mono);
+  color: var(--color-titlebar-text-dim);
+  /* The display name carries band, date and venue, so it has to be able to
+     give way rather than push the controls off the bar. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.titlebar__controls {
+  flex: 0 0 auto;
+  display: flex;
+  pointer-events: auto;
+}
+
+.titlebar__control {
+  width: var(--sp-13);
+  min-width: var(--sp-13);
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: var(--color-titlebar-control);
+  transition: background-color var(--sp-duration-fast) var(--sp-ease), color
+    var(--sp-duration-fast) var(--sp-ease);
+}
+
+.titlebar__control:hover {
+  background: var(--color-titlebar-control-hover);
+  color: var(--color-titlebar-text);
+}
+
+.titlebar__control--close:hover {
+  background: var(--color-titlebar-close-hover);
+  color: var(--color-titlebar-close-text);
+}
+
+/* The global focus ring is ink, which vanishes on the dark bar. */
+.titlebar__control:focus-visible {
+  outline-color: var(--color-titlebar-text);
+  outline-offset: -3px;
+}

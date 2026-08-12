@@ -1,0 +1,61 @@
+/* ==========================================================================
+   PROCESS TRAIL — 01 LINEUP · 02 INPUTS · 03 STAGE PLAN · 04 EXPORT
+
+   Three states, three treatments. The current step takes the accent as text
+   (never the raw signal, which fails contrast on paper); a step the user can
+   reach is ink and behaves like a link; a step whose screen does not exist yet
+   is secondary text and is not interactive at all.
+   ========================================================================== */
+
+.process-trail__list {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.process-trail__step {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+}
+
+.process-trail__step:not(:last-child)::after {
+  content: "—";
+  color: var(--color-border-structural);
+}
+
+.process-trail__step-body {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font: var(--sp-mono-xs);
+  letter-spacing: var(--sp-track-mono-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Reset the button base: a trail step is a word, not a control with a box. */
+.process-trail__link {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--color-text);
+}
+
+.process-trail__link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.process-trail__step--current .process-trail__step-body {
+  color: var(--color-accent-text);
+}
+
+.process-trail__step--unavailable .process-trail__step-body {
+  color: var(--color-text-secondary);
+}

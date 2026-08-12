@@ -1,4 +1,4 @@
-import { LibraryHomePage, SettingsPage } from "../../pages/ShellPages";
+import { LibraryHomePage } from "../../pages/ShellPages";
 import {
   ChooseProjectTypePage,
   LibraryBandDetailPage,
@@ -11,6 +11,7 @@ import {
   NewGenericProjectPage,
   ProjectPreviewPage,
   ProjectSetupPage,
+  SettingsPage,
   StartPage,
 } from "../pages/ShellRoutedPages";
 import type { BandOption, NavigationGuard, ProjectSummary } from "./types";

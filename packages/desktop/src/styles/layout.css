@@ -1,136 +1,27 @@
 /* ==========================================================================
-   LAYOUT — app shell, header, theme toggle
+   LAYOUT — the scrolling content area under the title bar
+
+   The window frame is in components/titlebar.css and the navigation row in
+   components/shell-nav.css; what is left here is the page area itself.
    ========================================================================== */
 
+/* The window is a fixed frame: the title bar stays put and the page area below
+   it scrolls. Before the frame existed, the document itself scrolled. */
+.app-window {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .app-shell {
-  min-height: 100vh;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
   padding: var(--sp-10);
   display: flex;
   flex-direction: column;
   gap: var(--sp-7);
-}
-
-.app-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.app-header__brand {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-5);
-}
-
-/* No tile behind the mark: it carries the brand on its own and the accent pin
-   stays constant while the neutral strokes follow the theme. */
-.app-header__icon-slot {
-  width: var(--sp-11);
-  height: var(--sp-11);
-  color: var(--color-text);
-  display: grid;
-  place-items: center;
-}
-
-.app-header__icon {
-  display: block;
-}
-
-.app-header h1 {
-  font: var(--sp-h3);
-  letter-spacing: var(--sp-track-heading);
-}
-
-.app-header .subtle {
-  font: var(--sp-mono-sm);
-  letter-spacing: var(--sp-track-mono);
-}
-
-.app-header__controls {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-4);
-}
-
-.app-header__about-button {
-  width: var(--sp-control-md);
-  min-width: var(--sp-control-md);
-  height: var(--sp-control-md);
-  padding: 0;
-  border-radius: var(--sp-r-btn);
-}
-
-/* --------------------------------------------------------------------------
-   Theme toggle
-   -------------------------------------------------------------------------- */
-.theme-toggle {
-  position: relative;
-  width: 52px;
-  min-width: 52px;
-  height: var(--sp-11);
-  min-height: var(--sp-11);
-  padding: 0;
-  border-radius: var(--sp-r-pill);
-  border: 1px solid var(--color-border-strong);
-  background: var(--color-surface-raised);
-  cursor: pointer;
-  transition: background-color var(--sp-duration-base) var(--sp-ease),
-    border-color var(--sp-duration-base) var(--sp-ease);
-}
-
-.theme-toggle[aria-checked="true"] {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-}
-
-.theme-toggle__thumb {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  /* Sits on the track, so it is coloured against the track, not the page. */
-  background: var(--color-text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform var(--sp-duration-base) var(--sp-ease), background-color
-    var(--sp-duration-base) var(--sp-ease);
-  pointer-events: none;
-}
-
-.theme-toggle[aria-checked="true"] .theme-toggle__thumb {
-  transform: translateX(24px);
-  background: var(--color-primary-text);
-}
-
-/* The glyph is cut out of the thumb, so it takes the colour of what the thumb
-   sits on: the chip track when off, the accent track when on. */
-.theme-toggle__icon {
-  width: 11px;
-  height: 11px;
-  fill: none;
-  stroke: var(--color-surface-raised);
-  stroke-width: 1.75;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.theme-toggle[aria-checked="true"] .theme-toggle__icon {
-  stroke: var(--color-primary);
-}
-
-/* --------------------------------------------------------------------------
-   Primary navigation
-   -------------------------------------------------------------------------- */
-.top-tabs {
-  display: flex;
-  gap: var(--sp-4);
-}
-
-.top-tabs .button-secondary {
-  min-width: 120px;
 }
 
 @media (max-width: 760px) {
