@@ -50,6 +50,7 @@ export function MonitoringEditor({
   onChangePatch,
 }: MonitoringEditorProps) {
   const additionalWedgeControlId = "setup-additional-wedge";
+  const supplierLabelId = "setup-monitor-supplier";
   const axes = buildMonitorAxes(monitors);
   const currentMonitorRef =
     patch?.monitoring?.monitorRef ?? effectiveMonitoring.monitorRef ?? "";
@@ -120,31 +121,36 @@ export function MonitoringEditor({
         </div>
       </label>
 
-      <div
-        className="setup-field-row setup-supplier-switch"
-        role="group"
-        aria-label="Dodavatel odposlechu"
-      >
-        {(["band", "foh"] as MonitorSupplier[]).map((supplier) => (
-          <button
-            key={supplier}
-            type="button"
-            className={`setup-supplier-switch__option ${
-              selection?.supplier === supplier
-                ? "setup-supplier-switch__option--active"
-                : ""
-            }`}
-            aria-pressed={selection?.supplier === supplier}
-            disabled={!selection}
-            onClick={() =>
-              commitMonitorRef(
-                resolveMonitorRef(axes, selection?.typeKey ?? "", supplier),
-              )
-            }
-          >
-            {supplier === "band" ? "Vlastní" : "Pořadatel"}
-          </button>
-        ))}
+      <div className="setup-field-block">
+        <span className="setup-field-block__label" id={supplierLabelId}>
+          Monitor supplier
+        </span>
+        <div
+          className="setup-field-row setup-supplier-switch"
+          role="group"
+          aria-labelledby={supplierLabelId}
+        >
+          {(["band", "foh"] as MonitorSupplier[]).map((supplier) => (
+            <button
+              key={supplier}
+              type="button"
+              className={`setup-supplier-switch__option ${
+                selection?.supplier === supplier
+                  ? "setup-supplier-switch__option--active"
+                  : ""
+              }`}
+              aria-pressed={selection?.supplier === supplier}
+              disabled={!selection}
+              onClick={() =>
+                commitMonitorRef(
+                  resolveMonitorRef(axes, selection?.typeKey ?? "", supplier),
+                )
+              }
+            >
+              {supplier === "band" ? "Band" : "FOH"}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="setup-toggle-grid">

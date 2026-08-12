@@ -83,9 +83,10 @@ describe("MonitoringEditor", () => {
       />,
     );
 
-    expect(html).toContain('aria-label="Dodavatel odposlechu"');
-    expect(html).toContain("Vlastní");
-    expect(html).toContain("Pořadatel");
+    expect(html).toContain('aria-labelledby="setup-monitor-supplier"');
+    expect(html).toContain("Monitor supplier");
+    expect(html).toContain(">Band<");
+    expect(html).toContain(">FOH<");
     expect(html).toContain('aria-pressed="true"');
   });
 
