@@ -100,7 +100,7 @@ describe("inputlist template layout", () => {
     }
   });
 
-  it("keeps contact line while hiding names only on stageplan", async () => {
+  it("hides names only on stageplan; contact line is a no-op until task 7 restores it in the footer", async () => {
     const tmpRoot = await createPdfRendererFixtureRoot();
 
     try {
@@ -115,7 +115,7 @@ describe("inputlist template layout", () => {
         stageplan: { hideMusicianNames: true },
       });
 
-      expect(html).toContain("Kontaktní osoba – Test User");
+      expect(html).not.toContain("Kontaktní osoba");
       expect(html).toContain("BASS");
       expect(html).not.toContain("BASS – MATEJ");
     } finally {
@@ -138,4 +138,83 @@ describe("inputlist template layout", () => {
   });
 
 
+});
+
+describe("document header", () => {
+  const vm = createDocumentViewModelFixture({
+    meta: {
+      bandName: "Friday Night Band",
+      header: {
+        contextParts: ["22. 8. 2026", "Zámek Bon Repos"],
+        updatedDate: "12. 8. 2026",
+      },
+    },
+  });
+
+  it("labels page one INPUT LIST and page two STAGE PLAN", () => {
+    const html = renderInputlistHtml(vm, {
+      tabTitle: "Doc",
+      baseHref: "file:///tmp/",
+    });
+
+    const page2Start = html.indexOf(`id="${pdfLayout.ids.page2}"`);
+    const page1Html = html.slice(0, page2Start);
+    const page2Html = html.slice(page2Start);
+
+    expect(page1Html).toContain("INPUT LIST · 22. 8. 2026 · Zámek Bon Repos");
+    expect(page2Html).toContain("STAGE PLAN · 22. 8. 2026 · Zámek Bon Repos");
+  });
+
+  it("stamps the tool and the update date on both pages", () => {
+    const html = renderInputlistHtml(vm, {
+      tabTitle: "Doc",
+      baseHref: "file:///tmp/",
+    });
+
+    expect(html.match(/STAGEPILOT/g) ?? []).toHaveLength(2);
+    expect(html.match(/UPD 12\. 8\. 2026/g) ?? []).toHaveLength(2);
+  });
+
+  it("prints only the document kind when the project carries no context", () => {
+    const noContextVm = createDocumentViewModelFixture({
+      meta: {
+        bandName: "Friday Night Band",
+        header: { contextParts: [], updatedDate: "1. 1. 2026" },
+      },
+    });
+
+    const html = renderInputlistHtml(noContextVm, {
+      tabTitle: "Doc",
+      baseHref: "file:///tmp/",
+    });
+
+    expect(html).toContain(">INPUT LIST<");
+    expect(html).not.toContain("INPUT LIST ·");
+  });
+
+  // Stylopis je vložený do <head> a obsahuje obě třídy vždycky, takže hledat
+  // je v celém dokumentu by nic neprokázalo. Assertce míří jen do <body>.
+  const bodyOf = (html: string) => html.slice(html.indexOf("<body>"));
+
+  it("falls back to the XLR mark when the band has no logo", () => {
+    const body = bodyOf(
+      renderInputlistHtml(vm, { tabTitle: "Doc", baseHref: "file:///tmp/" }),
+    );
+
+    expect(body).toContain("docHeader__mark");
+    expect(body).not.toContain("docHeader__logo");
+  });
+
+  it("prefers the band logo over the XLR mark", () => {
+    const body = bodyOf(
+      renderInputlistHtml(vm, {
+        tabTitle: "Doc",
+        baseHref: "file:///tmp/",
+        logoHref: "file:///tmp/logo.png",
+      }),
+    );
+
+    expect(body).toContain("docHeader__logo");
+    expect(body).not.toContain("docHeader__mark");
+  });
 });

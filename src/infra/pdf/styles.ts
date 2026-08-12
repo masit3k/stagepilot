@@ -1,4 +1,4 @@
-import { pdfLayout } from "./layout.js";
+import { pdfLayout, pdfTokens } from "./layout.js";
 import { stageplanLayout } from "./sections/stageplan.js";
 
 export const pdfStyles = `
@@ -75,7 +75,6 @@ body {
    Constants for lines
    =============================== */
 :root {
-  --header-gap: 6pt;
   --block-gap: 14pt;
   --meta-contact-letter-spacing: 0.2px;
 
@@ -86,52 +85,63 @@ body {
 }
 
 /* ===============================
-   Header (Variant A)
+   Hlavička dokumentu
    =============================== */
-.header {
-  margin-bottom: 12pt;
-  position: relative;
+.docHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: ${pdfLayout.header.gapPt}pt;
+  padding-bottom: ${pdfLayout.header.padBottomPt}pt;
+  border-bottom: ${pdfLayout.header.rulePt}pt solid ${pdfTokens.ink};
+  margin-bottom: ${pdfLayout.header.marginBottomPt}pt;
 }
 
-.headerCenter {
-  text-align: center;
+.docHeader__mark {
+  flex: 0 0 auto;
+  width: ${pdfLayout.header.markSizePt}pt;
+  height: ${pdfLayout.header.markSizePt}pt;
 }
 
-.bandName {
+.docHeader__logo {
+  flex: 0 0 auto;
+  height: ${pdfLayout.header.markSizePt}pt;
+  width: auto;
+  max-width: ${pdfLayout.header.logoMaxWidthMm}mm;
+}
+
+.docHeader__title {
+  display: flex;
+  flex-direction: column;
+  gap: ${pdfLayout.header.textGapPt}pt;
+  min-width: 0;
+}
+
+.docHeader__band {
   font-size: ${pdfLayout.typography.title.size};
   font-weight: ${pdfLayout.typography.title.weight};
   line-height: ${pdfLayout.typography.title.lineHeight};
-  margin: 0 0 var(--header-gap) 0;
-  letter-spacing: 0.2px;
+  letter-spacing: ${pdfLayout.typography.title.tracking};
+  color: ${pdfTokens.ink};
 }
 
-.bandLogo {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 40mm;
-  height: auto;
+.docHeader__meta {
+  font-family: '${pdfLayout.typography.monoFamily}', Consolas, monospace;
+  font-size: ${pdfLayout.typography.meta.size};
+  line-height: ${pdfLayout.typography.meta.lineHeight};
+  letter-spacing: ${pdfLayout.typography.meta.tracking};
+  text-transform: uppercase;
+  color: ${pdfTokens.body};
 }
 
-/* Datum/Místo – barva rozlišuje */
-.metaLine {
-  margin: 0 0 var(--header-gap) 0;
-  font-size: ${pdfLayout.typography.contact.size};
-  line-height: 1.2;
-  letter-spacing: var(--meta-contact-letter-spacing);
-  color: #222;
+.docHeader__stamp {
+  margin-left: auto;
+  text-align: right;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: clip;
-}
-
-.metaLabel {
-  color: #222;
-}
-
-.metaSep {
-  margin: 0 6pt;
-  color: #444;
+  font-family: '${pdfLayout.typography.monoFamily}', Consolas, monospace;
+  font-size: ${pdfLayout.typography.stamp.size};
+  line-height: ${pdfLayout.typography.stamp.lineHeight};
+  letter-spacing: ${pdfLayout.typography.stamp.tracking};
+  color: ${pdfTokens.steel};
 }
 
 .contactLine {

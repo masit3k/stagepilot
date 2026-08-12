@@ -1,5 +1,5 @@
 import type { DocumentHeaderModel, DocumentViewModel } from "../../domain/model/types.js";
-import { pdfLayout } from "./layout.js";
+import { pdfLayout, pdfTokens } from "./layout.js";
 import { renderStageplanSection } from "./sections/stageplan.js";
 import type { StageplanRenderOptions } from "./stageplanRenderOptions.js";
 import { pdfStyles } from "./styles.js";
@@ -13,9 +13,40 @@ function esc(s: unknown): string {
     .replaceAll('"', "&quot;");
 }
 
-function renderMetaLine(header: DocumentHeaderModel, esc: (s: string) => string): string {
-  const parts = [...header.contextParts, `UPD ${header.updatedDate}`];
-  return `<div class="metaLine">${esc(parts.join(" · "))}</div>`;
+/**
+ * Znak XLR je inline SVG, ne soubor: odpadá tím závislost na baseHref a jedna
+ * cesta k selhání. Geometrie je z docs/design/brand-handoff-2026-08/README.md.
+ */
+function renderMark(): string {
+  return `<svg class="docHeader__mark" viewBox="0 0 64 64" fill="none">
+      <rect x="26" y="1" width="12" height="11" rx="3" fill="${pdfTokens.ink}" />
+      <circle cx="32" cy="34" r="22" stroke="${pdfTokens.ink}" stroke-width="6" />
+      <circle cx="32" cy="25" r="5.5" fill="${pdfTokens.signal}" />
+      <circle cx="23" cy="41" r="5.5" fill="${pdfTokens.ink}" />
+      <circle cx="41" cy="41" r="5.5" fill="${pdfTokens.ink}" />
+    </svg>`;
+}
+
+function renderDocumentHeader(args: {
+  header: DocumentHeaderModel;
+  bandName: string;
+  documentKind: string;
+  logoHref?: string;
+}): string {
+  const markHtml = args.logoHref
+    ? `<img class="docHeader__logo" src="${esc(args.logoHref)}" alt="" />`
+    : renderMark();
+
+  const metaText = [args.documentKind, ...args.header.contextParts].join(" · ");
+
+  return `<header class="docHeader">
+      ${markHtml}
+      <div class="docHeader__title">
+        <div class="docHeader__band">${esc(args.bandName)}</div>
+        <div class="docHeader__meta">${esc(metaText)}</div>
+      </div>
+      <div class="docHeader__stamp">STAGEPILOT<br />UPD ${esc(args.header.updatedDate)}</div>
+    </header>`;
 }
 
 function renderMonitorTable(vm: DocumentViewModel): string {
@@ -58,12 +89,6 @@ export interface RenderTemplateOptions {
 }
 
 export function renderInputlistHtml(vm: DocumentViewModel, opts: RenderTemplateOptions): string {
-  const contactHtml = opts.contactLine
-    ? `<div class="contactLine">${esc(opts.contactLine)}</div>`
-    : "";
-
-  const metaHtml = renderMetaLine(vm.meta.header, esc);
-
   // TABLES
   const monitorTableHtml = renderMonitorTable(vm);
 
@@ -83,14 +108,12 @@ ${pdfStyles}
 
 <body>
   <div class="pdfPage pdfPage--break" id="${pdfLayout.ids.page}">
-    <header class="header">
-      ${opts.logoHref ? `<img class="bandLogo" src="${esc(opts.logoHref)}" alt="" />` : ""}
-      <div class="headerCenter">
-        <div class="bandName">${esc(vm.meta.bandName)}</div>
-        ${metaHtml}
-        ${contactHtml}
-      </div>
-    </header>
+    ${renderDocumentHeader({
+      header: vm.meta.header,
+      bandName: vm.meta.bandName,
+      documentKind: "INPUT LIST",
+      logoHref: opts.logoHref,
+    })}
 
 <main id="${pdfLayout.ids.content}">
 
@@ -134,6 +157,12 @@ ${pdfStyles}
   </div>
 
   <div class="pdfPage" id="${pdfLayout.ids.page2}">
+    ${renderDocumentHeader({
+      header: vm.meta.header,
+      bandName: vm.meta.bandName,
+      documentKind: "STAGE PLAN",
+      logoHref: opts.logoHref,
+    })}
     <main id="${pdfLayout.ids.content2}" class="stageplanPageContent">
       ${stageplanHtml}
     </main>

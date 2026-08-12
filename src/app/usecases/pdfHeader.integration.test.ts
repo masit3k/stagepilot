@@ -2,8 +2,19 @@ import { describe, expect, it } from "vitest";
 import type { Band, Musician, NotesTemplate, Preset, ProjectJsonV2 } from "../../domain/model/types.js";
 import { buildDocument } from "../../domain/pipeline/buildDocument.js";
 import type { DataRepository } from "../../infra/fs/repo.js";
+import { pdfLayout } from "../../infra/pdf/layout.js";
 import { renderInputlistHtml } from "../../infra/pdf/template.js";
 import { normalizeProject } from "./normalizeProject.js";
+
+/**
+ * The header now renders on both pages, so assertions split the HTML the
+ * same way template.test.ts does: page one runs up to the page-two anchor,
+ * page two picks up from there.
+ */
+function splitPages(html: string): { page1: string; page2: string } {
+  const page2Start = html.indexOf(`id="${pdfLayout.ids.page2}"`);
+  return { page1: html.slice(0, page2Start), page2: html.slice(page2Start) };
+}
 
 function createRepo(): DataRepository {
   const band: Band = {
@@ -67,10 +78,12 @@ describe("pdf header integration (project json -> normalize -> buildDocument -> 
 
     const vm = buildDocument(normalizeProject(json), repo);
     const html = renderInputlistHtml(vm, { tabTitle: "Stageplan", baseHref: "file:///tmp/" });
+    const { page1, page2 } = splitPages(html);
 
-    expect(html).toContain("Léto s Blaníkem 2026 · UPD 16. 3. 2026");
+    expect(page1).toContain("INPUT LIST · Léto s Blaníkem 2026");
+    expect(page2).toContain("STAGE PLAN · Léto s Blaníkem 2026");
+    expect(html.match(/UPD 16\. 3\. 2026/g) ?? []).toHaveLength(2);
     expect(html).not.toContain("UPD 1. 1. 2026");
-    expect((html.match(/UPD /g) ?? []).length).toBe(1);
   });
 
   it("renders event date and venue with the updatedAt date", () => {
@@ -87,8 +100,11 @@ describe("pdf header integration (project json -> normalize -> buildDocument -> 
 
     const vm = buildDocument(normalizeProject(json), repo);
     const html = renderInputlistHtml(vm, { tabTitle: "Stageplan", baseHref: "file:///tmp/" });
+    const { page1, page2 } = splitPages(html);
 
-    expect(html).toContain("10. 3. 2026 · Klub · UPD 12. 3. 2026");
+    expect(page1).toContain("INPUT LIST · 10. 3. 2026 · Klub");
+    expect(page2).toContain("STAGE PLAN · 10. 3. 2026 · Klub");
+    expect(html.match(/UPD 12\. 3\. 2026/g) ?? []).toHaveLength(2);
     expect(html).not.toContain("UPD 1. 1. 2026");
   });
 
@@ -108,7 +124,7 @@ describe("pdf header integration (project json -> normalize -> buildDocument -> 
     const vm = buildDocument(normalizeProject(json), repo);
     const html = renderInputlistHtml(vm, { tabTitle: "Stageplan", baseHref: "file:///tmp/" });
 
-    expect(html).toContain("UPD 15. 7. 2026");
+    expect(html.match(/UPD 15\. 7\. 2026/g) ?? []).toHaveLength(2);
     expect(html).not.toContain("UPD 30. 7. 2026");
   });
 });
