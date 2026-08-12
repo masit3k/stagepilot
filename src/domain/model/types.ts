@@ -67,6 +67,9 @@ export interface Project {
   createdAt?: string;
   updatedAt?: string;
 
+  /** Poslední změna obsahu rideru. Čte ji hlavička PDF. */
+  contentUpdatedAt?: string;
+
   /** Volitelně: volba template/layoutu */
   template?: string;
   lineup?: ProjectLineup | Record<string, unknown>;
@@ -114,6 +117,9 @@ export interface ProjectJsonV2 {
   note?: string;
   createdAt?: string;
   updatedAt?: string;
+
+  /** Poslední změna obsahu rideru. Čte ji hlavička PDF. */
+  contentUpdatedAt?: string;
   /** Legacy read-compat only. */
   title?: string;
   template?: string;
@@ -293,12 +299,27 @@ export interface TalkbackType {
   };
 }
 
+/** Kdo odposlech na místě dodává. */
+export type MonitorSupplier = "band" | "foh";
+
 /** Monitor mix typ (zatím se nepromítá do FOH input listu). */
-export interface Monitor {
-  type: "monitor";
-  id: string;
-  label: string;
-}
+export type Monitor =
+  | {
+      type: "monitor";
+      id: string;
+      label: string;
+      kind: "iem";
+      supplier: MonitorSupplier;
+      mode: "mono" | "stereo";
+      wireless: boolean;
+    }
+  | {
+      type: "monitor";
+      id: string;
+      label: string;
+      kind: "wedge";
+      supplier: MonitorSupplier;
+    };
 
 /** Union všech entit v data/assets/presets */
 export type PresetEntity = Preset | TalkbackType | Monitor;
@@ -309,13 +330,21 @@ export type PresetEntity = Preset | TalkbackType | Monitor;
 
 export type NoteSeverity = "info" | "warning";
 
-export type NoteCondition = { monitors: { hasWedge: true } };
+export type NoteCondition = {
+  monitors: {
+    hasWedge?: true;
+    hasBandSuppliedIem?: true;
+    hasFohSuppliedIem?: true;
+  };
+};
 
 export interface NoteLine {
   id: string;
   text: string;
   severity?: NoteSeverity;
   when?: NoteCondition;
+  /** Verze šablony, ve které položka přibyla. Chybí-li, platí 0. */
+  since?: number;
 }
 
 /** Notes template držíme jako data (JSON), ne hardcode v šabloně. */
@@ -324,6 +353,8 @@ export interface NotesTemplate {
   lang: "cs";
   inputs: NoteLine[];
   monitors: NoteLine[];
+  /** Verze výchozí šablony, ze které soubor pochází. Chybí-li, platí 0. */
+  version?: number;
 }
 
 /* ============================================================
@@ -371,6 +402,9 @@ export interface DocumentViewModel {
   createdAt?: string;
   updatedAt?: string;
 
+    /** Poslední změna obsahu rideru. Čte ji hlavička PDF. */
+    contentUpdatedAt?: string;
+
     /** Už připravený meta řádek k vytištění */
     metaLine: MetaLineModel;
 
@@ -417,6 +451,7 @@ export interface DocumentViewModel {
     id: string;
     label: string;
     kind: "iem" | "wedge";
+    supplier: MonitorSupplier;
   }>;
 
   /** Poznámky pod tabulkami (už vyfiltrované podle podmínek). */

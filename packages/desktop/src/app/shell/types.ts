@@ -88,6 +88,7 @@ export type NewProjectPayload = {
   note?: string;
   createdAt: string;
   updatedAt?: string;
+  contentUpdatedAt?: string;
   templateType?: "event" | "generic";
   status?: "active" | "archived" | "trashed";
   archivedAt?: string;
@@ -127,6 +128,7 @@ export function toPersistableProject(
     documentDate,
     createdAt,
     updatedAt,
+    contentUpdatedAt,
     templateType,
     status,
     archivedAt,
@@ -154,6 +156,7 @@ export function toPersistableProject(
     documentDate,
     createdAt,
     ...(updatedAt ? { updatedAt } : {}),
+    ...(contentUpdatedAt ? { contentUpdatedAt } : {}),
     ...(templateType ? { templateType } : {}),
     ...(status ? { status } : {}),
     ...(archivedAt ? { archivedAt } : {}),

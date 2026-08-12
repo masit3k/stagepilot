@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveStereoPair } from "../formatters/index.js";
-import type { MusicianSetupPreset } from "../model/types.js";
+import type { Monitor, MusicianSetupPreset } from "../model/types.js";
 import {
   DEFAULT_MONITOR_MIX_LIMIT,
   applyPresetOverride,
@@ -16,9 +16,81 @@ const basePreset: MusicianSetupPreset = {
     { key: "gtr_r", label: "GTR R", group: "guitar" },
   ],
   monitoring: {
-    monitorRef: "iem_stereo_wired",
+    monitorRef: "iem_stereo_wired_foh",
   },
 };
+
+const MONITORS_BY_ID: Record<string, Monitor> = {
+  iem_stereo_wired_foh: {
+    type: "monitor",
+    id: "iem_stereo_wired_foh",
+    label: "IEM STEREO wired (provided by FOH)",
+    kind: "iem",
+    supplier: "foh",
+    mode: "stereo",
+    wireless: false,
+  },
+  iem_mono_wireless_own: {
+    type: "monitor",
+    id: "iem_mono_wireless_own",
+    label: "IEM MONO wireless (own)",
+    kind: "iem",
+    supplier: "band",
+    mode: "mono",
+    wireless: true,
+  },
+  iem_mono_wireless_foh: {
+    type: "monitor",
+    id: "iem_mono_wireless_foh",
+    label: "IEM MONO wireless (provided by FOH)",
+    kind: "iem",
+    supplier: "foh",
+    mode: "mono",
+    wireless: true,
+  },
+  wedge_foh: {
+    type: "monitor",
+    id: "wedge_foh",
+    label: "Wedge monitor (provided by FOH)",
+    kind: "wedge",
+    supplier: "foh",
+  },
+  wedge_own: {
+    type: "monitor",
+    id: "wedge_own",
+    label: "Wedge monitor (own)",
+    kind: "wedge",
+    supplier: "band",
+  },
+};
+
+describe("monitor mix counting", () => {
+  it("counts no aux send for either wedge variant", () => {
+    const slots = [
+      { group: "guitar", preset: { inputs: [], monitoring: { monitorRef: "wedge_foh" } } },
+      { group: "keys", preset: { inputs: [], monitoring: { monitorRef: "wedge_own" } } },
+    ];
+    expect(summarizeEffectivePresetValidation(slots, MONITORS_BY_ID).totals.monitorMixes).toBe(0);
+  });
+
+  it("counts one aux send per iem regardless of supplier", () => {
+    const slots = [
+      { group: "guitar", preset: { inputs: [], monitoring: { monitorRef: "iem_stereo_wired_foh" } } },
+      { group: "keys", preset: { inputs: [], monitoring: { monitorRef: "iem_mono_wireless_own" } } },
+    ];
+    expect(summarizeEffectivePresetValidation(slots, MONITORS_BY_ID).totals.monitorMixes).toBe(2);
+  });
+
+  it("resolves legacy monitor ids through the alias map", () => {
+    const slots = [{ group: "guitar", preset: { inputs: [], monitoring: { monitorRef: "wedge" } } }];
+    expect(summarizeEffectivePresetValidation(slots, MONITORS_BY_ID).totals.monitorMixes).toBe(0);
+  });
+
+  it("counts an unknown monitor ref as one aux send", () => {
+    const slots = [{ group: "guitar", preset: { inputs: [], monitoring: { monitorRef: "nonsense" } } }];
+    expect(summarizeEffectivePresetValidation(slots, MONITORS_BY_ID).totals.monitorMixes).toBe(1);
+  });
+});
 
 describe("applyPresetOverride", () => {
   it("returns default when patch is missing", () => {
@@ -123,9 +195,27 @@ describe("applyPresetOverride", () => {
 
   it("drops no-op overrides after normalization", () => {
     const normalized = normalizeSetupOverridePatch(basePreset, {
-      monitoring: { monitorRef: "iem_stereo_wired" },
+      monitoring: { monitorRef: "iem_stereo_wired_foh" },
     });
     expect(normalized).toBeUndefined();
+  });
+
+  it("drops overrides that only restate a legacy default under its canonical alias", () => {
+    const legacyWedgeDefault: MusicianSetupPreset = {
+      inputs: basePreset.inputs,
+      monitoring: { monitorRef: "wedge" },
+    };
+    expect(
+      normalizeSetupOverridePatch(legacyWedgeDefault, { monitoring: { monitorRef: "wedge_foh" } }),
+    ).toBeUndefined();
+
+    const legacyIemDefault: MusicianSetupPreset = {
+      inputs: basePreset.inputs,
+      monitoring: { monitorRef: "iem_stereo_wired" },
+    };
+    expect(
+      normalizeSetupOverridePatch(legacyIemDefault, { monitoring: { monitorRef: "iem_stereo_wired_foh" } }),
+    ).toBeUndefined();
   });
 
 
@@ -144,10 +234,10 @@ describe("validateEffectivePresets", () => {
       group: "guitar",
       preset: {
         inputs: [{ key: `k${idx}`, label: `Input ${idx}`, group: "guitar" as const }],
-        monitoring: { monitorRef: "wedge" as const },
+        monitoring: { monitorRef: "wedge_foh" as const },
       },
     }));
-    expect(validateEffectivePresets(slots)).toContain("Total input channels exceed limit: 31/30.");
+    expect(validateEffectivePresets(slots, MONITORS_BY_ID)).toContain("Total input channels exceed limit: 31/30.");
   });
 
   it("does not block when monitor mix limit is exceeded", () => {
@@ -158,10 +248,10 @@ describe("validateEffectivePresets", () => {
         monitoring: { monitorRef: "iem_stereo_wired" as const },
       },
     }));
-    expect(validateEffectivePresets(slots)).not.toContain(
+    expect(validateEffectivePresets(slots, MONITORS_BY_ID)).not.toContain(
       `Total required monitor mixes (aux sends) exceed the configured limit (9 > ${DEFAULT_MONITOR_MIX_LIMIT}).`,
     );
-    expect(summarizeEffectivePresetValidation(slots).warnings).toContain(
+    expect(summarizeEffectivePresetValidation(slots, MONITORS_BY_ID).warnings).toContain(
       `Total required monitor mixes (aux sends) exceed the configured limit (9 > ${DEFAULT_MONITOR_MIX_LIMIT}).`,
     );
   });
@@ -171,10 +261,10 @@ describe("validateEffectivePresets", () => {
       group: "vocs",
       preset: {
         inputs: [],
-        monitoring: { monitorRef: "wedge" as const },
+        monitoring: { monitorRef: "wedge_foh" as const },
       },
     }));
-    const summary = summarizeEffectivePresetValidation(slots);
+    const summary = summarizeEffectivePresetValidation(slots, MONITORS_BY_ID);
     expect(summary.totals.monitorMixes).toBe(0);
     expect(summary.warnings).toEqual([]);
   });
@@ -183,16 +273,19 @@ describe("validateEffectivePresets", () => {
     const effective = applyPresetOverride(basePreset, {
       monitoring: { monitorRef: "iem_mono_wireless" },
     });
-    const summary = summarizeEffectivePresetValidation([{ group: "guitar", preset: effective }]);
+    const summary = summarizeEffectivePresetValidation([{ group: "guitar", preset: effective }], MONITORS_BY_ID);
     expect(summary.totals.monitorMixes).toBe(1);
     expect(summary.totals.monitorMixLimit).toBe(DEFAULT_MONITOR_MIX_LIMIT);
   });
 
   it("keeps group order fixed", () => {
-    const errors = validateEffectivePresets([
-      { group: "guitar", preset: basePreset },
-      { group: "bass", preset: basePreset },
-    ]);
+    const errors = validateEffectivePresets(
+      [
+        { group: "guitar", preset: basePreset },
+        { group: "bass", preset: basePreset },
+      ],
+      MONITORS_BY_ID,
+    );
     expect(errors.join(" ")).toMatch(/Group order must stay fixed/);
   });
 });

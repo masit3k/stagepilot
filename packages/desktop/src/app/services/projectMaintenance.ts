@@ -1,7 +1,6 @@
 import { formatProjectDisplayName, formatProjectSlug, getTodayIsoLocal, isPastIsoDate } from "../../projectRules";
 import { generateUuidV7, isUuidV7 } from "../../../../../src/domain/projectNaming";
 import type { NewProjectPayload, ProjectSummary } from "../shell/types";
-import { toPersistableProject } from "../shell/types";
 import * as projectsApi from "./projectsApi";
 import { migrateProjectTalkbackOwner } from "../domain/project/migrateProjectTalkbackOwner";
 
@@ -77,14 +76,14 @@ export async function refreshProjectsAndMigrate(): Promise<{ projects: ProjectSu
       templateType: templateType ?? "generic",
       status: shouldAutoArchive ? "archived" : currentStatus,
       archivedAt: shouldAutoArchive ? nowIso : project.archivedAt,
-      updatedAt: needsMaintenance ? nowIso : project.updatedAt,
     };
 
     if (needsMaintenance) {
-      await projectsApi.saveProject({
+      await projectsApi.saveProjectPayload({
         projectId: nextId,
         legacyProjectId: legacyId,
-        json: JSON.stringify(toPersistableProject(migrated), null, 2),
+        payload: migrated,
+        intent: "system",
       });
       if (legacyId !== nextId) migratedIds.set(legacyId, nextId);
     }

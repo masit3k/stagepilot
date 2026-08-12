@@ -57,6 +57,7 @@ function buildMetaLine(project: Project): MetaLineModel {
     documentDate: project.documentDate,
     note: project.note,
     updatedAt: project.updatedAt,
+    contentUpdatedAt: project.contentUpdatedAt,
   });
 }
 
@@ -163,7 +164,7 @@ function applyInputOverridePatch(
       group: item.group,
       note: item.note,
     })),
-    monitoring: { monitorRef: "wedge" as const },
+    monitoring: { monitorRef: "wedge_foh" as const },
   };
   const patched = applyPresetOverride(defaultPreset, patch).inputs;
   return patched.map((input) => ({
@@ -457,7 +458,8 @@ export function buildDocument(
       monitors.push({
         id: `${musician.id}:${monitorEntity.id}`,
         label: monitorEntity.label,
-        kind: monitorEntity.id === "wedge" ? "wedge" : "iem",
+        kind: monitorEntity.kind,
+        supplier: monitorEntity.supplier,
       });
     }
 
@@ -616,10 +618,17 @@ export function buildDocument(
 
   // Notes template resolution
   const notesTemplateId = band.notesTemplateRef ?? "notes_default_cs";
-  const hasWedge = monitors.some((m) => m.kind === "wedge");
   const notes = buildPdfNotes({
     template: repo.getNotesTemplate(notesTemplateId),
-    hasWedge,
+    monitors: {
+      hasWedge: monitors.some((m) => m.kind === "wedge"),
+      hasBandSuppliedIem: monitors.some(
+        (m) => m.kind === "iem" && m.supplier === "band",
+      ),
+      hasFohSuppliedIem: monitors.some(
+        (m) => m.kind === "iem" && m.supplier === "foh",
+      ),
+    },
   });
 
   return {
@@ -636,6 +645,7 @@ export function buildDocument(
       note: project.note,
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
+      contentUpdatedAt: project.contentUpdatedAt,
 
       metaLine: buildMetaLine(project),
       logoFile: band.logoFile,

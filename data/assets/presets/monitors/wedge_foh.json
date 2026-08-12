@@ -1,0 +1,7 @@
+{
+    "type": "monitor",
+    "id": "wedge_foh",
+    "label": "Wedge monitor (provided by FOH)",
+    "kind": "wedge",
+    "supplier": "foh"
+}

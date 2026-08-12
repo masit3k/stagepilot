@@ -30,6 +30,7 @@ import type {
   PresetEntity,
   PresetItem,
 } from "../../../../../src/domain/model/types";
+import { resolvePresetIdAlias } from "../../../../../src/domain/model/presetAliases";
 import { resolveEffectiveMusicianSetup } from "../../../../../src/domain/setup/resolveEffectiveMusicianSetup";
 import { resolveDrumInputs } from "../../../../../src/domain/drums/resolveDrumInputs";
 import {
@@ -69,7 +70,6 @@ import type {
   MemberOption,
   NewProjectPayload,
 } from "../shell/types";
-import { toPersistableProject } from "../shell/types";
 import { serializeLineupForProject } from "../shell/lineupSerialize";
 import { buildCanonicalProjectFromSetupState } from "../shell/canonicalProject";
 import type { ProjectRouteProps } from "./shared/pageTypes";
@@ -235,8 +235,7 @@ function AddMusiciansMultiSelect({
       260,
       Math.round(window.innerHeight * 0.42),
     );
-    const spaceBelow =
-      window.innerHeight - rect.bottom - 6 - viewportMargin;
+    const spaceBelow = window.innerHeight - rect.bottom - 6 - viewportMargin;
     const spaceAbove = rect.top - 6 - viewportMargin;
     const opensAbove =
       spaceBelow < preferredMaxHeight && spaceAbove > spaceBelow;
@@ -416,7 +415,10 @@ export function ProjectSetupPage({
     guitarFields: GUITAR_FIELDS,
     keysFields: KEYS_FIELDS,
     leadVocsFields: LEAD_VOCS_FIELDS,
-  } = useMemo(() => buildSetupFieldCatalog(setupPresetCatalog), [setupPresetCatalog]);
+  } = useMemo(
+    () => buildSetupFieldCatalog(setupPresetCatalog),
+    [setupPresetCatalog],
+  );
   const [lineup, setLineup] = useState<LineupMap>({});
   const [editing, setEditing] = useState<{
     role: string;
@@ -579,7 +581,9 @@ export function ProjectSetupPage({
           ? parsed.talkbackOwnerId.trim()
           : typeof (parsedRaw as unknown as { talkBackOwnerId?: unknown })
                 .talkBackOwnerId === "string"
-            ? (parsedRaw as unknown as { talkBackOwnerId: string }).talkBackOwnerId.trim()
+            ? (
+                parsedRaw as unknown as { talkBackOwnerId: string }
+              ).talkBackOwnerId.trim()
             : "");
       setProject(parsed);
       const persistedBackVocalIds = parsedHasBackOverlay
@@ -666,11 +670,11 @@ export function ProjectSetupPage({
           lineup: serializeLineupForProject(initialState.lineup, ROLE_ORDER),
           bandLeaderId: initialState.bandLeaderId || undefined,
           talkbackOwnerId: parsedTalkbackOwnerId,
-          updatedAt: new Date().toISOString(),
         };
-        await projectsApi.saveProject({
+        await projectsApi.saveProjectPayload({
           projectId: id,
-          json: JSON.stringify(toPersistableProject(updatedProject), null, 2),
+          payload: updatedProject,
+          intent: "system",
         });
         setProject(updatedProject);
       } else {
@@ -685,15 +689,11 @@ export function ProjectSetupPage({
           const migratedProject: NewProjectPayload = {
             ...parsed,
             lineup: migratedLineup,
-            updatedAt: new Date().toISOString(),
           };
-          await projectsApi.saveProject({
+          await projectsApi.saveProjectPayload({
             projectId: id,
-            json: JSON.stringify(
-              toPersistableProject(migratedProject),
-              null,
-              2,
-            ),
+            payload: migratedProject,
+            intent: "system",
           });
           setProject(migratedProject);
         }
@@ -791,16 +791,18 @@ export function ProjectSetupPage({
     () => new Map(allBandMusicians.map((musician) => [musician.id, musician])),
     [allBandMusicians],
   );
-  const monitorOptions = useMemo(
+  const monitorEntities = useMemo(
     () =>
-      Object.values(presetCatalog)
-        .filter(
-          (preset): preset is Extract<PresetEntity, { type: "monitor" }> =>
-            preset.type === "monitor",
-        )
-        .map((preset) => ({ value: preset.id, label: preset.label }))
-        .sort((a, b) => a.label.localeCompare(b.label)),
+      Object.values(presetCatalog).filter(
+        (preset): preset is Extract<PresetEntity, { type: "monitor" }> =>
+          preset.type === "monitor",
+      ),
     [presetCatalog],
+  );
+  const monitorsById = useMemo(
+    () =>
+      Object.fromEntries(monitorEntities.map((preset) => [preset.id, preset])),
+    [monitorEntities],
   );
   const templateMusicians = selectedOptions;
   const selectedTemplateMusicians = useMemo<Musician[]>(() => {
@@ -901,17 +903,13 @@ export function ProjectSetupPage({
     [lineupVocalCandidates, selectedLeadVocalIds],
   );
   const leadVocalMembers = useMemo(() => {
-    const membersById = new Map(
-      allBandMembers.map((item) => [item.id, item]),
-    );
+    const membersById = new Map(allBandMembers.map((item) => [item.id, item]));
     return selectedLeadVocalIds
       .map((idValue) => membersById.get(idValue))
       .filter((item): item is MemberOption => Boolean(item));
   }, [allBandMembers, selectedLeadVocalIds]);
   const backVocalMembers = useMemo(() => {
-    const membersById = new Map(
-      allBandMembers.map((item) => [item.id, item]),
-    );
+    const membersById = new Map(allBandMembers.map((item) => [item.id, item]));
     return selectedBackVocalIds
       .map((idValue) => membersById.get(idValue))
       .filter((item): item is MemberOption => Boolean(item));
@@ -920,7 +918,8 @@ export function ProjectSetupPage({
   const backVocalCandidateSections = useMemo(() => {
     const selectedLeadIds = new Set(selectedLeadVocalIds);
     const backCandidates = lineupVocalCandidates.filter(
-      (candidate) => candidate.hasVocalCapability || candidate.isInProjectLineup,
+      (candidate) =>
+        candidate.hasVocalCapability || candidate.isInProjectLineup,
     );
     const candidates = backCandidates.map((candidate) => {
       const isDisabled = selectedLeadIds.has(candidate.id);
@@ -940,13 +939,13 @@ export function ProjectSetupPage({
     return {
       suggested: candidates.filter(
         (candidate) =>
-          backCandidates.find((item) => item.id === candidate.id)
-            ?.sectionByRole.back === "suggested",
+          backCandidates.find((item) => item.id === candidate.id)?.sectionByRole
+            .back === "suggested",
       ),
       additional: candidates.filter(
         (candidate) =>
-          backCandidates.find((item) => item.id === candidate.id)
-            ?.sectionByRole.back === "other_lineup_members",
+          backCandidates.find((item) => item.id === candidate.id)?.sectionByRole
+            .back === "other_lineup_members",
       ),
     };
   }, [lineupVocalCandidates, selectedLeadVocalIds]);
@@ -972,7 +971,9 @@ export function ProjectSetupPage({
     );
     return Array.from(
       sanitizeBackVocsSelection(
-        new Set(extractOverlayMusicianIds(setupData.defaultOverlays?.backVocals)),
+        new Set(
+          extractOverlayMusicianIds(setupData.defaultOverlays?.backVocals),
+        ),
         leadIds,
       ),
     );
@@ -1063,46 +1064,44 @@ export function ProjectSetupPage({
     snapshotHydratedRef.current = true;
   }, [currentDirtyState, project, setupData]);
 
-  const canonicalProjectDraft = useMemo(
-    () => {
-      if (!project) return null;
-      const nextLineup = ensureMusiciansInLineup(lineup, allBandMusiciansById, [
-        ...selectedLeadVocalIds,
-        ...selectedBackVocalIds,
-      ]);
-      return buildCanonicalProjectFromSetupState({
-        project,
-        roleOrder: ROLE_ORDER,
-        lineup: nextLineup,
-        bandLeaderId,
-        talkbackOwnerId: talkbackCurrentOwnerId,
-        hasTalkbackOverride,
-        leadVocalIds: [...selectedLeadVocalIds],
-        hasLeadVocalOverride,
-        backVocalIds: [...selectedBackVocalIds],
-        hasBackVocalOverride,
-      });
-    },
-    [
-      allBandMusiciansById,
-      bandLeaderId,
-      hasBackVocalOverride,
-      hasLeadVocalOverride,
-      hasTalkbackOverride,
-      lineup,
+  const canonicalProjectDraft = useMemo(() => {
+    if (!project) return null;
+    const nextLineup = ensureMusiciansInLineup(lineup, allBandMusiciansById, [
+      ...selectedLeadVocalIds,
+      ...selectedBackVocalIds,
+    ]);
+    return buildCanonicalProjectFromSetupState({
       project,
-      selectedBackVocalIds,
-      selectedLeadVocalIds,
-      talkbackCurrentOwnerId,
-    ],
-  );
+      roleOrder: ROLE_ORDER,
+      lineup: nextLineup,
+      bandLeaderId,
+      talkbackOwnerId: talkbackCurrentOwnerId,
+      hasTalkbackOverride,
+      leadVocalIds: [...selectedLeadVocalIds],
+      hasLeadVocalOverride,
+      backVocalIds: [...selectedBackVocalIds],
+      hasBackVocalOverride,
+    });
+  }, [
+    allBandMusiciansById,
+    bandLeaderId,
+    hasBackVocalOverride,
+    hasLeadVocalOverride,
+    hasTalkbackOverride,
+    lineup,
+    project,
+    selectedBackVocalIds,
+    selectedLeadVocalIds,
+    talkbackCurrentOwnerId,
+  ]);
 
   async function persistProject(next?: Partial<NewProjectPayload>) {
     if (!canonicalProjectDraft) return;
     const payload: NewProjectPayload = { ...canonicalProjectDraft, ...next };
-    await projectsApi.saveProject({
+    await projectsApi.saveProjectPayload({
       projectId: id,
-      json: JSON.stringify(toPersistableProject(payload), null, 2),
+      payload,
+      intent: "content",
     });
     setProject(payload);
     initialSnapshotRef.current = createLineupDirtyBaseline({
@@ -1327,8 +1326,9 @@ export function ProjectSetupPage({
           group: slot.role,
           preset: slot.effective,
         })),
+        monitorsById,
       ),
-    [effectiveSlotPresets],
+    [effectiveSlotPresets, monitorsById],
   );
 
   const overrideValidationErrors = overrideValidation.errors;
@@ -1394,7 +1394,7 @@ export function ProjectSetupPage({
     (musicianId: string): InputChannel[] =>
       resolveMusicianCapabilityInputs({
         presetItems: setupData?.musicianPresetsById?.[musicianId],
-        getPresetByRef: (ref) => presetCatalog[ref],
+        getPresetByRef: (ref) => presetCatalog[resolvePresetIdAlias(ref)],
       }),
     [presetCatalog, setupData],
   );
@@ -2068,6 +2068,7 @@ export function ProjectSetupPage({
                     },
                   };
                 }),
+                monitorsById,
               );
               return (
                 <div
@@ -2232,7 +2233,7 @@ export function ProjectSetupPage({
                             }
                           >
                             <MonitoringEditor
-                              monitorOptions={monitorOptions}
+                              monitors={monitorEntities}
                               effectiveMonitoring={effective.monitoring}
                               patch={currentPatch}
                               diffMeta={resolved.diffMeta}
@@ -2366,7 +2367,7 @@ export function ProjectSetupPage({
                               }
                             >
                               <MonitoringEditor
-                                monitorOptions={monitorOptions}
+                                monitors={monitorEntities}
                                 effectiveMonitoring={effective.monitoring}
                                 patch={currentPatch}
                                 diffMeta={resolved.diffMeta}

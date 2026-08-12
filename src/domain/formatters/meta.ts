@@ -8,19 +8,23 @@ export function formatDocumentDate(isoDate: string): string {
   return `${d.getUTCDate()}. ${d.getUTCMonth() + 1}. ${d.getUTCFullYear()}`;
 }
 
+function toIsoDatePart(value?: string): string {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed) return "";
+  const isoDate = trimmed.includes("T") ? trimmed.slice(0, 10) : trimmed;
+  return formatDocumentDate(isoDate) ? isoDate : "";
+}
+
 function resolveUpdatedDateIso(args: {
+  contentUpdatedAt?: string;
   updatedAt?: string;
   documentDate: string;
 }): string {
-  const updatedDate = (args.updatedAt ?? "").trim();
-  if (updatedDate) {
-    const isoDate = updatedDate.includes("T")
-      ? updatedDate.slice(0, 10)
-      : updatedDate;
-    if (formatDocumentDate(isoDate)) return isoDate;
-  }
-
-  return args.documentDate;
+  return (
+    toIsoDatePart(args.contentUpdatedAt) ||
+    toIsoDatePart(args.updatedAt) ||
+    args.documentDate
+  );
 }
 
 function extractYearFromIso(isoDate: string): string {
@@ -35,10 +39,12 @@ export function formatProjectMetaLine(args: {
   eventVenue?: string;
   documentDate: string;
   updatedAt?: string;
+  contentUpdatedAt?: string;
   note?: string;
 }): MetaLineModel {
   const updatedDate = formatDocumentDate(
     resolveUpdatedDateIso({
+      contentUpdatedAt: args.contentUpdatedAt,
       updatedAt: args.updatedAt,
       documentDate: args.documentDate,
     }),

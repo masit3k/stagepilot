@@ -209,6 +209,12 @@ export function normalizeProject(input: ProjectJson): Project {
     input.updatedAt.trim().length > 0
       ? input.updatedAt.trim()
       : undefined;
+  const contentUpdatedAt =
+    "contentUpdatedAt" in input &&
+    typeof input.contentUpdatedAt === "string" &&
+    input.contentUpdatedAt.trim().length > 0
+      ? input.contentUpdatedAt.trim()
+      : undefined;
   const lineup = (() => {
     if (
       !("lineup" in input) ||
@@ -251,6 +257,7 @@ export function normalizeProject(input: ProjectJson): Project {
         note: input.note?.trim() || input.title?.trim() || undefined,
         createdAt,
         updatedAt,
+        contentUpdatedAt,
         template: input.template?.trim() || undefined,
         lineup,
         overlays,
@@ -269,6 +276,7 @@ export function normalizeProject(input: ProjectJson): Project {
       note: input.note?.trim() || input.title?.trim() || undefined,
       createdAt,
       updatedAt,
+      contentUpdatedAt,
       template: input.template?.trim() || undefined,
       lineup,
       overlays,
@@ -294,6 +302,7 @@ export function normalizeProject(input: ProjectJson): Project {
       documentDate: eventDate,
       createdAt,
       updatedAt,
+      contentUpdatedAt,
       lineup,
       overlays,
       bandLeaderId,

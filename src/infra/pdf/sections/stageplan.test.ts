@@ -392,7 +392,7 @@ describe("stageplan render plan", () => {
   });
 
 
-  it("strips wedge source suffixes in stageplan monitor bullets", () => {
+  it("strips FOH-supplied monitor suffixes in stageplan monitor bullets", () => {
     const plan = buildStageplanPlan({
       lineupByRole: {},
       inputs: [],
@@ -411,6 +411,24 @@ describe("stageplan render plan", () => {
       "Wedge monitor (2)",
       "+ Additional wedge monitor 2x",
     ]);
+  });
+
+  it("strips band-supplied (own) monitor suffixes in stageplan monitor bullets", () => {
+    const plan = buildStageplanPlan({
+      lineupByRole: {},
+      inputs: [],
+      monitorOutputs: [
+        {
+          no: 6,
+          output: "Keys",
+          note: "IEM STEREO wired (own)",
+        },
+      ],
+      powerByRole: {},
+    });
+
+    const keysBox = plan.boxes.find((box) => box.instrument === "Keys");
+    expect(keysBox?.monitorBullets).toEqual(["IEM STEREO wired (6)"]);
   });
 
   it("renders power badges based on stageplan power data", () => {

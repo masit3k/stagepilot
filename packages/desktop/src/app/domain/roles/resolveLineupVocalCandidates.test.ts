@@ -236,6 +236,36 @@ describe("resolveLineupVocalCandidates", () => {
     });
   });
 
+  it("detects vocal capability through a legacy preset ref resolved via the alias map", () => {
+    // "el_bass_xlr" is a pre-existing legacy alias for "el_bass_xlr_amp" (unrelated to
+    // monitors). The catalog below only has the canonical id, so this only finds a match
+    // if the lookup resolves the alias instead of indexing presetCatalog raw.
+    const ALIASED_PRESET = {
+      type: "preset" as const,
+      id: "el_bass_xlr_amp",
+      label: "Electric bass guitar",
+      group: "bass" as const,
+      capabilities: ["vocal"] as ["vocal"],
+      inputs: [],
+    } satisfies PresetEntity;
+
+    const candidates = resolveLineupVocalCandidates({
+      lineupMusicians: [
+        {
+          id: "bass-1",
+          firstName: "Bass",
+          lastName: "Player",
+          group: "bass",
+          presets: [{ kind: "preset", ref: "el_bass_xlr" }],
+        },
+      ],
+      lineupMembers: [{ id: "bass-1", name: "Bass Player" }],
+      presetCatalog: { el_bass_xlr_amp: ALIASED_PRESET },
+    });
+
+    expect(candidates[0].hasVocalCapability).toBe(true);
+  });
+
   it("excludes catalog-only non-vocal instrumentalists", () => {
     const candidates = resolveLineupVocalCandidates({
       lineupMusicians: [],

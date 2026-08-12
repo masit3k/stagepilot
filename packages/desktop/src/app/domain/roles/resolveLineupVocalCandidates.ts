@@ -3,6 +3,7 @@ import type {
   Musician,
   PresetEntity,
 } from "../../../../../../src/domain/model/types";
+import { resolvePresetIdAlias } from "../../../../../../src/domain/model/presetAliases";
 import type { MemberOption } from "../../shell/types";
 
 export type VocalCandidateSource = "project_lineup" | "band_catalog";
@@ -122,7 +123,7 @@ function resolveMusicianHasVocalCapability(
 ): boolean {
   for (const item of musician.presets) {
     if (item.kind !== "preset") continue;
-    const preset = presetCatalog[item.ref];
+    const preset = presetCatalog[resolvePresetIdAlias(item.ref)];
     if (!preset || preset.type !== "preset") continue;
     if (preset.capabilities?.includes("vocal")) return true;
   }

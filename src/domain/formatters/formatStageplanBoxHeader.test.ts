@@ -69,4 +69,16 @@ describe("formatMonitorBullets", () => {
       ),
     ).toEqual(["IEM STEREO wireless (4)", "+ Additional wedge monitor 1x"]);
   });
+
+  it("strips the FOH-supplied suffix from the base label", () => {
+    expect(
+      formatMonitorBullets("IEM STEREO wired (provided by FOH)", 5),
+    ).toEqual(["IEM STEREO wired (5)"]);
+  });
+
+  it("strips the band-supplied (own) suffix from the base label", () => {
+    expect(formatMonitorBullets("Wedge monitor (own)", 2)).toEqual([
+      "Wedge monitor (2)",
+    ]);
+  });
 });

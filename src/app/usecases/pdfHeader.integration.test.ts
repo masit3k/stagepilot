@@ -37,7 +37,7 @@ function createRepo(): DataRepository {
     },
     getPreset: (id: string) => {
       if (id === "el_bass_xlr_pedalboard") return bassPreset;
-      if (id === "wedge") return { type: "monitor", id, label: "Wedge" };
+      if (id === "wedge_foh") return { type: "monitor", id, label: "Wedge", kind: "wedge", supplier: "foh" };
       if (id === "talkback") {
         return {
           type: "talkback_type",
@@ -92,5 +92,25 @@ describe("pdf header integration (project json -> normalize -> buildDocument -> 
     expect(html).toContain("Datum akce a místo konání:");
     expect(html).toContain("10. 3. 2026, Klub (datum aktualizace: 12. 3. 2026)");
     expect(html).not.toContain("10. 3. 2026, Klub (datum aktualizace: 1. 1. 2026)");
+  });
+
+  it("prefers contentUpdatedAt over updatedAt when both stamps are present", () => {
+    const repo = createRepo();
+    const json: ProjectJsonV2 = {
+      id: "e-content-meta",
+      bandRef: "band",
+      purpose: "event",
+      eventDate: "2026-03-10",
+      eventVenue: "Klub",
+      documentDate: "2026-01-01",
+      updatedAt: "2026-07-30T09:45:00.000Z",
+      contentUpdatedAt: "2026-07-15T09:45:00.000Z",
+    };
+
+    const vm = buildDocument(normalizeProject(json), repo);
+    const html = renderInputlistHtml(vm, { tabTitle: "Stageplan", baseHref: "file:///tmp/" });
+
+    expect(html).toContain("datum aktualizace: 15. 7. 2026");
+    expect(html).not.toContain("datum aktualizace: 30. 7. 2026");
   });
 });

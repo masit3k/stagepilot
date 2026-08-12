@@ -14,6 +14,7 @@ import type {
   PresetItem,
 } from "../../../../../../src/domain/model/types";
 import { resolveDefaultMusicianSetup } from "../../../../../../src/domain/setup/resolveDefaultMusicianSetup";
+import { resolvePresetIdAlias } from "../../../../../../src/domain/model/presetAliases";
 import {
   buildBassFields,
   toBassPresets,
@@ -96,17 +97,25 @@ export function buildSetupFieldCatalog(
   return {
     bassFields: buildBassFields(
       toBassPresets(
-        PRESET_REFS.bass.map((ref) => presetCatalog[ref]).filter(Boolean),
+        PRESET_REFS.bass
+          .map((ref) => presetCatalog[resolvePresetIdAlias(ref)])
+          .filter(Boolean),
       ),
     ),
     guitarFields: buildGuitarFields(
-      PRESET_REFS.guitar.map((ref) => presetCatalog[ref]).filter(Boolean),
+      PRESET_REFS.guitar
+        .map((ref) => presetCatalog[resolvePresetIdAlias(ref)])
+        .filter(Boolean),
     ),
     keysFields: buildKeysFields(
-      PRESET_REFS.keys.map((ref) => presetCatalog[ref]).filter(Boolean),
+      PRESET_REFS.keys
+        .map((ref) => presetCatalog[resolvePresetIdAlias(ref)])
+        .filter(Boolean),
     ),
     leadVocsFields: buildLeadVocsFields(
-      PRESET_REFS.vocs.map((ref) => presetCatalog[ref]).filter(Boolean),
+      PRESET_REFS.vocs
+        .map((ref) => presetCatalog[resolvePresetIdAlias(ref)])
+        .filter(Boolean),
     ),
   };
 }
@@ -120,7 +129,7 @@ export function resolveMusicianDefaultInputsFromPresets(
   const defaultPreset = resolveDefaultMusicianSetup({
     role: group,
     presetItems: presets,
-    getPresetByRef: (ref) => presetCatalog[ref],
+    getPresetByRef: (ref) => presetCatalog[resolvePresetIdAlias(ref)],
   });
   return defaultPreset.inputs.length > 0 ? defaultPreset.inputs : undefined;
 }
@@ -129,7 +138,9 @@ function getPresetEntityByRef(
   presetCatalog: Record<string, Preset> | Record<string, PresetEntity> = {},
   ref: string,
 ): PresetEntity | undefined {
-  const entity = (presetCatalog as Record<string, PresetEntity>)[ref];
+  const entity = (presetCatalog as Record<string, PresetEntity>)[
+    resolvePresetIdAlias(ref)
+  ];
   return entity;
 }
 
@@ -237,7 +248,7 @@ export function buildVisibleLineupSections(args: {
 export function getGroupDefaultPreset(group: Group): MusicianSetupPreset {
   return {
     inputs: (GROUP_INPUT_LIBRARY[group] ?? []).map((item) => ({ ...item })),
-    monitoring: { monitorRef: "wedge" },
+    monitoring: { monitorRef: "wedge_foh" },
   };
 }
 

@@ -1,7 +1,0 @@
-{
-    "type": "monitor",
-    "id": "iem_mono_wireless",
-    "label": "IEM MONO wireless",
-    "mode": "mono",
-    "wireless": true
-}

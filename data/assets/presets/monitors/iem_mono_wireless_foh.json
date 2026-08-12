@@ -1,0 +1,9 @@
+{
+    "type": "monitor",
+    "id": "iem_mono_wireless_foh",
+    "label": "IEM MONO wireless (provided by FOH)",
+    "kind": "iem",
+    "supplier": "foh",
+    "mode": "mono",
+    "wireless": true
+}

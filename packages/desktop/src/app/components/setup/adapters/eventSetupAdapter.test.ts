@@ -3,7 +3,7 @@ import type { MusicianSetupPreset, PresetOverridePatch } from "../../../../../..
 import { areSetupsEqual, cleanupPatch, normalizeSetup, shouldEnableSetupReset } from "./eventSetupAdapter";
 
 const defaultPreset: MusicianSetupPreset = {
-  monitoring: { monitorRef: "wedge" },
+  monitoring: { monitorRef: "wedge_foh" },
   inputs: [{ key: "bass_main", label: "Bass" }],
 };
 
@@ -17,7 +17,7 @@ describe("cleanupPatch", () => {
 describe("shouldEnableSetupReset", () => {
   it("returns true when event contains presetOverride", () => {
     expect(shouldEnableSetupReset({
-      eventOverride: { monitoring: { monitorRef: "iem_stereo_wireless" } },
+      eventOverride: { monitoring: { monitorRef: "iem_stereo_wireless_foh" } },
       defaultPreset,
       effectivePreset: defaultPreset,
     })).toBe(true);
@@ -28,7 +28,7 @@ describe("shouldEnableSetupReset", () => {
       defaultPreset,
       effectivePreset: {
         ...defaultPreset,
-        monitoring: { monitorRef: "iem_stereo_wireless" },
+        monitoring: { monitorRef: "iem_stereo_wireless_foh" },
       },
     })).toBe(true);
   });
@@ -49,14 +49,14 @@ describe("normalizeSetup / areSetupsEqual", () => {
         { key: "voc_b", label: "Vocal B" },
         { key: "voc_a", label: "Vocal A" },
       ],
-      monitoring: { monitorRef: "wedge", additionalWedgeCount: 0 },
+      monitoring: { monitorRef: "wedge_foh", additionalWedgeCount: 0 },
     };
     const right: MusicianSetupPreset = {
       inputs: [
         { key: "voc_a", label: "Vocal A" },
         { key: "voc_b", label: "Vocal B" },
       ],
-      monitoring: { monitorRef: "wedge" },
+      monitoring: { monitorRef: "wedge_foh" },
     };
 
     expect(areSetupsEqual(left, right)).toBe(true);

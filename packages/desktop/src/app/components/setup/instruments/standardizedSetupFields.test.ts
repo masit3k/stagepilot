@@ -40,7 +40,7 @@ describe("standardized setup fields", () => {
           group: "guitar",
         },
       ],
-      monitoring: { monitorRef: "wedge" },
+      monitoring: { monitorRef: "wedge_foh" },
     };
     const patch = connection.setValue(
       { defaultPreset, effectivePreset: defaultPreset },
@@ -71,7 +71,7 @@ describe("standardized setup fields", () => {
           group: "vocs",
         },
       ],
-      monitoring: { monitorRef: "wedge" },
+      monitoring: { monitorRef: "wedge_foh" },
     };
     const patch = micField.setValue(
       { defaultPreset, effectivePreset: defaultPreset },
@@ -112,7 +112,7 @@ describe("standardized setup fields", () => {
           group: "keys",
         },
       ],
-      monitoring: { monitorRef: "wedge" },
+      monitoring: { monitorRef: "wedge_foh" },
     };
     const patch = keysField.setValue(
       { defaultPreset, effectivePreset: defaultPreset },

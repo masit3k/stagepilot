@@ -1,7 +1,9 @@
 import { GROUP_ORDER } from "../model/groups.js";
+import { resolvePresetIdAlias } from "../model/presetAliases.js";
 import type {
   InputChannel,
   InputReplacePatch,
+  Monitor,
   MusicianSetupPreset,
   PresetOverridePatch,
 } from "../model/types.js";
@@ -78,7 +80,11 @@ export function normalizeBassConnectionOverridePatch(
 }
 
 function presetsEqual(a: MusicianSetupPreset, b: MusicianSetupPreset): boolean {
-  if (a.monitoring.monitorRef !== b.monitoring.monitorRef) return false;
+  // Real user data may hold a legacy monitor id (e.g. "wedge") where the current
+  // catalog uses its canonical alias (e.g. "wedge_foh"). Resolve both sides before
+  // comparing so a patch that only restates the default under its canonical id is
+  // not treated as a real change.
+  if (resolvePresetIdAlias(a.monitoring.monitorRef) !== resolvePresetIdAlias(b.monitoring.monitorRef)) return false;
   if ((a.monitoring.additionalWedgeCount ?? 0) !== (b.monitoring.additionalWedgeCount ?? 0)) return false;
   if (a.inputs.length !== b.inputs.length) return false;
   return a.inputs.every((input, index) => {
@@ -113,9 +119,12 @@ export type EffectivePresetValidation = {
   };
 };
 
-function getRequiredMonitorMixCount(preset: MusicianSetupPreset): number {
-  if (preset.monitoring.monitorRef === "wedge") return 0;
-  return 1;
+function getRequiredMonitorMixCount(
+  preset: MusicianSetupPreset,
+  monitorsById: Record<string, Monitor>,
+): number {
+  const monitor = monitorsById[resolvePresetIdAlias(preset.monitoring.monitorRef)];
+  return monitor?.kind === "wedge" ? 0 : 1;
 }
 
 export function applyPresetOverride(
@@ -192,12 +201,14 @@ function applyInputReplacements(inputs: InputChannel[], replace: InputReplacePat
 
 export function validateEffectivePresets(
   effectivePresets: Array<{ group: string; preset: MusicianSetupPreset }>,
+  monitorsById: Record<string, Monitor>,
 ): string[] {
-  return summarizeEffectivePresetValidation(effectivePresets).errors;
+  return summarizeEffectivePresetValidation(effectivePresets, monitorsById).errors;
 }
 
 export function summarizeEffectivePresetValidation(
   effectivePresets: Array<{ group: string; preset: MusicianSetupPreset }>,
+  monitorsById: Record<string, Monitor>,
 ): EffectivePresetValidation {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -210,7 +221,7 @@ export function summarizeEffectivePresetValidation(
   }
 
   const monitorMixTotal = effectivePresets.reduce(
-    (sum, slot) => sum + getRequiredMonitorMixCount(slot.preset),
+    (sum, slot) => sum + getRequiredMonitorMixCount(slot.preset, monitorsById),
     0,
   );
   if (monitorMixTotal > DEFAULT_MONITOR_MIX_LIMIT) {
@@ -268,7 +279,7 @@ export function createDefaultMusicianPreset(): MusicianSetupPreset {
   return {
     inputs: [] as InputChannel[],
     monitoring: {
-      monitorRef: "wedge",
+      monitorRef: "wedge_foh",
     },
   };
 }

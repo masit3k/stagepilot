@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { normalizeProject } from "../../app/usecases/normalizeProject.js";
 import type { DataRepository } from "../../infra/fs/repo.js";
+import { resolvePresetIdAlias } from "../model/presetAliases.js";
 import type {
   Band,
   Musician,
@@ -39,7 +40,9 @@ function createRepo(args: {
       return args.project;
     },
     getPreset: (id: string) => {
-      const preset = args.presets[id];
+      // Mirrors catalogRepository.ts: resolves legacy ids through the alias map
+      // before looking them up, exactly like the real repo does.
+      const preset = args.presets[resolvePresetIdAlias(id)];
       if (!preset) throw new Error(`Unknown preset ${id}`);
       return preset;
     },
@@ -95,7 +98,7 @@ describe("buildDocument PDF regression model", () => {
               tracks: { enabled: true },
             },
           },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
       },
       "bass-1": {
@@ -106,7 +109,7 @@ describe("buildDocument PDF regression model", () => {
         group: "bass",
         presets: [
           { kind: "preset", ref: "el_bass_xlr_pedalboard" },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
       },
       "gtr-1": {
@@ -118,7 +121,7 @@ describe("buildDocument PDF regression model", () => {
         presets: [
           { kind: "preset", ref: "el_guitar" },
           { kind: "preset", ref: "vocal_back_no_mic" },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
       },
       "keys-1": {
@@ -130,7 +133,7 @@ describe("buildDocument PDF regression model", () => {
         presets: [
           { kind: "preset", ref: "keys_stereo_xlr" },
           { kind: "preset", ref: "vocal_lead_no_mic" },
-          { kind: "monitor", ref: "iem_stereo_wireless" },
+          { kind: "monitor", ref: "iem_stereo_wireless_foh" },
         ],
         requirements: { power: { voltage: 230, sockets: 2 } },
       },
@@ -142,7 +145,7 @@ describe("buildDocument PDF regression model", () => {
         group: "vocs",
         presets: [
           { kind: "preset", ref: "vocal_wireless" },
-          { kind: "monitor", ref: "wedge" },
+          { kind: "monitor", ref: "wedge_foh" },
         ],
       },
       "voc-m": {
@@ -153,7 +156,7 @@ describe("buildDocument PDF regression model", () => {
         group: "vocs",
         presets: [
           { kind: "preset", ref: "vocal_wired" },
-          { kind: "monitor", ref: "wedge" },
+          { kind: "monitor", ref: "wedge_foh" },
         ],
       },
     };
@@ -172,7 +175,7 @@ describe("buildDocument PDF regression model", () => {
             musicianId: "bass-1",
             presetOverride: {
               monitoring: {
-                monitorRef: "wedge",
+                monitorRef: "wedge_foh",
                 additionalWedgeCount: 1,
               },
             },
@@ -319,11 +322,21 @@ describe("buildDocument PDF regression model", () => {
           note: "Switched talkback mic",
         },
       },
-      wedge: { type: "monitor", id: "wedge", label: "Wedge monitor" },
-      iem_stereo_wireless: {
+      wedge_foh: {
         type: "monitor",
-        id: "iem_stereo_wireless",
-        label: "IEM STEREO wireless",
+        id: "wedge_foh",
+        label: "Wedge monitor (provided by FOH)",
+        kind: "wedge",
+        supplier: "foh",
+      },
+      iem_stereo_wireless_foh: {
+        type: "monitor",
+        id: "iem_stereo_wireless_foh",
+        label: "IEM STEREO wireless (provided by FOH)",
+        kind: "iem",
+        supplier: "foh",
+        mode: "stereo",
+        wireless: true,
       },
     };
 
@@ -455,7 +468,7 @@ describe("buildDocument PDF regression model", () => {
       {
         no: "1",
         output: "Guitar",
-        note: "IEM STEREO wireless",
+        note: "IEM STEREO wireless (provided by FOH)",
         ownerRole: "guitar",
         ownerMusicianId: "gtr-1",
       },
@@ -476,7 +489,7 @@ describe("buildDocument PDF regression model", () => {
       {
         no: "4",
         output: "Keys",
-        note: "IEM STEREO wireless",
+        note: "IEM STEREO wireless (provided by FOH)",
         ownerRole: "keys",
         ownerMusicianId: "keys-1",
       },
@@ -490,7 +503,7 @@ describe("buildDocument PDF regression model", () => {
       {
         no: "6",
         output: "Drums",
-        note: "IEM STEREO wireless",
+        note: "IEM STEREO wireless (provided by FOH)",
         ownerRole: "drums",
         ownerMusicianId: "drm-1",
       },
@@ -498,23 +511,41 @@ describe("buildDocument PDF regression model", () => {
 
     expect(vm.monitors).toEqual([
       {
-        id: "drm-1:iem_stereo_wireless",
-        label: "IEM STEREO wireless",
+        id: "drm-1:iem_stereo_wireless_foh",
+        label: "IEM STEREO wireless (provided by FOH)",
         kind: "iem",
-      },
-      { id: "bass-1:wedge", label: "Wedge monitor", kind: "wedge" },
-      {
-        id: "gtr-1:iem_stereo_wireless",
-        label: "IEM STEREO wireless",
-        kind: "iem",
+        supplier: "foh",
       },
       {
-        id: "keys-1:iem_stereo_wireless",
-        label: "IEM STEREO wireless",
-        kind: "iem",
+        id: "bass-1:wedge_foh",
+        label: "Wedge monitor (provided by FOH)",
+        kind: "wedge",
+        supplier: "foh",
       },
-      { id: "voc-f:wedge", label: "Wedge monitor", kind: "wedge" },
-      { id: "voc-m:wedge", label: "Wedge monitor", kind: "wedge" },
+      {
+        id: "gtr-1:iem_stereo_wireless_foh",
+        label: "IEM STEREO wireless (provided by FOH)",
+        kind: "iem",
+        supplier: "foh",
+      },
+      {
+        id: "keys-1:iem_stereo_wireless_foh",
+        label: "IEM STEREO wireless (provided by FOH)",
+        kind: "iem",
+        supplier: "foh",
+      },
+      {
+        id: "voc-f:wedge_foh",
+        label: "Wedge monitor (provided by FOH)",
+        kind: "wedge",
+        supplier: "foh",
+      },
+      {
+        id: "voc-m:wedge_foh",
+        label: "Wedge monitor (provided by FOH)",
+        kind: "wedge",
+        supplier: "foh",
+      },
     ]);
 
     expect(vm.stageplan.lineupByRole).toMatchObject({
@@ -532,7 +563,7 @@ describe("buildDocument PDF regression model", () => {
       {
         no: 1,
         output: "Guitar",
-        note: "IEM STEREO wireless",
+        note: "IEM STEREO wireless (provided by FOH)",
         ownerRole: "guitar",
         ownerMusicianId: "gtr-1",
       },
@@ -553,7 +584,7 @@ describe("buildDocument PDF regression model", () => {
       {
         no: 4,
         output: "Keys",
-        note: "IEM STEREO wireless",
+        note: "IEM STEREO wireless (provided by FOH)",
         ownerRole: "keys",
         ownerMusicianId: "keys-1",
       },
@@ -567,7 +598,7 @@ describe("buildDocument PDF regression model", () => {
       {
         no: 6,
         output: "Drums",
-        note: "IEM STEREO wireless",
+        note: "IEM STEREO wireless (provided by FOH)",
         ownerRole: "drums",
         ownerMusicianId: "drm-1",
       },
@@ -611,5 +642,75 @@ describe("buildDocument PDF regression model", () => {
       keys: { hasPowerBadge: true, powerBadgeText: "2x 230 V" },
       vocs: { hasPowerBadge: false, powerBadgeText: "" },
     });
+  });
+
+  it("resolves a legacy monitor ref through the alias map when building monitor table rows", () => {
+    const band: Band = {
+      id: "band-legacy-monitor",
+      name: "Legacy Monitor Band",
+      bandLeader: "voc-1",
+      defaultLineup: { vocs: ["voc-1"] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
+    };
+    const musicians: Record<string, Musician> = {
+      "voc-1": {
+        id: "voc-1",
+        firstName: "Vera",
+        lastName: "Vocal",
+        gender: "f",
+        group: "vocs",
+        presets: [
+          { kind: "preset", ref: "vocal_wireless" },
+          { kind: "monitor", ref: "wedge" },
+        ],
+      },
+    };
+    const projectJson: ProjectJsonV2 = {
+      id: "project-legacy-monitor",
+      bandRef: band.id,
+      purpose: "generic",
+      documentDate: "2026-05-29",
+      lineup: { vocs: ["voc-1"] },
+    };
+    const project = normalizeProject(projectJson);
+    const presets: Record<string, PresetEntity> = {
+      vocal_wireless: {
+        type: "preset",
+        id: "vocal_wireless",
+        label: "Wireless vocal",
+        group: "vocs",
+        inputs: [{ key: "voc_wireless", label: "Wireless vocal", group: "vocs" }],
+      },
+      talkback: {
+        type: "talkback_type",
+        id: "talkback",
+        label: "Talkback",
+        group: "talkback",
+        input: { key: "tb_{ownerKey}", label: "Talkback - {ownerLabel}" },
+      },
+      // Only the new catalog id exists — "wedge" must resolve through the alias map.
+      wedge_foh: {
+        type: "monitor",
+        id: "wedge_foh",
+        label: "Wedge monitor (provided by FOH)",
+        kind: "wedge",
+        supplier: "foh",
+      },
+    };
+    const repo = createRepo({ band, musicians, presets, project });
+
+    expect(() => buildDocument(project, repo)).not.toThrow();
+    const vm = buildDocument(project, repo);
+    expect(vm.monitors).toEqual([
+      {
+        id: "voc-1:wedge_foh",
+        label: "Wedge monitor (provided by FOH)",
+        kind: "wedge",
+        supplier: "foh",
+      },
+    ]);
+    expect(vm.monitorTableRows).toEqual([
+      expect.objectContaining({ note: "Wedge monitor (provided by FOH)" }),
+    ]);
   });
 });

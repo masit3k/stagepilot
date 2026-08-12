@@ -181,14 +181,14 @@ describe("lineup slot overrides", () => {
       normalizeLineupSlots(
         {
           musicianId: "fuchs_tomas",
-          presetOverride: { monitoring: { monitorRef: "iem_mono_wired" } },
+          presetOverride: { monitoring: { monitorRef: "iem_mono_wired_foh" } },
         },
         1,
       ),
     ).toEqual([
       {
         musicianId: "fuchs_tomas",
-        presetOverride: { monitoring: { monitorRef: "iem_mono_wired" } },
+        presetOverride: { monitoring: { monitorRef: "iem_mono_wired_foh" } },
       },
     ]);
   });
@@ -233,12 +233,12 @@ describe("lineup slot overrides", () => {
         [
           {
             musicianId: "dr-1",
-            presetOverride: { monitoring: { monitorRef: "wedge" } },
+            presetOverride: { monitoring: { monitorRef: "wedge_foh" } },
           },
           { musicianId: "dr-2" },
           {
             musicianId: "dr-1",
-            presetOverride: { monitoring: { monitorRef: "iem_mono_wired" } },
+            presetOverride: { monitoring: { monitorRef: "iem_mono_wired_foh" } },
           },
         ],
         8,
@@ -246,7 +246,7 @@ describe("lineup slot overrides", () => {
     ).toEqual([
       {
         musicianId: "dr-1",
-        presetOverride: { monitoring: { monitorRef: "wedge" } },
+        presetOverride: { monitoring: { monitorRef: "wedge_foh" } },
       },
       { musicianId: "dr-2" },
     ]);

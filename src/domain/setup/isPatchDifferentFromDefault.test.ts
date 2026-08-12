@@ -4,17 +4,22 @@ import { isPatchDifferentFromDefault } from "./isPatchDifferentFromDefault.js";
 
 const defaultPreset: MusicianSetupPreset = {
   inputs: [{ key: "keys_l", label: "Keys L", group: "keys" }, { key: "keys_r", label: "Keys R", group: "keys" }],
-  monitoring: { monitorRef: "wedge" },
+  monitoring: { monitorRef: "wedge_foh" },
 };
 
 describe("isPatchDifferentFromDefault", () => {
   it("returns false for redundant overrides that match defaults", () => {
-    expect(isPatchDifferentFromDefault(defaultPreset, { monitoring: { monitorRef: "wedge" } })).toBe(false);
+    expect(isPatchDifferentFromDefault(defaultPreset, { monitoring: { monitorRef: "wedge_foh" } })).toBe(false);
     expect(isPatchDifferentFromDefault(defaultPreset, { monitoring: { additionalWedgeCount: 0 } })).toBe(false);
   });
 
   it("returns true for real monitoring changes", () => {
-    expect(isPatchDifferentFromDefault(defaultPreset, { monitoring: { monitorRef: "iem_mono_wired" } })).toBe(true);
+    expect(isPatchDifferentFromDefault(defaultPreset, { monitoring: { monitorRef: "iem_mono_wired_foh" } })).toBe(true);
+  });
+
+  it("returns false when the patch uses a legacy alias equivalent to the default", () => {
+    // "wedge" is a legacy alias that resolves to "wedge_foh" — same monitor as the default.
+    expect(isPatchDifferentFromDefault(defaultPreset, { monitoring: { monitorRef: "wedge" } })).toBe(false);
   });
 
   it("returns false when patch is empty", () => {

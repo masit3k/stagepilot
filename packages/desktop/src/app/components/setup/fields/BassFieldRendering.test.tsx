@@ -41,7 +41,7 @@ const defaultPreset: MusicianSetupPreset = {
     { key: "el_bass_xlr_pedalboard", label: "Electric bass guitar", group: "bass" },
     { key: "el_bass_mic", label: "Electric bass mic", group: "bass" },
   ],
-  monitoring: { monitorRef: "wedge" },
+  monitoring: { monitorRef: "wedge_foh" },
 };
 
 describe("Bass setup field rendering", () => {

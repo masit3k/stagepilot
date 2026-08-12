@@ -1,0 +1,9 @@
+{
+    "type": "monitor",
+    "id": "iem_stereo_wireless_foh",
+    "label": "IEM STEREO wireless (provided by FOH)",
+    "kind": "iem",
+    "supplier": "foh",
+    "mode": "stereo",
+    "wireless": true
+}

@@ -1,4 +1,5 @@
 import type { MusicianSetupPreset, PresetOverridePatch } from "../model/types.js";
+import { resolvePresetIdAlias } from "../model/presetAliases.js";
 
 export type SetupDiffOrigin = "default" | "override";
 export type SetupChangeType = "added" | "removed" | "unchanged";
@@ -55,19 +56,29 @@ export function computeSetupDiff(params: {
     }
   }
 
-  function monitoringMeta(field: "monitorRef" | "additionalWedgeCount"): MonitoringFieldDiffMeta {
-    const hasOverride = eventOverride?.monitoring?.[field] !== undefined;
+  function fieldMeta(hasOverride: boolean): MonitoringFieldDiffMeta {
     return {
       origin: hasOverride ? "override" : "default",
       changeType: hasOverride ? "added" : "unchanged",
     };
   }
 
+  // Real user data may hold a legacy monitor id (e.g. "iem_stereo_wireless")
+  // where the current catalog uses its canonical alias (e.g. "..._foh"). Resolve
+  // both sides before comparing so re-selecting the already-active supplier
+  // does not surface as a spurious "modified" badge.
+  const overrideMonitorRef = eventOverride?.monitoring?.monitorRef;
+  const monitorRefChanged =
+    overrideMonitorRef !== undefined &&
+    resolvePresetIdAlias(overrideMonitorRef) !== resolvePresetIdAlias(defaultPreset.monitoring.monitorRef);
+
+  const additionalWedgeCountChanged = eventOverride?.monitoring?.additionalWedgeCount !== undefined;
+
   return {
     inputs,
     monitoring: {
-      monitorRef: monitoringMeta("monitorRef"),
-      additionalWedgeCount: monitoringMeta("additionalWedgeCount"),
+      monitorRef: fieldMeta(monitorRefChanged),
+      additionalWedgeCount: fieldMeta(additionalWedgeCountChanged),
     },
   };
 }
