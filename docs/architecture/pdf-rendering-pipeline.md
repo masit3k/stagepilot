@@ -242,8 +242,8 @@ Formatting is split by domain concern:
   `src/domain/formatters/stageplan.ts`
   (`formatStageplanBoxHeader`, `formatMonitorBullet`,
   `formatMonitorBullets`).
-- Project meta line formatting:
-  `src/domain/formatters/meta.ts` (`formatProjectMetaLine`).
+- Document header formatting:
+  `src/domain/formatters/meta.ts` (`formatDocumentHeader`).
 
 There is no single central PDF formatting module; policies remain near their
 domain concern.
