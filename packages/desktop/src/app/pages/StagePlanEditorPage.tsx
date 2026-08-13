@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   StageplanBlock,
   StageplanBlockSlot,
@@ -13,15 +13,22 @@ import {
   NOMINAL_STAGE,
   buildDefaultLayout,
 } from "../../../../../src/domain/stageplan/layout/defaultLayout";
+import { isStageplanLayoutDirty } from "../../../../../src/domain/stageplan/layout/dirty";
 import { mergeWithLineup } from "../../../../../src/domain/stageplan/layout/mergeWithLineup";
 import { rescaleForStage } from "../../../../../src/domain/stageplan/layout/rescaleForStage";
+import { useToast } from "../../components/ui/toast/useToast";
 import { BlockInspector } from "../components/stageplan/BlockInspector";
+import { EditorFooter } from "../components/stageplan/EditorFooter";
 import { EditorToolbar } from "../components/stageplan/EditorToolbar";
 import { StageCanvas } from "../components/stageplan/StageCanvas";
 import { useEditorKeyboard } from "../components/stageplan/useEditorKeyboard";
 import { useLayoutHistory } from "../components/stageplan/useLayoutHistory";
 import { resolveBlockSlotsFromPayload } from "../domain/stageplan/resolveBlockSlotsFromPayload";
-import { parseProjectPayload, readProject } from "../services/projectsApi";
+import {
+  parseProjectPayload,
+  readProject,
+  saveProjectPayload,
+} from "../services/projectsApi";
 import type { NewProjectPayload } from "../shell/types";
 import type { ProjectRouteProps } from "./shared/pageTypes";
 
@@ -30,7 +37,11 @@ type LoadState =
   | { kind: "error"; message: string }
   | { kind: "ready"; project: NewProjectPayload; layout: StageplanLayout };
 
-export function StagePlanEditorPage({ id, navigate }: ProjectRouteProps) {
+export function StagePlanEditorPage({
+  id,
+  navigate,
+  registerNavigationGuard,
+}: ProjectRouteProps) {
   const [state, setState] = useState<LoadState>({ kind: "loading" });
   const [selectedSlot, setSelectedSlot] = useState<StageplanBlockSlot | null>(
     null,
@@ -38,6 +49,10 @@ export function StagePlanEditorPage({ id, navigate }: ProjectRouteProps) {
   /** Snap je nástroj, ne vlastnost projektu — proto se neukládá. */
   const [snap, setSnap] = useState(true);
   const history = useLayoutHistory();
+  const [isSaving, setIsSaving] = useState(false);
+  const { notify } = useToast();
+  /** Stav, proti kterému se poznává dirty — po každém uložení se posune. */
+  const initialLayoutRef = useRef<StageplanLayout | undefined>(undefined);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,6 +67,9 @@ export function StagePlanEditorPage({ id, navigate }: ProjectRouteProps) {
         });
         if (cancelled) return;
         history.reset();
+        // Uložený layout, ne výsledek sloučení: doplněný blok po změně lineupu
+        // je sám o sobě dirty změna, protože na disku ještě není.
+        initialLayoutRef.current = project.stageplan?.layout;
         setState({ kind: "ready", project, layout });
         setSelectedSlot(layout.blocks[0]?.slot ?? null);
       } catch (error) {
@@ -71,6 +89,44 @@ export function StagePlanEditorPage({ id, navigate }: ProjectRouteProps) {
       cancelled = true;
     };
   }, [id, history.reset]);
+
+  const saveLayout = useCallback(
+    async (layout: StageplanLayout, project: NewProjectPayload) => {
+      setIsSaving(true);
+      try {
+        await saveProjectPayload({
+          projectId: project.id,
+          payload: {
+            ...project,
+            stageplan: { ...project.stageplan, layout },
+          },
+          // Posunuté rozmístění je změna obsahu rideru, ne kosmetika.
+          intent: "content",
+        });
+        initialLayoutRef.current = layout;
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (state.kind !== "ready") return;
+    const { project, layout } = state;
+    registerNavigationGuard({
+      isDirty: () => isStageplanLayoutDirty(initialLayoutRef.current, layout),
+      save: () => saveLayout(layout, project),
+      discard: () => {
+        const initial = initialLayoutRef.current;
+        if (initial)
+          setState((current) =>
+            current.kind === "ready" ? { ...current, layout: initial } : current,
+          );
+      },
+    });
+    return () => registerNavigationGuard(null);
+  }, [registerNavigationGuard, saveLayout, state]);
 
   function updateBlock(slot: StageplanBlockSlot, next: StageplanBlock) {
     setState((current) => {
@@ -220,6 +276,16 @@ export function StagePlanEditorPage({ id, navigate }: ProjectRouteProps) {
           />
         </div>
       )}
+      <EditorFooter
+        isSaving={isSaving}
+        onBack={() => navigate(`/projects/${encodeURIComponent(id)}/setup`)}
+        onGeneratePdf={async () => {
+          if (state.kind !== "ready") return;
+          await saveLayout(state.layout, state.project);
+          notify("success", "Rozmístění uloženo.");
+          navigate(`/projects/${encodeURIComponent(id)}/preview`);
+        }}
+      />
     </div>
   );
 }

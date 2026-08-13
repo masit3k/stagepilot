@@ -4,7 +4,7 @@
 
 .stage-editor {
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto 1fr auto;
   min-height: calc(100vh - 140px);
   background: var(--color-stage-canvas);
   color: var(--color-stage-text);
@@ -307,4 +307,44 @@
 .stage-size__input:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 1px;
+}
+
+.stage-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  height: 60px;
+  padding: 0 var(--sp-5);
+  border-top: 1px solid var(--color-stage-border-soft);
+}
+
+.stage-footer__note {
+  margin-left: auto;
+  font: var(--sp-mono-xs);
+  letter-spacing: 0.1em;
+  color: var(--color-stage-text-dim);
+}
+
+.stage-footer__ghost {
+  padding: 11px 18px;
+  border: 1px solid var(--color-stage-border);
+  border-radius: var(--sp-r-btn-lg);
+  background: transparent;
+  color: var(--color-stage-text-mid);
+  cursor: pointer;
+}
+
+.stage-footer__primary {
+  padding: 12px 30px;
+  border: none;
+  border-radius: var(--sp-r-btn-lg);
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.stage-footer__primary:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
