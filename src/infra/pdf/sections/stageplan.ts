@@ -1,10 +1,22 @@
-import type { DocumentViewModel } from "../../../domain/model/types.js";
+import type {
+  DocumentViewModel,
+  StageplanStageSize,
+} from "../../../domain/model/types.js";
 import {
   type StageplanPrintBox,
-  type StageplanPrintSlot,
   buildPdfStageplanPrintModel,
 } from "../../../domain/pipeline/pdf/buildPdfStageplanPrintModel.js";
 import { countStageplanBoxLines } from "../../../domain/pipeline/pdf/countStageplanBoxLines.js";
+import {
+  type PrintRect,
+  findPrintCollisions,
+  rectAabbMm,
+} from "../../../domain/stageplan/print/printCollisions.js";
+import {
+  type PrintTypography,
+  computePrintFootprintMm,
+} from "../../../domain/stageplan/print/printFootprint.js";
+import { createPrintScale } from "../../../domain/stageplan/print/printScale.js";
 import { parsePt, pdfChromeHeights, pdfLayout } from "../layout.js";
 import {
   type StageplanRenderOptions,
@@ -12,41 +24,6 @@ import {
 } from "../stageplanRenderOptions.js";
 
 const MM_TO_PT = 72 / 25.4;
-
-type StageplanRoleSlot = StageplanPrintSlot;
-type StageplanLayoutId = "layout_5_party" | "layout_6_2_vocs";
-
-type StageplanLayoutDefinition = {
-  id: StageplanLayoutId;
-  topRow: ReadonlyArray<{ slot: StageplanRoleSlot; column: 0 | 1 | 2 }>;
-  bottomRow: {
-    columns: number;
-    gutterXmm?: number;
-    sideInsetXmm?: number;
-    slots: ReadonlyArray<StageplanRoleSlot>;
-    typography: {
-      fontSizeDeltaPt: number;
-      lineHeightDelta: number;
-      bulletSpacingPx: number;
-    };
-  };
-};
-
-const stageplanTextLineHeight = 1.3;
-const boxTitleGapPt = 6;
-const boxPaddingBottomPt = parsePt(pdfLayout.table.padY);
-const stageplanTextSizePt = parsePt(pdfLayout.typography.table.size);
-const stageplanLineHeightPt = stageplanTextSizePt * stageplanTextLineHeight;
-const powerBadgeMarginTopPt = 0;
-const powerBadgeHeightPt = stageplanLineHeightPt + boxPaddingBottomPt * 2;
-const powerBadgeReservedPt = powerBadgeHeightPt + powerBadgeMarginTopPt;
-const powerBadgeTextGapPt = stageplanLineHeightPt;
-const powerBadgeSpacerHeightPt = powerBadgeReservedPt + powerBadgeTextGapPt;
-
-const containerMarginTopPt = 24;
-const containerPadPt = 24;
-/** .stageplanContainer border-width — stejná konstanta, kterou dostane styles.ts, aby šlo z ní spočítat, co uvnitř zbývá místa. */
-const containerBorderPx = 1;
 
 function ptToMm(pt: number): number {
   return pt / MM_TO_PT;
@@ -56,363 +33,238 @@ function pxToMm(px: number): number {
   return ptToMm(px * 0.75); // 1px = 0.75pt (96px = 72pt)
 }
 
+const containerMarginTopPt = 24;
+const containerPadPt = 24;
+/** .stageplanContainer border-width — konstanta pro styles.ts i pro rozpočet. */
+const containerBorderPx = 1;
+const captionGapPt = 4;
 /**
- * Finding 1 (F4 whole-branch review): .stageplanContainer je inline-block bez
- * explicitní šířky — jeho vykreslená šířka je .stageplanArea plus padding a
- * border na obou stranách. Když je areaWidthMm opsaná konstanta, která s
- * paddingem/borderem přesně nesedí, kontejner je širší než tiskové zrcadlo a
- * Chromium na to reaguje tichým zmenšením *celého* dokumentu (obě strany),
- * ne jen týhle sekce. areaWidthMm proto musí být zrcadlo minus tohle
- * odsazení — odvozené, ne dopočítané zpaměti.
+ * Řádek popisku rozměru pódia se rezervuje vždy, i když se rozměr netiskne —
+ * jinak by měřítko plánu záviselo na tom, jestli uživatel rozměr vyplnil (R6).
+ */
+const captionHeightPt =
+  parsePt(pdfLayout.typography.tableHead.size) *
+    pdfLayout.typography.tableHead.lineHeight +
+  captionGapPt;
+
+/**
+ * Finding 1 (F4): .stageplanContainer je inline-block, takže když areaWidthMm
+ * nesedí s paddingem a rámečkem, je kontejner širší než tiskové zrcadlo a
+ * Chromium na to reaguje tichým zmenšením *celého* dokumentu. Odvozovat, ne
+ * opisovat.
  */
 const areaWidthMm =
-  pdfLayout.page.contentWidthMm - 2 * ptToMm(containerPadPt) - 2 * pxToMm(containerBorderPx);
+  pdfLayout.page.contentWidthMm -
+  2 * ptToMm(containerPadPt) -
+  2 * pxToMm(containerBorderPx);
+
+const availableHeightMm =
+  pdfLayout.page.contentHeightMm -
+  pdfChromeHeights.headerMm -
+  pdfChromeHeights.footerMm;
+
+const areaHeightMm =
+  availableHeightMm -
+  ptToMm(containerMarginTopPt) -
+  2 * ptToMm(containerPadPt) -
+  2 * pxToMm(containerBorderPx) -
+  ptToMm(captionHeightPt);
 
 /**
- * Poměr gapu k šířce boxu z původního návrhu (7,5 mm ke 55 mm), zachovaný i
- * po zúžení plochy — takže 3 boxy + 2 gapy vždy přesně vyplní areaWidthMm
- * jako důsledek vzorce, ne jako shoda tří konstant, které se musí ručně
- * sečíst na stejné číslo.
+ * Šířka dnešního čtyřsloupcového boxu. Není to odhad — je to geometrie, o
+ * které z dosavadního exportu víme, že se do ní odrážky při 8 pt vejdou (R3).
  */
-const GAP_TO_BOX_RATIO = 7.5 / 55;
-const boxWidthMm = areaWidthMm / (3 + 2 * GAP_TO_BOX_RATIO);
-const gapXmm = GAP_TO_BOX_RATIO * boxWidthMm;
+const minBoxWidthMm = (areaWidthMm - 2 * 2 - 3 * 4.5) / 4;
 
-const stageplanLayout = {
-  textSize: pdfLayout.typography.table.size,
-  textLineHeight: stageplanTextLineHeight,
-  padX: pdfLayout.table.padX,
-  padY: pdfLayout.table.padY,
-  boxTitleGap: `${boxTitleGapPt}pt`,
-  boxPaddingBottom: `${boxPaddingBottomPt}pt`,
-  powerBadgeSpacerHeight: `${powerBadgeSpacerHeightPt}pt`,
+const bulletSpacingPx = 4;
+
+const printTypography: PrintTypography = {
+  fontSizePt: parsePt(pdfLayout.typography.table.size) - 1,
+  lineHeight: 1.25,
+  titleGapPt: 6,
+  padBottomPt: parsePt(pdfLayout.table.padY),
+  minBoxWidthMm,
+};
+
+/** Co potřebuje editor, aby si tiskovou stopu spočítal stejnou funkcí (R12). */
+export const stageplanPrintGeometry = {
+  area: { widthMm: areaWidthMm, heightMm: areaHeightMm },
+  typography: printTypography,
+} as const;
+
+/** Konstanty pro styles.ts — CSS a rozpočet se nesmí rozejít. */
+export const stageplanLayout = {
   containerMarginTop: `${containerMarginTopPt}pt`,
   containerPad: `${containerPadPt}pt`,
   containerBorderPx,
   areaWidthMm,
-  sideInsetXmm: 0,
-  boxWidthMm,
-  gapXmm,
-  gapYmm: 8,
-  powerCellColor: "#F7E65A",
+  areaHeightMm,
+  captionGap: `${captionGapPt}pt`,
+  captionSize: pdfLayout.typography.tableHead.size,
+  captionTracking: pdfLayout.typography.tableHead.tracking,
+  padX: pdfLayout.table.padX,
+  padY: pdfLayout.table.padY,
+  boxTitleGap: `${printTypography.titleGapPt}pt`,
+  boxPaddingBottom: `${printTypography.padBottomPt}pt`,
+  textSize: `${printTypography.fontSizePt}pt`,
+  textLineHeight: printTypography.lineHeight,
+  bulletSpacingPx,
 } as const;
 
-const STAGEPLAN_LAYOUTS: Record<StageplanLayoutId, StageplanLayoutDefinition> =
-  {
-    layout_5_party: {
-      id: "layout_5_party",
-      topRow: [
-        { slot: "drums", column: 1 },
-        { slot: "bass", column: 2 },
-      ],
-      bottomRow: {
-        columns: 3,
-        slots: ["guitar", "lead_voc_1", "keys"],
-        typography: {
-          fontSizeDeltaPt: 0,
-          lineHeightDelta: 0,
-          bulletSpacingPx: 6,
-        },
-      },
-    },
-    layout_6_2_vocs: {
-      id: "layout_6_2_vocs",
-      topRow: [
-        { slot: "drums", column: 1 },
-        { slot: "bass", column: 2 },
-      ],
-      bottomRow: {
-        columns: 4,
-        gutterXmm: 4.5,
-        sideInsetXmm: 2,
-        slots: ["guitar", "lead_voc_1", "lead_voc_2", "keys"],
-        typography: {
-          fontSizeDeltaPt: -1,
-          lineHeightDelta: -0.05,
-          bulletSpacingPx: 4,
-        },
-      },
-    },
-  };
-
-type StageplanBoxContent = StageplanPrintBox & {
-  row: "top" | "bottom";
-  typography: {
-    fontSizePt: number;
-    lineHeight: number;
-    bulletSpacingPx: number;
-    titleGapPt: number;
-    boxPaddingBottomPt: number;
-    powerBadgeSpacerHeightPt: number;
-  };
+export type StageplanBoxPlan = StageplanPrintBox & {
+  /** Levý horní roh neotočeného boxu v souřadnicích kontejneru. */
+  readonly xMm: number;
+  readonly yMm: number;
+  readonly widthMm: number;
+  readonly heightMm: number;
+  readonly rotationDeg: number;
+  readonly isLeadVocal: boolean;
 };
-
-type StageplanBoxPlan = StageplanBoxContent & {
-  position: { xMm: number; yMm: number; widthMm: number; heightMm: number };
-};
-
-type StageplanBoxPosition = {
-  xMm: number;
-  yMm: number;
-  widthMm: number;
-  heightMm: number;
-};
-
-type BottomRowGeometryDebug = {
-  layoutId: StageplanLayoutId;
-  cols: number;
-  gutterMm: number;
-  insetMm: number;
-  availableMm: number;
-  blockWidthMm: number;
-};
-
-function computeTopRowGeometry(args: {
-  layout: typeof stageplanLayout;
-  topRow: StageplanLayoutDefinition["topRow"];
-  topRowYMm: number;
-  topHeightMm: number;
-}): Map<StageplanRoleSlot, StageplanBoxPosition> {
-  const { layout, topRow, topRowYMm, topHeightMm } = args;
-  const topX = [
-    0,
-    layout.boxWidthMm + layout.gapXmm,
-    2 * (layout.boxWidthMm + layout.gapXmm),
-  ] as const;
-  const positions = new Map<StageplanRoleSlot, StageplanBoxPosition>();
-  for (const item of topRow) {
-    positions.set(item.slot, {
-      xMm: topX[item.column],
-      yMm: topRowYMm,
-      widthMm: layout.boxWidthMm,
-      heightMm: topHeightMm,
-    });
-  }
-  return positions;
-}
-
-function computeBottomRowGeometry(args: {
-  layoutId: StageplanLayoutId;
-  defaults: typeof stageplanLayout;
-  bottomRow: StageplanLayoutDefinition["bottomRow"];
-  stageAreaLeftMm: number;
-  stageAreaWidthMm: number;
-  bottomRowYMm: number;
-  bottomHeightMm: number;
-}): {
-  positions: Map<StageplanRoleSlot, StageplanBoxPosition>;
-  debug: BottomRowGeometryDebug;
-} {
-  const {
-    layoutId,
-    defaults,
-    bottomRow,
-    stageAreaLeftMm,
-    stageAreaWidthMm,
-    bottomRowYMm,
-    bottomHeightMm,
-  } = args;
-  const cols = bottomRow.columns;
-  const gutterMm = bottomRow.gutterXmm ?? defaults.gapXmm;
-  const insetMm = bottomRow.sideInsetXmm ?? defaults.sideInsetXmm;
-  const availableMm = stageAreaWidthMm - 2 * insetMm;
-  const blockWidthMm = (availableMm - (cols - 1) * gutterMm) / cols;
-
-  const positions = new Map<StageplanRoleSlot, StageplanBoxPosition>();
-  bottomRow.slots.forEach((slot, index) => {
-    positions.set(slot, {
-      xMm: stageAreaLeftMm + insetMm + index * (blockWidthMm + gutterMm),
-      yMm: bottomRowYMm,
-      widthMm: blockWidthMm,
-      heightMm: bottomHeightMm,
-    });
-  });
-
-  return {
-    positions,
-    debug: {
-      layoutId,
-      cols,
-      gutterMm,
-      insetMm,
-      availableMm,
-      blockWidthMm,
-    },
-  };
-}
 
 export type StageplanPlan = {
-  budget: { totalHeightMm: number; availableHeightMm: number };
-  textStyle: { fontSize: string; lineHeight: number };
-  layout: typeof stageplanLayout & {
-    areaHeightMm: number;
-    layoutId: StageplanLayoutId;
+  readonly container: { readonly widthMm: number; readonly heightMm: number };
+  readonly stage: {
+    readonly xMm: number;
+    readonly yMm: number;
+    readonly widthMm: number;
+    readonly heightMm: number;
+    readonly caption: string | null;
   };
-  boxes: StageplanBoxPlan[];
+  readonly typography: PrintTypography & { readonly bulletSpacingPx: number };
+  readonly boxes: readonly StageplanBoxPlan[];
 };
 
-export function matchStageplanLayout(
-  vm: DocumentViewModel["stageplan"],
-): StageplanLayoutDefinition {
-  const leadCount = vm.leadVocals?.length ?? 0;
-  if (leadCount >= 2) return STAGEPLAN_LAYOUTS.layout_6_2_vocs;
-  return STAGEPLAN_LAYOUTS.layout_5_party;
-}
-
-function buildStageplanBoxes(
-  vm: DocumentViewModel["stageplan"],
-  options?: Partial<StageplanRenderOptions>,
-): {
-  layout: StageplanLayoutDefinition;
-  boxes: StageplanBoxPlan[];
-  areaHeightMm: number;
-} {
-  const resolvedOptions = resolveStageplanRenderOptions(options);
-  const selectedLayout = matchStageplanLayout(vm);
-  const allSlots = [
-    ...selectedLayout.topRow.map((item) => item.slot),
-    ...selectedLayout.bottomRow.slots,
-  ];
-
-  const printModel = buildPdfStageplanPrintModel(vm, {
-    hideMusicianNames: resolvedOptions.hideMusicianNames,
-  });
-  const topTypography = {
-    fontSizePt: parsePt(stageplanLayout.textSize),
-    lineHeight: stageplanLayout.textLineHeight,
-    bulletSpacingPx: 6,
-    titleGapPt: parsePt(stageplanLayout.boxTitleGap),
-    boxPaddingBottomPt: parsePt(stageplanLayout.boxPaddingBottom),
-    powerBadgeSpacerHeightPt: parsePt(stageplanLayout.powerBadgeSpacerHeight),
-  };
-  const bottomTypography = {
-    fontSizePt:
-      topTypography.fontSizePt +
-      selectedLayout.bottomRow.typography.fontSizeDeltaPt,
-    lineHeight:
-      topTypography.lineHeight +
-      selectedLayout.bottomRow.typography.lineHeightDelta,
-    bulletSpacingPx: selectedLayout.bottomRow.typography.bulletSpacingPx,
-    titleGapPt: topTypography.titleGapPt,
-    boxPaddingBottomPt: topTypography.boxPaddingBottomPt,
-    powerBadgeSpacerHeightPt:
-      parsePt(stageplanLayout.powerBadgeSpacerHeight) +
-      selectedLayout.bottomRow.typography.fontSizeDeltaPt *
-        (topTypography.lineHeight +
-          selectedLayout.bottomRow.typography.lineHeightDelta),
-  };
-
-  const boxContents: StageplanBoxContent[] = allSlots.map((slot) => {
-    const isBottom = selectedLayout.bottomRow.slots.includes(slot);
-    const printBox = printModel.boxesBySlot[slot];
-
-    return {
-      ...printBox,
-      slot,
-      row: isBottom ? "bottom" : "top",
-      typography: isBottom ? bottomTypography : topTypography,
-    };
-  });
-
-  const calculateRequiredHeightPt = (box: StageplanBoxContent): number => {
-    const hasBody =
-      box.inputBullets.length > 0 ||
-      box.monitorBullets.length > 0 ||
-      box.extraBullets.length > 0;
-    const lines = countStageplanBoxLines(box);
-    const lineHeightPt = box.typography.fontSizePt * box.typography.lineHeight;
-    const baseHeight =
-      box.typography.titleGapPt +
-      lineHeightPt +
-      (hasBody ? box.typography.titleGapPt : 0) +
-      lines * lineHeightPt;
-    const bottomPart = box.hasPowerBadge
-      ? box.typography.powerBadgeSpacerHeightPt
-      : box.typography.boxPaddingBottomPt;
-    return baseHeight + bottomPart;
-  };
-
-  const topBoxes = boxContents.filter((box) => box.row === "top");
-  const bottomBoxes = boxContents.filter((box) => box.row === "bottom");
-  const topHeightMm =
-    Math.max(...topBoxes.map((box) => calculateRequiredHeightPt(box))) /
-    MM_TO_PT;
-  const bottomHeightMm =
-    Math.max(...bottomBoxes.map((box) => calculateRequiredHeightPt(box))) /
-    MM_TO_PT;
-
-  const topRowY = 0;
-  const bottomRowY = topHeightMm + stageplanLayout.gapYmm;
-  const stageAreaLeftMm = 0;
-
-  const positionBySlot = new Map<StageplanRoleSlot, StageplanBoxPosition>();
-  const topPositions = computeTopRowGeometry({
-    layout: stageplanLayout,
-    topRow: selectedLayout.topRow,
-    topRowYMm: topRowY,
-    topHeightMm,
-  });
-  const bottomGeometry = computeBottomRowGeometry({
-    layoutId: selectedLayout.id,
-    defaults: stageplanLayout,
-    bottomRow: selectedLayout.bottomRow,
-    stageAreaLeftMm,
-    stageAreaWidthMm: stageplanLayout.areaWidthMm,
-    bottomRowYMm: bottomRowY,
-    bottomHeightMm,
-  });
-  for (const [slot, position] of topPositions)
-    positionBySlot.set(slot, position);
-  for (const [slot, position] of bottomGeometry.positions)
-    positionBySlot.set(slot, position);
-
-  return {
-    layout: selectedLayout,
-    areaHeightMm: topHeightMm + stageplanLayout.gapYmm + bottomHeightMm,
-    boxes: boxContents.map((box) => {
-      const position = positionBySlot.get(box.slot);
-      if (!position) {
-        throw new Error(`Missing stageplan position for slot "${box.slot}".`);
-      }
-      return { ...box, position };
-    }),
-  };
+function formatStageCaption(stage: StageplanStageSize | null): string | null {
+  if (!stage) return null;
+  const format = (value: number) => value.toFixed(1).replace(".", ",");
+  return `PÓDIUM ${format(stage.widthM)} × ${format(stage.depthM)} m`;
 }
 
 export function buildStageplanPlan(
   vm: DocumentViewModel["stageplan"],
   options?: Partial<StageplanRenderOptions>,
 ): StageplanPlan {
-  const built = buildStageplanBoxes(vm, options);
-  const areaHeightMm = built.areaHeightMm;
-  // Hlavička a patička ukrajují ze zrcadla dřív, než na plán vůbec dojde.
-  const availableHeightMm =
-    pdfLayout.page.contentHeightMm -
-    pdfChromeHeights.headerMm -
-    pdfChromeHeights.footerMm;
-  const containerMarginTopMm =
-    parsePt(stageplanLayout.containerMarginTop) / MM_TO_PT;
-  const containerPadMm = (parsePt(stageplanLayout.containerPad) / MM_TO_PT) * 2;
-  const totalHeightMm = containerMarginTopMm + containerPadMm + areaHeightMm;
+  const resolvedOptions = resolveStageplanRenderOptions(options);
+  const printModel = buildPdfStageplanPrintModel(vm, {
+    hideMusicianNames: resolvedOptions.hideMusicianNames,
+  });
+  const scale = createPrintScale(vm.layout.stage, stageplanPrintGeometry.area);
 
-  if (totalHeightMm > availableHeightMm) {
+  const rects: PrintRect[] = vm.layout.blocks.map((block) => {
+    const printBox = printModel.boxesBySlot[block.slot];
+    const footprint = computePrintFootprintMm({
+      lineCount: countStageplanBoxLines(printBox),
+      hasPower: printBox.hasPowerBadge,
+      zone: block,
+      mmPerM: scale.mmPerM,
+      typography: printTypography,
+    });
+
+    return {
+      slot: block.slot,
+      centerXMm: scale.toMm(block.centerXM),
+      centerYMm: scale.toMm(block.centerYM),
+      widthMm: footprint.widthMm,
+      heightMm: footprint.heightMm,
+      rotationDeg: block.rotationDeg,
+    };
+  });
+
+  const collisions = findPrintCollisions(rects);
+  if (collisions.length > 0) {
+    const pairs = collisions.map(([a, b]) => `${a} × ${b}`).join(", ");
     throw new Error(
-      `Stageplan layout overflow: required ${totalHeightMm.toFixed(2)}mm exceeds available ${availableHeightMm.toFixed(2)}mm.`,
+      `Stageplan print collision: ${pairs}. Bloky se na papíře překrývají — přerovnej rozmístění v editoru.`,
     );
   }
+
+  // Union bbox rámu pódia a všech boxů. Přerostlý box nesmí kontejner rozšířit
+  // nad zrcadlo, jinak Chromium zmenší celý dokument (past z F4).
+  let minXMm = 0;
+  let minYMm = 0;
+  let maxXMm = scale.planWidthMm;
+  let maxYMm = scale.planHeightMm;
+  for (const rect of rects) {
+    const aabb = rectAabbMm(rect);
+    minXMm = Math.min(minXMm, aabb.minXMm);
+    minYMm = Math.min(minYMm, aabb.minYMm);
+    maxXMm = Math.max(maxXMm, aabb.maxXMm);
+    maxYMm = Math.max(maxYMm, aabb.maxYMm);
+  }
+
+  const container = { widthMm: maxXMm - minXMm, heightMm: maxYMm - minYMm };
+  if (container.widthMm > areaWidthMm || container.heightMm > areaHeightMm) {
+    throw new Error(
+      `Stageplan layout overflow: required ${container.widthMm.toFixed(2)} × ${container.heightMm.toFixed(2)}mm exceeds available ${areaWidthMm.toFixed(2)} × ${areaHeightMm.toFixed(2)}mm.`,
+    );
+  }
+
   return {
-    budget: { totalHeightMm, availableHeightMm },
-    textStyle: {
-      fontSize: stageplanLayout.textSize,
-      lineHeight: stageplanLayout.textLineHeight,
+    container,
+    stage: {
+      xMm: -minXMm,
+      yMm: -minYMm,
+      widthMm: scale.planWidthMm,
+      heightMm: scale.planHeightMm,
+      caption: formatStageCaption(vm.layout.stage),
     },
-    layout: {
-      ...stageplanLayout,
-      areaHeightMm,
-      layoutId: built.layout.id,
-    },
-    boxes: built.boxes,
+    typography: { ...printTypography, bulletSpacingPx },
+    boxes: rects.map((rect) => {
+      const printBox = printModel.boxesBySlot[rect.slot];
+      return {
+        ...printBox,
+        xMm: rect.centerXMm - minXMm - rect.widthMm / 2,
+        yMm: rect.centerYMm - minYMm - rect.heightMm / 2,
+        widthMm: rect.widthMm,
+        heightMm: rect.heightMm,
+        rotationDeg: rect.rotationDeg,
+        isLeadVocal:
+          rect.slot === "lead_voc_1" || rect.slot === "lead_voc_2",
+      };
+    }),
   };
+}
+
+function renderBox(
+  box: StageplanBoxPlan,
+  typography: StageplanPlan["typography"],
+): string {
+  const lines: string[] = [
+    `<div class="stageplanBoxHeader">${box.header}</div>`,
+  ];
+
+  const hasBody =
+    box.inputBullets.length > 0 ||
+    box.monitorBullets.length > 0 ||
+    box.extraBullets.length > 0;
+  if (hasBody) lines.push(`<div class="stageplanTitleGap"></div>`);
+
+  const addBullets = (bullets: string[]) => {
+    for (const bullet of bullets) {
+      lines.push(
+        `<div class="stageplanBoxLine"><span class="bullet" style="margin-right:${typography.bulletSpacingPx}px;">•</span><span class="text">${bullet}</span></div>`,
+      );
+    }
+  };
+
+  addBullets(box.inputBullets);
+  if (box.monitorBullets.length > 0) {
+    if (box.inputBullets.length > 0)
+      lines.push(`<div class="stageplanGap"></div>`);
+    addBullets(box.monitorBullets);
+  }
+  if (box.extraBullets.length > 0) {
+    if (box.monitorBullets.length > 0 || box.inputBullets.length > 0)
+      lines.push(`<div class="stageplanGap"></div>`);
+    addBullets(box.extraBullets);
+  }
+  // Napájení je řádek v toku, ne badge v rohu — výška boxu s ním počítá (R5).
+  if (box.hasPowerBadge) {
+    lines.push(`<div class="stageplanPower">${box.powerBadgeText}</div>`);
+  }
+
+  const leadClass = box.isLeadVocal ? " stageplanBox--lead" : "";
+  return `<div class="stageplanBox${leadClass}" style="left:${box.xMm}mm; top:${box.yMm}mm; width:${box.widthMm}mm; height:${box.heightMm}mm; transform:rotate(${box.rotationDeg}deg);">${lines.join("")}</div>`;
 }
 
 export function renderStageplanSection(
@@ -420,70 +272,10 @@ export function renderStageplanSection(
   options?: Partial<StageplanRenderOptions>,
 ): string {
   const plan = buildStageplanPlan(vm.stageplan, options);
-  const areaHeight = plan.layout.areaHeightMm;
-
   const boxesHtml = plan.boxes
-    .map((box) => {
-      const lines: string[] = [];
-      lines.push(`<div class="stageplanBoxHeader">${box.header}</div>`);
-
-      const hasBody =
-        box.inputBullets.length > 0 ||
-        box.monitorBullets.length > 0 ||
-        box.extraBullets.length > 0;
-      if (hasBody) {
-        lines.push(
-          `<div class="stageplanTitleGap" style="height:${box.typography.titleGapPt}pt;"></div>`,
-        );
-      }
-
-      const addBullets = (bullets: string[]) => {
-        for (const bullet of bullets) {
-          lines.push(
-            `<div class="stageplanBoxLine"><span class="bullet" style="margin-right:${box.typography.bulletSpacingPx}px;">•</span><span class="text">${bullet}</span></div>`,
-          );
-        }
-      };
-
-      addBullets(box.inputBullets);
-      if (box.monitorBullets.length > 0) {
-        if (box.inputBullets.length > 0) {
-          lines.push(
-            `<div class="stageplanGap" style="height:calc(1em * ${box.typography.lineHeight});"></div>`,
-          );
-        }
-        addBullets(box.monitorBullets);
-      }
-      if (box.extraBullets.length > 0) {
-        if (box.monitorBullets.length > 0 || box.inputBullets.length > 0) {
-          lines.push(
-            `<div class="stageplanGap" style="height:calc(1em * ${box.typography.lineHeight});"></div>`,
-          );
-        }
-        addBullets(box.extraBullets);
-      }
-
-      const powerHtml = box.hasPowerBadge
-        ? `<div class="stageplanPower">${box.powerBadgeText}</div>`
-        : "";
-
-      if (box.hasPowerBadge) {
-        lines.push(
-          `<div class="stageplanPowerGap" style="height:${box.typography.powerBadgeSpacerHeightPt}pt;"></div>`,
-        );
-      }
-
-      const powerClass = box.hasPowerBadge ? " stageplanBox--withPower" : "";
-
-      return `
-<div class="stageplanBox${powerClass}" style="left:${box.position.xMm}mm; top:${box.position.yMm}mm; width:${box.position.widthMm}mm; height:${box.position.heightMm}mm; font-size:${box.typography.fontSizePt}pt; line-height:${box.typography.lineHeight};">\n  ${lines.join("")}\n  ${powerHtml}\n</div>`.trim();
-    })
+    .map((box) => renderBox(box, plan.typography))
     .join("\n");
 
   return `
-<section class="stageplanSection">\n  <div class="stageplanContainer">\n    <div class="stageplanArea" style="height:${areaHeight}mm;">\n      ${boxesHtml}\n    </div>\n  </div>\n</section>`.trim();
+<section class="stageplanSection">\n  <div class="stageplanCaption">${plan.stage.caption ?? ""}</div>\n  <div class="stageplanContainer" style="width:${plan.container.widthMm}mm; height:${plan.container.heightMm}mm;">\n    <div class="stageplanStage" style="left:${plan.stage.xMm}mm; top:${plan.stage.yMm}mm; width:${plan.stage.widthMm}mm; height:${plan.stage.heightMm}mm;">\n      <div class="stageplanDownstage">DOWNSTAGE · PUBLIKUM</div>\n    </div>\n    ${boxesHtml}\n  </div>\n</section>`.trim();
 }
-
-export { stageplanLayout };
-
-export const __stageplanTestExports = { computeBottomRowGeometry };

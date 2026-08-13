@@ -293,31 +293,28 @@ body {
 }
 
 .stageplanContainer {
+  position: relative;
   display: inline-block;
   margin-top: ${stageplanLayout.containerMarginTop};
   padding: ${stageplanLayout.containerPad};
-  background: #eeeeee;
-  border: ${stageplanLayout.containerBorderPx}px solid var(--c-line);
+  background: #fff;
+  border: ${stageplanLayout.containerBorderPx}px solid ${pdfTokens.line};
 }
 
-.stageplanArea {
-  position: relative;
-  width: ${stageplanLayout.areaWidthMm}mm;
-  margin: 0;
+.stageplanStage {
+  position: absolute;
+  border: ${stageplanLayout.containerBorderPx}px solid ${pdfTokens.line};
 }
 
 .stageplanBox {
   position: absolute;
+  transform-origin: center;
   border: 2px solid var(--c-line);
   background: #fff;
   padding: 0 ${stageplanLayout.padX} ${stageplanLayout.boxPaddingBottom};
   padding-top: ${stageplanLayout.boxTitleGap};
   font-size: ${stageplanLayout.textSize};
   line-height: ${stageplanLayout.textLineHeight};
-}
-
-.stageplanBox--withPower {
-  padding-bottom: 0;
 }
 
 .stageplanBoxHeader {
@@ -352,19 +349,7 @@ body {
 }
 
 .stageplanPower {
-  position: absolute;
-  right: -2px;
-  bottom: -2px;
-  border: 2px solid var(--c-line);
-  background: ${stageplanLayout.powerCellColor};
-  padding: ${stageplanLayout.padY} ${stageplanLayout.padX};
-  font-size: ${stageplanLayout.textSize};
-  line-height: ${stageplanLayout.textLineHeight};
   white-space: nowrap;
-}
-
-.stageplanPowerGap {
-  height: ${stageplanLayout.powerBadgeSpacerHeight};
 }
 
 

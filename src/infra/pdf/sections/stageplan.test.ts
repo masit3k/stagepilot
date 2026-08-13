@@ -1,510 +1,191 @@
-import { describe, expect, it } from "vitest";
 import fs from "node:fs/promises";
-import { loadRepository } from "../../fs/repo.js";
+import { describe, expect, it } from "vitest";
+import type { DocumentViewModel } from "../../../domain/model/types.js";
 import { buildDocument } from "../../../domain/pipeline/buildDocument.js";
-import {
-  __stageplanTestExports,
-  buildStageplanPlan,
-  matchStageplanLayout,
-  stageplanLayout,
-} from "./stageplan.js";
-import { parsePt, pdfChromeHeights, pdfLayout } from "../layout.js";
+import { loadRepository } from "../../fs/repo.js";
 import {
   createPdfRendererFixtureProject,
   createPdfRendererFixtureRoot,
 } from "../pdfRendererFixture.js";
+import { pdfLayout } from "../layout.js";
+import {
+  buildStageplanPlan,
+  renderStageplanSection,
+  stageplanLayout,
+  stageplanPrintGeometry,
+} from "./stageplan.js";
 
-const MM_TO_PT = 72 / 25.4;
+function emptyStageplan(
+  layout: DocumentViewModel["stageplan"]["layout"],
+): DocumentViewModel["stageplan"] {
+  return {
+    layout,
+    lineupByRole: {},
+    leadVocals: [],
+    inputs: [],
+    monitorOutputs: [],
+    powerByRole: {},
+  };
+}
 
-describe("stageplan render plan", () => {
-  it("builds boxes and respects typography for test fixture data", async () => {
-    const tmpRoot = await createPdfRendererFixtureRoot();
-
-    try {
-      const repo = await loadRepository({ userDataRoot: tmpRoot });
-      const project = createPdfRendererFixtureProject("stageplan-smoke");
-
-      const vm = buildDocument(project, repo);
-      const plan = buildStageplanPlan(vm.stageplan);
-
-      expect(plan.layout.layoutId).toBe("layout_5_party");
-      expect(plan.boxes).toHaveLength(5);
-
-      expect(plan.textStyle.fontSize).toBe(pdfLayout.typography.table.size);
-
-      const drumsBox = plan.boxes.find((box) => box.slot === "drums");
-      expect(drumsBox).toBeTruthy();
-      expect(drumsBox?.header).toBe("DRUMS – PAVEL");
-
-      const bassBox = plan.boxes.find((box) => box.slot === "bass");
-      expect(bassBox).toBeTruthy();
-      expect(bassBox?.header).toBe("BASS – MATEJ (band leader)");
-
-      const inputBullets = drumsBox?.inputBullets ?? [];
-      expect(inputBullets[0]).toMatch(/^Drums \(\d+(–\d+)?\)$/);
-      expect(inputBullets).toEqual(
-        expect.arrayContaining([
-          expect.stringMatching(/^PAD SFX \(\d+\+\d+\)$/),
-        ])
-      );
-
-      expect(drumsBox?.monitorBullets).toEqual(
-        expect.arrayContaining(["IEM STEREO wired (5)"])
-      );
-      expect(drumsBox?.extraBullets).toEqual(
-        expect.arrayContaining(["Drum riser 3x2"])
-      );
-
-      const topBoxes = plan.boxes.filter((box) => box.row === "top");
-      const bottomBoxes = plan.boxes.filter((box) => box.row === "bottom");
-      const topHeight = topBoxes[0]?.position.heightMm ?? 0;
-      const bottomHeight = bottomBoxes[0]?.position.heightMm ?? 0;
-      expect(topBoxes.every((box) => Math.abs(box.position.heightMm - topHeight) < 0.001)).toBe(true);
-      expect(bottomBoxes.every((box) => Math.abs(box.position.heightMm - bottomHeight) < 0.001)).toBe(true);
-    } finally {
-      await fs.rm(tmpRoot, { recursive: true, force: true });
-    }
+describe("stageplan print geometry", () => {
+  it("keeps the print area derived from the page mirror", () => {
+    // Pojistka z F4: opsaná konstanta udělá kontejner širší než stránka a
+    // Chromium zmenší celý dokument.
+    expect(stageplanLayout.areaWidthMm).toBeCloseTo(162.5375, 3);
+    expect(stageplanLayout.areaWidthMm).toBeLessThan(
+      pdfLayout.page.contentWidthMm,
+    );
+    expect(stageplanLayout.areaHeightMm).toBeCloseTo(202.0914, 3);
+    expect(stageplanPrintGeometry.typography.minBoxWidthMm).toBeCloseTo(
+      36.2594,
+      3,
+    );
+    expect(stageplanPrintGeometry.typography.fontSizePt).toBe(8);
   });
 
-  it("selects layout by lead vocalist count", () => {
-    expect(
-      matchStageplanLayout({
-        layout: { stage: null, blocks: [] },
-        lineupByRole: { vocs: { firstName: "A", isBandLeader: false } },
-        leadVocals: [{ firstName: "A", isBandLeader: false }],
-        inputs: [],
-        monitorOutputs: [],
-        powerByRole: {},
-      }).id
-    ).toBe("layout_5_party");
-
-    expect(
-      matchStageplanLayout({
-        layout: { stage: null, blocks: [] },
-        lineupByRole: {},
-        leadVocals: [
-          { firstName: "A", isBandLeader: false },
-          { firstName: "B", isBandLeader: false },
+  it("places a block by its zone centre and prints its rotation", () => {
+    const plan = buildStageplanPlan(
+      emptyStageplan({
+        stage: null,
+        blocks: [
+          {
+            slot: "drums",
+            centerXM: 6,
+            centerYM: 1.2,
+            widthM: 2.8,
+            depthM: 1.6,
+            rotationDeg: 30,
+          },
         ],
-        inputs: [],
-        monitorOutputs: [],
-        powerByRole: {},
-      }).id
-    ).toBe("layout_6_2_vocs");
-
-    expect(
-      matchStageplanLayout({
-        layout: { stage: null, blocks: [] },
-        lineupByRole: {},
-        leadVocals: [
-          { firstName: "A", isBandLeader: false },
-          { firstName: "B", isBandLeader: false },
-          { firstName: "C", isBandLeader: false },
-        ],
-        inputs: [],
-        monitorOutputs: [],
-        powerByRole: {},
-      }).id
-    ).toBe("layout_6_2_vocs");
-  });
-
-  it("renders layout_6_2_vocs in slot order with dynamic names", () => {
-    const plan = buildStageplanPlan({
-      layout: { stage: null, blocks: [] },
-      lineupByRole: {
-        drums: { firstName: "Drummer", isBandLeader: false },
-        bass: { firstName: "Bassist", isBandLeader: false },
-        guitar: { firstName: "Guitarist", isBandLeader: false },
-        keys: { firstName: "Keysman", isBandLeader: false },
-      },
-      leadVocals: [
-        { firstName: "Alice", isBandLeader: false },
-        { firstName: "Bob", isBandLeader: false },
-      ],
-      inputs: [
-        { channelNo: 1, label: "Lead vocal 1", group: "vocs" },
-        { channelNo: 2, label: "Lead vocal 2", group: "vocs" },
-      ],
-      monitorOutputs: [
-        { no: 1, output: "Lead vocal 1", note: "IEM A" },
-        { no: 2, output: "Lead vocal 2", note: "IEM B" },
-      ],
-      powerByRole: {},
-    });
-
-    expect(plan.layout.layoutId).toBe("layout_6_2_vocs");
-    const bottomSlots = plan.boxes
-      .filter((box) => box.row === "bottom")
-      .sort((a, b) => a.position.xMm - b.position.xMm)
-      .map((box) => box.slot);
-    expect(bottomSlots).toEqual(["guitar", "lead_voc_1", "lead_voc_2", "keys"]);
-
-    const lead1 = plan.boxes.find((box) => box.slot === "lead_voc_1");
-    const lead2 = plan.boxes.find((box) => box.slot === "lead_voc_2");
-    expect(lead1?.header).toContain("ALICE");
-    expect(lead2?.header).toContain("BOB");
-    expect(lead1?.header).not.toContain("TOMÁŠ");
-    expect(lead2?.header).not.toContain("TOMÁŠ");
-
-    const topCenter = plan.boxes.find((box) => box.slot === "drums");
-    expect(topCenter?.position.xMm).toBeCloseTo(
-      plan.layout.boxWidthMm + plan.layout.gapXmm,
-      5,
+      }),
     );
-    expect(topCenter?.row).toBe("top");
 
-    const legacyBottomWidthMm = (plan.layout.areaWidthMm - plan.layout.gapXmm * (4 - 1)) / 4;
-    const bottomBoxes = plan.boxes
-      .filter((box) => box.row === "bottom")
-      .sort((a, b) => a.position.xMm - b.position.xMm);
-    const bottomWidths = bottomBoxes.map((box) => box.position.widthMm);
-    expect(bottomWidths.every((widthMm) => widthMm > legacyBottomWidthMm)).toBe(true);
-
-    const bottomGutters = bottomBoxes.slice(0, -1).map((box, idx) => {
-      const next = bottomBoxes[idx + 1];
-      return next.position.xMm - (box.position.xMm + box.position.widthMm);
-    });
-    expect(bottomGutters.every((gutterMm) => Math.abs(gutterMm - 4.5) < 0.001)).toBe(true);
-
-    const drumsTop = plan.boxes.find((box) => box.slot === "drums");
-    const bassTop = plan.boxes.find((box) => box.slot === "bass");
-    const topRowSnapshot = [
-      { xMm: drumsTop?.position.xMm, widthMm: drumsTop?.position.widthMm },
-      { xMm: bassTop?.position.xMm, widthMm: bassTop?.position.widthMm },
-    ];
-    expect(topRowSnapshot).toEqual([
-      { xMm: plan.layout.boxWidthMm + plan.layout.gapXmm, widthMm: plan.layout.boxWidthMm },
-      { xMm: 2 * (plan.layout.boxWidthMm + plan.layout.gapXmm), widthMm: plan.layout.boxWidthMm },
-    ]);
-
-    const debug = __stageplanTestExports.computeBottomRowGeometry({
-      layoutId: plan.layout.layoutId,
-      defaults: plan.layout,
-      bottomRow: {
-        columns: 4,
-        gutterXmm: 4.5,
-        sideInsetXmm: 2,
-        slots: ["guitar", "lead_voc_1", "lead_voc_2", "keys"],
-        typography: { fontSizeDeltaPt: -1, lineHeightDelta: -0.05, bulletSpacingPx: 4 },
-      },
-      stageAreaLeftMm: 0,
-      stageAreaWidthMm: plan.layout.areaWidthMm,
-      bottomRowYMm: 0,
-      bottomHeightMm: 10,
-    }).debug;
-    expect(debug).toMatchObject({ layoutId: "layout_6_2_vocs", cols: 4, gutterMm: 4.5, insetMm: 2 });
-  });
-
-
-  it("binds stageplan input ownership to lineup-selected section owner", () => {
-    const plan = buildStageplanPlan({
-      layout: { stage: null, blocks: [] },
-      lineupByRole: {
-        drums: { firstName: "Drummer", isBandLeader: false },
-        bass: { firstName: "Bassist", isBandLeader: false },
-        guitar: { firstName: "Karel", isBandLeader: false },
-        keys: { firstName: "Keysman", isBandLeader: false },
-        vocs: { firstName: "Lukas", isBandLeader: false },
-      },
-      leadVocals: [{ firstName: "Lukas", isBandLeader: false }],
-      inputs: [
-        { channelNo: 1, label: "Acoustic guitar", group: "guitar", ownerRole: "vocs" },
-        { channelNo: 2, label: "Electric guitar", group: "guitar", ownerRole: "guitar" },
-      ],
-      monitorOutputs: [],
-      powerByRole: {},
-    });
-
-    const guitarBox = plan.boxes.find((box) => box.slot === "guitar");
-    const leadBox = plan.boxes.find((box) => box.slot === "lead_voc_1");
-
-    expect(guitarBox?.inputBullets.join(" ")).toContain("Electric guitar");
-    expect(guitarBox?.inputBullets.join(" ")).not.toContain("Acoustic guitar");
-    expect(leadBox?.inputBullets.join(" ")).toContain("Acoustic guitar");
-  });
-
-  it("renders backing track separately from drums and PAD in drums box", () => {
-    const plan = buildStageplanPlan({
-      layout: { stage: null, blocks: [] },
-      lineupByRole: {
-        drums: { firstName: "Drummer", isBandLeader: false },
-      },
-      leadVocals: [{ firstName: "Lead", isBandLeader: false }],
-      inputs: [
-        { channelNo: 1, label: "Kick OUT", group: "drums" },
-        { channelNo: 2, label: "Kick IN", group: "drums" },
-        { channelNo: 3, label: "PAD SFX L", group: "drums" },
-        { channelNo: 4, label: "PAD SFX R", group: "drums" },
-        { channelNo: 5, label: "Backing track L", group: "drums" },
-        { channelNo: 6, label: "Backing track R", group: "drums" },
-      ],
-      monitorOutputs: [],
-      powerByRole: {},
-    });
-
-    const drumsBox = plan.boxes.find((box) => box.slot === "drums");
-    expect(drumsBox?.inputBullets).toEqual(
-      expect.arrayContaining(["Drums (1–2)", "PAD SFX (3+4)", "Backing track (5+6)"]),
+    expect(plan.boxes).toHaveLength(1);
+    const box = plan.boxes[0];
+    expect(box?.slot).toBe("drums");
+    expect(box?.rotationDeg).toBe(30);
+    expect(box?.widthMm).toBeCloseTo(37.925, 2);
+    // Střed 6 m × 13,5448 = 81,27 mm; levý horní roh je o půl šířky vlevo.
+    expect((box?.xMm ?? 0) + (box?.widthMm ?? 0) / 2).toBeCloseTo(
+      81.269 + plan.stage.xMm,
+      2,
     );
-  });
-
-  it("keeps layout but omits names when hideMusicianNames is enabled", () => {
-    const baseVm = {
-      layout: { stage: null, blocks: [] },
-      lineupByRole: {
-        drums: { firstName: "Drummer", isBandLeader: false },
-        bass: { firstName: "Bassist", isBandLeader: false },
-        guitar: { firstName: "Guitarist", isBandLeader: false },
-        keys: { firstName: "Keysman", isBandLeader: false },
-      },
-      leadVocals: [{ firstName: "Alice", isBandLeader: false }],
-      inputs: [],
-      monitorOutputs: [],
-      powerByRole: {},
-    };
-
-    const withNames = buildStageplanPlan(baseVm, { hideMusicianNames: false });
-    const hiddenNames = buildStageplanPlan(baseVm, { hideMusicianNames: true });
-
-    expect(withNames.layout.layoutId).toBe(hiddenNames.layout.layoutId);
-    expect(withNames.boxes.map((box) => box.position)).toEqual(
-      hiddenNames.boxes.map((box) => box.position),
-    );
-    expect(hiddenNames.boxes.map((box) => box.header)).toEqual(
-      expect.arrayContaining(["DRUMS", "BASS", "GUITAR", "LEAD VOC", "KEYS"]),
-    );
-    expect(hiddenNames.boxes.some((box) => /ALICE|BASSIST|GUITARIST/i.test(box.header))).toBe(false);
-  });
-
-  it("keeps stageplan boxes inside stage area and page safe height for layout_6_2_vocs", () => {
-    const plan = buildStageplanPlan({
-      layout: { stage: null, blocks: [] },
-      lineupByRole: {
-        drums: { firstName: "Drummer", isBandLeader: false },
-        bass: { firstName: "Bassist", isBandLeader: false },
-        guitar: { firstName: "Guitarist", isBandLeader: false },
-        keys: { firstName: "Keysman", isBandLeader: false },
-      },
-      leadVocals: [
-        { firstName: "Alice", isBandLeader: false },
-        { firstName: "Bob", isBandLeader: false },
-      ],
-      inputs: [
-        { channelNo: 1, label: "Guitar", group: "guitar" },
-        { channelNo: 2, label: "Lead vocal 1", group: "vocs" },
-        { channelNo: 3, label: "Lead vocal 2", group: "vocs" },
-        { channelNo: 4, label: "Keys", group: "keys" },
-      ],
-      monitorOutputs: [],
-      powerByRole: {},
-    });
-
-    expect(plan.layout.layoutId).toBe("layout_6_2_vocs");
-    // Epsilon kryje jen chybu zaokrouhlení plovoucí čárky (řádově 1e-13mm) —
-    // areaWidthMm je teď odvozená hodnota s dlouhým desetinným rozvojem, ne
-    // čisté 180, takže součet x + width může dopadnout o pár bitů nad ni.
-    const floatEpsilonMm = 1e-6;
-    for (const box of plan.boxes) {
-      expect(box.position.xMm).toBeGreaterThanOrEqual(0);
-      expect(box.position.yMm).toBeGreaterThanOrEqual(0);
-      expect(box.position.xMm + box.position.widthMm).toBeLessThanOrEqual(
-        plan.layout.areaWidthMm + floatEpsilonMm,
-      );
-      expect(box.position.yMm + box.position.heightMm).toBeLessThanOrEqual(
-        plan.layout.areaHeightMm + floatEpsilonMm,
-      );
-    }
-
-    // Rozpočet počítá produkční kód, test ho jen kontroluje — jinak by se
-    // vzorec musel držet na dvou místech.
-    // Přišpuntěná hodnota, ne nerovnost: úkol 7 tenhle vzorec mění, takže se
-    // musí projevit v testu, ne v tichu.
-    expect(plan.budget.totalHeightMm).toBeCloseTo(62.1, 1);
-    expect(plan.budget.availableHeightMm).toBeCloseTo(
-      262 - pdfChromeHeights.headerMm - pdfChromeHeights.footerMm,
+    // Osa y roste od upstage hrany k publiku (R4): 1,2 m = 16,25 mm.
+    expect((box?.yMm ?? 0) + (box?.heightMm ?? 0) / 2 - plan.stage.yMm).toBeCloseTo(
+      16.254,
       2,
     );
   });
 
-  it("collapses stereo inputs and keeps monitor bullets intact", () => {
-    const plan = buildStageplanPlan({
-      layout: { stage: null, blocks: [] },
-      lineupByRole: {},
-      inputs: [
-        { channelNo: 1, label: "Kick", group: "drums" },
-        { channelNo: 2, label: "Snare", group: "drums" },
-        { channelNo: 5, label: "Bass L (main out L)", group: "bass" },
-        { channelNo: 6, label: "Bass R (main out R)", group: "bass" },
-        { channelNo: 8, label: "OH L", group: "guitar" },
-        { channelNo: 9, label: "OH R", group: "guitar" },
-        { channelNo: 11, label: "PAD L", group: "drums" },
-        { channelNo: 12, label: "PAD R", group: "drums" },
-        { channelNo: 15, label: "Keys L", group: "keys" },
-        { channelNo: 16, label: "Keys R", group: "keys" },
-        { channelNo: 13, label: "Electric guitar L", group: "guitar" },
-        { channelNo: 14, label: "Electric guitar R", group: "guitar" },
-        { channelNo: 17, label: "Synth", group: "keys" },
-        { channelNo: 18, label: "Synth", group: "keys" },
-        { channelNo: 19, label: "Synth (mono)", group: "keys" },
-      ],
-      monitorOutputs: [
-        {
-          no: 3,
-          output: "Drums",
-          note: "IEM STEREO wired",
-        },
-      ],
-      powerByRole: {},
-    });
+  it("refuses to print a block that pushes the container past the mirror", () => {
+    expect(() =>
+      buildStageplanPlan(
+        emptyStageplan({
+          stage: null,
+          blocks: [
+            {
+              slot: "drums",
+              centerXM: 20,
+              centerYM: 1.2,
+              widthM: 2.8,
+              depthM: 1.6,
+              rotationDeg: 0,
+            },
+          ],
+        }),
+      ),
+    ).toThrow(/overflow/);
+  });
 
-    const keysBox = plan.boxes.find((box) => box.instrument === "Keys");
-    expect(keysBox?.inputBullets).toEqual(
-      expect.arrayContaining(["Keys (15+16)", "Synth (17+18)", "Synth (mono) (19)"])
+  it("prints the stage caption only when the size is entered", () => {
+    const withStage = buildStageplanPlan(
+      emptyStageplan({ stage: { widthM: 10, depthM: 6 }, blocks: [] }),
     );
-    expect(keysBox?.inputBullets.join(" ")).not.toContain("Keys L (15)");
-    expect(keysBox?.inputBullets.join(" ")).not.toContain("Keys R (16)");
-
-    const guitarBox = plan.boxes.find((box) => box.instrument === "Guitar");
-    expect(guitarBox?.inputBullets).toEqual(
-      expect.arrayContaining(["OH L (8)", "OH R (9)", "Electric guitar (13+14)"])
+    const withoutStage = buildStageplanPlan(
+      emptyStageplan({ stage: null, blocks: [] }),
     );
-    expect(guitarBox?.inputBullets.join(" ")).not.toContain("2x OH");
 
-    const bassBox = plan.boxes.find((box) => box.instrument === "Bass");
-    expect(bassBox?.inputBullets).toEqual(expect.arrayContaining(["Bass (5+6)"]));
-    expect(bassBox?.inputBullets.join(" ")).not.toContain("Bass L (5)");
-    expect(bassBox?.inputBullets.join(" ")).not.toContain("Bass R (6)");
+    expect(withStage.stage.caption).toBe("PÓDIUM 10,0 × 6,0 m");
+    expect(withoutStage.stage.caption).toBeNull();
+  });
 
-    const drumsBox = plan.boxes.find((box) => box.instrument === "Drums");
-    expect(drumsBox?.inputBullets.join(" ")).toContain("PAD (11+12)");
-    expect(drumsBox?.monitorBullets).toEqual(
-      expect.arrayContaining(["IEM STEREO wired (3)"])
+  it("sizes the container from the union of the stage frame and the boxes", () => {
+    const plan = buildStageplanPlan(
+      emptyStageplan({
+        stage: null,
+        blocks: [
+          {
+            slot: "drums",
+            centerXM: 6,
+            centerYM: 0.2,
+            widthM: 2.8,
+            depthM: 1.6,
+            rotationDeg: 0,
+          },
+        ],
+      }),
     );
-    expect(plan.boxes.flatMap((box) => box.inputBullets).join(" ")).not.toContain("2x ");
-  });
 
-  it("renders additional wedge monitor on a separate stageplan line", () => {
-    const plan = buildStageplanPlan({
-      layout: { stage: null, blocks: [] },
-      lineupByRole: {},
-      inputs: [],
-      monitorOutputs: [
-        {
-          no: 4,
-          output: "Keys",
-          note: "IEM STEREO wireless + Additional wedge monitor 1x",
-        },
-      ],
-      powerByRole: {},
-    });
-
-    const keysBox = plan.boxes.find((box) => box.instrument === "Keys");
-    expect(keysBox?.monitorBullets).toEqual([
-      "IEM STEREO wireless (4)",
-      "+ Additional wedge monitor 1x",
-    ]);
-  });
-
-
-  it("strips FOH-supplied monitor suffixes in stageplan monitor bullets", () => {
-    const plan = buildStageplanPlan({
-      layout: { stage: null, blocks: [] },
-      lineupByRole: {},
-      inputs: [],
-      monitorOutputs: [
-        {
-          no: 2,
-          output: "Lead vocal",
-          note: "Wedge monitor (provided by FOH) + Additional wedge monitor 2x",
-        },
-      ],
-      powerByRole: {},
-    });
-
-    const leadBox = plan.boxes.find((box) => box.slot === "lead_voc_1");
-    expect(leadBox?.monitorBullets).toEqual([
-      "Wedge monitor (2)",
-      "+ Additional wedge monitor 2x",
-    ]);
-  });
-
-  it("strips band-supplied (own) monitor suffixes in stageplan monitor bullets", () => {
-    const plan = buildStageplanPlan({
-      layout: { stage: null, blocks: [] },
-      lineupByRole: {},
-      inputs: [],
-      monitorOutputs: [
-        {
-          no: 6,
-          output: "Keys",
-          note: "IEM STEREO wired (own)",
-        },
-      ],
-      powerByRole: {},
-    });
-
-    const keysBox = plan.boxes.find((box) => box.instrument === "Keys");
-    expect(keysBox?.monitorBullets).toEqual(["IEM STEREO wired (6)"]);
-  });
-
-  it("renders power badges based on stageplan power data", () => {
-    const plan = buildStageplanPlan({
-      layout: { stage: null, blocks: [] },
-      lineupByRole: {},
-      inputs: [],
-      monitorOutputs: [],
-      powerByRole: {
-        drums: { hasPowerBadge: true, powerBadgeText: "3x 230 V" },
-        keys: { hasPowerBadge: true, powerBadgeText: "5x 230 V" },
-        vocs: { hasPowerBadge: false, powerBadgeText: "" },
-      },
-    });
-
-    const drumsBox = plan.boxes.find((box) => box.instrument === "Drums");
-    expect(drumsBox?.hasPowerBadge).toBe(true);
-    expect(drumsBox?.powerBadgeText).toBe("3x 230 V");
-
-    const keysBox = plan.boxes.find((box) => box.instrument === "Keys");
-    expect(keysBox?.powerBadgeText).toBe("5x 230 V");
-
-    const vocalsBox = plan.boxes.find((box) => box.slot === "lead_voc_1");
-    expect(vocalsBox?.hasPowerBadge).toBe(false);
-  });
-});
-
-describe("stageplan geometry stays inside the print mirror (Finding 1 regression)", () => {
-  it("sizes the top-row grid to exactly fill the derived area width, by construction", () => {
-    // 3 boxes + 2 gaps must land on areaWidthMm as a consequence of the
-    // formula, not as three constants that happen to add up — that
-    // coincidence is what let the container overflow the page in the first
-    // place.
-    expect(3 * stageplanLayout.boxWidthMm + 2 * stageplanLayout.gapXmm).toBeCloseTo(
+    // Zóna bicích je 21,7 mm vysoká, takže na 0,2 m (2,7 mm) od hrany
+    // přesahuje box za upstage hranu a kontejner se o ten přesah zvětší.
+    expect(plan.stage.yMm).toBeGreaterThan(0);
+    expect(plan.container.heightMm).toBeGreaterThan(plan.stage.heightMm);
+    expect(plan.container.widthMm).toBeLessThanOrEqual(
       stageplanLayout.areaWidthMm,
-      9,
     );
   });
 
-  it("keeps the rendered .stageplanContainer (area + padding + border) inside the page's print mirror", () => {
-    // .stageplanContainer has no explicit width: its rendered width is
-    // areaWidthMm plus padding and border on both sides. If that total
-    // exceeds contentWidthMm, Chromium shrinks the *whole* document to fit —
-    // both pages, silently — which is exactly what Finding 1 caught.
-    const containerPadMm = (parsePt(stageplanLayout.containerPad) / MM_TO_PT) * 2;
-    const containerBorderMm =
-      ((stageplanLayout.containerBorderPx * 0.75) / MM_TO_PT) * 2; // 1px = 0.75pt
-
-    const renderedContainerWidthMm =
-      stageplanLayout.areaWidthMm + containerPadMm + containerBorderMm;
-
-    expect(renderedContainerWidthMm).toBeLessThanOrEqual(pdfLayout.page.contentWidthMm);
-    expect(renderedContainerWidthMm).toBeCloseTo(pdfLayout.page.contentWidthMm, 6);
+  it("refuses to print blocks that overlap on paper", () => {
+    expect(() =>
+      buildStageplanPlan(
+        emptyStageplan({
+          stage: null,
+          blocks: [
+            {
+              slot: "drums",
+              centerXM: 6,
+              centerYM: 2,
+              widthM: 2.8,
+              depthM: 1.6,
+              rotationDeg: 0,
+            },
+            {
+              slot: "bass",
+              centerXM: 6.2,
+              centerYM: 2.4,
+              widthM: 2.7,
+              depthM: 1.4,
+              rotationDeg: 0,
+            },
+          ],
+        }),
+      ),
+    ).toThrow(/collision: drums × bass/);
   });
 
-  it("derives concrete geometry matching the review's expected figures", () => {
-    // Pinned values from the review's own math, so a future change to
-    // containerPad/containerBorderPx/the ratio has to justify itself here.
-    expect(stageplanLayout.areaWidthMm).toBeCloseTo(162.5375, 3);
-    expect(stageplanLayout.boxWidthMm).toBeCloseTo(49.664, 2);
-    expect(stageplanLayout.gapXmm).toBeCloseTo(6.772, 2);
+  it("builds boxes and content for the fixture project", async () => {
+    const tmpRoot = await createPdfRendererFixtureRoot();
+    try {
+      const repo = await loadRepository({ userDataRoot: tmpRoot });
+      const project = createPdfRendererFixtureProject("stageplan-smoke");
+      const vm = buildDocument(project, repo);
+
+      const plan = buildStageplanPlan(vm.stageplan);
+
+      expect(plan.boxes).toHaveLength(5);
+      const drumsBox = plan.boxes.find((box) => box.slot === "drums");
+      expect(drumsBox?.header).toBe("DRUMS – PAVEL");
+      expect(drumsBox?.inputBullets[0]).toMatch(/^Drums \(\d+(–\d+)?\)$/);
+      expect(drumsBox?.extraBullets).toEqual(
+        expect.arrayContaining(["Drum riser 3x2"]),
+      );
+
+      const html = renderStageplanSection(vm);
+      expect(html).toContain("transform:rotate(0deg)");
+      expect(html).toContain("stageplanStage");
+    } finally {
+      await fs.rm(tmpRoot, { recursive: true, force: true });
+    }
   });
 });

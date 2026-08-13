@@ -103,9 +103,7 @@ describe("inputlist template layout", () => {
 
       const plan = buildStageplanPlan(vm.stageplan);
       for (const box of plan.boxes) {
-        expect(page2Html).toContain(
-          `left:${box.position.xMm}mm; top:${box.position.yMm}mm;`
-        );
+        expect(page2Html).toContain(`left:${box.xMm}mm; top:${box.yMm}mm;`);
       }
     } finally {
       await fs.rm(tmpRoot, { recursive: true, force: true });
