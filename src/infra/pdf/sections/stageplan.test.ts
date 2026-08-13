@@ -2,12 +2,19 @@ import { describe, expect, it } from "vitest";
 import fs from "node:fs/promises";
 import { loadRepository } from "../../fs/repo.js";
 import { buildDocument } from "../../../domain/pipeline/buildDocument.js";
-import { __stageplanTestExports, buildStageplanPlan, matchStageplanLayout } from "./stageplan.js";
-import { pdfChromeHeights, pdfLayout } from "../layout.js";
+import {
+  __stageplanTestExports,
+  buildStageplanPlan,
+  matchStageplanLayout,
+  stageplanLayout,
+} from "./stageplan.js";
+import { parsePt, pdfChromeHeights, pdfLayout } from "../layout.js";
 import {
   createPdfRendererFixtureProject,
   createPdfRendererFixtureRoot,
 } from "../pdfRendererFixture.js";
+
+const MM_TO_PT = 72 / 25.4;
 
 describe("stageplan render plan", () => {
   it("builds boxes and respects typography for test fixture data", async () => {
@@ -136,7 +143,10 @@ describe("stageplan render plan", () => {
     expect(lead2?.header).not.toContain("TOMÁŠ");
 
     const topCenter = plan.boxes.find((box) => box.slot === "drums");
-    expect(topCenter?.position.xMm).toBeCloseTo(62.5, 5);
+    expect(topCenter?.position.xMm).toBeCloseTo(
+      plan.layout.boxWidthMm + plan.layout.gapXmm,
+      5,
+    );
     expect(topCenter?.row).toBe("top");
 
     const legacyBottomWidthMm = (plan.layout.areaWidthMm - plan.layout.gapXmm * (4 - 1)) / 4;
@@ -282,11 +292,19 @@ describe("stageplan render plan", () => {
     });
 
     expect(plan.layout.layoutId).toBe("layout_6_2_vocs");
+    // Epsilon kryje jen chybu zaokrouhlení plovoucí čárky (řádově 1e-13mm) —
+    // areaWidthMm je teď odvozená hodnota s dlouhým desetinným rozvojem, ne
+    // čisté 180, takže součet x + width může dopadnout o pár bitů nad ni.
+    const floatEpsilonMm = 1e-6;
     for (const box of plan.boxes) {
       expect(box.position.xMm).toBeGreaterThanOrEqual(0);
       expect(box.position.yMm).toBeGreaterThanOrEqual(0);
-      expect(box.position.xMm + box.position.widthMm).toBeLessThanOrEqual(plan.layout.areaWidthMm);
-      expect(box.position.yMm + box.position.heightMm).toBeLessThanOrEqual(plan.layout.areaHeightMm);
+      expect(box.position.xMm + box.position.widthMm).toBeLessThanOrEqual(
+        plan.layout.areaWidthMm + floatEpsilonMm,
+      );
+      expect(box.position.yMm + box.position.heightMm).toBeLessThanOrEqual(
+        plan.layout.areaHeightMm + floatEpsilonMm,
+      );
     }
 
     // Rozpočet počítá produkční kód, test ho jen kontroluje — jinak by se
@@ -438,5 +456,42 @@ describe("stageplan render plan", () => {
 
     const vocalsBox = plan.boxes.find((box) => box.slot === "lead_voc_1");
     expect(vocalsBox?.hasPowerBadge).toBe(false);
+  });
+});
+
+describe("stageplan geometry stays inside the print mirror (Finding 1 regression)", () => {
+  it("sizes the top-row grid to exactly fill the derived area width, by construction", () => {
+    // 3 boxes + 2 gaps must land on areaWidthMm as a consequence of the
+    // formula, not as three constants that happen to add up — that
+    // coincidence is what let the container overflow the page in the first
+    // place.
+    expect(3 * stageplanLayout.boxWidthMm + 2 * stageplanLayout.gapXmm).toBeCloseTo(
+      stageplanLayout.areaWidthMm,
+      9,
+    );
+  });
+
+  it("keeps the rendered .stageplanContainer (area + padding + border) inside the page's print mirror", () => {
+    // .stageplanContainer has no explicit width: its rendered width is
+    // areaWidthMm plus padding and border on both sides. If that total
+    // exceeds contentWidthMm, Chromium shrinks the *whole* document to fit —
+    // both pages, silently — which is exactly what Finding 1 caught.
+    const containerPadMm = (parsePt(stageplanLayout.containerPad) / MM_TO_PT) * 2;
+    const containerBorderMm =
+      ((stageplanLayout.containerBorderPx * 0.75) / MM_TO_PT) * 2; // 1px = 0.75pt
+
+    const renderedContainerWidthMm =
+      stageplanLayout.areaWidthMm + containerPadMm + containerBorderMm;
+
+    expect(renderedContainerWidthMm).toBeLessThanOrEqual(pdfLayout.page.contentWidthMm);
+    expect(renderedContainerWidthMm).toBeCloseTo(pdfLayout.page.contentWidthMm, 6);
+  });
+
+  it("derives concrete geometry matching the review's expected figures", () => {
+    // Pinned values from the review's own math, so a future change to
+    // containerPad/containerBorderPx/the ratio has to justify itself here.
+    expect(stageplanLayout.areaWidthMm).toBeCloseTo(162.5375, 3);
+    expect(stageplanLayout.boxWidthMm).toBeCloseTo(49.664, 2);
+    expect(stageplanLayout.gapXmm).toBeCloseTo(6.772, 2);
   });
 });

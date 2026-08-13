@@ -42,6 +42,41 @@ const powerBadgeReservedPt = powerBadgeHeightPt + powerBadgeMarginTopPt;
 const powerBadgeTextGapPt = stageplanLineHeightPt;
 const powerBadgeSpacerHeightPt = powerBadgeReservedPt + powerBadgeTextGapPt;
 
+const containerMarginTopPt = 24;
+const containerPadPt = 24;
+/** .stageplanContainer border-width — stejná konstanta, kterou dostane styles.ts, aby šlo z ní spočítat, co uvnitř zbývá místa. */
+const containerBorderPx = 1;
+
+function ptToMm(pt: number): number {
+  return pt / MM_TO_PT;
+}
+
+function pxToMm(px: number): number {
+  return ptToMm(px * 0.75); // 1px = 0.75pt (96px = 72pt)
+}
+
+/**
+ * Finding 1 (F4 whole-branch review): .stageplanContainer je inline-block bez
+ * explicitní šířky — jeho vykreslená šířka je .stageplanArea plus padding a
+ * border na obou stranách. Když je areaWidthMm opsaná konstanta, která s
+ * paddingem/borderem přesně nesedí, kontejner je širší než tiskové zrcadlo a
+ * Chromium na to reaguje tichým zmenšením *celého* dokumentu (obě strany),
+ * ne jen týhle sekce. areaWidthMm proto musí být zrcadlo minus tohle
+ * odsazení — odvozené, ne dopočítané zpaměti.
+ */
+const areaWidthMm =
+  pdfLayout.page.contentWidthMm - 2 * ptToMm(containerPadPt) - 2 * pxToMm(containerBorderPx);
+
+/**
+ * Poměr gapu k šířce boxu z původního návrhu (7,5 mm ke 55 mm), zachovaný i
+ * po zúžení plochy — takže 3 boxy + 2 gapy vždy přesně vyplní areaWidthMm
+ * jako důsledek vzorce, ne jako shoda tří konstant, které se musí ručně
+ * sečíst na stejné číslo.
+ */
+const GAP_TO_BOX_RATIO = 7.5 / 55;
+const boxWidthMm = areaWidthMm / (3 + 2 * GAP_TO_BOX_RATIO);
+const gapXmm = GAP_TO_BOX_RATIO * boxWidthMm;
+
 const stageplanLayout = {
   textSize: pdfLayout.typography.table.size,
   textLineHeight: stageplanTextLineHeight,
@@ -50,12 +85,13 @@ const stageplanLayout = {
   boxTitleGap: `${boxTitleGapPt}pt`,
   boxPaddingBottom: `${boxPaddingBottomPt}pt`,
   powerBadgeSpacerHeight: `${powerBadgeSpacerHeightPt}pt`,
-  containerMarginTop: "24pt",
-  containerPad: "24pt",
-  areaWidthMm: 180,
+  containerMarginTop: `${containerMarginTopPt}pt`,
+  containerPad: `${containerPadPt}pt`,
+  containerBorderPx,
+  areaWidthMm,
   sideInsetXmm: 0,
-  boxWidthMm: 55,
-  gapXmm: 7.5,
+  boxWidthMm,
+  gapXmm,
   gapYmm: 8,
   powerCellColor: "#F7E65A",
 } as const;

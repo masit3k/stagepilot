@@ -256,9 +256,13 @@ export async function renderPdf(vm: DocumentViewModel, opts: RenderPdfOptions): 
         // setContent stačí "load" – fonty se načtou přes file://
         await page.setContent(html, { waitUntil: "load" });
 
-        // #content je flex položka s pevnou výškou stránky, takže scrollHeight
-        // nad clientHeight je přímé měření přetečení. Předchozí verze
-        // porovnávala rodiče s jeho vlastním dítětem a nemohla nikdy spadnout.
+        // #content je flex položka s pevnou výškou i šířkou stránky, takže
+        // scrollHeight/scrollWidth nad clientHeight/clientWidth je přímé
+        // měření přetečení v obou rozměrech. Předchozí verze porovnávala
+        // rodiče s jeho vlastním dítětem a nemohla nikdy spadnout; a měřila
+        // jen výšku, takže prvek širší než zrcadlo (např. .stageplanContainer)
+        // proklouzl bez povšimnutí — Chromium na to reagovalo tichým
+        // zmenšením celého dokumentu při tisku.
         const contentIds = [pdfLayout.ids.content, pdfLayout.ids.content2];
 
         const overflow = await page.evaluate((ids: string[]) => {
@@ -268,9 +272,23 @@ export async function renderPdf(vm: DocumentViewModel, opts: RenderPdfOptions): 
                 if (!el) {
                     return { ok: false as const, reason: `missing #${id}` };
                 }
-                const overflowPx = el.scrollHeight - el.clientHeight;
-                if (overflowPx > tolerancePx) {
-                    return { ok: false as const, contentId: id, overflowPx };
+                const heightOverflowPx = el.scrollHeight - el.clientHeight;
+                if (heightOverflowPx > tolerancePx) {
+                    return {
+                        ok: false as const,
+                        contentId: id,
+                        dimension: "height" as const,
+                        overflowPx: heightOverflowPx,
+                    };
+                }
+                const widthOverflowPx = el.scrollWidth - el.clientWidth;
+                if (widthOverflowPx > tolerancePx) {
+                    return {
+                        ok: false as const,
+                        contentId: id,
+                        dimension: "width" as const,
+                        overflowPx: widthOverflowPx,
+                    };
                 }
             }
             return { ok: true as const };
@@ -280,7 +298,7 @@ export async function renderPdf(vm: DocumentViewModel, opts: RenderPdfOptions): 
             throw new Error(
                 `PDF overflow: content does not fit A4 page. ${
                     "overflowPx" in overflow
-                        ? `contentId=${overflow.contentId} overflowPx=${overflow.overflowPx}`
+                        ? `contentId=${overflow.contentId} dimension=${overflow.dimension} overflowPx=${overflow.overflowPx}`
                         : overflow.reason
                 }`,
             );
@@ -291,12 +309,27 @@ export async function renderPdf(vm: DocumentViewModel, opts: RenderPdfOptions): 
         // na outFile nedokončený nebo přetečený dokument.
         const tempOutFile = path.join(path.dirname(opts.outFile), `${baseName}.tmp-${randomUUID()}`);
 
-        await page.pdf({
-            path: tempOutFile,
-            format: "A4",
-            printBackground: true,
-            preferCSSPageSize: true,
-        });
+        try {
+            await page.pdf({
+                path: tempOutFile,
+                format: "A4",
+                printBackground: true,
+                preferCSSPageSize: true,
+            });
+        } catch (renderError) {
+            // Když page.pdf() spadne, nesmí zůstat viset dočasný soubor vedle
+            // výstupní složky. Selhání úklidu se jen zaloguje — nikdy nesmí
+            // zastínit původní chybu renderu.
+            try {
+                await fs.unlink(tempOutFile);
+            } catch (cleanupError) {
+                console.error("[pdf] failed to remove temp render artifact after failed render", {
+                    tempOutFile,
+                    error: describeError(cleanupError),
+                });
+            }
+            throw renderError;
+        }
 
         await finalizeRenderedPdf(tempOutFile, opts.outFile);
     } finally {

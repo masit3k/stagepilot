@@ -138,6 +138,7 @@ body {
   letter-spacing: ${pdfLayout.typography.meta.tracking};
   text-transform: uppercase;
   color: ${pdfTokens.body};
+  white-space: nowrap;
 }
 
 .docHeader__stamp {
@@ -276,7 +277,7 @@ body {
 .notes {
   font-size: ${pdfLayout.typography.table.size};
   line-height: 1.4;
-  color: #000000;
+  color: ${pdfTokens.body};
 }
 
 .noteLine {
@@ -296,7 +297,7 @@ body {
   margin-top: ${stageplanLayout.containerMarginTop};
   padding: ${stageplanLayout.containerPad};
   background: #eeeeee;
-  border: 1px solid var(--c-line);
+  border: ${stageplanLayout.containerBorderPx}px solid var(--c-line);
 }
 
 .stageplanArea {

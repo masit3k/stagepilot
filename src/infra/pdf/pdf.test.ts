@@ -63,11 +63,12 @@ describe("finalizeRenderedPdf", () => {
 });
 
 describe("PDF export", () => {
-  it("renders two pages when stageplan is included", { timeout: 60000 }, async () => {
+  it("renders two pages when stageplan is included", { timeout: 60000 }, async (ctx) => {
     if (!chromiumAvailable) {
-      // Bez prohlížeče se nedá render ověřit. Přeskočení není zelený výsledek.
-      console.warn("[pdf.test] Chromium unavailable — skipping render check");
-      return;
+      // Bez prohlížeče se nedá render ověřit. Test se musí nahlásit jako
+      // "skipped", ne jako "passed" — jinak je bez Chromia celá sada zelená,
+      // aniž by se render vůbec zkusil.
+      ctx.skip();
     }
 
     const tmpRoot = await createPdfRendererFixtureRoot();
