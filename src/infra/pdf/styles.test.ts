@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { pdfStyles } from "./styles.js";
 import { pdfLayout, pdfTokens } from "./layout.js";
+import { stageplanLayout } from "./sections/stageplan.js";
+
+/** Escapuje regex metaznaky, aby se hodnoty z konstant (např. "7.2pt") daly
+ * bezpečně vložit do dynamicky sestaveného regexu. */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 describe("pdf notes typography", () => {
   it("matches table text size and drops italic from note paragraphs", () => {
@@ -40,7 +47,11 @@ describe("pdf table", () => {
 describe("pdf stageplan identity", () => {
   it("draws stageplan blocks in the F5b identity", () => {
     // R5: 1px ink bez radiusu, inverzní lead vokál, oranžové napájení.
-    expect(pdfStyles).toContain(`border: 1px solid ${pdfTokens.ink}`);
+    expect(pdfStyles).toMatch(
+      new RegExp(
+        `\\.stageplanBox\\s*\\{[^}]*border:\\s*1px solid ${escapeRegExp(pdfTokens.ink)}`,
+      ),
+    );
     expect(pdfStyles).toMatch(
       /\.stageplanBox--lead\s*\{[^}]*background:\s*#101112/,
     );
@@ -56,6 +67,23 @@ describe("pdf stageplan identity", () => {
     expect(pdfStyles).toMatch(/\.stageplanDownstage\s*\{[^}]*bottom:\s*0/);
     expect(pdfStyles).toMatch(
       /\.stageplanCaption\s*\{[^}]*letter-spacing:\s*0\.14em/,
+    );
+  });
+
+  it("pins the caption's height budget so it cannot drift from the renderer (R6)", () => {
+    // Rozpočet výšky v stageplan.ts rezervuje přesně captionSize + captionGap
+    // (7,2 pt + 4 pt = 11,2 pt) — tahle trojice v CSS to musí přesně splnit,
+    // jinak Chromium tiše zmenší celý dokument (F4 finding).
+    expect(pdfStyles).toMatch(
+      new RegExp(
+        `\\.stageplanCaption\\s*\\{[^}]*height:\\s*${escapeRegExp(stageplanLayout.captionSize)}`,
+      ),
+    );
+    expect(pdfStyles).toMatch(/\.stageplanCaption\s*\{[^}]*line-height:\s*1\b/);
+    expect(pdfStyles).toMatch(
+      new RegExp(
+        `\\.stageplanCaption\\s*\\{[^}]*margin-bottom:\\s*${escapeRegExp(stageplanLayout.captionGap)}`,
+      ),
     );
   });
 });

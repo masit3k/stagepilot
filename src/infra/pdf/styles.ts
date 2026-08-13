@@ -85,9 +85,6 @@ body {
    =============================== */
 :root {
   --block-gap: 14pt;
-
-  /* line color + widths (single source of truth) */
-  --c-line: ${pdfTokens.ink};
   --w-grid: 0.5pt;  /* linky mezi řádky tabulky */
 }
 
