@@ -188,4 +188,25 @@ describe("stageplan print geometry", () => {
       await fs.rm(tmpRoot, { recursive: true, force: true });
     }
   });
+
+  it("marks the lead vocal box and renders power as a line", () => {
+    const html = renderStageplanSection({
+      stageplan: emptyStageplan({
+        stage: null,
+        blocks: [
+          {
+            slot: "lead_voc_1",
+            centerXM: 6,
+            centerYM: 5.5,
+            widthM: 2.6,
+            depthM: 1.2,
+            rotationDeg: 0,
+          },
+        ],
+      }),
+    } as unknown as DocumentViewModel);
+
+    expect(html).toContain("stageplanBox--lead");
+    expect(html).toContain("DOWNSTAGE · PUBLIKUM");
+  });
 });

@@ -292,6 +292,19 @@ body {
   text-align: center;
 }
 
+.stageplanCaption {
+  /* Výška je jeden řádek popisku vždy, i když je prázdný — měřítko plánu na
+     tom stojí (R6). */
+  height: ${stageplanLayout.captionSize};
+  line-height: 1;
+  margin-bottom: ${stageplanLayout.captionGap};
+  font-family: '${pdfLayout.typography.monoFamily}', Consolas, monospace;
+  font-size: ${stageplanLayout.captionSize};
+  letter-spacing: ${stageplanLayout.captionTracking};
+  color: ${pdfTokens.steel};
+  text-align: center;
+}
+
 .stageplanContainer {
   position: relative;
   display: inline-block;
@@ -301,20 +314,41 @@ body {
   border: ${stageplanLayout.containerBorderPx}px solid ${pdfTokens.line};
 }
 
+/* Rám ohraničuje plochu pódia — orientaci na papíře nese on a pruh dole (R6). */
 .stageplanStage {
   position: absolute;
   border: ${stageplanLayout.containerBorderPx}px solid ${pdfTokens.line};
 }
 
+.stageplanDownstage {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 1pt 0;
+  font-family: '${pdfLayout.typography.monoFamily}', Consolas, monospace;
+  font-size: ${pdfLayout.typography.footer.size};
+  letter-spacing: 0.2em;
+  color: ${pdfTokens.steel};
+  text-align: center;
+}
+
 .stageplanBox {
   position: absolute;
   transform-origin: center;
-  border: 2px solid var(--c-line);
+  border: 1px solid ${pdfTokens.ink};
   background: #fff;
   padding: 0 ${stageplanLayout.padX} ${stageplanLayout.boxPaddingBottom};
   padding-top: ${stageplanLayout.boxTitleGap};
   font-size: ${stageplanLayout.textSize};
   line-height: ${stageplanLayout.textLineHeight};
+  overflow: hidden;
+}
+
+/* Lead vokál je jediný plný blok — handoff řádek 125. */
+.stageplanBox--lead {
+  background: ${pdfTokens.ink};
+  color: #fff;
 }
 
 .stageplanBoxHeader {
@@ -337,7 +371,7 @@ body {
 
 .stageplanBoxLine .bullet {
   display: inline-block;
-  margin-right: 6px;
+  margin-right: ${stageplanLayout.bulletSpacingPx}px;
 }
 
 .stageplanBoxLine .text {
@@ -348,7 +382,11 @@ body {
   height: calc(1em * ${stageplanLayout.textLineHeight});
 }
 
+/* Napájení je jediná barva na stránce (handoff řádek 123). */
 .stageplanPower {
+  font-weight: 600;
+  color: ${pdfTokens.signal};
+  text-align: center;
   white-space: nowrap;
 }
 
