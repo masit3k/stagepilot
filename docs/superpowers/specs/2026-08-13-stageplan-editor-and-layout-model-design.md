@@ -269,3 +269,76 @@ Baseline před implementací: dva trvale padající testy a velké množství CR
 6. Odchod z editoru s neuloženou změnou vyvolá `UnsavedChangesModal`
 7. Procesní stopa: krok `03 STAGE PLAN` je dostupný, `02 INPUTS` zůstává `unavailable`
 8. Export PDF se proti stavu před F5a nezměnil ani o pixel
+
+## Stav implementace
+
+**Hotovo** ve čtrnácti commitech `fdee3b8`…`67b3895`. Rozhodnutí R1–R17 platí beze změny;
+odchylky níže se týkají provedení, ne návrhu.
+
+### Co vzniklo
+
+| Vrstva | Soubory |
+|---|---|
+| Doména | `src/domain/stageplan/layout/` — devět modulů, devět testovacích souborů, 58 testů |
+| Model | `StageplanBlockSlot`, `StageplanStageSize`, `StageplanBlock`, `StageplanLayout` v `types.ts`; `layout?` ve všech třech tvarech `stageplan` |
+| Normalizace | `normalizeStageplanLayout` zapojená do `normalizeProject` přes `normalizeProjectStageplan` |
+| Persistence | `NewProjectPayload.stageplan` a whitelist v `toPersistableProject`, hlídané třemi testy |
+| Routa | `matchProjectStageplanPath`, klíč `project-stageplan`, krok `03` odemčený |
+| Tokeny | devět rolí `--color-stage-*` a dva stíny v obou tématech, devět nových kontrastních párů na téma |
+| Editor | `StagePlanEditorPage` a jedenáct modulů v `components/stageplan/` |
+
+Testy: 670 → 759 procházejících, +89. Trvale padající zůstaly dva (`assetsPaths`, `repoAssets`),
+tedy beze změny proti baseline. Biome: nulové porušení pravidel ve všech 82 dotčených souborech;
+absolutní počet chyb roste jen o CRLF hlášku na každý nový soubor, což je repo-wide stav daný
+`core.autocrlf=true` bez `.gitattributes`, ne vlastnost nového kódu.
+
+### Odchylky, které přinesla implementace
+
+**Dva testy v plánu měly chybně spočítané očekávané hodnoty.** Implementace je v obou případech
+správně, opravily se testy:
+
+- `rotateBlockTo` — „pulls a block back onto the area": plán otáčel blok `drums` (2,8 × 1,6 m)
+  o 90° u **levé** hrany a čekal posun. Jenže otočením o 90° se stopa v ose X **zmenší**
+  (halfXM 1,4 → 0,8 m), takže clamp s blokem nehne. Testované chování je skutečné, ale na ose Y:
+  tam stopa roste (halfYM 0,8 → 1,4 m), takže blok opřený o upstage hranu na `centerYM = 0,6 m`
+  musí popojet na 1,2 m. Test se přepsal na osu Y.
+- `rotateBlockBy({ rotationDeg: 7 }, -15)` — plán čekal `0`. Podle pravidla „nejbližší násobek 15°",
+  které plán sám implementuje, je 7 − 15 = −8 blíž k −15 (vzdálenost 7) než k 0 (vzdálenost 8),
+  takže výsledek je `345`. Žádné rozumné pořadí snapu a součtu nedá 0.
+
+**Gesta a klávesnice drží props v refu, ne v závislostech `useEffect`/`useCallback`.** Plán měl
+u `useBlockDrag` deps `[args]` u vnitřních callbacků, ale `[bindWindow]` u `startMove` a
+`startRotate`, které `args` také čtou — nekonzistence, kterou by `useExhaustiveDependencies`
+neprošlo, a window listener zaregistrovaný na `pointerdown` by si navíc zapamatoval `scale`,
+`area` a `snap` z okamžiku začátku gesta. Oba hooky proto drží `argsRef`, který se aktualizuje
+každým renderem: listener je jeden na celé sezení a čte vždy aktuální měřítko. U
+`useEditorKeyboard` to navíc znamená, že se posluchač nepřipojuje a neodpojuje po každém stisku.
+
+**`Array.prototype.at` se nepoužívá.** `useLayoutHistory` má podle plánu `.at(-1)`, ale lib target
+balíčku `packages/desktop` ho nezná (`error TS2550`). Nahrazeno `[length - 1]`; chování je stejné,
+protože se návratová hodnota stejně testuje na `undefined`.
+
+**Nástrojové čtverce toolbaru vypadly**, stejně jako popisek `ZOOM` podle R16 — tažení i rotace
+fungují přímo, takže by to byly ovladače bez funkce. Toolbar tak nese taby, přepínač snapu a pole
+rozměru pódia.
+
+### Co ověřeno není
+
+Automaticky se ověřilo všechno, co bez jsdom ověřit jde: doménová matematika testy, persistence
+testy, procesní stopa testy, kontrast testem, typová správnost přes `tsc --noEmit`
+(deset chyb, všechny ve čtyřech předem existujících testovacích souborech) a sestavitelnost přes
+`vite build`.
+
+**Ruční kontrola v `npm run dev` proběhnout nemohla** — je to okno Tauri, ne headless proces.
+Body 2 až 6 z Verifikace výše proto zůstávají **neodbavené** a je potřeba je projít ručně:
+rozestavění po otevření, uložení a znovuotevření s pozicemi na tři desetinná místa, chování při
+změně obsazení, zadání pódia 10 × 6 m, `UnsavedChangesModal` při odchodu a `Ctrl+Z` nad gesty.
+Bod 8 — že se export nezměnil — plyne z toho, že se `src/infra/pdf/` v této fázi nedotklo.
+
+### Co se předává do F5b
+
+- Chybějící `layout` znamená „rozmístění nikdo neupravoval". Tisk si výchozí rozmístění dopočítá
+  za běhu přes `buildDefaultLayout` a **neukládá** ho (R9).
+- Zóna nese rozměr odděleně od obsahu, takže „text se do zóny nevejde" je otázka kresby, ne modelu (R2).
+- `rotatedHalfExtents` je připravená i pro tisk — opsaný obdélník otočené zóny už je spočítaný.
+- Patička editoru hlásí `ROZMÍSTĚNÍ SE ZATÍM DO PDF NEPROPISUJE`. Tuhle větu F5b odstraní.

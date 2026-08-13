@@ -15,9 +15,9 @@ designový board, implementuje se **kolo 3** (`3a`–`3d` varianty značky, vybr
 | F2 | Ikonový set, toasty, prázdné stavy, skeleton, pozice jako řádky | hotovo | [2026-08-12-components-and-interaction-design.md](../superpowers/specs/2026-08-12-components-and-interaction-design.md) | `56b05cb` |
 | F3 | Custom titlebar, pilulková navigace, procesní stopa, velikost okna, téma v Settings | hotovo | [2026-08-12-shell-and-information-architecture-design.md](../superpowers/specs/2026-08-12-shell-and-information-architecture-design.md) | `17c4580`, `cebabcf` |
 | F4 | Typografie a hlavička PDF | hotovo, čeká na vizuální kontrolu | [2026-08-12-pdf-typography-and-header-design.md](../superpowers/specs/2026-08-12-pdf-typography-and-header-design.md) | `785377d`…`b8c9e40` |
-| **F5a** | **Model rozmístění + Stage Plan Editor** | **spec schválený, implementace nezačala** | [2026-08-13-stageplan-editor-and-layout-model-design.md](../superpowers/specs/2026-08-13-stageplan-editor-and-layout-model-design.md) | — |
-| F5b | PDF čte rozmístění z projektu (pozice, rotace, nová kresba bloků) | čeká na F5a | zatím není | — |
-| F5c | Obrazovka `02 INPUTS` | čeká na F5a | zatím není | — |
+| F5a | Model rozmístění + Stage Plan Editor | hotovo, čeká na ruční kontrolu editoru | [2026-08-13-stageplan-editor-and-layout-model-design.md](../superpowers/specs/2026-08-13-stageplan-editor-and-layout-model-design.md) | `fdee3b8`…`67b3895` |
+| **F5b** | **PDF čte rozmístění z projektu (pozice, rotace, nová kresba bloků)** | **připraveno k otevření** | zatím není | — |
+| F5c | Obrazovka `02 INPUTS` | připraveno k otevření | zatím není | — |
 
 ## F4 — typografie a hlavička PDF
 
@@ -46,6 +46,10 @@ Zbývá **vizuální kontrola** vytištěného dokumentu, viz sekci „Stav impl
 editor, `F5b` tisk téhož rozmístění, `F5c` obrazovka `02 INPUTS`. Jsou to nezávislé celky a v jednom
 specu by to byl trojnásobek precedentu F1–F4 bez commitovatelného mezistavu. Detaily a rozhodnutí
 R1–R17 jsou ve specu F5a; níže zůstává jen to, co platí pro celou fázi.
+
+**F5a je hotová** — model, persistence i editor stojí, sekce „Stav implementace" ve specu popisuje
+odchylky a co se předává dál. Zbývá **ruční kontrola editoru** v `npm run dev`: běží v okně Tauri,
+takže se automaticky ověřit nedala. Do F5b tisk rozmístění nečte a patička editoru to přiznává.
 
 **Co si z F4 přinést:** geometrie stage planu se nově odvozuje z tiskového zrcadla — `areaWidthMm`
 z `contentWidthMm` mínus odsazení a rámeček kontejneru, šířky bloků a mezer z `areaWidthMm`.
