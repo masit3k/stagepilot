@@ -107,6 +107,19 @@ const SURFACES = [
   "--color-surface-raised",
 ] as const;
 
+/** Editor stage planu je tmavý v obou tématech, takže roly platí pro oba. */
+const STAGE_SURFACES = [
+  "--color-stage-canvas",
+  "--color-stage-block",
+  "--color-stage-block-selected",
+] as const;
+
+const STAGE_TEXT: readonly { fg: string; what: string }[] = [
+  { fg: "--color-stage-text", what: "stage text" },
+  { fg: "--color-stage-text-mid", what: "stage mid text" },
+  { fg: "--color-stage-text-dim", what: "stage dim text" },
+];
+
 function buildPairs(): Pair[] {
   const pairs: Pair[] = [];
 
@@ -120,6 +133,17 @@ function buildPairs(): Pair[] {
         background,
         minimum: AA_NORMAL_TEXT,
         what: `${what} on ${background.replace("--color-", "")}`,
+      });
+    }
+  }
+
+  for (const { fg, what } of STAGE_TEXT) {
+    for (const background of STAGE_SURFACES) {
+      pairs.push({
+        foreground: fg,
+        background,
+        minimum: AA_NORMAL_TEXT,
+        what: `${what} on ${background.replace("--color-stage-", "stage ")}`,
       });
     }
   }

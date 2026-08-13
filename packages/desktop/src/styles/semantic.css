@@ -48,6 +48,21 @@
      in both themes, so it has no theme-dependent counterpart. */
   --color-titlebar-close-text: #ffffff;
 
+  /* Stage plan editor: tmavý v obou tématech. Plán je pracovní plocha, ne
+     dokument — na světlém papíře by mřížka i vybraný blok ztratily kontrast. */
+  --color-stage-canvas: var(--sp-canvas);
+  --color-stage-grid: var(--sp-block);
+  --color-stage-block: var(--sp-block);
+  --color-stage-block-selected: var(--sp-block-selected);
+  --color-stage-border: var(--sp-border-dark);
+  --color-stage-border-soft: var(--sp-border-dark-2);
+  --color-stage-text: var(--sp-text-dark);
+  --color-stage-text-mid: var(--sp-text-dark-mid);
+  --color-stage-text-dim: var(--sp-text-dark-dim);
+  /* Handoff: blok 0 2px 8px rgba(0,0,0,.3), vybraný 0 10px 28px rgba(255,91,31,.22). */
+  --elevation-block: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --elevation-block-selected: 0 10px 28px rgba(255, 91, 31, 0.22);
+
   /* ---- Brand accent ------------------------------------------------------ */
   /* Identical in both themes: the brand rules forbid recolouring the accent. */
   --color-brand-accent: var(--sp-signal);
@@ -140,6 +155,20 @@
   --color-titlebar-control-hover: var(--sp-titlebar-hover);
   --color-titlebar-close-hover: var(--sp-close-hover);
   --color-titlebar-close-text: #ffffff;
+
+  /* Stage plan editor: stejné hodnoty jako ve světlém tématu, plocha se
+     nepřepíná. Viz komentář v :root. */
+  --color-stage-canvas: var(--sp-canvas);
+  --color-stage-grid: var(--sp-block);
+  --color-stage-block: var(--sp-block);
+  --color-stage-block-selected: var(--sp-block-selected);
+  --color-stage-border: var(--sp-border-dark);
+  --color-stage-border-soft: var(--sp-border-dark-2);
+  --color-stage-text: var(--sp-text-dark);
+  --color-stage-text-mid: var(--sp-text-dark-mid);
+  --color-stage-text-dim: var(--sp-text-dark-dim);
+  --elevation-block: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --elevation-block-selected: 0 10px 28px rgba(255, 91, 31, 0.22);
 
   /* ---- Brand accent ------------------------------------------------------ */
   --color-brand-accent: var(--sp-signal);
