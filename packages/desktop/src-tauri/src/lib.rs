@@ -1456,6 +1456,66 @@ fn build_project_pdf_preview(
 }
 
 #[tauri::command]
+fn build_stageplan_print_metrics(
+    app: tauri::AppHandle,
+    project_id: String,
+) -> Result<Value, ApiError> {
+    let user_data_dir = stagepilot_user_data_dir(&app).map_err(|err| {
+        map_storage_error(
+            err,
+            "STAGEPLAN_METRICS_FAILED",
+            "Failed to resolve user storage root",
+        )
+    })?;
+    let workspace_root = resolve_workspace_root();
+    let script_path = workspace_root
+        .join("scripts")
+        .join("stageplan_print_metrics.ts");
+
+    let output = Command::new("node")
+        .arg("--import")
+        .arg("tsx")
+        .arg(script_path.as_os_str())
+        .arg("--project-id")
+        .arg(&project_id)
+        .arg("--user-data-dir")
+        .arg(user_data_dir.as_os_str())
+        .current_dir(&workspace_root)
+        .output()
+        .map_err(|err| {
+            map_io_error(
+                err,
+                "STAGEPLAN_METRICS_FAILED",
+                "Failed to execute stageplan metrics",
+            )
+        })?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let response = parse_node_export_response(&stdout, &stderr).map_err(|err| ApiError {
+        code: "STAGEPLAN_METRICS_FAILED".into(),
+        message: err.message,
+        export_pdf_path: None,
+        version_pdf_path: None,
+    })?;
+
+    if response.ok {
+        if let Some(result) = response.result {
+            return Ok(result);
+        }
+    }
+
+    Err(ApiError {
+        code: "STAGEPLAN_METRICS_FAILED".into(),
+        message: response
+            .message
+            .unwrap_or_else(|| "Stageplan metrics command failed.".into()),
+        export_pdf_path: None,
+        version_pdf_path: None,
+    })
+}
+
+#[tauri::command]
 fn read_preview_pdf_bytes(preview_pdf_path: String) -> Result<Vec<u8>, ApiError> {
     eprintln!("[preview] read attempt path={}", preview_pdf_path);
     eprintln!(
@@ -1925,6 +1985,7 @@ pub fn run() {
             delete_project_permanently,
             export_pdf,
             build_project_pdf_preview,
+            build_stageplan_print_metrics,
             read_preview_pdf_bytes,
             cleanup_preview_pdf,
             get_exports_dir,
