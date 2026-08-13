@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import puppeteer from "puppeteer";
@@ -189,6 +190,31 @@ export async function launchPdfBrowser(): Promise<Browser> {
     return launchWithFallback(launchStrategies);
 }
 
+/**
+ * Přesune ověřený render z dočasné cesty na finální outFile. Puppeteer píše
+ * do tempOutFile, ne přímo do outFile — když se stránky nesedí, na místě,
+ * kde volající čeká hotový dokument, nesmí zůstat nic. Selhání úklidu se
+ * jen zaloguje; nikdy nenahradí ani nezahodí původní chybu o počtu stran.
+ */
+export async function finalizeRenderedPdf(tempOutFile: string, outFile: string): Promise<void> {
+    const rendered = await fs.readFile(tempOutFile);
+    const pageCount = countPdfPages(rendered);
+    if (pageCount !== EXPECTED_PAGE_COUNT) {
+        try {
+            await fs.unlink(tempOutFile);
+        } catch (cleanupError) {
+            console.error("[pdf] failed to remove invalid page-count artifact", {
+                tempOutFile,
+                error: describeError(cleanupError),
+            });
+        }
+        throw new Error(
+            `PDF page count mismatch: expected ${EXPECTED_PAGE_COUNT}, got ${pageCount}. Content overflowed the A4 page.`,
+        );
+    }
+    await fs.rename(tempOutFile, outFile);
+}
+
 export interface RenderPdfOptions {
     outFile: string;         // absolutní nebo relativní
     contactLine?: string;    // volitelné (doplníš z usecase)
@@ -260,20 +286,19 @@ export async function renderPdf(vm: DocumentViewModel, opts: RenderPdfOptions): 
             );
         }
 
+        // Render se nejdřív zapíše mimo outFile — teprve finalizeRenderedPdf ho
+        // tam přesune, a jen když počet stran sedí. Volající tak nikdy nenajde
+        // na outFile nedokončený nebo přetečený dokument.
+        const tempOutFile = path.join(path.dirname(opts.outFile), `${baseName}.tmp-${randomUUID()}`);
+
         await page.pdf({
-            path: opts.outFile,
+            path: tempOutFile,
             format: "A4",
             printBackground: true,
             preferCSSPageSize: true,
         });
 
-        const rendered = await fs.readFile(opts.outFile);
-        const pageCount = countPdfPages(rendered);
-        if (pageCount !== EXPECTED_PAGE_COUNT) {
-            throw new Error(
-                `PDF page count mismatch: expected ${EXPECTED_PAGE_COUNT}, got ${pageCount}. Content overflowed the A4 page.`,
-            );
-        }
+        await finalizeRenderedPdf(tempOutFile, opts.outFile);
     } finally {
         await browser.close();
     }
