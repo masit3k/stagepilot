@@ -16,6 +16,7 @@ import {
 import { isStageplanLayoutDirty } from "../../../../../src/domain/stageplan/layout/dirty";
 import { mergeWithLineup } from "../../../../../src/domain/stageplan/layout/mergeWithLineup";
 import { rescaleForStage } from "../../../../../src/domain/stageplan/layout/rescaleForStage";
+import type { StageplanPrintGeometry } from "../../../../../src/domain/stageplan/print/printMetrics";
 import { useToast } from "../../components/ui/toast/useToast";
 import { BlockInspector } from "../components/stageplan/BlockInspector";
 import { EditorFooter } from "../components/stageplan/EditorFooter";
@@ -29,6 +30,7 @@ import {
   readProject,
   saveProjectPayload,
 } from "../services/projectsApi";
+import { fetchStageplanPrintGeometry } from "../services/stageplanMetrics";
 import type { NewProjectPayload } from "../shell/types";
 import type { ProjectRouteProps } from "./shared/pageTypes";
 
@@ -50,6 +52,8 @@ export function StagePlanEditorPage({
   const [snap, setSnap] = useState(true);
   const history = useLayoutHistory();
   const [isSaving, setIsSaving] = useState(false);
+  const [printGeometry, setPrintGeometry] =
+    useState<StageplanPrintGeometry | null>(null);
   const { notify } = useToast();
   /** Stav, proti kterému se poznává dirty — po každém uložení se posune. */
   const initialLayoutRef = useRef<StageplanLayout | undefined>(undefined);
@@ -89,6 +93,21 @@ export function StagePlanEditorPage({
       cancelled = true;
     };
   }, [id, history.reset]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchStageplanPrintGeometry(id)
+      .then((geometry) => {
+        if (!cancelled) setPrintGeometry(geometry);
+      })
+      .catch((error) => {
+        // Bez metrik se stopa nenakreslí; editace tím netrpí.
+        console.error("[stageplan] print metrics unavailable", error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   const saveLayout = useCallback(
     async (layout: StageplanLayout, project: NewProjectPayload) => {
@@ -257,6 +276,7 @@ export function StagePlanEditorPage({
             blocks={state.layout.blocks}
             selectedSlot={selectedSlot}
             snap={snap}
+            printGeometry={printGeometry}
             onSelect={setSelectedSlot}
             onChangeBlock={updateBlock}
             onGestureStart={() =>

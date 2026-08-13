@@ -7,6 +7,7 @@ type StageBlockProps = {
   block: StageplanBlock;
   scale: StageScale;
   isSelected: boolean;
+  printFootprint: { widthM: number; depthM: number } | null;
   onSelect: (slot: StageplanBlock["slot"]) => void;
   onStartMove: (event: ReactPointerEvent, block: StageplanBlock) => void;
   onStartRotate: (event: ReactPointerEvent, block: StageplanBlock) => void;
@@ -20,6 +21,7 @@ export function StageBlock({
   block,
   scale,
   isSelected,
+  printFootprint,
   onSelect,
   onStartMove,
   onStartRotate,
@@ -41,6 +43,17 @@ export function StageBlock({
         onStartMove(event, block);
       }}
     >
+      {printFootprint ? (
+        <div
+          className="stage-block__print-footprint"
+          style={
+            {
+              "--footprint-w": `${scale.toPx(printFootprint.widthM)}px`,
+              "--footprint-h": `${scale.toPx(printFootprint.depthM)}px`,
+            } as CSSProperties
+          }
+        />
+      ) : null}
       <div className="stage-block__label">{LABEL_BY_SLOT[block.slot]}</div>
       <div className="stage-block__rotation">{block.rotationDeg}°</div>
       {isSelected ? (

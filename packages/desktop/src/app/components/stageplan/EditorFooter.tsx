@@ -5,8 +5,8 @@ type EditorFooterProps = {
 };
 
 /**
- * Handoff tu má větu „Změny se propíší do PDF exportu". Do F5b by to byla
- * nepravda — tisk zatím rozmístění nečte.
+ * Tisk rozmístění čte od F5b, takže věta z handoffu je pravdivá — obrys tiskové
+ * stopy v canvasu ukazuje, kolik místa blok na papíře zabere.
  */
 export function EditorFooter({
   onBack,
@@ -19,7 +19,7 @@ export function EditorFooter({
         Zpět na Lineup
       </button>
       <span className="stage-footer__note">
-        ROZMÍSTĚNÍ SE ZATÍM DO PDF NEPROPISUJE
+        Změny se propíší do PDF exportu
       </span>
       <button
         type="button"
