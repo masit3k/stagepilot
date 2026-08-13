@@ -87,11 +87,13 @@ k němu. Mapa pozic je jediná varianta, která nemění ani obsah, ani čitelno
 mmPerM = min(areaWidthMm / stage.widthM, areaHeightMm / stage.depthM)
 
 areaWidthMm  = 162,5375  zrcadlo mínus padding a rámeček kontejneru (odvozené už v F4)
-areaHeightMm = 206,572   zrcadlo mínus hlavička, patička, margin a padding kontejneru
+areaHeightMm = 202,091   totéž ve výšce, mínus hlavička, patička, margin kontejneru a řádek
+                         popisku rozměru pódia — ten se rezervuje vždy, aby měřítko nezáviselo
+                         na tom, jestli je rozměr zadaný (R6)
 ```
 
 Při nominálních 12 × 8 m vychází 13,545 mm/m a váže šířka; výšková vazba se zapojí až u pódia hlubšího než
-1,271 × jeho šířka. Plán se v ploše centruje. Nezadaný rozměr znamená nominální 12 × 8 m, stejně jako v
+1,243 × jeho šířka. Plán se v ploše centruje. Nezadaný rozměr znamená nominální 12 × 8 m, stejně jako v
 editoru (R5 ve specu F5a), a nad rámem se pak nic netvrdí.
 
 Obě čísla se **počítají z `pdfLayout`**, neopisují se. Dokud byla `areaWidthMm` napsaná natvrdo, byl kontejner
@@ -207,8 +209,12 @@ vzoru `desktop_preview.ts`, jen bez Chromia:
 ```
 StagePlanEditorPage ─► stageplanMetrics.ts ─► Tauri build_stageplan_print_metrics
                                                └─► node scripts/stageplan_print_metrics.ts
-                                                     └─► [{ slot, lineCount, hasPower }]
+                                                     └─► { area, typography,
+                                                           blocks: [{ slot, lineCount, hasPower }] }
 ```
+
+Tisková plocha a typografie jdou v odpovědi s sebou, aby okno nemuselo importovat konstanty z infra vrstvy —
+hranice z CLAUDE.md tak drží a jediným zdrojem těch čísel zůstává `src/infra/pdf/`.
 
 Vrací se **počty řádků, ne milimetry**: box v mm si editor spočítá stejnou doménovou funkcí jako tisk, takže
 změna rozměru pódia v toolbaru překreslí stopu správně bez dalšího volání. Když příkaz selže (chybí node,
