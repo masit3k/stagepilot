@@ -147,3 +147,24 @@
   font: var(--sp-mono-xs);
   color: var(--color-stage-text-dim);
 }
+
+.stage-block:active {
+  cursor: grabbing;
+}
+
+.stage-block__rotate {
+  position: absolute;
+  left: 50%;
+  top: -34px;
+  margin-left: -11px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--sp-ink);
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  font-size: 12px;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none;
+}

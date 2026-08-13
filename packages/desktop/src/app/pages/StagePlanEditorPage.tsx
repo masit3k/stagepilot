@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type {
+  StageplanBlock,
   StageplanBlockSlot,
   StageplanLayout,
 } from "../../../../../src/domain/model/types";
@@ -55,6 +56,21 @@ export function StagePlanEditorPage({ id, navigate }: ProjectRouteProps) {
     };
   }, [id]);
 
+  function updateBlock(slot: StageplanBlockSlot, next: StageplanBlock) {
+    setState((current) => {
+      if (current.kind !== "ready") return current;
+      return {
+        ...current,
+        layout: {
+          stage: current.layout.stage,
+          blocks: current.layout.blocks.map((block) =>
+            block.slot === slot ? next : block,
+          ),
+        },
+      };
+    });
+  }
+
   if (state.kind === "loading")
     return <div className="stage-editor__status">Načítám…</div>;
   if (state.kind === "error")
@@ -85,7 +101,11 @@ export function StagePlanEditorPage({ id, navigate }: ProjectRouteProps) {
           area={area}
           blocks={state.layout.blocks}
           selectedSlot={selectedSlot}
+          snap={true}
           onSelect={setSelectedSlot}
+          onChangeBlock={updateBlock}
+          onGestureStart={() => undefined}
+          onGestureEnd={() => undefined}
         />
       )}
     </div>

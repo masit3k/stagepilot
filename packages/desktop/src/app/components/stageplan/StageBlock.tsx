@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import type { StageplanBlock } from "../../../../../../src/domain/model/types";
 import type { StageScale } from "../../../../../../src/domain/stageplan/layout/scale";
 import { LABEL_BY_SLOT } from "./blockContent";
@@ -8,6 +8,8 @@ type StageBlockProps = {
   scale: StageScale;
   isSelected: boolean;
   onSelect: (slot: StageplanBlock["slot"]) => void;
+  onStartMove: (event: ReactPointerEvent, block: StageplanBlock) => void;
+  onStartRotate: (event: ReactPointerEvent, block: StageplanBlock) => void;
 };
 
 /**
@@ -19,6 +21,8 @@ export function StageBlock({
   scale,
   isSelected,
   onSelect,
+  onStartMove,
+  onStartRotate,
 }: StageBlockProps) {
   const geometry = {
     "--block-w": `${scale.toPx(block.widthM)}px`,
@@ -32,10 +36,23 @@ export function StageBlock({
     <div
       className={`stage-block${isSelected ? " stage-block--selected" : ""}`}
       style={geometry}
-      onPointerDown={() => onSelect(block.slot)}
+      onPointerDown={(event) => {
+        onSelect(block.slot);
+        onStartMove(event, block);
+      }}
     >
       <div className="stage-block__label">{LABEL_BY_SLOT[block.slot]}</div>
       <div className="stage-block__rotation">{block.rotationDeg}°</div>
+      {isSelected ? (
+        <button
+          type="button"
+          className="stage-block__rotate"
+          aria-label="Otočit blok"
+          onPointerDown={(event) => onStartRotate(event, block)}
+        >
+          ↻
+        </button>
+      ) : null}
     </div>
   );
 }
