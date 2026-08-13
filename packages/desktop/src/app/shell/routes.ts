@@ -11,6 +11,10 @@ export const SHELL_ROUTES: ShellRouteDef[] = [
   { key: "project-event", test: (pathname) => Boolean(matchProjectEventPath(pathname)) },
   { key: "project-generic", test: (pathname) => Boolean(matchProjectGenericPath(pathname)) },
   { key: "project-setup", test: (pathname) => Boolean(matchProjectSetupPath(pathname)) },
+  {
+    key: "project-stageplan",
+    test: (pathname) => Boolean(matchProjectStageplanPath(pathname)),
+  },
   { key: "project-preview", test: (pathname) => Boolean(matchProjectPreviewPath(pathname)) },
   { key: "library", test: (pathname) => pathname === "/library" },
   { key: "library-bands", test: (pathname) => pathname === "/library/bands" },
@@ -24,6 +28,10 @@ export const SHELL_ROUTES: ShellRouteDef[] = [
 
 export function matchProjectSetupPath(pathname: string): string | null {
   return pathname.match(/^\/projects\/([^/]+)\/setup$/)?.[1] ?? null;
+}
+
+export function matchProjectStageplanPath(pathname: string): string | null {
+  return pathname.match(/^\/projects\/([^/]+)\/stageplan$/)?.[1] ?? null;
 }
 
 export function matchProjectPreviewPath(pathname: string): string | null {

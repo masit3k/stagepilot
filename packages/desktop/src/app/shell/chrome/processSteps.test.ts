@@ -60,15 +60,42 @@ describe("buildProcessSteps", () => {
     expect(trail?.find((step) => step.id === "lineup")?.path).toBeNull();
   });
 
-  it("leaves the steps without a screen unavailable and unlinked", () => {
-    for (const pathname of ["/projects/p1/setup", "/projects/p1/preview"]) {
+  it("leaves the inputs step unavailable and unlinked — the screen is still missing", () => {
+    for (const pathname of [
+      "/projects/p1/setup",
+      "/projects/p1/preview",
+      "/projects/p1/stageplan",
+    ]) {
       const trail = buildProcessSteps(pathname);
-      for (const id of ["inputs", "stageplan"] as const) {
-        const step = trail?.find((s) => s.id === id);
-        expect(step?.state, `${id} on ${pathname}`).toBe("unavailable");
-        expect(step?.path, `${id} on ${pathname}`).toBeNull();
-      }
+      const step = trail?.find((s) => s.id === "inputs");
+      expect(step?.state, `inputs on ${pathname}`).toBe("unavailable");
+      expect(step?.path, `inputs on ${pathname}`).toBeNull();
     }
+  });
+
+  it("marks the stage plan as the current step on its own route", () => {
+    const trail = buildProcessSteps("/projects/p1/stageplan");
+    const step = trail?.find((s) => s.id === "stageplan");
+    expect(step?.state).toBe("current");
+    expect(step?.path).toBeNull();
+  });
+
+  it("offers the stage plan as a link from the other project screens", () => {
+    for (const pathname of ["/projects/p1/setup", "/projects/p1/preview"]) {
+      const step = buildProcessSteps(pathname)?.find((s) => s.id === "stageplan");
+      expect(step?.state, pathname).toBe("available");
+      expect(step?.path, pathname).toBe("/projects/p1/stageplan");
+    }
+  });
+
+  it("still offers lineup and export while on the stage plan", () => {
+    const trail = buildProcessSteps("/projects/p1/stageplan");
+    expect(trail?.find((s) => s.id === "lineup")?.path).toBe(
+      "/projects/p1/setup",
+    );
+    expect(trail?.find((s) => s.id === "export")?.path).toBe(
+      "/projects/p1/preview",
+    );
   });
 
   it("keeps the project id out of the step paths of another project", () => {
