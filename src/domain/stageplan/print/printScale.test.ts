@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { StageplanBlock } from "../../model/types.js";
+import { rectAabbMm } from "./printCollisions.js";
 import { createPrintScale, resolvePrintScale } from "./printScale.js";
 
 /** Skutečná tisková plocha strany 2 — stejná čísla, s jakými počítá renderer. */
@@ -73,11 +74,24 @@ describe("resolvePrintScale", () => {
       minBoxWidthMm: MIN_BOX_WIDTH_MM,
     });
 
-    // Střed 1,1 m mínus půlka minimální šířky boxu musí zůstat nad −(rezerva).
-    const leftEdgeMm = 1.1 * scale.mmPerM - MIN_BOX_WIDTH_MM / 2;
-    const rightEdgeMm = scale.planWidthMm - leftEdgeMm;
-    expect(rightEdgeMm - leftEdgeMm).toBeLessThanOrEqual(AREA.widthMm);
-    expect(leftEdgeMm).toBeGreaterThan(-(AREA.widthMm - scale.planWidthMm) / 2);
+    // Stejný union bbox, jaký sází kontejner v rendereru (R11): rám pódia
+    // 0..planWidthMm plus opsaný obdélník boxu. Zóna 2,6 m je pod podlahou,
+    // takže box na téhle šířce sedí přesně na MIN_BOX_WIDTH_MM.
+    const box = rectAabbMm({
+      slot: "lead_voc_1",
+      centerXMm: 1.1 * scale.mmPerM,
+      centerYMm: 0,
+      widthMm: MIN_BOX_WIDTH_MM,
+      heightMm: 1,
+      rotationDeg: 0,
+    });
+    const containerWidthMm =
+      Math.max(scale.planWidthMm, box.maxXMm) - Math.min(0, box.minXMm);
+
+    // Reálná rezerva, ne poslední platná číslice: přesah je jednostranný
+    // (jen doleva), takže kontejneru zůstává ~4 mm místa navíc, ne 0.
+    expect(containerWidthMm).toBeLessThan(AREA.widthMm);
+    expect(AREA.widthMm - containerWidthMm).toBeGreaterThan(1);
   });
 
   it("does not reserve growth room when every zone is already wide enough", () => {

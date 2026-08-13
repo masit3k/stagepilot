@@ -75,8 +75,12 @@ zůstává invariantní, takže rotace kolem středu platí dál (R3 ve specu F5
 
 | Blok | Zóna | Tištěný box při 8 pt |
 |---|---|---|
-| bicí, 8 odrážek + napájení | 2,8 × 1,6 m | 2,80 × **2,97 m** (36,26 × 40,22 mm) |
-| lead vokál, 3 odrážky | 2,6 × 1,2 m | **2,68** × **1,41 m** (36,26 × 19,05 mm) |
+| bicí, 8 odrážek + napájení | 2,8 × 1,6 m | **2,81** × **3,12 m** (36,26 × 40,22 mm) |
+| lead vokál, 3 odrážky | 2,6 × 1,2 m | **2,81** × **1,48 m** (36,26 × 19,05 mm) |
+
+Metrový sloupec je box přepočítaný zpátky do metrů pódia **při daném měřítku** — hýbe se s ním,
+zatímco milimetrová výška je daná jen textem a s měřítkem se nemění; obě čísla v tabulce platí pro
+nominální pódium s lead vokálem v rozmístění (12,8855 mm/m), kde na minimum klesá šířka obou boxů.
 
 Zmenšené písmo padá na čitelnosti, legenda vedle plánu by přesunula obsah, který dnes stojí v bloku a patří
 k němu. Mapa pozic je jediná varianta, která nemění ani obsah, ani čitelnost.
@@ -103,8 +107,10 @@ rezervuje jen tolerance a měřítko je 13,1079 mm/m — konkrétní hodnota ted
 zónu rozmístění obsahuje.
 
 Váže šířka; výšková vazba se zapojí až u pódia, jehož hloubka i s tolerancí přesáhne 1,243násobek
-jeho šířky s tolerancí. Plán se v ploše centruje. Nezadaný rozměr znamená nominální 12 × 8 m, stejně
-jako v editoru (R5 ve specu F5a), a nad rámem se pak nic netvrdí.
+jeho šířky s tolerancí — **ale jen tehdy, když žádná zóna nezapojí větev, která šířku dorůstá na
+minimum.** Jakmile ji zapojí, šířkové měřítko klesne pod tuto tolerance-only hodnotu a výšková vazba
+se zapne dřív, při nižším poměru hloubky k šířce. Plán se v ploše centruje. Nezadaný rozměr znamená
+nominální 12 × 8 m, stejně jako v editoru (R5 ve specu F5a), a nad rámem se pak nic netvrdí.
 
 Obě čísla se **počítají z `pdfLayout`**, neopisují se. Dokud byla `areaWidthMm` napsaná natvrdo, byl kontejner
 širší než stránka a Chromium tisklo celý dokument zmenšený na 91,25 % (nález F4).
@@ -120,8 +126,10 @@ Pevné řady zmizí, takže dnešní dvojice „horní řada 9 pt, dolní 8 pt" 
 Minimální šířka boxu je **36,259 mm** — šířka dnešního čtyřsloupcového boxu, spočítaná ze stejného vzorce
 (`(areaWidthMm − 2 × sideInsetXmm − 3 × gutterXmm) / 4`, tedy odsazení 2 mm po stranách a tři mezery po
 4,5 mm z dnešní definice `layout_6_2_vocs`). Není to odhad, je to geometrie, o které z dnešního exportu víme,
-že se do ní odrážky při 8 pt vejdou. Na nominálním pódiu z ní vyroste jen lead vokál (2,60 → 2,68 m), na
-širokém pódiu drží boxy čitelné.
+že se do ní odrážky při 8 pt vejdou. Na nominálním pódiu s rezervou na přesah (R2) je měřítko tak malé, že
+pod ni spadají všechny zóny z tabulky (2,6 až 2,8 m) — sedí tedy na 36,26 mm úplně všechny boxy, ne jen
+lead vokál. Minimum přestává svazovat až na menším pódiu, kde je měřítko větší a zóna v milimetrech roste
+rychleji než tahle podlaha.
 
 ### R4 — Osy, rotace a to, že se otáčí i text
 
