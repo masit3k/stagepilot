@@ -4,6 +4,7 @@ import {
   type StageplanPrintSlot,
   buildPdfStageplanPrintModel,
 } from "../../../domain/pipeline/pdf/buildPdfStageplanPrintModel.js";
+import { countStageplanBoxLines } from "../../../domain/pipeline/pdf/countStageplanBoxLines.js";
 import { parsePt, pdfChromeHeights, pdfLayout } from "../layout.js";
 import {
   type StageplanRenderOptions,
@@ -313,22 +314,12 @@ function buildStageplanBoxes(
     };
   });
 
-  const countRenderedLines = (box: StageplanBoxContent): number => {
-    const inputLines = box.inputBullets.length;
-    const monitorLines = box.monitorBullets.length;
-    const extraLines = box.extraBullets.length;
-    let lines = inputLines + monitorLines + extraLines;
-    if (monitorLines > 0 && inputLines > 0) lines += 1;
-    if (extraLines > 0 && (monitorLines > 0 || inputLines > 0)) lines += 1;
-    return lines;
-  };
-
   const calculateRequiredHeightPt = (box: StageplanBoxContent): number => {
     const hasBody =
       box.inputBullets.length > 0 ||
       box.monitorBullets.length > 0 ||
       box.extraBullets.length > 0;
-    const lines = countRenderedLines(box);
+    const lines = countStageplanBoxLines(box);
     const lineHeightPt = box.typography.fontSizePt * box.typography.lineHeight;
     const baseHeight =
       box.typography.titleGapPt +
