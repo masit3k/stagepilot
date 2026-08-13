@@ -16,20 +16,14 @@ export type PrintScale = {
 };
 
 /**
+ * Sestaví `PrintScale` z rozměru pódia a `mmPerM` — jediné místo, které to dělá,
+ * aby konstrukce nemohla rozejít mezi voláními.
+ *
  * Měřítko je jedno pro obě osy. V neizotropním by se otočená zóna kreslila jako
  * zkosený rovnoběžník a vytištěný údaj o rotaci by lhal — a rotace je přesně to,
  * co F5b tiskne.
  */
-export function createPrintScale(
-  stage: StageplanStageSize | null,
-  area: PrintArea,
-): PrintScale {
-  const plan = stage ?? NOMINAL_STAGE;
-  const mmPerM = Math.min(
-    area.widthMm / plan.widthM,
-    area.heightMm / plan.depthM,
-  );
-
+function buildPrintScale(plan: StageplanStageSize, mmPerM: number): PrintScale {
   return {
     mmPerM,
     planWidthMm: plan.widthM * mmPerM,
@@ -79,11 +73,5 @@ export function resolvePrintScale(args: {
 
   const mmPerM = Math.min(widthMmPerM, area.heightMm / inflatedDepthM);
 
-  return {
-    mmPerM,
-    planWidthMm: plan.widthM * mmPerM,
-    planHeightMm: plan.depthM * mmPerM,
-    toMm: (meters) => meters * mmPerM,
-    toM: (millimeters) => millimeters / mmPerM,
-  };
+  return buildPrintScale(plan, mmPerM);
 }

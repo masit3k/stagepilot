@@ -1,43 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { StageplanBlock } from "../../model/types.js";
+import { NOMINAL_STAGE } from "../layout/defaultLayout.js";
 import { rectAabbMm } from "./printCollisions.js";
-import { createPrintScale, resolvePrintScale } from "./printScale.js";
+import { resolvePrintScale } from "./printScale.js";
 
 /** Skutečná tisková plocha strany 2 — stejná čísla, s jakými počítá renderer. */
 const AREA = { widthMm: 162.5375, heightMm: 202.0914 };
 const MIN_BOX_WIDTH_MM = 36.2594;
-
-describe("createPrintScale", () => {
-  it("uses the nominal stage when the size is not entered", () => {
-    const scale = createPrintScale(null, AREA);
-
-    expect(scale.mmPerM).toBeCloseTo(13.5448, 3);
-    expect(scale.planWidthMm).toBeCloseTo(162.5375, 3);
-    expect(scale.planHeightMm).toBeCloseTo(108.3583, 3);
-  });
-
-  it("binds on width for a stage wider than deep", () => {
-    const scale = createPrintScale({ widthM: 10, depthM: 6 }, AREA);
-
-    expect(scale.mmPerM).toBeCloseTo(16.2538, 3);
-    expect(scale.planWidthMm).toBeCloseTo(162.5375, 3);
-    expect(scale.planHeightMm).toBeCloseTo(97.5225, 3);
-  });
-
-  it("binds on height for a stage deeper than 1,243 times its width", () => {
-    const scale = createPrintScale({ widthM: 8, depthM: 14 }, AREA);
-
-    expect(scale.mmPerM).toBeCloseTo(14.4351, 3);
-    expect(scale.planHeightMm).toBeCloseTo(202.0914, 3);
-    expect(scale.planWidthMm).toBeCloseTo(115.4808, 3);
-  });
-
-  it("round-trips metres through millimetres", () => {
-    const scale = createPrintScale({ widthM: 11, depthM: 7 }, AREA);
-
-    expect(scale.toM(scale.toMm(3.75))).toBeCloseTo(3.75, 6);
-  });
-});
 
 function block(overrides: Partial<StageplanBlock> = {}): StageplanBlock {
   return {
@@ -138,6 +107,22 @@ describe("resolvePrintScale", () => {
       minBoxWidthMm: MIN_BOX_WIDTH_MM,
     });
 
-    expect(reserved.mmPerM).toBeLessThan(createPrintScale(null, AREA).mmPerM);
+    // Nereservovaný nominál: min(162,5375 / 12, 202,0914 / 8) = 13,5448 mm/m.
+    const unreservedMmPerM = Math.min(
+      AREA.widthMm / NOMINAL_STAGE.widthM,
+      AREA.heightMm / NOMINAL_STAGE.depthM,
+    );
+    expect(reserved.mmPerM).toBeLessThan(unreservedMmPerM);
+  });
+
+  it("round-trips metres through millimetres", () => {
+    const scale = resolvePrintScale({
+      stage: { widthM: 11, depthM: 7 },
+      blocks: [],
+      area: AREA,
+      minBoxWidthMm: MIN_BOX_WIDTH_MM,
+    });
+
+    expect(scale.toM(scale.toMm(3.75))).toBeCloseTo(3.75, 6);
   });
 });
