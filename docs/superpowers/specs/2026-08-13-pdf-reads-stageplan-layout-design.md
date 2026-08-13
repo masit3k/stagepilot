@@ -342,6 +342,15 @@ Baseline před implementací: dva trvale padající testy (`assetsPaths`, `repoA
 6. Bloky namáčknuté na sebe: export selže a hláška pojmenuje bloky; v editoru byly obrysy stop přeložené už dřív
 7. Lineup bez klávesáka: box `Keys` se netiskne (R7)
 8. Vizuální kontrola vytištěného PDF — ruční, stejně jako u F4
+9. **Pódium 8 × 5 m**: na malém pódiu vyjde `resolvePrintScale` **jinou větví** než na nominálním —
+   při 8 m šířky je rezerva na minimální šířku boxu neaktivní (nejužší zóna 2,6 m se do 36,26 mm
+   vejde s přehledem), takže měřítko je `areaWidthMm / (8 + 2·tolerance)`. Zkontrolovat, že se plán
+   nafoukne do celého zrcadla, popisek `PÓDIUM 8,0 × 5,0 m` sedí a nic nepřeteče. Bod vznikl až
+   v závěrečném review, kdy `resolvePrintScale` dostala rezervu na přesah.
+10. **Odrážka delší než šířka boxu**: R13 nechává zalamování nevyřešené a `overflow: hidden` se
+    v opravě po Findingu 3 vědomě nepřidalo. Vytisknout box s odrážkou, která se do 36,26 mm nevejde,
+    a potvrdit, že text **vyčuhuje a je vidět**, ne že se potichu odstřihne poslední řádek. Tohle je
+    ta kontrola, která má rozhodnout, jestli R13 smí zůstat mezerou i dál.
 
 ## Stav implementace
 
@@ -444,8 +453,14 @@ zůstávají **neodbavené**:
 5. pódium 10 × 6 m — popisek nad rámem, zachování proporcí
 6. bloky namáčknuté na sebe — export selže s hláškou, která bloky pojmenuje
 7. lineup bez klávesáka — box `Keys` se nevytiskne
+9. pódium 8 × 5 m — druhá větev `resolvePrintScale`, plán vyplní zrcadlo, nic nepřeteče
+10. odrážka delší než šířka boxu — text vyčuhuje a je vidět, nic se neodstřihne
 
 Bod 8 — vizuální kontrola vytištěného PDF — je také ruční a neproběhl.
+
+Body **9 a 10 nikdo neviděl ani jako záměr**: vznikly až v závěrečném review F5b, tedy po sepsání
+sekce Verifikace, a do seznamu se dostaly zpětně. Bod 10 je zároveň jediná kontrola, která může
+rozhodnout, jestli vědomá mezera R13 smí přežít do dalších fází.
 
 K tomu Task 10 sám hlásí tři věci u editoru, které nešlo ověřit jinak než čtením kódu: že se obrys
 stopy skutečně vykresluje na správném místě a rotuje s blokem při tažení, že skutečná odpověď
