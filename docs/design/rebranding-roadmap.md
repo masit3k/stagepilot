@@ -14,8 +14,8 @@ designový board, implementuje se **kolo 3** (`3a`–`3d` varianty značky, vybr
 | F0 + F1 | Identita, ikona aplikace, dvouvrstvá tokenová architektura, tmavé téma | hotovo | [2026-08-12-brand-identity-and-token-foundation-design.md](../superpowers/specs/2026-08-12-brand-identity-and-token-foundation-design.md) | `56b05cb` |
 | F2 | Ikonový set, toasty, prázdné stavy, skeleton, pozice jako řádky | hotovo | [2026-08-12-components-and-interaction-design.md](../superpowers/specs/2026-08-12-components-and-interaction-design.md) | `56b05cb` |
 | F3 | Custom titlebar, pilulková navigace, procesní stopa, velikost okna, téma v Settings | hotovo | [2026-08-12-shell-and-information-architecture-design.md](../superpowers/specs/2026-08-12-shell-and-information-architecture-design.md) | `17c4580`, `cebabcf` |
-| **F4** | **Typografie a hlavička PDF** | **spec schválen, čeká na implementaci** | [2026-08-12-pdf-typography-and-header-design.md](../superpowers/specs/2026-08-12-pdf-typography-and-header-design.md) | — |
-| F5 | Stage Plan Editor (drag & rotate) | neotevřeno | zatím není | — |
+| F4 | Typografie a hlavička PDF | hotovo, čeká na vizuální kontrolu | [2026-08-12-pdf-typography-and-header-design.md](../superpowers/specs/2026-08-12-pdf-typography-and-header-design.md) | `785377d`…`b8c9e40` |
+| **F5** | **Stage Plan Editor (drag & rotate)** | **další v řadě** | zatím není | — |
 
 ## F4 — typografie a hlavička PDF
 
@@ -29,15 +29,22 @@ ztrácí rámečky. Detaily a všech jedenáct rozhodnutí jsou ve specu.
 Bloky stage planu si vzhled nechají a řeší se až v F5 — editor je stejně přepisuje kvůli
 rotaci a pozicím.
 
-**Riziko, které fázi definuje, je jinde, než roadmapa původně tvrdila.** Pojistka proti
-přetečení A4 v `src/infra/pdf/pdf.ts` nefunguje: porovnává `#content.bottom` proti
-`#page.bottom`, jenže `#content` je přímý potomek `#page` a `.pdfPage` nemá v CSS výšku, takže
-rozdíl je vždy zhruba nula. Navíc měří v šířce okna prohlížeče, ne tiskového zrcadla. Přetečení
-by tedy nespadlo, jen by tiše vylezla třetí strana. F4 pojistku opravuje (spec R11).
+**Hotovo.** Pojistka proti přetečení A4 v `src/infra/pdf/pdf.ts` nefungovala — porovnávala
+`#content.bottom` proti `#page.bottom`, jenže `#content` je přímý potomek `#page` a `.pdfPage`
+neměla v CSS výšku, takže rozdíl byl vždy zhruba nula. Nově měří přetečení ve výšce i v šířce a
+po zápisu souboru se navíc kontroluje počet stran ve výsledném PDF.
+
+Zbývá **vizuální kontrola** vytištěného dokumentu, viz sekci „Stav implementace" ve specu.
 
 ## F5 — Stage Plan Editor
 
 **Vstup:** handoff sekce `3g` (živý prototyp — otevřít v prohlížeči a vyzkoušet chování).
+
+**Co si z F4 přinést:** geometrie stage planu se nově odvozuje z tiskového zrcadla — `areaWidthMm`
+z `contentWidthMm` mínus odsazení a rámeček kontejneru, šířky bloků a mezer z `areaWidthMm`.
+Nesahej na to zpátky konstantami: dokud byla `areaWidthMm` napsaná natvrdo jako 180, byl kontejner
+širší než stránka a Chromium tisklo **celý dokument zmenšený na 91,25 %**. Pojistka to dnes chytí
+(`scrollWidth > clientWidth`), ale jen když ji nikdo neobejde.
 
 Tmavé okno, toolbar, canvas s bloky, panel, patička. Souřadnice a rozměry se ukládají
 **v metrech**, ne v pixelech. `stagePlan.blocks` se generuje z lineupu, dál se edituje ručně a při

@@ -239,6 +239,37 @@ Nezměřená zůstává **strana 1**. Její výška závisí na zalomení sloupc
 | Dvě strany a vejití se | `pdf.test.ts` — vyžaduje Chromium, viz Rizika |
 | Vizuálně | `npm run pdf:dev` na reálném projektu, obě strany |
 
+## Stav implementace
+
+**R1 až R11 jsou hotové.** Fáze je uzavřená; zbývá vizuální kontrola vytištěného dokumentu.
+
+Devět úkolů, devět commitů, dvě opravná kola v průběhu a jedna opravná vlna po závěrečném review.
+
+### Nález, který závěrečné review odhalilo a dílčí review vidět nemohla
+
+**Celý dokument se tiskl zmenšený na 91,25 %.** Kontejner stage planu je `inline-block` široký `areaWidthMm` 180 mm + 2× `containerPad` 24 pt + rámeček ≈ **197,4 mm**, tedy širší než tiskové zrcadlo. Chromium na to odpovídá shrink-to-fit přes celý dokument.
+
+Dřív to nebylo vidět: `.pdfPage` neměla šířku, roztáhla se na stejných 197,4 mm a po zmenšení vyšla na papíře přesně na 180 mm. R11 jí šířku dal, takže se od té chvíle zmenšovala z 180 na 164,2 mm — a s ní celá škála z R1. Řádek tabulky by tiskl 8,21 pt místo 9, patička 6,57 pt místo 7,2. Tedy přesně velikost, kterou R1 zamítl jako na papíře v šeru nečitelnou.
+
+Měřeno A/B na vnitřním operátoru `cm` vygenerovaného PDF: `2.8515201` proti `3.125` po opravě.
+
+**Oprava sáhla do geometrie stage planu, kterou tenhle spec vyřadil z rozsahu.** Nešlo to jinak — nejširší prvek dokumentu musí být užší než zrcadlo. `areaWidthMm` se nově odvozuje jako `contentWidthMm − 2× containerPad − 2× containerBorder` ≈ 162,5375 mm a šířka bloků i mezer se odvozuje z ní, takže vztah drží konstrukcí, ne třemi konstantami, které náhodou dávají 180. Vzhled bloků, šedý podklad ani žlutý badge se nezměnily; na papíře vychází plocha o 1,7 mm užší, než jaká se tiskla dosud.
+
+Pojistka z R11 dostala i šířkový rozměr (`scrollWidth > clientWidth`). S ním by tahle chyba export shodila místo toho, aby ho potichu zmenšila.
+
+### Ostatní odchylky
+
+- **Chromium je k dispozici; tvrzení v Rizicích bylo mylné.** `pdf.test.ts` se na Windows vždycky přeskočil, ale kvůli detekci hledající linuxové `.so` soubory, ne kvůli chybějícímu prohlížeči. R11 ji nahradil skutečným pokusem o spuštění a test běží přes systémový Chrome. **Dvoustránkovost je tedy empiricky ověřená**, stejně jako to, že opravená pojistka při vynuceném přetečení opravdu spadne.
+- **Soubory Interu byly nulové bajty.** Dokument na Interu nikdy neběžel, kreslil se náhradním písmem. R9 tak neodstranil písmo, ale mrtvou závislost.
+- **`--w-frame` se maže, nepřežívá.** R8 předpokládal, že linku pod hlavičkou kreslí tahle proměnná; kreslí ji `pdfLayout.header.rulePt` přímo, takže proměnná zůstala bez konzumenta.
+- **`.notes` zůstaly černé až do závěrečné opravy.** R7 i R9 je řadí na `--sp-body`; R9 odstranil kurzívu a barvu přehlédl.
+- **`.metaLine` měla kurzívu taky.** R9 mluvil jen o poznámkách, ale test „žádná kurzíva v dokumentu" ji našel i tam. Blok stejně mizí s R3.
+- **Testovací fixture jsou typované, ne `as any`.** Plán kopíroval existující vzor v `template.test.ts`; CLAUDE.md ale zakazuje neodůvodněné přetypování, takže vznikl `createDocumentViewModelFixture`.
+- **Dvě assertce, které plán předepsal, netestovaly nic.** Nerovnost výškového rozpočtu platila vždy, protože `buildStageplanPlan` při přetečení hodí výjimku dřív, než rozpočet vrátí; a `toContain("font-family: 'IBM Plex Mono'")` procházelo i na kódu před fází. Obojí nahrazeno ukotvenými hodnotami.
+- **`pdfHeader.integration.test.ts` v plánu chybí.** Ověřuje znění hlavičky end-to-end a bylo ho potřeba upravit dvakrát.
+- **Přeskočený test se hlásil jako zelený.** Když prohlížeč chyběl, `pdf.test.ts` jen vypsal varování a vrátil se, takže procházel. Nově hlásí `skipped`.
+- **Vadné PDF zůstávalo na disku.** Kontrola počtu stran běžela až nad zapsaným souborem. Render jde teď přes dočasný soubor a přejmenuje se až po kontrole, takže neúspěšný export nepřepíše dřívější dobrý.
+
 ## Rizika
 
 | Riziko | Mitigace |
