@@ -65,15 +65,18 @@ describe("stageplan print geometry", () => {
     const box = plan.boxes[0];
     expect(box?.slot).toBe("drums");
     expect(box?.rotationDeg).toBe(30);
-    expect(box?.widthMm).toBeCloseTo(37.925, 2);
-    // Střed 6 m × 13,5448 = 81,27 mm; levý horní roh je o půl šířky vlevo.
+    // Jediný blok je 2,8 m široký, takže rezerva na přesah shodí měřítko jen
+    // o toleranci (12 + 0,4 m), ne o dorůstání zóny na minimální šířku:
+    // 162,5375 / 12,4 = 13,1079 mm/m; 2,8 × 13,1079 = 36,702 mm.
+    expect(box?.widthMm).toBeCloseTo(36.702, 2);
+    // Střed 6 m × 13,1079 = 78,647 mm; levý horní roh je o půl šířky vlevo.
     expect((box?.xMm ?? 0) + (box?.widthMm ?? 0) / 2).toBeCloseTo(
-      81.269 + plan.stage.xMm,
+      78.647 + plan.stage.xMm,
       2,
     );
-    // Osa y roste od upstage hrany k publiku (R4): 1,2 m = 16,25 mm.
+    // Osa y roste od upstage hrany k publiku (R4): 1,2 m = 15,729 mm.
     expect((box?.yMm ?? 0) + (box?.heightMm ?? 0) / 2 - plan.stage.yMm).toBeCloseTo(
-      16.254,
+      15.729,
       2,
     );
   });

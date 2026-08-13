@@ -16,7 +16,7 @@ import {
   type PrintTypography,
   computePrintFootprintMm,
 } from "../../../domain/stageplan/print/printFootprint.js";
-import { createPrintScale } from "../../../domain/stageplan/print/printScale.js";
+import { resolvePrintScale } from "../../../domain/stageplan/print/printScale.js";
 import { parsePt, pdfChromeHeights, pdfLayout } from "../layout.js";
 import {
   type StageplanRenderOptions,
@@ -148,7 +148,12 @@ export function buildStageplanPlan(
   const printModel = buildPdfStageplanPrintModel(vm, {
     hideMusicianNames: resolvedOptions.hideMusicianNames,
   });
-  const scale = createPrintScale(vm.layout.stage, stageplanPrintGeometry.area);
+  const scale = resolvePrintScale({
+    stage: vm.layout.stage,
+    blocks: vm.layout.blocks,
+    area: stageplanPrintGeometry.area,
+    minBoxWidthMm: printTypography.minBoxWidthMm,
+  });
 
   const rects: PrintRect[] = vm.layout.blocks.map((block) => {
     const printBox = printModel.boxesBySlot[block.slot];

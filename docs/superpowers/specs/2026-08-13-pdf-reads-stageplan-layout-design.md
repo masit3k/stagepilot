@@ -75,8 +75,8 @@ zůstává invariantní, takže rotace kolem středu platí dál (R3 ve specu F5
 
 | Blok | Zóna | Tištěný box při 8 pt |
 |---|---|---|
-| bicí, 8 odrážek + napájení | 2,8 × 1,6 m | 2,80 × **2,97 m** (37,9 × 40,2 mm) |
-| lead vokál, 3 odrážky | 2,6 × 1,2 m | **2,68** × **1,41 m** (36,3 × 19,1 mm) |
+| bicí, 8 odrážek + napájení | 2,8 × 1,6 m | 2,80 × **2,97 m** (36,26 × 40,22 mm) |
+| lead vokál, 3 odrážky | 2,6 × 1,2 m | **2,68** × **1,41 m** (36,26 × 19,05 mm) |
 
 Zmenšené písmo padá na čitelnosti, legenda vedle plánu by přesunula obsah, který dnes stojí v bloku a patří
 k němu. Mapa pozic je jediná varianta, která nemění ani obsah, ani čitelnost.
@@ -91,6 +91,13 @@ areaHeightMm = 202,091   totéž ve výšce, mínus hlavička, patička, margin 
                          popisku rozměru pódia — ten se rezervuje vždy, aby měřítko nezáviselo
                          na tom, jestli je rozměr zadaný (R6)
 ```
+
+Plocha, ze které se měřítko počítá, je zmenšená o **rezervu na přesah**: clamp v editoru nechává
+blok přesahovat hranu pódia o 20 cm a tištěný box je navíc širší než úzká zóna, protože nesmí
+klesnout pod minimální šířku (R3). Bez rezervy shodí export každý blok postavený k boční hraně —
+což je na stage planu běžné umístění. Měřítko proto řeší `resolvePrintScale` v uzavřeném tvaru:
+hledá největší `s`, pro které se do plochy vejde pódium i s tolerancí a nejširší možný přerostlý
+box. Při nominálních 12 × 8 m z toho vychází **12,8855 mm/m** místo 13,5448 a plán je o 4,9 % menší.
 
 Při nominálních 12 × 8 m vychází 13,545 mm/m a váže šířka; výšková vazba se zapojí až u pódia hlubšího než
 1,243 × jeho šířka. Plán se v ploše centruje. Nezadaný rozměr znamená nominální 12 × 8 m, stejně jako v

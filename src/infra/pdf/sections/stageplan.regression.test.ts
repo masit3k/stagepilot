@@ -82,4 +82,32 @@ describe("default arrangement stays printable", () => {
     expect(plan.container.widthMm).toBeLessThanOrEqual(162.5375);
     expect(plan.container.heightMm).toBeLessThanOrEqual(202.0914);
   });
+
+  it("prints a block pushed to the legal edge of the stage", () => {
+    // Přesně tenhle případ export shazoval: blok u boční hrany je legální
+    // (clamp F5a dovoluje 20 cm přesah), ale plán neměl kam ho nakreslit.
+    const layout = buildDefaultLayout({
+      slots: ["drums", "bass", "guitar", "keys", "lead_voc_1"],
+      stage: null,
+    });
+    const pushed = {
+      ...layout,
+      blocks: layout.blocks.map((block) =>
+        block.slot === "guitar" ? { ...block, centerXM: 1.15 } : block,
+      ),
+    };
+
+    expect(() =>
+      buildStageplanPlan({
+        ...stageplanWithFullBoxes([
+          "drums",
+          "bass",
+          "guitar",
+          "keys",
+          "lead_voc_1",
+        ]),
+        layout: pushed,
+      }),
+    ).not.toThrow();
+  });
 });
