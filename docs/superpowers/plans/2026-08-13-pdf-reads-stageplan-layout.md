@@ -1702,33 +1702,34 @@ function stageplanWithFullBoxes(
 }
 
 describe("default arrangement stays printable", () => {
-  it("prints five blocks without a collision or an overflow", () => {
-    const plan = buildStageplanPlan(
-      stageplanWithFullBoxes([
-        "drums",
-        "bass",
-        "guitar",
-        "keys",
-        "lead_voc_1",
-      ]),
-    );
+  const FIVE = [
+    "drums",
+    "bass",
+    "guitar",
+    "keys",
+    "lead_voc_1",
+  ] as const satisfies readonly StageplanBlockSlot[];
+  const SIX = [...FIVE, "lead_voc_2"] as const satisfies readonly StageplanBlockSlot[];
 
+  it("prints five blocks without a collision or an overflow", () => {
+    // buildStageplanPlan hází při kolizi i při přetečení — tohle je ta pojistka.
+    expect(() =>
+      buildStageplanPlan(stageplanWithFullBoxes(FIVE)),
+    ).not.toThrow();
+
+    const plan = buildStageplanPlan(stageplanWithFullBoxes(FIVE));
     expect(plan.boxes).toHaveLength(5);
+    expect(plan.container.widthMm).toBeLessThanOrEqual(162.5375);
+    expect(plan.container.heightMm).toBeLessThanOrEqual(202.0914);
   });
 
   it("prints six blocks without a collision or an overflow", () => {
-    const plan = buildStageplanPlan(
-      stageplanWithFullBoxes([
-        "drums",
-        "bass",
-        "guitar",
-        "keys",
-        "lead_voc_1",
-        "lead_voc_2",
-      ]),
-    );
+    expect(() => buildStageplanPlan(stageplanWithFullBoxes(SIX))).not.toThrow();
 
+    const plan = buildStageplanPlan(stageplanWithFullBoxes(SIX));
     expect(plan.boxes).toHaveLength(6);
+    expect(plan.container.widthMm).toBeLessThanOrEqual(162.5375);
+    expect(plan.container.heightMm).toBeLessThanOrEqual(202.0914);
   });
 });
 ```
