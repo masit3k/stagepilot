@@ -16,7 +16,7 @@ designový board, implementuje se **kolo 3** (`3a`–`3d` varianty značky, vybr
 | F3 | Custom titlebar, pilulková navigace, procesní stopa, velikost okna, téma v Settings | hotovo | [2026-08-12-shell-and-information-architecture-design.md](../superpowers/specs/2026-08-12-shell-and-information-architecture-design.md) | `17c4580`, `cebabcf` |
 | F4 | Typografie a hlavička PDF | hotovo, čeká na vizuální kontrolu | [2026-08-12-pdf-typography-and-header-design.md](../superpowers/specs/2026-08-12-pdf-typography-and-header-design.md) | `785377d`…`b8c9e40` |
 | F5a | Model rozmístění + Stage Plan Editor | hotovo, čeká na ruční kontrolu editoru | [2026-08-13-stageplan-editor-and-layout-model-design.md](../superpowers/specs/2026-08-13-stageplan-editor-and-layout-model-design.md) | `fdee3b8`…`67b3895` |
-| **F5b** | **PDF čte rozmístění z projektu (pozice, rotace, nová kresba bloků)** | **připraveno k otevření** | zatím není | — |
+| **F5b** | **PDF čte rozmístění z projektu (pozice, rotace, nová kresba bloků)** | **spec schválen, čeká na implementaci** | [2026-08-13-pdf-reads-stageplan-layout-design.md](../superpowers/specs/2026-08-13-pdf-reads-stageplan-layout-design.md) | — |
 | F5c | Obrazovka `02 INPUTS` | připraveno k otevření | zatím není | — |
 
 ## F4 — typografie a hlavička PDF
