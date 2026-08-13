@@ -15,7 +15,9 @@ designový board, implementuje se **kolo 3** (`3a`–`3d` varianty značky, vybr
 | F2 | Ikonový set, toasty, prázdné stavy, skeleton, pozice jako řádky | hotovo | [2026-08-12-components-and-interaction-design.md](../superpowers/specs/2026-08-12-components-and-interaction-design.md) | `56b05cb` |
 | F3 | Custom titlebar, pilulková navigace, procesní stopa, velikost okna, téma v Settings | hotovo | [2026-08-12-shell-and-information-architecture-design.md](../superpowers/specs/2026-08-12-shell-and-information-architecture-design.md) | `17c4580`, `cebabcf` |
 | F4 | Typografie a hlavička PDF | hotovo, čeká na vizuální kontrolu | [2026-08-12-pdf-typography-and-header-design.md](../superpowers/specs/2026-08-12-pdf-typography-and-header-design.md) | `785377d`…`b8c9e40` |
-| **F5** | **Stage Plan Editor (drag & rotate)** | **další v řadě** | zatím není | — |
+| **F5a** | **Model rozmístění + Stage Plan Editor** | **spec schválený, implementace nezačala** | [2026-08-13-stageplan-editor-and-layout-model-design.md](../superpowers/specs/2026-08-13-stageplan-editor-and-layout-model-design.md) | — |
+| F5b | PDF čte rozmístění z projektu (pozice, rotace, nová kresba bloků) | čeká na F5a | zatím není | — |
+| F5c | Obrazovka `02 INPUTS` | čeká na F5a | zatím není | — |
 
 ## F4 — typografie a hlavička PDF
 
@@ -40,6 +42,11 @@ Zbývá **vizuální kontrola** vytištěného dokumentu, viz sekci „Stav impl
 
 **Vstup:** handoff sekce `3g` (živý prototyp — otevřít v prohlížeči a vyzkoušet chování).
 
+**F5 se dělí na tři specifikace** (rozhodnutí R1 ve specu F5a): `F5a` doménový model rozmístění a
+editor, `F5b` tisk téhož rozmístění, `F5c` obrazovka `02 INPUTS`. Jsou to nezávislé celky a v jednom
+specu by to byl trojnásobek precedentu F1–F4 bez commitovatelného mezistavu. Detaily a rozhodnutí
+R1–R17 jsou ve specu F5a; níže zůstává jen to, co platí pro celou fázi.
+
 **Co si z F4 přinést:** geometrie stage planu se nově odvozuje z tiskového zrcadla — `areaWidthMm`
 z `contentWidthMm` mínus odsazení a rámeček kontejneru, šířky bloků a mezer z `areaWidthMm`.
 Nesahej na to zpátky konstantami: dokud byla `areaWidthMm` napsaná natvrdo jako 180, byl kontejner
@@ -51,9 +58,10 @@ Tmavé okno, toolbar, canvas s bloky, panel, patička. Souřadnice a rozměry se
 změně lineupu se bloky doplňují a odebírají, ale ruční pozice existujících se **nepřepisují**.
 PDF čte stejný `stagePlan` — žádný druhý layout.
 
-Zároveň s F5 se řeší **obrazovka `02 INPUTS`**, kterou F3 odložila: dnes se inputy editují
+V **F5c** přijde **obrazovka `02 INPUTS`**, kterou F3 odložila: dnes se inputy editují
 v modálu uvnitř setupu, takže krok `02` v procesní stopě má stav `unavailable`. V
-`app/shell/chrome/processSteps.ts` stačí u kroku přepsat `segment` z `null` na routu.
+`app/shell/chrome/processSteps.ts` stačí u kroku přepsat `segment` z `null` na routu — krok `03`
+takhle odemkne už F5a.
 
 ## Samostatné položky mimo fáze
 
