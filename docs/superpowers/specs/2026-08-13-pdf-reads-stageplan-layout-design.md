@@ -97,11 +97,14 @@ blok přesahovat hranu pódia o 20 cm a tištěný box je navíc širší než �
 klesnout pod minimální šířku (R3). Bez rezervy shodí export každý blok postavený k boční hraně —
 což je na stage planu běžné umístění. Měřítko proto řeší `resolvePrintScale` v uzavřeném tvaru:
 hledá největší `s`, pro které se do plochy vejde pódium i s tolerancí a nejširší možný přerostlý
-box. Při nominálních 12 × 8 m z toho vychází **12,8855 mm/m** místo 13,5448 a plán je o 4,9 % menší.
+box. Při nominálních 12 × 8 m s lead vokálem v rozmístění z toho vychází **12,8855 mm/m** místo
+13,5448 a plán je o 4,9 % menší. Bez úzké zóny, u které by box narostl na minimální šířku, se
+rezervuje jen tolerance a měřítko je 13,1079 mm/m — konkrétní hodnota tedy závisí na tom, jak úzkou
+zónu rozmístění obsahuje.
 
-Při nominálních 12 × 8 m vychází 13,545 mm/m a váže šířka; výšková vazba se zapojí až u pódia hlubšího než
-1,243 × jeho šířka. Plán se v ploše centruje. Nezadaný rozměr znamená nominální 12 × 8 m, stejně jako v
-editoru (R5 ve specu F5a), a nad rámem se pak nic netvrdí.
+Váže šířka; výšková vazba se zapojí až u pódia, jehož hloubka i s tolerancí přesáhne 1,243násobek
+jeho šířky s tolerancí. Plán se v ploše centruje. Nezadaný rozměr znamená nominální 12 × 8 m, stejně
+jako v editoru (R5 ve specu F5a), a nad rámem se pak nic netvrdí.
 
 Obě čísla se **počítají z `pdfLayout`**, neopisují se. Dokud byla `areaWidthMm` napsaná natvrdo, byl kontejner
 širší než stránka a Chromium tisklo celý dokument zmenšený na 91,25 % (nález F4).
