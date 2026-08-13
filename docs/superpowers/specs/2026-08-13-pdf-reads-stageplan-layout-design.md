@@ -456,8 +456,9 @@ tématech.
 ### Co se předává dál
 
 - R1, R2 a R3 jsou opravené ve specu výše; `resolvePrintScale` je jediné měřítko, které renderer i
-  editor používají. `createPrintScale` zůstává exportovaná, ale bez rezervy na přesah a bez
-  jediného produkčního volajícího v `src/infra/pdf/` — dál ji používají jen vlastní testy.
+  editor používají. `createPrintScale` po závěrečném review **zanikla** — byla exportovaná bez
+  jediného produkčního volajícího a její testy přibíjely měřítko bez rezervy (13,5448 mm/m), tedy
+  hodnotu, která se nikde netiskne. Konstrukce výsledku je dnes v privátním `buildPrintScale`.
 - Nominální plán je po opravě o ~4,9 % menší; budoucí změna izotropního měřítka nebo rozměrů
   zrcadla musí rezervu znovu prověřit (headroom spočítaný v Tasku 8 a 12 už na tom stojí).
 - F5c (obrazovka `02 INPUTS`) může začít bez závislosti na F5b — žádné rozhodnutí F5b nemění model
