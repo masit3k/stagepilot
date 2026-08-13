@@ -2,8 +2,10 @@ import type { LineupMap } from "../../projectRules";
 import { serializeLineupForProject, CANONICAL_LINEUP_ROLE_ORDER } from "./lineupSerialize";
 import type {
   MusicianSetupPreset,
+  PowerRequirement,
   PresetEntity,
   PresetItem,
+  StageplanLayout,
 } from "../../../../../src/domain/model/types";
 
 export type ProjectSummary = {
@@ -106,6 +108,14 @@ export type NewProjectPayload = {
     | { mode: "none" }
     | { mode: "assigned"; musicianId: string };
   hasTalkbackOverride?: boolean;
+  /**
+   * Stage plan projektu. Whitelist v `toPersistableProject` ho musí nést
+   * výslovně — jinak by uložení z jiné obrazovky smazalo ruční rozmístění.
+   */
+  stageplan?: {
+    powerOverridesByMusician?: Record<string, PowerRequirement>;
+    layout?: StageplanLayout;
+  };
 };
 
 export type NavigationGuard = {
@@ -138,6 +148,7 @@ export function toPersistableProject(
     overlays,
     bandLeaderId,
     note,
+    stageplan,
   } = project;
   const serializedLineup = lineup
     ? serializeLineupForProject(lineup, [...CANONICAL_LINEUP_ROLE_ORDER])
@@ -165,5 +176,6 @@ export function toPersistableProject(
     ...(serializedLineup ? { lineup: serializedLineup } : {}),
     ...(overlays ? { overlays } : {}),
     ...(bandLeaderId ? { bandLeaderId } : {}),
+    ...(stageplan ? { stageplan } : {}),
   };
 }

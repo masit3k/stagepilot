@@ -116,3 +116,68 @@ describe("toPersistableProject talkback persistence", () => {
     });
   });
 });
+
+describe("toPersistableProject stageplan persistence", () => {
+  const layout = {
+    stage: { widthM: 10, depthM: 6 },
+    blocks: [
+      {
+        slot: "drums" as const,
+        centerXM: 1.5,
+        centerYM: 4.2,
+        widthM: 2.8,
+        depthM: 1.6,
+        rotationDeg: 45,
+      },
+    ],
+  };
+
+  it("keeps the stage plan layout", () => {
+    const persisted = toPersistableProject({
+      id: "p-5",
+      purpose: "event",
+      eventDate: "2026-06-01",
+      eventVenue: "Arena",
+      bandRef: "band-1",
+      documentDate: "2026-06-01",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      stageplan: { layout },
+    });
+
+    expect(persisted.stageplan?.layout).toEqual(layout);
+  });
+
+  it("keeps the layout when a lineup change is saved from the setup screen", () => {
+    const persisted = toPersistableProject({
+      id: "p-6",
+      purpose: "event",
+      eventDate: "2026-06-01",
+      eventVenue: "Arena",
+      bandRef: "band-1",
+      documentDate: "2026-06-01",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      lineup: { drums: "drummer-2", bass: "bass-1" },
+      stageplan: {
+        layout,
+        powerOverridesByMusician: { "bass-1": { voltage: 230, sockets: 5 } },
+      },
+    });
+
+    expect(persisted.stageplan?.layout).toEqual(layout);
+    expect(persisted.stageplan?.powerOverridesByMusician).toEqual({
+      "bass-1": { voltage: 230, sockets: 5 },
+    });
+  });
+
+  it("omits the stageplan key entirely when there is nothing to store", () => {
+    const persisted = toPersistableProject({
+      id: "p-7",
+      purpose: "generic",
+      bandRef: "band-1",
+      documentDate: "2026-01-01",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    });
+
+    expect("stageplan" in persisted).toBe(false);
+  });
+});
