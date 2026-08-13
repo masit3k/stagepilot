@@ -69,6 +69,7 @@ describe("stageplan render plan", () => {
   it("selects layout by lead vocalist count", () => {
     expect(
       matchStageplanLayout({
+        layout: { stage: null, blocks: [] },
         lineupByRole: { vocs: { firstName: "A", isBandLeader: false } },
         leadVocals: [{ firstName: "A", isBandLeader: false }],
         inputs: [],
@@ -79,6 +80,7 @@ describe("stageplan render plan", () => {
 
     expect(
       matchStageplanLayout({
+        layout: { stage: null, blocks: [] },
         lineupByRole: {},
         leadVocals: [
           { firstName: "A", isBandLeader: false },
@@ -92,6 +94,7 @@ describe("stageplan render plan", () => {
 
     expect(
       matchStageplanLayout({
+        layout: { stage: null, blocks: [] },
         lineupByRole: {},
         leadVocals: [
           { firstName: "A", isBandLeader: false },
@@ -107,6 +110,7 @@ describe("stageplan render plan", () => {
 
   it("renders layout_6_2_vocs in slot order with dynamic names", () => {
     const plan = buildStageplanPlan({
+      layout: { stage: null, blocks: [] },
       lineupByRole: {
         drums: { firstName: "Drummer", isBandLeader: false },
         bass: { firstName: "Bassist", isBandLeader: false },
@@ -194,6 +198,7 @@ describe("stageplan render plan", () => {
 
   it("binds stageplan input ownership to lineup-selected section owner", () => {
     const plan = buildStageplanPlan({
+      layout: { stage: null, blocks: [] },
       lineupByRole: {
         drums: { firstName: "Drummer", isBandLeader: false },
         bass: { firstName: "Bassist", isBandLeader: false },
@@ -220,6 +225,7 @@ describe("stageplan render plan", () => {
 
   it("renders backing track separately from drums and PAD in drums box", () => {
     const plan = buildStageplanPlan({
+      layout: { stage: null, blocks: [] },
       lineupByRole: {
         drums: { firstName: "Drummer", isBandLeader: false },
       },
@@ -244,6 +250,7 @@ describe("stageplan render plan", () => {
 
   it("keeps layout but omits names when hideMusicianNames is enabled", () => {
     const baseVm = {
+      layout: { stage: null, blocks: [] },
       lineupByRole: {
         drums: { firstName: "Drummer", isBandLeader: false },
         bass: { firstName: "Bassist", isBandLeader: false },
@@ -271,6 +278,7 @@ describe("stageplan render plan", () => {
 
   it("keeps stageplan boxes inside stage area and page safe height for layout_6_2_vocs", () => {
     const plan = buildStageplanPlan({
+      layout: { stage: null, blocks: [] },
       lineupByRole: {
         drums: { firstName: "Drummer", isBandLeader: false },
         bass: { firstName: "Bassist", isBandLeader: false },
@@ -320,6 +328,7 @@ describe("stageplan render plan", () => {
 
   it("collapses stereo inputs and keeps monitor bullets intact", () => {
     const plan = buildStageplanPlan({
+      layout: { stage: null, blocks: [] },
       lineupByRole: {},
       inputs: [
         { channelNo: 1, label: "Kick", group: "drums" },
@@ -376,6 +385,7 @@ describe("stageplan render plan", () => {
 
   it("renders additional wedge monitor on a separate stageplan line", () => {
     const plan = buildStageplanPlan({
+      layout: { stage: null, blocks: [] },
       lineupByRole: {},
       inputs: [],
       monitorOutputs: [
@@ -398,6 +408,7 @@ describe("stageplan render plan", () => {
 
   it("strips FOH-supplied monitor suffixes in stageplan monitor bullets", () => {
     const plan = buildStageplanPlan({
+      layout: { stage: null, blocks: [] },
       lineupByRole: {},
       inputs: [],
       monitorOutputs: [
@@ -419,6 +430,7 @@ describe("stageplan render plan", () => {
 
   it("strips band-supplied (own) monitor suffixes in stageplan monitor bullets", () => {
     const plan = buildStageplanPlan({
+      layout: { stage: null, blocks: [] },
       lineupByRole: {},
       inputs: [],
       monitorOutputs: [
@@ -437,6 +449,7 @@ describe("stageplan render plan", () => {
 
   it("renders power badges based on stageplan power data", () => {
     const plan = buildStageplanPlan({
+      layout: { stage: null, blocks: [] },
       lineupByRole: {},
       inputs: [],
       monitorOutputs: [],

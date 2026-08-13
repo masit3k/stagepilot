@@ -496,6 +496,8 @@ export interface DocumentViewModel {
   }>;
 
   stageplan: {
+    /** Rozmístění, které tisk kreslí. Dopočítává se v paměti, nikdy se neukládá (R8). */
+    layout: StageplanLayout;
     lineupByRole: Partial<Record<StageplanInstrumentKey, StageplanPerson>>;
     leadVocals?: StageplanPerson[];
     inputs: Array<{

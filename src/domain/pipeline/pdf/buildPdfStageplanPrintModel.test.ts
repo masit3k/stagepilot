@@ -11,6 +11,7 @@ function baseStageplan(
   overrides: Partial<DocumentViewModel["stageplan"]> = {},
 ): DocumentViewModel["stageplan"] {
   return {
+    layout: { stage: null, blocks: [] },
     lineupByRole: {
       drums: { musicianId: "drm-1", firstName: "Dana", isBandLeader: false },
       bass: { musicianId: "bass-1", firstName: "Ben", isBandLeader: false },

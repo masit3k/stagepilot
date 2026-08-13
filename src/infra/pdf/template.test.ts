@@ -52,6 +52,7 @@ function createDocumentViewModelFixture(
     notes: { inputs: [], monitors: [] },
     monitorTableRows: [],
     stageplan: {
+      layout: { stage: null, blocks: [] },
       lineupByRole: {},
       inputs: [],
       monitorOutputs: [],
