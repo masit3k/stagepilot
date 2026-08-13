@@ -139,7 +139,42 @@ describe("stageplan print geometry", () => {
     );
   });
 
-  it("refuses to print blocks that overlap on paper", () => {
+  it("refuses to print blocks whose boxes overlap even though their zones do not", () => {
+    // Finding 1: zóny 1,5 × 1,5 m jsou 2 m od sebe (osa X), takže samy o
+    // sobě nekolidují. Box ale roste na minimální šířku 36,26 mm (R3) a při
+    // téhle vzdálenosti (~23,2 mm) se dva takové boxy překryjí — artefakt
+    // textu, ne stav uložený v rozmístění, a export na něm musí spadnout.
+    expect(() =>
+      buildStageplanPlan(
+        emptyStageplan({
+          stage: null,
+          blocks: [
+            {
+              slot: "drums",
+              centerXM: 5,
+              centerYM: 4,
+              widthM: 1.5,
+              depthM: 1.5,
+              rotationDeg: 0,
+            },
+            {
+              slot: "bass",
+              centerXM: 7,
+              centerYM: 4,
+              widthM: 1.5,
+              depthM: 1.5,
+              rotationDeg: 0,
+            },
+          ],
+        }),
+      ),
+    ).toThrow(/collision: drums × bass/);
+  });
+
+  it("prints blocks whose zones already overlap on a cramped stage", () => {
+    // F5a's rescaleForStage leaves zone sizes untouched when the stage
+    // shrinks, so zone overlap is the model's honest way of saying "cramped
+    // stage" (see rescaleForStage.ts). Finding 1 says this must print.
     expect(() =>
       buildStageplanPlan(
         emptyStageplan({
@@ -164,7 +199,7 @@ describe("stageplan print geometry", () => {
           ],
         }),
       ),
-    ).toThrow(/collision: drums × bass/);
+    ).not.toThrow();
   });
 
   it("builds boxes and content for the fixture project", async () => {
@@ -194,22 +229,29 @@ describe("stageplan print geometry", () => {
 
   it("marks the lead vocal box and renders power as a line", () => {
     const html = renderStageplanSection({
-      stageplan: emptyStageplan({
-        stage: null,
-        blocks: [
-          {
-            slot: "lead_voc_1",
-            centerXM: 6,
-            centerYM: 5.5,
-            widthM: 2.6,
-            depthM: 1.2,
-            rotationDeg: 0,
-          },
-        ],
-      }),
+      stageplan: {
+        ...emptyStageplan({
+          stage: null,
+          blocks: [
+            {
+              slot: "lead_voc_1",
+              centerXM: 6,
+              centerYM: 5.5,
+              widthM: 2.6,
+              depthM: 1.2,
+              rotationDeg: 0,
+            },
+          ],
+        }),
+        // roleDataForSlot dá lead_voc_1 vždy roli "vocs" (buildPdfStageplanPrintModel.ts).
+        powerByRole: {
+          vocs: { hasPowerBadge: true, powerBadgeText: "1x 230V" },
+        },
+      },
     } as unknown as DocumentViewModel);
 
     expect(html).toContain("stageplanBox--lead");
     expect(html).toContain("DOWNSTAGE · PUBLIKUM");
+    expect(html).toContain('<div class="stageplanPower">1x 230V</div>');
   });
 });

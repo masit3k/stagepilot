@@ -219,6 +219,16 @@ Nad tím dvě tvrdé hlášky, které vyhodí výjimku po vzoru dnešního přet
 union bbox, který nesedí do zrcadla nebo do dostupné výšky. Stávající pojistka v `pdf.ts` (přetečení v obou
 osách a počet stran ve výsledném souboru) zůstává.
 
+**Kolizní pojistka rozlišuje, odkud překryv pochází.** `buildStageplanPlan` srovnává dvě sady obdélníků se
+stejným středem a otočením: zóny (`block.widthM`/`depthM`, co uložil editor) a tištěné boxy (`max(zóna, text)`
+z R1). Pár, který koliduje už jako **zóna**, je stav, který F5a uložila vědomě: `rescaleForStage.ts` při změně
+rozměru pódia přepočítá jen středy a rozměry zón nechává být, takže na malém pódiu se zóny mohou překrývat —
+to je pravdivá informace o namačkané kapele, ne chyba k odmítnutí, a **tiskne se**. Pár, který koliduje jen
+jako **box** — zóny jsou od sebe, ale box narostl nad zónu, aby unesl text — je artefakt, který teprve tahle
+fáze zavedla (viz R1), a jen ten pojistka **odmítá** stejnou hláškou jako dřív. Bez tohohle rozlišení by export
+selhal na každém pódiu užším než ~10 m i beze změny jediného bloku, protože `rescaleForStage` (F5a) a kolizní
+pojistka (F5b) by si jinak odporovaly.
+
 ### R12 — Editor dostane tiskovou stopu z nového lehkého příkazu
 
 Aby editor stopu nakreslil, musí znát počet řádků bloku, a ten vzniká až v pipeline. Vzniká proto cesta po

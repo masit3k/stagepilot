@@ -6,6 +6,19 @@ import type {
 import { buildDefaultLayout } from "../../../domain/stageplan/layout/defaultLayout.js";
 import { buildStageplanPlan } from "./stageplan.js";
 
+function minimalStageplan(
+  layout: DocumentViewModel["stageplan"]["layout"],
+): DocumentViewModel["stageplan"] {
+  return {
+    layout,
+    lineupByRole: {},
+    leadVocals: [],
+    inputs: [],
+    monitorOutputs: [],
+    powerByRole: {},
+  };
+}
+
 /**
  * Nejhorší reálný obsah: bicí s deseti odrážkami a napájením u každé role.
  * Kdyby výchozí rozmístění kolidovalo, existující projekty by po upgradu
@@ -81,6 +94,54 @@ describe("default arrangement stays printable", () => {
     expect(plan.boxes).toHaveLength(6);
     expect(plan.container.widthMm).toBeLessThanOrEqual(162.5375);
     expect(plan.container.heightMm).toBeLessThanOrEqual(202.0914);
+  });
+
+  it("prints the default arrangement on a stage narrower than 10 m without throwing", () => {
+    // Finding 1: rescaleForStage (F5a) drží rozměry zón beze změny, jen
+    // přepočítá středy — na malém pódiu proto zóny bez pohnutí jediným
+    // blokem začnou překrývat. To je pravdivá informace o namačkaném pódiu,
+    // ne chyba k odmítnutí; export musí uspět, ne skončit kolizní hláškou.
+    const layout = buildDefaultLayout({
+      slots: FIVE,
+      stage: { widthM: 8, depthM: 5 },
+    });
+
+    expect(() =>
+      buildStageplanPlan({ ...stageplanWithFullBoxes(FIVE), layout }),
+    ).not.toThrow();
+  });
+
+  it("throws when the zones are apart but the printed boxes overlap", () => {
+    // Přesně ten případ, kdy má pojistka zůstat: zóny 1×1 m jsou 1,5 m od
+    // sebe (mezera i s rezervou na měřítko), takže samy o sobě nikdy
+    // nekolidují. Box ale roste na minimální šířku (R3, ~36,26 mm) a při
+    // téhle vzdálenosti se dva takové boxy překryjí — to je artefakt textu,
+    // ne stav uložený v rozmístění, a export na něm musí spadnout.
+    const layout = {
+      stage: { widthM: 10, depthM: 6 },
+      blocks: [
+        {
+          slot: "drums" as const,
+          centerXM: 4,
+          centerYM: 3,
+          widthM: 1,
+          depthM: 1,
+          rotationDeg: 0,
+        },
+        {
+          slot: "bass" as const,
+          centerXM: 5.5,
+          centerYM: 3,
+          widthM: 1,
+          depthM: 1,
+          rotationDeg: 0,
+        },
+      ],
+    };
+
+    expect(() => buildStageplanPlan(minimalStageplan(layout))).toThrow(
+      /collision: drums × bass/,
+    );
   });
 
   it("prints a block pushed to the legal edge of the stage", () => {

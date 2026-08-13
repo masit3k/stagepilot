@@ -1,5 +1,6 @@
 import type {
   DocumentViewModel,
+  StageplanBlockSlot,
   StageplanStageSize,
 } from "../../../domain/model/types.js";
 import {
@@ -16,7 +17,10 @@ import {
   type PrintTypography,
   computePrintFootprintMm,
 } from "../../../domain/stageplan/print/printFootprint.js";
-import { resolvePrintScale } from "../../../domain/stageplan/print/printScale.js";
+import {
+  type PrintScale,
+  resolvePrintScale,
+} from "../../../domain/stageplan/print/printScale.js";
 import { parsePt, pdfChromeHeights, pdfLayout } from "../layout.js";
 import {
   type StageplanRenderOptions,
@@ -140,6 +144,61 @@ function formatStageCaption(stage: StageplanStageSize | null): string | null {
   return `PÓDIUM ${format(stage.widthM)} × ${format(stage.depthM)} m`;
 }
 
+/** Nezávislé na pořadí páru — kolize se srovnávají mezi dvěma sadami obdélníků. */
+function collisionKey(a: StageplanBlockSlot, b: StageplanBlockSlot): string {
+  return a < b ? `${a}|${b}` : `${b}|${a}`;
+}
+
+/**
+ * Finding 1: kolize se hlídá dvakrát — jednou nad tištěnými boxy (co se
+ * skutečně tiskne) a jednou nad holými zónami (co F5a uložila). Pár, který
+ * koliduje jako zóna, je pravdivá informace o namačkaném pódiu (F5a) a tiskne
+ * se; pár, který koliduje jen jako box, je artefakt toho, že box narostl nad
+ * zónu, aby unesl text (R1), a to je přesně ten případ, kdy má export selhat.
+ */
+function findArtifactCollisions(
+  boxRects: readonly PrintRect[],
+  zoneRects: readonly PrintRect[],
+): Array<readonly [StageplanBlockSlot, StageplanBlockSlot]> {
+  const zoneCollisionKeys = new Set(
+    findPrintCollisions(zoneRects).map(([a, b]) => collisionKey(a, b)),
+  );
+  return findPrintCollisions(boxRects).filter(
+    ([a, b]) => !zoneCollisionKeys.has(collisionKey(a, b)),
+  );
+}
+
+/** Milimetrová tolerance pro srovnání s hranou rámu pódia. */
+const OVERFLOW_EPSILON_MM = 0.01;
+
+type RectAabb = ReturnType<typeof rectAabbMm>;
+
+/**
+ * Finding 4: union bbox se sází z jednotlivých obdélníků, takže viník
+ * přetečení je vždycky některý z nich — box, jehož opsaný obdélník sahá za
+ * hranu rámu pódia ve směru, který přetekl.
+ */
+function findOverflowCulprits(
+  rectAabbs: readonly { readonly rect: PrintRect; readonly aabb: RectAabb }[],
+  scale: Pick<PrintScale, "planWidthMm" | "planHeightMm">,
+  widthOverflow: boolean,
+  heightOverflow: boolean,
+): StageplanBlockSlot[] {
+  return rectAabbs
+    .filter(({ aabb }) => {
+      const pastWidth =
+        widthOverflow &&
+        (aabb.minXMm < -OVERFLOW_EPSILON_MM ||
+          aabb.maxXMm > scale.planWidthMm + OVERFLOW_EPSILON_MM);
+      const pastHeight =
+        heightOverflow &&
+        (aabb.minYMm < -OVERFLOW_EPSILON_MM ||
+          aabb.maxYMm > scale.planHeightMm + OVERFLOW_EPSILON_MM);
+      return pastWidth || pastHeight;
+    })
+    .map(({ rect }) => rect.slot);
+}
+
 export function buildStageplanPlan(
   vm: DocumentViewModel["stageplan"],
   options?: Partial<StageplanRenderOptions>,
@@ -175,9 +234,21 @@ export function buildStageplanPlan(
     };
   });
 
-  const collisions = findPrintCollisions(rects);
-  if (collisions.length > 0) {
-    const pairs = collisions.map(([a, b]) => `${a} × ${b}`).join(", ");
+  // Zóny při stejném středu a otočení jako boxy, ale v rozměru zóny samotné
+  // (F5a) — druhá sada rozhoduje, které kolize jsou pravdivá informace o
+  // namačkaném pódiu a které jsou artefakt boxu přerostlého nad zónu (Finding 1).
+  const zoneRects: PrintRect[] = vm.layout.blocks.map((block) => ({
+    slot: block.slot,
+    centerXMm: scale.toMm(block.centerXM),
+    centerYMm: scale.toMm(block.centerYM),
+    widthMm: scale.toMm(block.widthM),
+    heightMm: scale.toMm(block.depthM),
+    rotationDeg: block.rotationDeg,
+  }));
+
+  const artifactCollisions = findArtifactCollisions(rects, zoneRects);
+  if (artifactCollisions.length > 0) {
+    const pairs = artifactCollisions.map(([a, b]) => `${a} × ${b}`).join(", ");
     throw new Error(
       `Stageplan print collision: ${pairs}. Bloky se na papíře překrývají — přerovnej rozmístění v editoru.`,
     );
@@ -185,12 +256,12 @@ export function buildStageplanPlan(
 
   // Union bbox rámu pódia a všech boxů. Přerostlý box nesmí kontejner rozšířit
   // nad zrcadlo, jinak Chromium zmenší celý dokument (past z F4).
+  const rectAabbs = rects.map((rect) => ({ rect, aabb: rectAabbMm(rect) }));
   let minXMm = 0;
   let minYMm = 0;
   let maxXMm = scale.planWidthMm;
   let maxYMm = scale.planHeightMm;
-  for (const rect of rects) {
-    const aabb = rectAabbMm(rect);
+  for (const { aabb } of rectAabbs) {
     minXMm = Math.min(minXMm, aabb.minXMm);
     minYMm = Math.min(minYMm, aabb.minYMm);
     maxXMm = Math.max(maxXMm, aabb.maxXMm);
@@ -198,9 +269,22 @@ export function buildStageplanPlan(
   }
 
   const container = { widthMm: maxXMm - minXMm, heightMm: maxYMm - minYMm };
-  if (container.widthMm > areaWidthMm || container.heightMm > areaHeightMm) {
+  const widthOverflow = container.widthMm > areaWidthMm;
+  const heightOverflow = container.heightMm > areaHeightMm;
+  if (widthOverflow || heightOverflow) {
+    // Finding 4: pojmenuj viníka, po vzoru kolizní hlášky výše — ne jen milimetry.
+    const culprits = findOverflowCulprits(
+      rectAabbs,
+      scale,
+      widthOverflow,
+      heightOverflow,
+    );
+    const blockNote =
+      culprits.length > 0
+        ? ` Blok${culprits.length > 1 ? "y" : ""} ${culprits.join(", ")} přesahuj${culprits.length > 1 ? "í" : "e"} plochu — posuň ${culprits.length > 1 ? "je" : "ho"} blíž ke středu pódia v editoru.`
+        : "";
     throw new Error(
-      `Stageplan layout overflow: required ${container.widthMm.toFixed(2)} × ${container.heightMm.toFixed(2)}mm exceeds available ${areaWidthMm.toFixed(2)} × ${areaHeightMm.toFixed(2)}mm.`,
+      `Stageplan layout overflow: required ${container.widthMm.toFixed(2)} × ${container.heightMm.toFixed(2)}mm exceeds available ${areaWidthMm.toFixed(2)} × ${areaHeightMm.toFixed(2)}mm.${blockNote}`,
     );
   }
 
@@ -281,6 +365,9 @@ export function renderStageplanSection(
     .map((box) => renderBox(box, plan.typography))
     .join("\n");
 
+  // Finding 2 (F5b fix): width/height jde na .stageplanPlanArea, ne na
+  // .stageplanContainer — jinak je container padding mrtvý a jeho border-box
+  // je jen areaWidthMm místo celého zrcadla (viz styles.ts).
   return `
-<section class="stageplanSection">\n  <div class="stageplanCaption">${plan.stage.caption ?? ""}</div>\n  <div class="stageplanContainer" style="width:${plan.container.widthMm}mm; height:${plan.container.heightMm}mm;">\n    <div class="stageplanStage" style="left:${plan.stage.xMm}mm; top:${plan.stage.yMm}mm; width:${plan.stage.widthMm}mm; height:${plan.stage.heightMm}mm;">\n      <div class="stageplanDownstage">DOWNSTAGE · PUBLIKUM</div>\n    </div>\n    ${boxesHtml}\n  </div>\n</section>`.trim();
+<section class="stageplanSection">\n  <div class="stageplanCaption">${plan.stage.caption ?? ""}</div>\n  <div class="stageplanContainer">\n    <div class="stageplanPlanArea" style="width:${plan.container.widthMm}mm; height:${plan.container.heightMm}mm;">\n      <div class="stageplanStage" style="left:${plan.stage.xMm}mm; top:${plan.stage.yMm}mm; width:${plan.stage.widthMm}mm; height:${plan.stage.heightMm}mm;">\n        <div class="stageplanDownstage">DOWNSTAGE · PUBLIKUM</div>\n      </div>\n      ${boxesHtml}\n    </div>\n  </div>\n</section>`.trim();
 }

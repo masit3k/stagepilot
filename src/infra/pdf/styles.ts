@@ -303,12 +303,24 @@ body {
 }
 
 .stageplanContainer {
-  position: relative;
   display: inline-block;
   margin-top: ${stageplanLayout.containerMarginTop};
   padding: ${stageplanLayout.containerPad};
   background: #fff;
   border: ${stageplanLayout.containerBorderPx}px solid ${pdfTokens.line};
+}
+
+/*
+  Finding 2 (F5b fix): šířka/výška plánu patří sem, ne na .stageplanContainer.
+  Absolutně umístěné děti se řídí podle padding boxu nejbližšího position:
+  relative předka — kdyby container nesl width/height i padding zároveň, dítě
+  na left:0 by sedělo na vnitřní hraně rámečku a padding by byl mrtvý (a
+  border-box container by byl nejvýš areaWidthMm místo celého zrcadla, jak
+  počítá F4). Container se místo toho zase smršťuje kolem tohoto prvku se svým
+  paddingem a rámečkem netknuté.
+*/
+.stageplanPlanArea {
+  position: relative;
 }
 
 /* Rám ohraničuje plochu pódia — orientaci na papíře nese on a pruh dole (R6). */
@@ -339,7 +351,9 @@ body {
   padding-top: ${stageplanLayout.boxTitleGap};
   font-size: ${stageplanLayout.textSize};
   line-height: ${stageplanLayout.textLineHeight};
-  overflow: hidden;
+  /* Bez overflow: hidden (Finding 3, F5b fix): R13 je vědomá mezera — box, který
+     přeteče, to má být vidět při vizuální kontrole PDF, ne potichu ztratit
+     poslední řádek, který sound engineerovi řekne, který kanál je čí. */
 }
 
 /* Lead vokál je jediný plný blok — handoff řádek 125. */
