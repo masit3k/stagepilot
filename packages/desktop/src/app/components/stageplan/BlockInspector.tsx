@@ -1,0 +1,91 @@
+import type {
+  StageplanBlock,
+  StageplanBlockSlot,
+} from "../../../../../../src/domain/model/types";
+import { LABEL_BY_SLOT, formatZone } from "./blockContent";
+
+type BlockInspectorProps = {
+  blocks: readonly StageplanBlock[];
+  selectedSlot: StageplanBlockSlot | null;
+  onSelect: (slot: StageplanBlockSlot) => void;
+  onRotateBy: (deltaDeg: number) => void;
+  onReset: () => void;
+};
+
+export function BlockInspector({
+  blocks,
+  selectedSlot,
+  onSelect,
+  onRotateBy,
+  onReset,
+}: BlockInspectorProps) {
+  const selected = blocks.find((block) => block.slot === selectedSlot) ?? null;
+
+  return (
+    <aside className="stage-inspector">
+      <div className="stage-inspector__section">
+        <div className="stage-inspector__eyebrow">VYBRANÝ BLOK</div>
+        <div className="stage-inspector__title">
+          {selected ? LABEL_BY_SLOT[selected.slot] : "—"}
+        </div>
+      </div>
+
+      {selected ? (
+        <div className="stage-inspector__section">
+          <div className="stage-inspector__row">
+            <span className="stage-inspector__label">ROTACE</span>
+            <button
+              type="button"
+              onClick={() => onRotateBy(-15)}
+              aria-label="Otočit o 15 stupňů vlevo"
+            >
+              ↺
+            </button>
+            <span className="stage-inspector__value">
+              {selected.rotationDeg}°
+            </span>
+            <button
+              type="button"
+              onClick={() => onRotateBy(15)}
+              aria-label="Otočit o 15 stupňů vpravo"
+            >
+              ↻
+            </button>
+          </div>
+          <div className="stage-inspector__row">
+            <span className="stage-inspector__label">ROZMĚR</span>
+            <span className="stage-inspector__value">
+              {formatZone(selected.widthM, selected.depthM)}
+            </span>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="stage-inspector__section">
+        <div className="stage-inspector__eyebrow">BLOKY NA PÓDIU</div>
+        <ul className="stage-inspector__list">
+          {blocks.map((block) => (
+            <li key={block.slot}>
+              <button
+                type="button"
+                className={`stage-inspector__item${
+                  block.slot === selectedSlot
+                    ? " stage-inspector__item--active"
+                    : ""
+                }`}
+                onClick={() => onSelect(block.slot)}
+              >
+                <span>{LABEL_BY_SLOT[block.slot]}</span>
+                <span>{block.rotationDeg}°</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <button type="button" className="stage-inspector__reset" onClick={onReset}>
+        Reset rozmístění
+      </button>
+    </aside>
+  );
+}

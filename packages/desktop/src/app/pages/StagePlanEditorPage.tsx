@@ -4,8 +4,13 @@ import type {
   StageplanBlockSlot,
   StageplanLayout,
 } from "../../../../../src/domain/model/types";
-import { NOMINAL_STAGE } from "../../../../../src/domain/stageplan/layout/defaultLayout";
+import { rotateBlockBy } from "../../../../../src/domain/stageplan/layout/blockOps";
+import {
+  NOMINAL_STAGE,
+  buildDefaultLayout,
+} from "../../../../../src/domain/stageplan/layout/defaultLayout";
 import { mergeWithLineup } from "../../../../../src/domain/stageplan/layout/mergeWithLineup";
+import { BlockInspector } from "../components/stageplan/BlockInspector";
 import { EditorToolbar } from "../components/stageplan/EditorToolbar";
 import { StageCanvas } from "../components/stageplan/StageCanvas";
 import { resolveBlockSlotsFromPayload } from "../domain/stageplan/resolveBlockSlotsFromPayload";
@@ -23,6 +28,8 @@ export function StagePlanEditorPage({ id, navigate }: ProjectRouteProps) {
   const [selectedSlot, setSelectedSlot] = useState<StageplanBlockSlot | null>(
     null,
   );
+  /** Snap je nástroj, ne vlastnost projektu — proto se neukládá. */
+  const [snap, setSnap] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,6 +78,36 @@ export function StagePlanEditorPage({ id, navigate }: ProjectRouteProps) {
     });
   }
 
+  function rotateSelectedBy(deltaDeg: number) {
+    setState((current) => {
+      if (current.kind !== "ready" || selectedSlot === null) return current;
+      const area = current.layout.stage ?? NOMINAL_STAGE;
+      return {
+        ...current,
+        layout: {
+          stage: current.layout.stage,
+          blocks: current.layout.blocks.map((block) =>
+            block.slot === selectedSlot
+              ? rotateBlockBy(block, deltaDeg, { area, snap })
+              : block,
+          ),
+        },
+      };
+    });
+  }
+
+  function resetArrangement() {
+    setState((current) => {
+      if (current.kind !== "ready") return current;
+      const layout = buildDefaultLayout({
+        slots: resolveBlockSlotsFromPayload(current.project),
+        stage: current.layout.stage,
+      });
+      setSelectedSlot(layout.blocks[0]?.slot ?? null);
+      return { ...current, layout };
+    });
+  }
+
   if (state.kind === "loading")
     return <div className="stage-editor__status">Načítám…</div>;
   if (state.kind === "error")
@@ -82,6 +119,8 @@ export function StagePlanEditorPage({ id, navigate }: ProjectRouteProps) {
     <div className="stage-editor">
       <EditorToolbar
         stage={state.layout.stage}
+        snap={snap}
+        onToggleSnap={() => setSnap((current) => !current)}
         onOpenPreview={() =>
           navigate(`/projects/${encodeURIComponent(id)}/preview`)
         }
@@ -97,16 +136,25 @@ export function StagePlanEditorPage({ id, navigate }: ProjectRouteProps) {
           </button>
         </div>
       ) : (
-        <StageCanvas
-          area={area}
-          blocks={state.layout.blocks}
-          selectedSlot={selectedSlot}
-          snap={true}
-          onSelect={setSelectedSlot}
-          onChangeBlock={updateBlock}
-          onGestureStart={() => undefined}
-          onGestureEnd={() => undefined}
-        />
+        <div className="stage-editor__body">
+          <StageCanvas
+            area={area}
+            blocks={state.layout.blocks}
+            selectedSlot={selectedSlot}
+            snap={snap}
+            onSelect={setSelectedSlot}
+            onChangeBlock={updateBlock}
+            onGestureStart={() => undefined}
+            onGestureEnd={() => undefined}
+          />
+          <BlockInspector
+            blocks={state.layout.blocks}
+            selectedSlot={selectedSlot}
+            onSelect={setSelectedSlot}
+            onRotateBy={rotateSelectedBy}
+            onReset={resetArrangement}
+          />
+        </div>
       )}
     </div>
   );

@@ -3,6 +3,8 @@ import { formatZone } from "./blockContent";
 
 type EditorToolbarProps = {
   stage: StageplanStageSize | null;
+  snap: boolean;
+  onToggleSnap: () => void;
   onOpenPreview: () => void;
 };
 
@@ -10,7 +12,12 @@ type EditorToolbarProps = {
  * Nástrojové čtverce z prototypu tu nejsou: tažení i rotace fungují přímo, tak
  * by to byly ovladače bez funkce — stejný důvod, proč vypadl popisek ZOOM.
  */
-export function EditorToolbar({ stage, onOpenPreview }: EditorToolbarProps) {
+export function EditorToolbar({
+  stage,
+  snap,
+  onToggleSnap,
+  onOpenPreview,
+}: EditorToolbarProps) {
   return (
     <div className="stage-toolbar">
       <div className="stage-toolbar__tabs">
@@ -20,6 +27,13 @@ export function EditorToolbar({ stage, onOpenPreview }: EditorToolbarProps) {
           PDF PREVIEW
         </button>
       </div>
+      <button
+        type="button"
+        className={`stage-snap${snap ? " stage-snap--on" : ""}`}
+        onClick={onToggleSnap}
+      >
+        {snap ? "SNAP 10 CM · 15°" : "SNAP OFF"}
+      </button>
       <div className="stage-toolbar__meta">
         {stage
           ? `PÓDIUM ${formatZone(stage.widthM, stage.depthM)}`
