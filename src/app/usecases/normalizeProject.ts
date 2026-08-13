@@ -7,6 +7,7 @@ import type {
   ProjectOverlays,
   StagePlanPurpose,
 } from "../../domain/model/types.js";
+import { normalizeStageplanLayout } from "../../domain/stageplan/layout/normalizeLayout.js";
 
 function normalizeLineupSlots(value: unknown): LineupSlot[] {
   const entries = Array.isArray(value) ? value : [value];
@@ -185,6 +186,23 @@ function normalizeCanonicalOverlays(
   return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
+/**
+ * Layout prochází normalizací, protože `stageplan` se dřív jen přiřadil a
+ * věřilo se typu — ručně editovaný JSON tak dostal do domény cokoli.
+ */
+function normalizeProjectStageplan(
+  value: Project["stageplan"],
+): Project["stageplan"] {
+  if (!value || typeof value !== "object") return undefined;
+  const layout = normalizeStageplanLayout(value.layout);
+  const powerOverridesByMusician = value.powerOverridesByMusician;
+  if (!layout && !powerOverridesByMusician) return undefined;
+  return {
+    ...(powerOverridesByMusician ? { powerOverridesByMusician } : {}),
+    ...(layout ? { layout } : {}),
+  };
+}
+
 export function normalizeProject(input: ProjectJson): Project {
   const id = assertString((input as ProjectJson).id, "project id");
   const bandRef = assertString((input as ProjectJson).bandRef, "bandRef");
@@ -196,7 +214,7 @@ export function normalizeProject(input: ProjectJson): Project {
       ? raw.displayName.trim() || undefined
       : undefined;
 
-  const stageplan = (input as ProjectJson).stageplan;
+  const stageplan = normalizeProjectStageplan((input as ProjectJson).stageplan);
   const createdAt =
     "createdAt" in input &&
     typeof input.createdAt === "string" &&

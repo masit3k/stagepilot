@@ -157,4 +157,41 @@ describe("normalizeProject", () => {
       vocs: [],
     });
   });
+
+  it("drops a corrupt stageplan layout but keeps power overrides", () => {
+    const project = normalizeProject({
+      id: "p-1",
+      bandRef: "band-1",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+      stageplan: {
+        powerOverridesByMusician: { "musician-1": { voltage: 230, sockets: 5 } },
+        layout: { stage: { widthM: 12, depthM: 8 }, blocks: "nonsense" },
+      },
+    } as never);
+
+    expect(project.stageplan?.powerOverridesByMusician).toEqual({
+      "musician-1": { voltage: 230, sockets: 5 },
+    });
+    expect(project.stageplan?.layout).toBeUndefined();
+  });
+
+  it("keeps a valid stageplan layout", () => {
+    const project = normalizeProject({
+      id: "p-2",
+      bandRef: "band-1",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+      stageplan: {
+        layout: {
+          stage: null,
+          blocks: [
+            { slot: "drums", centerXM: 6, centerYM: 1.2, widthM: 2.8, depthM: 1.6, rotationDeg: 0 },
+          ],
+        },
+      },
+    } as never);
+
+    expect(project.stageplan?.layout?.blocks).toHaveLength(1);
+  });
 });

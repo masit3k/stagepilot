@@ -26,6 +26,41 @@ export type StageplanPerson = {
   isBandLeader: boolean;
 };
 
+/** Slot, který se na stage planu kreslí jako blok. Shodný s tiskovými sloty PDF. */
+export type StageplanBlockSlot =
+  | "drums"
+  | "bass"
+  | "guitar"
+  | "keys"
+  | "lead_voc_1"
+  | "lead_voc_2";
+
+export type StageplanStageSize = {
+  readonly widthM: number;
+  readonly depthM: number;
+};
+
+/**
+ * Zóna jednoho slotu na pódiu. Ukládá se **střed** zóny, protože rotace kolem
+ * středu ho nemění — u levého horního rohu by každé otočení vypadalo jako posun.
+ */
+export type StageplanBlock = {
+  readonly slot: StageplanBlockSlot;
+  readonly centerXM: number;
+  /** 0 = upstage hrana, roste směrem k publiku. */
+  readonly centerYM: number;
+  readonly widthM: number;
+  readonly depthM: number;
+  /** 0–359, celé stupně, kolem středu zóny. */
+  readonly rotationDeg: number;
+};
+
+export type StageplanLayout = {
+  /** null = rozměr pódia nezadán; kreslí se na nominální plochu 12 × 8 m. */
+  readonly stage: StageplanStageSize | null;
+  readonly blocks: readonly StageplanBlock[];
+};
+
 export type LineupSlot = {
   slot: number;
   musicianId: string;
@@ -81,6 +116,7 @@ export interface Project {
 
   stageplan?: {
     powerOverridesByMusician?: Record<string, PowerRequirement>;
+    layout?: StageplanLayout;
   };
 }
 
@@ -95,6 +131,7 @@ export interface LegacyProjectJson {
   venue?: string;
   stageplan?: {
     powerOverridesByMusician?: Record<string, PowerRequirement>;
+    layout?: StageplanLayout;
   };
 }
 
@@ -131,6 +168,7 @@ export interface ProjectJsonV2 {
     | { mode: "assigned"; musicianId: string };
   stageplan?: {
     powerOverridesByMusician?: Record<string, PowerRequirement>;
+    layout?: StageplanLayout;
   };
 }
 
