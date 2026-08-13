@@ -283,3 +283,28 @@
   border-color: var(--color-primary);
   color: var(--color-primary-text);
 }
+
+.stage-size {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font: var(--sp-mono-xs);
+  letter-spacing: 0.1em;
+  color: var(--color-stage-text-dim);
+}
+
+.stage-size__input {
+  width: 52px;
+  padding: 5px 7px;
+  font: var(--sp-mono-xs);
+  text-align: right;
+  border: 1px solid var(--color-stage-border);
+  border-radius: var(--sp-r-chip);
+  background: transparent;
+  color: var(--color-stage-text);
+}
+
+.stage-size__input:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}

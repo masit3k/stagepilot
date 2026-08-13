@@ -1,10 +1,11 @@
 import type { StageplanStageSize } from "../../../../../../src/domain/model/types";
-import { formatZone } from "./blockContent";
+import { StageSizeFields } from "./StageSizeFields";
 
 type EditorToolbarProps = {
   stage: StageplanStageSize | null;
   snap: boolean;
   onToggleSnap: () => void;
+  onChangeStage: (next: StageplanStageSize | null) => void;
   onOpenPreview: () => void;
 };
 
@@ -16,6 +17,7 @@ export function EditorToolbar({
   stage,
   snap,
   onToggleSnap,
+  onChangeStage,
   onOpenPreview,
 }: EditorToolbarProps) {
   return (
@@ -35,9 +37,7 @@ export function EditorToolbar({
         {snap ? "SNAP 10 CM · 15°" : "SNAP OFF"}
       </button>
       <div className="stage-toolbar__meta">
-        {stage
-          ? `PÓDIUM ${formatZone(stage.widthM, stage.depthM)}`
-          : "PÓDIUM · ROZMĚR NEZADÁN"}
+        <StageSizeFields stage={stage} onChange={onChangeStage} />
       </div>
     </div>
   );

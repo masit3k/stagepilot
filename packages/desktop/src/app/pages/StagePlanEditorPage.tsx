@@ -3,6 +3,7 @@ import type {
   StageplanBlock,
   StageplanBlockSlot,
   StageplanLayout,
+  StageplanStageSize,
 } from "../../../../../src/domain/model/types";
 import {
   nudgeBlockBy,
@@ -13,6 +14,7 @@ import {
   buildDefaultLayout,
 } from "../../../../../src/domain/stageplan/layout/defaultLayout";
 import { mergeWithLineup } from "../../../../../src/domain/stageplan/layout/mergeWithLineup";
+import { rescaleForStage } from "../../../../../src/domain/stageplan/layout/rescaleForStage";
 import { BlockInspector } from "../components/stageplan/BlockInspector";
 import { EditorToolbar } from "../components/stageplan/EditorToolbar";
 import { StageCanvas } from "../components/stageplan/StageCanvas";
@@ -136,6 +138,15 @@ export function StagePlanEditorPage({ id, navigate }: ProjectRouteProps) {
     });
   }
 
+  function applyStageSize(next: StageplanStageSize | null) {
+    setState((current) => {
+      if (current.kind !== "ready") return current;
+      history.push(current.layout);
+      // Jediné místo, kde se souřadnice přepočítávají — R6.
+      return { ...current, layout: rescaleForStage(current.layout, next) };
+    });
+  }
+
   useEditorKeyboard({
     enabled: selectedSlot !== null,
     onNudge: (delta) => nudgeSelectedBy(delta),
@@ -168,6 +179,7 @@ export function StagePlanEditorPage({ id, navigate }: ProjectRouteProps) {
         stage={state.layout.stage}
         snap={snap}
         onToggleSnap={() => setSnap((current) => !current)}
+        onChangeStage={applyStageSize}
         onOpenPreview={() =>
           navigate(`/projects/${encodeURIComponent(id)}/preview`)
         }
