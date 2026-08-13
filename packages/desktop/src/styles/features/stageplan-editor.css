@@ -135,7 +135,8 @@
     border-color 120ms ease-out;
 }
 
-/* Kolik místa blok zabere na papíře — text ho nafoukne nad hloubku zóny (R12). */
+/* Kolik místa blok zabere na papíře — text ho nafoukne nad hloubku zóny (R12).
+   Bez radiusu: obrys má ukazovat tištěný tvar, a ten je podle R5 hranatý. */
 .stage-block__print-footprint {
   position: absolute;
   left: 50%;
@@ -144,7 +145,6 @@
   height: var(--footprint-h);
   transform: translate(-50%, -50%);
   border: 1px dashed var(--color-stage-border);
-  border-radius: var(--sp-r-card);
   pointer-events: none;
 }
 
