@@ -18,6 +18,7 @@ designový board, implementuje se **kolo 3** (`3a`–`3d` varianty značky, vybr
 | F5a | Model rozmístění + Stage Plan Editor | hotovo, čeká na ruční kontrolu editoru | [2026-08-13-stageplan-editor-and-layout-model-design.md](../superpowers/specs/2026-08-13-stageplan-editor-and-layout-model-design.md) | `fdee3b8`…`67b3895` |
 | **F5b** | **PDF čte rozmístění z projektu (pozice, rotace, nová kresba bloků)** | **hotovo, čeká na ruční kontrolu** | [2026-08-13-pdf-reads-stageplan-layout-design.md](../superpowers/specs/2026-08-13-pdf-reads-stageplan-layout-design.md) | `7ec42a9`…`b6fbf96` |
 | F5c | Obrazovka `02 INPUTS` | připraveno k otevření | zatím není | — |
+| **F6** | **Tok na editor, obsah bloků, úchyty velikosti, tisk bez zvýraznění, kapelník, angličtina** | **spec schválený, plán zatím není** | [2026-08-13-editor-flow-block-content-and-ui-language-design.md](../superpowers/specs/2026-08-13-editor-flow-block-content-and-ui-language-design.md) | — |
 
 ## F4 — typografie a hlavička PDF
 
@@ -75,6 +76,25 @@ V **F5c** přijde **obrazovka `02 INPUTS`**, kterou F3 odložila: dnes se inputy
 v modálu uvnitř setupu, takže krok `02` v procesní stopě má stav `unavailable`. V
 `app/shell/chrome/processSteps.ts` stačí u kroku přepsat `segment` z `null` na routu — krok `03`
 takhle odemkne už F5a.
+
+## F6 — tok, obsah bloků, úchyty a jazyk
+
+Není to F5d: F5 byla rozdělená rozhodnutím R1 ve F5a na model, tisk a `02 INPUTS`, a tohle je jiné
+téma. F5c tím zůstává otevřená a nezávislá.
+
+Šest bodů v jednom specu, patnáct rozhodnutí `R1`–`R15`. Dvě věci, které stojí za přečtení, i když se
+do F6 nepustíš hned:
+
+- **Krok `03 STAGE PLAN` ve stopě je klikatelný už dnes.** Nefunkční je krok `02` a to je F5c. Díra
+  je v tom, že `Continue` z Lineup Setupu míří na `/preview`, takže editor v hlavní cestě nikdo
+  nepotká.
+- **Rezerva na minimální šířku tištěného boxu je aktivní v každém výchozím rozmístění.** Nejužší
+  výchozí zóna je 2,6 m, mez leží kolem 2,81 m, takže `resolvePrintScale` snižuje měřítko už teď.
+  Zmenšení jedné zóny přeškáluje **celý** tištěný plán. F6 to řeší tím, že karta bloku v editoru je
+  tištěný box a zóna je obrys uvnitř — zmenšení, které tisk nepřevezme, je pak vidět.
+
+F6 **mění R5 z F5b**: inverzní lead vokál v PDF končí, všechny bloky mají stejnou barvu. Je to vědomá
+odchylka od handoffu, řádek 125. Handoff se neupravuje, je to vstupní artefakt.
 
 ## Samostatné položky mimo fáze
 

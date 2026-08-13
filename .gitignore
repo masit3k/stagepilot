@@ -28,3 +28,4 @@ packages/**/user_data/
 
 # claude
 .mcp.json
+.superpowers/
