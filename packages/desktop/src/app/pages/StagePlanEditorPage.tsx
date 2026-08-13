@@ -4,7 +4,10 @@ import type {
   StageplanBlockSlot,
   StageplanLayout,
 } from "../../../../../src/domain/model/types";
-import { rotateBlockBy } from "../../../../../src/domain/stageplan/layout/blockOps";
+import {
+  nudgeBlockBy,
+  rotateBlockBy,
+} from "../../../../../src/domain/stageplan/layout/blockOps";
 import {
   NOMINAL_STAGE,
   buildDefaultLayout,
@@ -13,6 +16,8 @@ import { mergeWithLineup } from "../../../../../src/domain/stageplan/layout/merg
 import { BlockInspector } from "../components/stageplan/BlockInspector";
 import { EditorToolbar } from "../components/stageplan/EditorToolbar";
 import { StageCanvas } from "../components/stageplan/StageCanvas";
+import { useEditorKeyboard } from "../components/stageplan/useEditorKeyboard";
+import { useLayoutHistory } from "../components/stageplan/useLayoutHistory";
 import { resolveBlockSlotsFromPayload } from "../domain/stageplan/resolveBlockSlotsFromPayload";
 import { parseProjectPayload, readProject } from "../services/projectsApi";
 import type { NewProjectPayload } from "../shell/types";
@@ -30,6 +35,7 @@ export function StagePlanEditorPage({ id, navigate }: ProjectRouteProps) {
   );
   /** Snap je nástroj, ne vlastnost projektu — proto se neukládá. */
   const [snap, setSnap] = useState(true);
+  const history = useLayoutHistory();
 
   useEffect(() => {
     let cancelled = false;
@@ -43,6 +49,7 @@ export function StagePlanEditorPage({ id, navigate }: ProjectRouteProps) {
           stage: project.stageplan?.layout?.stage ?? null,
         });
         if (cancelled) return;
+        history.reset();
         setState({ kind: "ready", project, layout });
         setSelectedSlot(layout.blocks[0]?.slot ?? null);
       } catch (error) {
@@ -61,7 +68,7 @@ export function StagePlanEditorPage({ id, navigate }: ProjectRouteProps) {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, history.reset]);
 
   function updateBlock(slot: StageplanBlockSlot, next: StageplanBlock) {
     setState((current) => {
@@ -78,10 +85,30 @@ export function StagePlanEditorPage({ id, navigate }: ProjectRouteProps) {
     });
   }
 
+  function nudgeSelectedBy(delta: { xM: number; yM: number }) {
+    setState((current) => {
+      if (current.kind !== "ready" || selectedSlot === null) return current;
+      const area = current.layout.stage ?? NOMINAL_STAGE;
+      history.push(current.layout);
+      return {
+        ...current,
+        layout: {
+          stage: current.layout.stage,
+          blocks: current.layout.blocks.map((block) =>
+            block.slot === selectedSlot
+              ? nudgeBlockBy(block, delta, { area })
+              : block,
+          ),
+        },
+      };
+    });
+  }
+
   function rotateSelectedBy(deltaDeg: number) {
     setState((current) => {
       if (current.kind !== "ready" || selectedSlot === null) return current;
       const area = current.layout.stage ?? NOMINAL_STAGE;
+      history.push(current.layout);
       return {
         ...current,
         layout: {
@@ -99,6 +126,7 @@ export function StagePlanEditorPage({ id, navigate }: ProjectRouteProps) {
   function resetArrangement() {
     setState((current) => {
       if (current.kind !== "ready") return current;
+      history.push(current.layout);
       const layout = buildDefaultLayout({
         slots: resolveBlockSlotsFromPayload(current.project),
         stage: current.layout.stage,
@@ -107,6 +135,25 @@ export function StagePlanEditorPage({ id, navigate }: ProjectRouteProps) {
       return { ...current, layout };
     });
   }
+
+  useEditorKeyboard({
+    enabled: selectedSlot !== null,
+    onNudge: (delta) => nudgeSelectedBy(delta),
+    onRotateBy: (deltaDeg) => rotateSelectedBy(deltaDeg),
+    onUndo: () =>
+      setState((current) => {
+        if (current.kind !== "ready") return current;
+        const previous = history.undo(current.layout);
+        return previous ? { ...current, layout: previous } : current;
+      }),
+    onRedo: () =>
+      setState((current) => {
+        if (current.kind !== "ready") return current;
+        const next = history.redo(current.layout);
+        return next ? { ...current, layout: next } : current;
+      }),
+    onClearSelection: () => setSelectedSlot(null),
+  });
 
   if (state.kind === "loading")
     return <div className="stage-editor__status">Načítám…</div>;
@@ -144,7 +191,12 @@ export function StagePlanEditorPage({ id, navigate }: ProjectRouteProps) {
             snap={snap}
             onSelect={setSelectedSlot}
             onChangeBlock={updateBlock}
-            onGestureStart={() => undefined}
+            onGestureStart={() =>
+              setState((current) => {
+                if (current.kind === "ready") history.push(current.layout);
+                return current;
+              })
+            }
             onGestureEnd={() => undefined}
           />
           <BlockInspector
