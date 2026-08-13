@@ -332,3 +332,123 @@ Baseline před implementací: dva trvale padající testy (`assetsPaths`, `repoA
 6. Bloky namáčknuté na sebe: export selže a hláška pojmenuje bloky; v editoru byly obrysy stop přeložené už dřív
 7. Lineup bez klávesáka: box `Keys` se netiskne (R7)
 8. Vizuální kontrola vytištěného PDF — ruční, stejně jako u F4
+
+## Stav implementace
+
+**Hotovo** v sedmnácti commitech `7ec42a9`…`b6fbf96`. Rozhodnutí R4–R14 platí beze změny; R1, R2
+a R3 byly za běhu implementace opravené — ne proto, že by byl cíl specu špatný, ale protože R2 měl
+mezeru, kterou odhalil až běžící kód (viz níže). Text výše už nese opravený stav; tahle sekce
+popisuje, jak se k němu došlo.
+
+### Co vzniklo
+
+| Vrstva | Soubory |
+|---|---|
+| Doména — tisková geometrie | `src/domain/stageplan/print/printScale.ts` (+ `resolvePrintScale`), `printFootprint.ts`, `printCollisions.ts`, `printMetrics.ts`; `src/domain/pipeline/pdf/countStageplanBoxLines.ts`, `buildStageplanPrintMetrics.ts`; `buildPdfStageplan.ts` dopočítá `layout` (R8); `DocumentViewModel.stageplan.layout` jako povinné pole |
+| Renderer PDF | `src/infra/pdf/sections/stageplan.ts` — přepis: kresba z `vm.layout`, oba pevné layouty i jejich pomocné funkce smazané; `src/infra/pdf/styles.ts` — identita z R5 (1px ink rám, inverzní lead vokál, oranžové napájení, rám pódia, pruh `DOWNSTAGE · PUBLIKUM`), dead `--c-line` odstraněná |
+| Skript a Tauri příkaz | `scripts/stageplan_print_metrics.ts` (nový) a `build_stageplan_print_metrics` v `packages/desktop/src-tauri/src/lib.rs`, po vzoru `desktop_preview.ts` / `build_project_pdf_preview` včetně logování na stderr |
+| Editor | `stageplanMetrics.ts` (nová služba), `StagePlanEditorPage.tsx`, `StageCanvas.tsx`, `StageBlock.tsx` — tisková stopa jako čárkovaný obrys bloku; `EditorFooter.tsx` nese větu `Změny se propíší do PDF exportu` (R14) |
+
+Testy (`npm test`): **759 → 790 procházejících (+31)**, měřeno proti stavu na konci F5a (o dva
+commity starším než báze F5b, oba jen dokumentační). Trvale padající zůstaly dva (`assetsPaths`,
+`repoAssets`), beze změny proti baseline — 792 testů celkem místo 761, celý rozdíl je v nových
+procházejících. `npx tsc --noEmit` v kořeni: 0 chyb. `npx tsc --noEmit` v `packages/desktop`:
+deset chyb ve čtyřech předem existujících testovacích souborech (`BassFieldRendering.test.tsx`,
+`buildBassFields.test.ts`, `buildKeysFields.test.ts`, `projectMaintenance.test.ts`) — stejná sada
+jako v F5a, touto fází nezměněná. `npx vite build` v `packages/desktop` proběhl (189 modulů).
+Rust: `cargo check` i `cargo fmt -- --check` bez nálezu. `npm run lint` na celém repozitáři hlásí
+1402 chyb, výhradně kategorie `format` (CRLF, `core.autocrlf=true` bez `.gitattributes`) a
+ojedinělé `organizeImports` na řádcích, které tato fáze nezavedla — každý dotčený soubor to
+potvrzuje samostatně ve svém tasku; žádné pravidlo `lint/*` touto fází nově neselhává.
+
+### Defekt zjištěný až při ověřování, ne v review
+
+Po Tasku 8 spustil kontrolor postavený kód napřímo a zjistil, že tištěný plán je široký přesně
+tolik, kolik je tiskové zrcadlo. Blok postavený k boční hraně pódia — běžné umístění na stage
+planu, a takové, které clamp editoru z F5a výslovně povoluje (přesah 20 cm,
+`OVERHANG_TOLERANCE_M`) — proto shodí export: `lead_voc_1` na `centerXM = 1,3 m` (lícuje s hranou)
+i na `1,1 m` (mez clampu) hodilo `Stageplan layout overflow`. Příčina je v R2, ne v žádné
+implementaci — vzorec pro `mmPerM` nepočítal s tím, že legální přesah a minimální šířka boxu (R3)
+žádají víc místa, než kolik pódium samo zabírá.
+
+Nález šel k rozhodnutí uživateli, ne k řešení na vlastní pěst implementace. Rozhodnuto rezervovat
+místo na přesah přímo v měřítku (varianta A) — vznikl Task 12 (`resolvePrintScale`), zařazený
+**před** Task 10, protože editor musí stopu počítat stejnou funkcí jako tisk. Řešení je uzavřený
+tvar, ne iterace: hledá největší `s`, pro které se do plochy vejde pódium i s tolerancí a nejširší
+možný přerostlý box. Důsledek je posun nominálního měřítka z 13,5448 na 13,1079 mm/m (rozmístění
+beze zóny padající pod minimum) nebo 12,8855 mm/m (s lead vokálem, jehož zóna 2,6 m na minimum
+dorůstá) — nominální plán je tedy o **přibližně 4,9 %** menší než před opravou.
+
+### Tři nálezy review, které se vracely k chybě v plánu, ne u implementátorů
+
+- **Pinovaná milimetrová hodnota z jiné zóny.** Krok 6 Tasku 12 předepsal posun testu na
+  12,8855 mm/m — to je ale hodnota ze scénáře s blokem `lead_voc_1` (zóna 2,6 m) z jiného testu
+  ve stejném briefu. Test v `stageplan.test.ts`, který se skutečně opravoval, staví jediný blok
+  `drums` (zóna 2,8 m), pro který `resolvePrintScale` dá 13,1079 mm/m. Implementátor hodnotu
+  přepočítal ručně proti skutečnému modulu a opravil ji; review to následně potvrdilo jako
+  správné.
+- **Konvence logování na stderr chyběla u obou cest zadání.** Review Tasku 9 (Important) našlo,
+  že brief vynechal stderr logování, které `desktop_preview.ts` a `build_project_pdf_preview` už
+  zavádí — ani nový skript, ani nový Rust příkaz nemá jediné hlášení chyby na stderr. Implementátor
+  doplnil obě cesty (skript i Rust) podle přesného vzoru precedentní funkce ve fix kole 1.
+- **Tabulka ve specu mísila staré a nové měřítko.** Fix kolo 1 Tasku 12 (Important) zjistilo, že
+  tabulka v R1 nese metry přepočítané ze starého měřítka (13,5448) vedle milimetrů z nového —
+  vlastní instrukce briefu („metrový sloupec zůstává stejný") byla chybná. Implementátor
+  přepočítal celou tabulku i R2 a R3 pod jedno měřítko; review to potvrdilo hodnotu po hodnotě.
+
+Ve všech třech případech implementátor chybu odhalil přepočtem ze skutečného modelu, ne
+přepisováním briefu podle sebe — review pak výsledek ověřilo, neodhalilo ho jako první.
+
+### Dva testy v plánu měly chybně spočítané očekávané hodnoty
+
+Stejný vzorec jako F5a: implementace je správně, opravily se testy.
+
+- **Box bicích nese vždy pevnou odrážku navíc.** Fixture briefu pro `buildStageplanPrintMetrics`
+  (Task 9) čekala `lineCount: 1` pro bicí, ale `buildPdfStageplanPrintModel` k bicím trvale
+  připojuje `extraBullets: ["Drum riser 3x2"]` — předchozí, úmyslné chování, kryté i dvěma dalšími
+  testy (`countStageplanBoxLines.test.ts`, `stageplan.test.ts`), kterých se tento task nedotkl. Se
+  dvěma vstupy sbalenými do jedné odrážky, odrážkou riseru a oddělovačem mezi skupinami vychází
+  `countStageplanBoxLines` na 3, ne na 1. Opraven test, ne produkční kód.
+- **Pinovaná hodnota měřítka z jiné zóny** (Task 12, popsáno i výše u review nálezů) je zároveň
+  případ chybného testu v plánu: 12,8855 mm/m patřilo scénáři s `lead_voc_1`, test v
+  `stageplan.test.ts` ale staví blok `drums` — opraveno na 13,1079 mm/m po přepočtu ze skutečného
+  modelu.
+
+### Co ověřeno není
+
+Automaticky se ověřilo všechno, co bez jsdom a bez okna Tauri ověřit jde: doménová matematika
+testy, kresba a pojistky rendereru testy (včetně `pdf.test.ts`, který vykresluje skutečné PDF přes
+systémový Chromium), typová správnost přes `tsc --noEmit` (0 chyb v kořeni; v `packages/desktop`
+stejných deset chyb jako v F5a, nezměněno), sestavitelnost přes `vite build` a Rust přes
+`cargo check` / `cargo fmt -- --check`.
+
+**Ruční kontrola v `npm run dev` proběhnout nemohla** — editor běží v okně Tauri, ne v headless
+procesu, a projekt spouští testy bez jsdom (CLAUDE.md). Body 2 až 7 z Verifikace výše proto
+zůstávají **neodbavené**:
+
+2. export s ručně upraveným rozmístěním — pozice, rotace, inverzní lead vokál, oranžové napájení,
+   rám a pruh `DOWNSTAGE · PUBLIKUM`
+3. posun bloku → uložení → export — nová pozice se vytiskne a `contentUpdatedAt` se exportem
+   neposune
+4. starý projekt bez `stageplan.layout` — vytiskne se výchozí rozmístění, do JSONu se nic nezapíše
+5. pódium 10 × 6 m — popisek nad rámem, zachování proporcí
+6. bloky namáčknuté na sebe — export selže s hláškou, která bloky pojmenuje
+7. lineup bez klávesáka — box `Keys` se nevytiskne
+
+Bod 8 — vizuální kontrola vytištěného PDF — je také ruční a neproběhl.
+
+K tomu Task 10 sám hlásí tři věci u editoru, které nešlo ověřit jinak než čtením kódu: že se obrys
+stopy skutečně vykresluje na správném místě a rotuje s blokem při tažení, že skutečná odpověď
+příkazu `build_stageplan_print_metrics` za běhu odpovídá typu `StageplanPrintGeometry` (ověřeno
+jen staticky přes import typu, ne end-to-end IPC round-trip), a vzhled čárkovaného obrysu v obou
+tématech.
+
+### Co se předává dál
+
+- R1, R2 a R3 jsou opravené ve specu výše; `resolvePrintScale` je jediné měřítko, které renderer i
+  editor používají. `createPrintScale` zůstává exportovaná, ale bez rezervy na přesah a bez
+  jediného produkčního volajícího v `src/infra/pdf/` — dál ji používají jen vlastní testy.
+- Nominální plán je po opravě o ~4,9 % menší; budoucí změna izotropního měřítka nebo rozměrů
+  zrcadla musí rezervu znovu prověřit (headroom spočítaný v Tasku 8 a 12 už na tom stojí).
+- F5c (obrazovka `02 INPUTS`) může začít bez závislosti na F5b — žádné rozhodnutí F5b nemění model
+  ani persistenci z F5a.

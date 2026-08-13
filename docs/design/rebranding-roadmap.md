@@ -16,7 +16,7 @@ designový board, implementuje se **kolo 3** (`3a`–`3d` varianty značky, vybr
 | F3 | Custom titlebar, pilulková navigace, procesní stopa, velikost okna, téma v Settings | hotovo | [2026-08-12-shell-and-information-architecture-design.md](../superpowers/specs/2026-08-12-shell-and-information-architecture-design.md) | `17c4580`, `cebabcf` |
 | F4 | Typografie a hlavička PDF | hotovo, čeká na vizuální kontrolu | [2026-08-12-pdf-typography-and-header-design.md](../superpowers/specs/2026-08-12-pdf-typography-and-header-design.md) | `785377d`…`b8c9e40` |
 | F5a | Model rozmístění + Stage Plan Editor | hotovo, čeká na ruční kontrolu editoru | [2026-08-13-stageplan-editor-and-layout-model-design.md](../superpowers/specs/2026-08-13-stageplan-editor-and-layout-model-design.md) | `fdee3b8`…`67b3895` |
-| **F5b** | **PDF čte rozmístění z projektu (pozice, rotace, nová kresba bloků)** | **spec schválen, čeká na implementaci** | [2026-08-13-pdf-reads-stageplan-layout-design.md](../superpowers/specs/2026-08-13-pdf-reads-stageplan-layout-design.md) | — |
+| **F5b** | **PDF čte rozmístění z projektu (pozice, rotace, nová kresba bloků)** | **hotovo, čeká na ruční kontrolu** | [2026-08-13-pdf-reads-stageplan-layout-design.md](../superpowers/specs/2026-08-13-pdf-reads-stageplan-layout-design.md) | `7ec42a9`…`b6fbf96` |
 | F5c | Obrazovka `02 INPUTS` | připraveno k otevření | zatím není | — |
 
 ## F4 — typografie a hlavička PDF
@@ -49,7 +49,16 @@ R1–R17 jsou ve specu F5a; níže zůstává jen to, co platí pro celou fázi.
 
 **F5a je hotová** — model, persistence i editor stojí, sekce „Stav implementace" ve specu popisuje
 odchylky a co se předává dál. Zbývá **ruční kontrola editoru** v `npm run dev`: běží v okně Tauri,
-takže se automaticky ověřit nedala. Do F5b tisk rozmístění nečte a patička editoru to přiznává.
+takže se automaticky ověřit nedala.
+
+**F5b je taky hotová** — tisk čte `stageplan.layout`, kreslí bloky na jejich pozicích a rotacích
+podle nové identity a patička editoru už mezeru z F5a nepřiznává, protože přestala existovat.
+Ověřování po jednom z tasků (Task 8) odhalilo skutečný defekt v návrhu, ne v implementaci: nominální
+plán byl přesně tak široký jako tiskové zrcadlo, takže blok u boční hrany pódia — legální umístění,
+které clamp z F5a povoluje — shodil export. Oprava (`resolvePrintScale`) rezervuje místo na přesah
+přímo v měřítku a zmenšila nominální plán o ~4,9 %. Detaily, tři review nálezy vzešlé z chyb v
+plánu a co zůstává neověřené (body 2–8 z Verifikace, vyžadují `npm run dev`) jsou v sekci „Stav
+implementace" specu F5b.
 
 **Co si z F4 přinést:** geometrie stage planu se nově odvozuje z tiskového zrcadla — `areaWidthMm`
 z `contentWidthMm` mínus odsazení a rámeček kontejneru, šířky bloků a mezer z `areaWidthMm`.
