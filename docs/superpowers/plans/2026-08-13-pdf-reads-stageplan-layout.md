@@ -2133,6 +2133,315 @@ git commit -m "feat(stageplan): expose printed line counts to the editor via a l
 
 ---
 
+### Task 12: Rezerva na přesah u hrany pódia
+
+> Vznikl po Tasku 8, na základě nálezu při ověřování. Běží **před Taskem 10**, protože editor musí
+> stopu počítat stejnou funkcí jako tisk.
+
+**Proč:** plán je při nominálním pódiu široký přesně tolik jako tiskové zrcadlo, takže cokoli, co
+přesahuje boční hranu pódia, vyhodí pojistku přetečení. A přesah je legální: clamp z F5a nechává blok
+přesahovat o 20 cm (`OVERHANG_TOLERANCE_M`) a tištěný box je navíc širší než úzká zóna, protože má
+minimální šířku 36,2594 mm. Ověřeno na běžícím kódu — lead vokál na `centerXM = 1,3 m` (lícuje
+s hranou) i na `1,1 m` (mez clampu) shodí export:
+
+```
+centerXM=1.5 -> OK, container 162.537 mm
+centerXM=1.3 -> THROW: required 163.06 mm exceeds available 162.54 mm
+centerXM=1.1 -> THROW: required 165.77 mm exceeds available 162.54 mm
+```
+
+**Files:**
+- Modify: `src/domain/stageplan/print/printScale.ts` (+ `resolvePrintScale`)
+- Test: `src/domain/stageplan/print/printScale.test.ts` (+ testy nové funkce)
+- Modify: `src/infra/pdf/sections/stageplan.ts` (renderer volá `resolvePrintScale`)
+- Test: `src/infra/pdf/sections/stageplan.test.ts` (pinovaná mm hodnota se posouvá)
+- Test: `src/infra/pdf/sections/stageplan.regression.test.ts` (+ blok u hrany)
+- Modify: `docs/superpowers/specs/2026-08-13-pdf-reads-stageplan-layout-design.md` (R2)
+
+**Interfaces:**
+- Consumes: `createPrintScale`, `PrintArea`, `PrintScale` (Task 1), `OVERHANG_TOLERANCE_M` z
+  `src/domain/stageplan/layout/blockOps.ts`, `StageplanBlock`, `StageplanStageSize`.
+- Produces: `resolvePrintScale({ stage, blocks, area, minBoxWidthMm }): PrintScale` — používá ji
+  renderer (Task 6) i editor (Task 10). `createPrintScale` zůstává exportovaná, `resolvePrintScale`
+  na ní stojí.
+
+- [ ] **Step 1: Write the failing tests**
+
+Do `src/domain/stageplan/print/printScale.test.ts` přidej druhý `describe` blok:
+
+```ts
+import { createPrintScale, resolvePrintScale } from "./printScale.js";
+import type { StageplanBlock } from "../../model/types.js";
+
+const MIN_BOX_WIDTH_MM = 36.2594;
+
+function block(overrides: Partial<StageplanBlock> = {}): StageplanBlock {
+  return {
+    slot: "lead_voc_1",
+    centerXM: 6,
+    centerYM: 5.5,
+    widthM: 2.6,
+    depthM: 1.2,
+    rotationDeg: 0,
+    ...overrides,
+  };
+}
+
+describe("resolvePrintScale", () => {
+  it("leaves room for the legal overhang and for a box wider than its zone", () => {
+    const scale = resolvePrintScale({
+      stage: null,
+      blocks: [block()],
+      area: AREA,
+      minBoxWidthMm: MIN_BOX_WIDTH_MM,
+    });
+
+    // Nominál 12 m + 2 × 20 cm tolerance, a nejužší zóna 2,6 m roste na 36,2594 mm:
+    // (162,5375 − 36,2594) / (12 + 0,4 − 2,6) = 12,8855 mm/m
+    expect(scale.mmPerM).toBeCloseTo(12.8855, 3);
+    expect(scale.planWidthMm).toBeCloseTo(154.626, 2);
+  });
+
+  it("keeps a block at the legal edge inside the print area", () => {
+    const scale = resolvePrintScale({
+      stage: null,
+      blocks: [block({ centerXM: 1.1 })],
+      area: AREA,
+      minBoxWidthMm: MIN_BOX_WIDTH_MM,
+    });
+
+    // Střed 1,1 m mínus půlka minimální šířky boxu musí zůstat nad −(rezerva).
+    const leftEdgeMm = 1.1 * scale.mmPerM - MIN_BOX_WIDTH_MM / 2;
+    const rightEdgeMm = scale.planWidthMm - leftEdgeMm;
+    expect(rightEdgeMm - leftEdgeMm).toBeLessThanOrEqual(AREA.widthMm);
+    expect(leftEdgeMm).toBeGreaterThan(-(AREA.widthMm - scale.planWidthMm) / 2);
+  });
+
+  it("does not reserve growth room when every zone is already wide enough", () => {
+    const scale = resolvePrintScale({
+      stage: null,
+      blocks: [block({ widthM: 6 })],
+      area: AREA,
+      minBoxWidthMm: MIN_BOX_WIDTH_MM,
+    });
+
+    // Zóna 6 m dá při 13,108 mm/m 78,6 mm, tedy víc než minimum — roste jen tolerance:
+    // 162,5375 / (12 + 0,4) = 13,1079 mm/m
+    expect(scale.mmPerM).toBeCloseTo(13.1079, 3);
+  });
+
+  it("falls back to the tolerance-only scale for an empty layout", () => {
+    const scale = resolvePrintScale({
+      stage: null,
+      blocks: [],
+      area: AREA,
+      minBoxWidthMm: MIN_BOX_WIDTH_MM,
+    });
+
+    expect(scale.mmPerM).toBeCloseTo(13.1079, 3);
+  });
+
+  it("binds on height for a deep stage", () => {
+    const scale = resolvePrintScale({
+      stage: { widthM: 8, depthM: 14 },
+      blocks: [block({ widthM: 6 })],
+      area: AREA,
+      minBoxWidthMm: MIN_BOX_WIDTH_MM,
+    });
+
+    // Výška: 202,0914 / (14 + 0,4) = 14,0341; šířka: 162,5375 / 8,4 = 19,35 → váže výška.
+    expect(scale.mmPerM).toBeCloseTo(14.0341, 3);
+  });
+
+  it("never returns a scale larger than the unreserved one", () => {
+    const reserved = resolvePrintScale({
+      stage: null,
+      blocks: [block()],
+      area: AREA,
+      minBoxWidthMm: MIN_BOX_WIDTH_MM,
+    });
+
+    expect(reserved.mmPerM).toBeLessThan(createPrintScale(null, AREA).mmPerM);
+  });
+});
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `npx vitest run src/domain/stageplan/print/printScale.test.ts`
+Expected: FAIL — `resolvePrintScale` není exportovaná
+
+- [ ] **Step 3: Implement the reserve**
+
+Do `src/domain/stageplan/print/printScale.ts` přidej import a funkci:
+
+```ts
+import type { StageplanBlock, StageplanStageSize } from "../../model/types.js";
+import { OVERHANG_TOLERANCE_M } from "../layout/blockOps.js";
+```
+
+```ts
+/**
+ * Měřítko, do kterého se vejde i to, co smí přesahovat hranu pódia: clamp v
+ * editoru nechává blok přesahovat o `OVERHANG_TOLERANCE_M` a tištěný box je
+ * navíc širší než úzká zóna, protože nesmí klesnout pod minimální šířku.
+ * Bez téhle rezervy shodí export každý blok postavený k boční hraně.
+ *
+ * Uzavřený tvar, ne iterace: hledá se největší `s`, pro které platí
+ * `(šířkaPódia + 2·tolerance)·s + 2·max(0, (minŠířka − nejužšíZóna·s)/2) ≤ šířkaPlochy`.
+ */
+export function resolvePrintScale(args: {
+  readonly stage: StageplanStageSize | null;
+  readonly blocks: readonly Pick<StageplanBlock, "widthM">[];
+  readonly area: PrintArea;
+  readonly minBoxWidthMm: number;
+}): PrintScale {
+  const { stage, blocks, area, minBoxWidthMm } = args;
+  const plan = stage ?? NOMINAL_STAGE;
+  const inflatedWidthM = plan.widthM + 2 * OVERHANG_TOLERANCE_M;
+  const inflatedDepthM = plan.depthM + 2 * OVERHANG_TOLERANCE_M;
+
+  const toleranceOnlyMmPerM = area.widthMm / inflatedWidthM;
+  const narrowestZoneM = blocks.reduce(
+    (narrowest, block) => Math.min(narrowest, block.widthM),
+    Number.POSITIVE_INFINITY,
+  );
+
+  let widthMmPerM = toleranceOnlyMmPerM;
+  const growsAtToleranceOnly =
+    Number.isFinite(narrowestZoneM) &&
+    narrowestZoneM * toleranceOnlyMmPerM < minBoxWidthMm;
+  if (growsAtToleranceOnly) {
+    const denominator = inflatedWidthM - narrowestZoneM;
+    // Pódium užší než zóna i s tolerancí: rezervovat nejde, pojistka to chytí.
+    if (denominator > 0) {
+      widthMmPerM = (area.widthMm - minBoxWidthMm) / denominator;
+    }
+  }
+
+  const mmPerM = Math.min(widthMmPerM, area.heightMm / inflatedDepthM);
+
+  return {
+    mmPerM,
+    planWidthMm: plan.widthM * mmPerM,
+    planHeightMm: plan.depthM * mmPerM,
+    toMm: (meters) => meters * mmPerM,
+    toM: (millimeters) => millimeters / mmPerM,
+  };
+}
+```
+
+- [ ] **Step 4: Run the domain tests**
+
+Run: `npx vitest run src/domain/stageplan/print/printScale.test.ts`
+Expected: PASS — původní 4 testy `createPrintScale` beze změny plus 6 nových
+
+- [ ] **Step 5: Use the reserve in the renderer**
+
+V `src/infra/pdf/sections/stageplan.ts` nahraď volání měřítka:
+
+```ts
+  const scale = resolvePrintScale({
+    stage: vm.layout.stage,
+    blocks: vm.layout.blocks,
+    area: stageplanPrintGeometry.area,
+    minBoxWidthMm: printTypography.minBoxWidthMm,
+  });
+```
+
+a uprav import z `../../../domain/stageplan/print/printScale.js` na `resolvePrintScale`. Pokud po
+záměně zůstane `createPrintScale` v tomhle souboru nepoužitá, odstraň ji z importu — nesmí zůstat
+mrtvý import.
+
+- [ ] **Step 6: Fix the pinned millimetre value in the section test**
+
+V `src/infra/pdf/sections/stageplan.test.ts` v testu „places a block by its zone centre and prints
+its rotation" se posouvá měřítko z 13,5448 na 12,8855 mm/m, takže:
+
+```ts
+    // Střed 6 m × 12,8855 = 77,313 mm; levý horní roh je o půl šířky vlevo.
+    expect((box?.xMm ?? 0) + (box?.widthMm ?? 0) / 2).toBeCloseTo(
+      77.313 + plan.stage.xMm,
+      2,
+    );
+    // Osa y roste od upstage hrany k publiku (R4): 1,2 m = 15,463 mm.
+    expect((box?.yMm ?? 0) + (box?.heightMm ?? 0) / 2 - plan.stage.yMm).toBeCloseTo(
+      15.463,
+      2,
+    );
+```
+
+Ostatní testy v souboru běží dál beze změny; kdyby některý spadl na jiné číslo, **oprav test jen
+tehdy, když si rozdíl umíš spočítat z nového měřítka** — jinak to hlas jako nález.
+
+- [ ] **Step 7: Pin the edge case that started this**
+
+Do `src/infra/pdf/sections/stageplan.regression.test.ts` přidej:
+
+```ts
+  it("prints a block pushed to the legal edge of the stage", () => {
+    // Přesně tenhle případ export shazoval: blok u boční hrany je legální
+    // (clamp F5a dovoluje 20 cm přesah), ale plán neměl kam ho nakreslit.
+    const layout = buildDefaultLayout({
+      slots: ["drums", "bass", "guitar", "keys", "lead_voc_1"],
+      stage: null,
+    });
+    const pushed = {
+      ...layout,
+      blocks: layout.blocks.map((block) =>
+        block.slot === "guitar" ? { ...block, centerXM: 1.15 } : block,
+      ),
+    };
+
+    expect(() =>
+      buildStageplanPlan({
+        ...stageplanWithFullBoxes([
+          "drums",
+          "bass",
+          "guitar",
+          "keys",
+          "lead_voc_1",
+        ]),
+        layout: pushed,
+      }),
+    ).not.toThrow();
+  });
+```
+
+- [ ] **Step 8: Run the affected suites**
+
+Run: `npx vitest run src/domain/stageplan/print src/infra/pdf`
+Expected: PASS — včetně regresního testu výchozího rozmístění (mezery se zmenšily, ale zůstávají
+kladné) a `pdf.test.ts`, který renderuje skutečné PDF
+
+- [ ] **Step 9: Amend the spec**
+
+V `docs/superpowers/specs/2026-08-13-pdf-reads-stageplan-layout-design.md` v rozhodnutí **R2**
+doplň za vzorec odstavec:
+
+```markdown
+Plocha, ze které se měřítko počítá, je zmenšená o **rezervu na přesah**: clamp v editoru nechává
+blok přesahovat hranu pódia o 20 cm a tištěný box je navíc širší než úzká zóna, protože nesmí
+klesnout pod minimální šířku (R3). Bez rezervy shodí export každý blok postavený k boční hraně —
+což je na stage planu běžné umístění. Měřítko proto řeší `resolvePrintScale` v uzavřeném tvaru:
+hledá největší `s`, pro které se do plochy vejde pódium i s tolerancí a nejširší možný přerostlý
+box. Při nominálních 12 × 8 m z toho vychází **12,8855 mm/m** místo 13,5448 a plán je o 4,9 % menší.
+```
+
+a v tabulce s čísly v R1 oprav hodnoty pro nové měřítko: bicí `2,80 × 2,97 m` zůstává v metrech
+stejné, ale v milimetrech je `36,26 × 40,22 mm` (šířka spadla na minimum), lead vokál
+`36,26 × 19,05 mm`.
+
+- [ ] **Step 10: Lint and commit**
+
+```bash
+npx biome check src/domain/stageplan/print/printScale.ts src/domain/stageplan/print/printScale.test.ts src/infra/pdf/sections/stageplan.ts src/infra/pdf/sections/stageplan.test.ts src/infra/pdf/sections/stageplan.regression.test.ts
+git add src/domain/stageplan/print/printScale.ts src/domain/stageplan/print/printScale.test.ts src/infra/pdf/sections/stageplan.ts src/infra/pdf/sections/stageplan.test.ts src/infra/pdf/sections/stageplan.regression.test.ts docs/superpowers/specs/2026-08-13-pdf-reads-stageplan-layout-design.md
+git commit -m "fix(pdf): reserve room for blocks that overhang the stage edge"
+```
+
+---
+
 ### Task 10: Editor kreslí tiskovou stopu
 
 **Files:**
@@ -2214,7 +2523,7 @@ V `packages/desktop/src/app/components/stageplan/StageCanvas.tsx` přidej import
 ```ts
 import { computePrintFootprintMm } from "../../../../../../src/domain/stageplan/print/printFootprint";
 import type { StageplanPrintGeometry } from "../../../../../../src/domain/stageplan/print/printMetrics";
-import { createPrintScale } from "../../../../../../src/domain/stageplan/print/printScale";
+import { resolvePrintScale } from "../../../../../../src/domain/stageplan/print/printScale";
 ```
 
 ```ts
@@ -2224,10 +2533,17 @@ import { createPrintScale } from "../../../../../../src/domain/stageplan/print/p
 a uvnitř komponenty, nad `return`:
 
 ```tsx
-  // Tisková stopa: stejná doménová funkce jako v rendereru, jen výsledek v mm
-  // se vrací do metrů měřítkem tisku — proto se překreslí i po změně pódia.
+  // Tisková stopa: stejná doménová funkce jako v rendereru — včetně rezervy na
+  // přesah (Task 12), jinak by obrys tvrdil něco jiného, než se vytiskne.
+  // Výsledek v mm se vrací do metrů měřítkem tisku, proto se stopa překreslí
+  // i po změně rozměru pódia.
   const printScale = printGeometry
-    ? createPrintScale(area, printGeometry.area)
+    ? resolvePrintScale({
+        stage: area,
+        blocks,
+        area: printGeometry.area,
+        minBoxWidthMm: printGeometry.typography.minBoxWidthMm,
+      })
     : null;
   const footprintFor = (block: StageplanBlock) => {
     if (!printGeometry || !printScale) return null;
