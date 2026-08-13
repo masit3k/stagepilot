@@ -12,6 +12,7 @@ import {
   ProjectPreviewPage,
   ProjectSetupPage,
   SettingsPage,
+  StagePlanEditorPage,
   StartPage,
 } from "../pages/ShellRoutedPages";
 import type { BandOption, NavigationGuard, ProjectSummary } from "./types";
@@ -21,6 +22,7 @@ import {
   matchProjectGenericPath,
   matchProjectPreviewPath,
   matchProjectSetupPath,
+  matchProjectStageplanPath,
 } from "./routes";
 
 type NavigateFn = (path: string) => void;
@@ -55,6 +57,7 @@ export function ShellRouter({
   const eventEditProjectId = matchProjectEventPath(pathname);
   const genericEditProjectId = matchProjectGenericPath(pathname);
   const setupProjectId = matchProjectSetupPath(pathname);
+  const stageplanProjectId = matchProjectStageplanPath(pathname);
   const previewProjectId = matchProjectPreviewPath(pathname);
   const libraryBandDetailId = matchLibraryBandDetailPath(pathname);
   const editOrigin = new URLSearchParams(search).get("from");
@@ -125,6 +128,16 @@ export function ShellRouter({
     return (
       <ProjectSetupPage
         id={setupProjectId}
+        navigate={navigate}
+        registerNavigationGuard={registerNavigationGuard}
+        search={search}
+      />
+    );
+  }
+  if (stageplanProjectId) {
+    return (
+      <StagePlanEditorPage
+        id={stageplanProjectId}
         navigate={navigate}
         registerNavigationGuard={registerNavigationGuard}
         search={search}

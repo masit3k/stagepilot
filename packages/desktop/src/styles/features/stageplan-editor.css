@@ -1,0 +1,149 @@
+/* ==========================================================================
+   STAGE PLAN EDITOR — vždy tmavý, v obou tématech
+   ========================================================================== */
+
+.stage-editor {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: calc(100vh - 140px);
+  background: var(--color-stage-canvas);
+  color: var(--color-stage-text);
+  border-radius: var(--sp-r-card);
+  overflow: hidden;
+}
+
+.stage-editor__status,
+.stage-editor__empty {
+  display: grid;
+  place-content: center;
+  gap: var(--sp-4);
+  padding: var(--sp-7);
+  color: var(--color-stage-text-mid);
+}
+
+.stage-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5);
+  border-bottom: 1px solid var(--color-stage-border-soft);
+}
+
+.stage-toolbar__tabs {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.stage-toolbar__meta {
+  margin-left: auto;
+  font: var(--sp-mono-xs);
+  letter-spacing: 0.1em;
+  color: var(--color-stage-text-dim);
+}
+
+.stage-tab {
+  font: var(--sp-mono-xs);
+  letter-spacing: 0.1em;
+  padding: 8px 14px;
+  border: 1px solid var(--color-stage-border);
+  border-radius: var(--sp-r-btn);
+  background: transparent;
+  color: var(--color-stage-text-mid);
+  cursor: pointer;
+}
+
+.stage-tab--active {
+  background: var(--sp-paper);
+  border-color: var(--sp-paper);
+  color: var(--sp-ink);
+  font-weight: 500;
+}
+
+.stage-tab--disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.stage-canvas-frame {
+  display: grid;
+  place-items: center;
+  padding: var(--sp-5);
+  min-height: 0;
+}
+
+.stage-canvas {
+  position: relative;
+  width: var(--stage-w);
+  height: var(--stage-h);
+  background-color: var(--color-stage-canvas);
+  background-image: linear-gradient(
+      var(--color-stage-grid) 1px,
+      transparent 1px
+    ),
+    linear-gradient(90deg, var(--color-stage-grid) 1px, transparent 1px);
+  background-size: var(--stage-grid) var(--stage-grid);
+  overflow: hidden;
+  touch-action: none;
+}
+
+.stage-canvas__downstage {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 30px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 6px;
+  font: var(--sp-mono-xs);
+  letter-spacing: 0.2em;
+  color: var(--color-stage-text-dim);
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(16, 17, 18, 0.92) 100%
+  );
+  pointer-events: none;
+}
+
+.stage-block {
+  position: absolute;
+  left: var(--block-x);
+  top: var(--block-y);
+  width: var(--block-w);
+  height: var(--block-h);
+  transform: rotate(var(--block-rot));
+  transform-origin: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-stage-border);
+  border-radius: var(--sp-r-card);
+  background: var(--color-stage-block);
+  box-shadow: var(--elevation-block);
+  cursor: grab;
+  user-select: none;
+  /* Pozice bez transition — jinak tažení drhne. Barvy ano. */
+  transition:
+    background-color 120ms ease-out,
+    border-color 120ms ease-out;
+}
+
+.stage-block--selected {
+  background: var(--color-stage-block-selected);
+  border: 2px solid var(--color-primary);
+  box-shadow: var(--elevation-block-selected);
+}
+
+.stage-block__label {
+  font: var(--sp-mono-sm);
+  letter-spacing: 0.1em;
+  color: var(--color-stage-text);
+}
+
+.stage-block__rotation {
+  margin-top: auto;
+  align-self: flex-end;
+  font: var(--sp-mono-xs);
+  color: var(--color-stage-text-dim);
+}

@@ -19,5 +19,6 @@
 @import "./features/lineup.css";
 @import "./features/setup.css";
 @import "./features/preview.css";
+@import "./features/stageplan-editor.css";
 @import "./features/about.css";
 @import "./features/settings.css";
