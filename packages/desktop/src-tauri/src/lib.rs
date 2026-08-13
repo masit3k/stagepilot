@@ -1471,6 +1471,12 @@ fn build_stageplan_print_metrics(
     let script_path = workspace_root
         .join("scripts")
         .join("stageplan_print_metrics.ts");
+    eprintln!(
+        "[stageplan-metrics] command start project_id={} cwd={} script={}",
+        project_id,
+        workspace_root.display(),
+        script_path.display()
+    );
 
     let output = Command::new("node")
         .arg("--import")
@@ -1492,6 +1498,11 @@ fn build_stageplan_print_metrics(
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
+    eprintln!(
+        "[stageplan-metrics] node exit status={} stdout={} stderr={}",
+        output.status, stdout, stderr
+    );
+
     let response = parse_node_export_response(&stdout, &stderr).map_err(|err| ApiError {
         code: "STAGEPLAN_METRICS_FAILED".into(),
         message: err.message,
@@ -1501,15 +1512,32 @@ fn build_stageplan_print_metrics(
 
     if response.ok {
         if let Some(result) = response.result {
+            eprintln!(
+                "[stageplan-metrics] write success project_id={}",
+                project_id
+            );
             return Ok(result);
         }
     }
 
-    Err(ApiError {
-        code: "STAGEPLAN_METRICS_FAILED".into(),
-        message: response
+    eprintln!(
+        "[stageplan-metrics] command failed project_id={} code={} message={}",
+        project_id,
+        response
+            .code
+            .clone()
+            .unwrap_or_else(|| "STAGEPLAN_METRICS_FAILED".into()),
+        response
             .message
-            .unwrap_or_else(|| "Stageplan metrics command failed.".into()),
+            .clone()
+            .unwrap_or_else(|| "Stageplan metrics command failed.".into())
+    );
+
+    Err(ApiError {
+        code: response
+            .code
+            .unwrap_or_else(|| "STAGEPLAN_METRICS_FAILED".into()),
+        message: "Stageplan metrics could not be generated. Please retry. Check desktop logs for details.".into(),
         export_pdf_path: None,
         version_pdf_path: None,
     })

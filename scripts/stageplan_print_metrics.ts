@@ -110,6 +110,13 @@ export async function main(
     writeJsonPayload(io, await runner(args, log));
     return 0;
   } catch (err) {
+    scriptConsole.error("[stageplan-metrics] failed", {
+      cwd: process.cwd(),
+      phase,
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      cause: err instanceof Error ? err.cause : undefined,
+    });
     writeJsonPayload(io, toErrorResponse(err, phase));
     return 0;
   }
@@ -126,5 +133,15 @@ export function isExecutedAsMainModule(
 if (isExecutedAsMainModule()) {
   main()
     .then((code) => exit(code))
-    .catch(() => exit(0));
+    .catch((err) => {
+      process.stderr.write(
+        `[stageplan-metrics] unhandled failure ${
+          err instanceof Error ? (err.stack ?? err.message) : String(err)
+        }\n`,
+      );
+      process.stdout.write(
+        `${JSON.stringify(toErrorResponse(err, "entrypoint"))}\n`,
+      );
+      exit(0);
+    });
 }
