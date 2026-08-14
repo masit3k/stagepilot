@@ -24,6 +24,9 @@ export type StageplanPrintBox = {
   slot: StageplanPrintSlot;
   instrument: StageplanInstrument;
   header: string;
+  /** Zda hlavička nese hvězdičku. Vysvětlivka pod plánem se rozhoduje podle
+   *  tohohle pole, ne hledáním `*` v textu hlavičky (R13). */
+  hasBandLeaderMark: boolean;
   inputBullets: string[];
   monitorBullets: string[];
   extraBullets: string[];
@@ -316,6 +319,7 @@ export function buildPdfStageplanPrintModel(
         isBandLeader: roleData.isBandLeader,
         hideMusicianNames: options.hideMusicianNames,
       }),
+      hasBandLeaderMark: roleData.isBandLeader,
       inputBullets: buildInputBulletsForSlot(slot, inputBySlot.get(slot) ?? []),
       monitorBullets: monitors,
       extraBullets: slot === "drums" ? ["Drum riser 3x2"] : [],

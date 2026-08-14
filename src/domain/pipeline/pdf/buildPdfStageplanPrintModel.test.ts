@@ -65,9 +65,7 @@ describe("buildPdfStageplanPrintModel", () => {
   it("prepares lead vocal headers from current lead slot behavior", () => {
     const model = buildPdfStageplanPrintModel(baseStageplan());
 
-    expect(model.boxesBySlot.lead_voc_1.header).toBe(
-      "LEAD VOC – ALICE*",
-    );
+    expect(model.boxesBySlot.lead_voc_1.header).toBe("LEAD VOC – ALICE*");
     expect(model.boxesBySlot.lead_voc_2.header).toBe("LEAD VOC – BOB");
   });
 
@@ -185,5 +183,22 @@ describe("buildPdfStageplanPrintModel", () => {
     ]);
     expect(model.boxesBySlot.guitar.hasPowerBadge).toBe(true);
     expect(model.boxesBySlot.guitar.powerBadgeText).toBe("4x 230 V");
+  });
+
+  it("flags the band leader on the box instead of leaving it in the header text (R13)", () => {
+    const model = buildPdfStageplanPrintModel({
+      inputs: [],
+      monitorOutputs: [],
+      powerByRole: {},
+      lineupByRole: {
+        bass: { firstName: "Matěj", isBandLeader: true },
+        drums: { firstName: "Pavel", isBandLeader: false },
+      },
+      leadVocals: [],
+      layout: { stage: null, blocks: [] },
+    } as unknown as DocumentViewModel["stageplan"]);
+
+    expect(model.boxesBySlot.bass.hasBandLeaderMark).toBe(true);
+    expect(model.boxesBySlot.drums.hasBandLeaderMark).toBe(false);
   });
 });
