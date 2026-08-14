@@ -16,7 +16,7 @@ export function EditorFooter({
   return (
     <div className="stage-footer">
       <button type="button" className="stage-footer__ghost" onClick={onBack}>
-        Zpět na Lineup
+        Back to Lineup
       </button>
       <span className="stage-footer__note">
         Changes are written to the PDF export
