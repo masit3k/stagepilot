@@ -270,7 +270,7 @@ export function StagePlanEditorPage({
   const narrowestSlot = narrowestZoneSlot(state.layout.blocks);
   const scaleNote =
     printScale && narrowestSlot
-      ? `SCALE ${formatScale(printScale.mmPerM)} · NARROWEST: ${LABEL_BY_SLOT[narrowestSlot]}`
+      ? `SCALE ${formatScale(printScale.mmPerM)} · NARROWEST ZONE: ${LABEL_BY_SLOT[narrowestSlot]}`
       : null;
 
   const selectedBlock =

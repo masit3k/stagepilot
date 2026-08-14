@@ -35,4 +35,10 @@ describe("narrowestZoneSlot", () => {
   it("returns null without blocks", () => {
     expect(narrowestZoneSlot([])).toBeNull();
   });
+
+  it("breaks a tie in favour of the first block encountered", () => {
+    expect(
+      narrowestZoneSlot([zone("drums", 2.6), zone("lead_voc_1", 2.6)]),
+    ).toBe("drums");
+  });
 });
