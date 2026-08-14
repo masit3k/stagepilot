@@ -19,8 +19,11 @@ type StageBlockProps = {
 function BulletGroup({ bullets }: { bullets: readonly string[] }) {
   return (
     <>
-      {bullets.map((bullet) => (
-        <div key={bullet} className="stage-block__line">
+      {/* Index, ne text: monitor odrážky se můžou opakovat doslovně (dodatečný
+          wedge se stejným počtem), text by pak jako klíč nebyl unikátní. */}
+      {bullets.map((bullet, index) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: statický seznam textů ve stálém pořadí, ne přeskupovaný ani filtrovaný za běhu.
+        <div key={index} className="stage-block__line">
           {bullet}
         </div>
       ))}
