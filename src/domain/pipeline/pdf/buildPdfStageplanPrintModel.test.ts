@@ -66,7 +66,7 @@ describe("buildPdfStageplanPrintModel", () => {
     const model = buildPdfStageplanPrintModel(baseStageplan());
 
     expect(model.boxesBySlot.lead_voc_1.header).toBe(
-      "LEAD VOC – ALICE (band leader)",
+      "LEAD VOC – ALICE*",
     );
     expect(model.boxesBySlot.lead_voc_2.header).toBe("LEAD VOC – BOB");
   });

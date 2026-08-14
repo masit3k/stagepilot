@@ -14,11 +14,14 @@ export function formatStageplanBoxHeader({
   const resolvedName = firstName && firstName.trim() ? firstName.trim() : "";
   const displayInstrument =
     instrumentLabel === "Lead vocal" ? "Lead voc" : instrumentLabel;
-  const mainBase = !hideMusicianNames && resolvedName
-    ? `${displayInstrument} – ${resolvedName}`
-    : displayInstrument;
+  const mainBase =
+    !hideMusicianNames && resolvedName
+      ? `${displayInstrument} – ${resolvedName}`
+      : displayInstrument;
   const main = mainBase.toUpperCase();
-  const suffix = isBandLeader ? " (band leader)" : "";
+  // Hvězdička je značka poznámky pod čarou, ta se ke slovu tiskne bez mezery.
+  // Vysvětlivku pod plánem sází renderer (R12, R13).
+  const suffix = isBandLeader ? "*" : "";
   return `${main}${suffix}`;
 }
 
@@ -51,9 +54,12 @@ export function formatMonitorBullets(note: string, no: number): string[] {
 
   const match = label.match(ADDITIONAL_WEDGE_PATTERN);
   const count = match?.groups?.count;
-  if (!count) return [formatMonitorBullet(formatStageplanMonitoringBaseLabel(label), no)];
+  if (!count)
+    return [formatMonitorBullet(formatStageplanMonitoringBaseLabel(label), no)];
 
-  const base = formatStageplanMonitoringBaseLabel(match.groups?.base?.trim() ?? "");
+  const base = formatStageplanMonitoringBaseLabel(
+    match.groups?.base?.trim() ?? "",
+  );
   const primaryLine = formatMonitorBullet(base, no);
   return [primaryLine, `+ Additional wedge monitor ${count}x`];
 }

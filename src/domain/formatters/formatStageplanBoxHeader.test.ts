@@ -23,14 +23,26 @@ describe("formatStageplanBoxHeader", () => {
     expect(label).toBe("LEAD VOC");
   });
 
-  it("adds band leader suffix when requested", () => {
+  it("marks the band leader with a footnote asterisk and no space", () => {
     const label = formatStageplanBoxHeader({
       instrumentLabel: "Bass",
       firstName: "Matěj",
       isBandLeader: true,
     });
 
-    expect(label).toBe("BASS – MATĚJ (band leader)");
+    expect(label).toBe("BASS – MATĚJ*");
+  });
+
+  it("keeps the asterisk when musician names are hidden", () => {
+    // DRUMS* je pořád pravdivá informace o tom, kdo je kapelník (R12).
+    const label = formatStageplanBoxHeader({
+      instrumentLabel: "Drums",
+      firstName: "Matěj",
+      isBandLeader: true,
+      hideMusicianNames: true,
+    });
+
+    expect(label).toBe("DRUMS*");
   });
 
   it("hides musician names when requested", () => {
