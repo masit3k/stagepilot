@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { StageplanBlock, StageplanStageSize } from "../../model/types.js";
 import {
+  MIN_ZONE_M,
   OVERHANG_TOLERANCE_M,
   clampToArea,
   moveBlockTo,
   nudgeBlockBy,
+  resizeBlockTo,
   rotateBlockBy,
   rotateBlockTo,
   rotatedHalfExtents,
@@ -162,5 +164,119 @@ describe("rotateBlockBy", () => {
 describe("clampToArea", () => {
   it("leaves a block that already fits alone", () => {
     expect(clampToArea(BLOCK, AREA)).toEqual(BLOCK);
+  });
+});
+
+describe("resizeBlockTo", () => {
+  const zone: StageplanBlock = {
+    slot: "drums",
+    centerXM: 6,
+    centerYM: 4,
+    widthM: 2.8,
+    depthM: 1.6,
+    rotationDeg: 0,
+  };
+  const area: StageplanStageSize = { widthM: 12, depthM: 8 };
+
+  it("grows the east edge and leaves the west edge standing", () => {
+    const next = resizeBlockTo(
+      zone,
+      "e",
+      { xM: 1, yM: 0 },
+      { area, snap: false },
+    );
+
+    expect(next.widthM).toBe(3.8);
+    expect(next.depthM).toBe(1.6);
+    // Západní hrana stála: 6 − 2,8/2 = 4,6 = 6,5 − 3,8/2.
+    expect(next.centerXM).toBe(6.5);
+    expect(next.centerYM).toBe(4);
+  });
+
+  it("grows the west edge to the left and leaves the east edge standing", () => {
+    const next = resizeBlockTo(
+      zone,
+      "w",
+      { xM: -1, yM: 0 },
+      { area, snap: false },
+    );
+
+    expect(next.widthM).toBe(3.8);
+    expect(next.centerXM).toBe(5.5);
+  });
+
+  it("resizes both axes from a corner handle", () => {
+    const next = resizeBlockTo(
+      zone,
+      "se",
+      { xM: 0.4, yM: 0.4 },
+      { area, snap: false },
+    );
+
+    expect(next.widthM).toBe(3.2);
+    expect(next.depthM).toBe(2);
+    expect(next.centerXM).toBe(6.2);
+    expect(next.centerYM).toBe(4.2);
+  });
+
+  it("stops at the minimum zone and moves the centre only by what it allowed", () => {
+    const next = resizeBlockTo(
+      zone,
+      "e",
+      { xM: -5, yM: 0 },
+      { area, snap: false },
+    );
+
+    expect(next.widthM).toBe(MIN_ZONE_M);
+    // Povolený úbytek je 2,8 − 0,8 = 2, střed jde o polovinu: 6 − 1 = 5.
+    expect(next.centerXM).toBe(5);
+  });
+
+  it("reads the drag in the zone's own axes when it is rotated", () => {
+    const rotated = { ...zone, rotationDeg: 90 };
+    // Při 90° leží šířková osa zóny svisle, takže vodorovný tah šířku nemění.
+    const sideways = resizeBlockTo(
+      rotated,
+      "e",
+      { xM: 1, yM: 0 },
+      { area, snap: false },
+    );
+    expect(sideways.widthM).toBe(2.8);
+
+    // Svislý tah ji naopak mění a střed jde svisle.
+    const along = resizeBlockTo(
+      rotated,
+      "e",
+      { xM: 0, yM: 1 },
+      { area, snap: false },
+    );
+    expect(along.widthM).toBe(3.8);
+    expect(along.centerXM).toBe(6);
+    expect(along.centerYM).toBe(4.5);
+  });
+
+  it("snaps the resulting size to the grid when snap is on", () => {
+    const next = resizeBlockTo(
+      zone,
+      "e",
+      { xM: 0.23, yM: 0 },
+      { area, snap: true },
+    );
+
+    expect(next.widthM).toBe(3);
+  });
+
+  it("clamps the grown zone back onto the stage", () => {
+    const atEdge = { ...zone, centerXM: 11 };
+    const next = resizeBlockTo(
+      atEdge,
+      "e",
+      { xM: 2, yM: 0 },
+      { area, snap: false },
+    );
+
+    expect(next.widthM).toBe(4.8);
+    // clampAxis: max = 12 − 2,4 + 0,2 = 9,8.
+    expect(next.centerXM).toBe(9.8);
   });
 });

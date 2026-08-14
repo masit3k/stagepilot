@@ -5,6 +5,10 @@ export const SNAP_STEP_M = 0.1;
 export const SNAP_STEP_DEG = 15;
 /** Pódia bývají nepravidelná, takže blok smí kousek přesahovat za hranu. */
 export const OVERHANG_TOLERANCE_M = 0.2;
+/** Nejmenší rozumná lidská zóna — stojan s mikrofonem. Ne tisková mez (R7). */
+export const MIN_ZONE_M = 0.8;
+
+export type ZoneHandle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 
 type Zone = Pick<StageplanBlock, "widthM" | "depthM" | "rotationDeg">;
 
@@ -42,7 +46,7 @@ export function clampToArea(
   };
 }
 
-function snapM(value: number): number {
+export function snapM(value: number): number {
   return roundM(Math.round(value / SNAP_STEP_M) * SNAP_STEP_M);
 }
 
@@ -98,4 +102,60 @@ export function rotateBlockBy(
   options: { readonly area: StageplanStageSize; readonly snap: boolean },
 ): StageplanBlock {
   return rotateBlockTo(block, block.rotationDeg + deltaDeg, options);
+}
+
+/** Kterou hranu úchyt táhne: +1 doprava/dolů, −1 doleva/nahoru, 0 vůbec. */
+function handleSigns(handle: ZoneHandle): { signX: number; signY: number } {
+  return {
+    signX: handle.includes("e") ? 1 : handle.includes("w") ? -1 : 0,
+    signY: handle.includes("s") ? 1 : handle.includes("n") ? -1 : 0,
+  };
+}
+
+function resizedExtent(current: number, growth: number, snap: boolean): number {
+  const target = current + growth;
+  return Math.max(MIN_ZONE_M, snap ? snapM(target) : roundM(target));
+}
+
+/**
+ * Táhne se jedna hrana (nebo dvě u rohu) a **protilehlá stojí**, takže se mění
+ * i střed zóny. `deltaM` je posun kurzoru od začátku gesta v souřadnicích
+ * pódia; u otočené zóny se nejdřív promítne do jejích vlastních os, tam se
+ * spočítá nový rozměr, a posun středu se otočí zpátky. Bez té projekce by
+ * úchyt na otočeném bloku táhl podél osy pódia a hrana by ujížděla do strany (R8).
+ *
+ * Pořadí je snap → podlaha → clamp, stejně jako `moveBlockTo` dělá
+ * snap → clamp: mřížka ustupuje hraně pódia, ne naopak.
+ */
+export function resizeBlockTo(
+  block: StageplanBlock,
+  handle: ZoneHandle,
+  deltaM: { readonly xM: number; readonly yM: number },
+  options: { readonly area: StageplanStageSize; readonly snap: boolean },
+): StageplanBlock {
+  const radians = (block.rotationDeg * Math.PI) / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  const { signX, signY } = handleSigns(handle);
+
+  const localXM = deltaM.xM * cos + deltaM.yM * sin;
+  const localYM = -deltaM.xM * sin + deltaM.yM * cos;
+
+  const widthM = resizedExtent(block.widthM, signX * localXM, options.snap);
+  const depthM = resizedExtent(block.depthM, signY * localYM, options.snap);
+
+  // Střed jde o polovinu skutečného přírůstku ve směru tažené hrany.
+  const shiftXM = (signX * (widthM - block.widthM)) / 2;
+  const shiftYM = (signY * (depthM - block.depthM)) / 2;
+
+  return clampToArea(
+    {
+      ...block,
+      widthM,
+      depthM,
+      centerXM: roundM(block.centerXM + shiftXM * cos - shiftYM * sin),
+      centerYM: roundM(block.centerYM + shiftXM * sin + shiftYM * cos),
+    },
+    options.area,
+  );
 }
