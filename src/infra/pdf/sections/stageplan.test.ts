@@ -3,11 +3,14 @@ import { describe, expect, it } from "vitest";
 import type { DocumentViewModel } from "../../../domain/model/types.js";
 import { buildDocument } from "../../../domain/pipeline/buildDocument.js";
 import { OVERHANG_TOLERANCE_M } from "../../../domain/stageplan/layout/blockOps.js";
-import { buildDefaultLayout } from "../../../domain/stageplan/layout/defaultLayout.js";
+import {
+  NOMINAL_STAGE,
+  buildDefaultLayout,
+} from "../../../domain/stageplan/layout/defaultLayout.js";
 import { STAGEPLAN_BLOCK_SLOTS } from "../../../domain/stageplan/layout/slots.js";
 import { resolvePrintScale } from "../../../domain/stageplan/print/printScale.js";
 import { loadRepository } from "../../fs/repo.js";
-import { pdfLayout } from "../layout.js";
+import { parsePt, pdfLayout } from "../layout.js";
 import {
   createPdfRendererFixtureProject,
   createPdfRendererFixtureRoot,
@@ -32,6 +35,12 @@ function emptyStageplan(
   };
 }
 
+/** Fyzikální převod bodů na milimetry (1pt = 1/72"), ne vnitřní konstanta
+ *  modulu — bezpečné přepočítat nezávisle na stageplan.ts. */
+function ptToMm(pt: number): number {
+  return (pt * 25.4) / 72;
+}
+
 describe("stageplan print geometry", () => {
   it("keeps the print area derived from the page mirror", () => {
     // Pojistka z F4: opsaná konstanta udělá kontejner širší než stránka a
@@ -40,9 +49,9 @@ describe("stageplan print geometry", () => {
     expect(stageplanLayout.areaWidthMm).toBeLessThan(
       pdfLayout.page.contentWidthMm,
     );
-    // R13: rezerva na vysvětlivku (7,2 pt + 4 pt = 11,2 pt) ubírá dalších
-    // ~3,9511 mm oproti hodnotě z R6 (byla 202,0914 mm).
-    expect(stageplanLayout.areaHeightMm).toBeCloseTo(198.1402, 3);
+    // Přesná hodnota areaHeightMm (včetně R13 rezervy na vysvětlivku) má svou
+    // vlastní pojistku níže — "reserves exactly the legend's height..." —
+    // odvozenou z rozpočtu, ne opsanou jako druhé číslo tady.
     expect(stageplanPrintGeometry.typography.minBoxWidthMm).toBeCloseTo(
       36.2594,
       3,
@@ -295,9 +304,13 @@ describe("stageplan legend (R13)", () => {
     expect(plan.legend).toBeNull();
   });
 
-  it("keeps the plan geometry identical with and without the legend", () => {
-    // Výška vysvětlivky se rezervuje vždy, jinak by měřítko plánu záviselo na
-    // tom, jestli je někdo označený jako kapelník (R13, po vzoru R6 z F5b).
+  it("keeps the box footprint identical whether or not the header carries the mark", () => {
+    // Tohle nedokazuje R13 samo o sobě — měřítko je tu šířkově vázané (viz
+    // test níže), takže by vyšlo stejně, i kdyby rezerva na vysvětlivku
+    // zmizela úplně. Dokazuje jen to, že hvězdička v hlavičce nemění
+    // footprint boxu ani počet řádků, takže srovnání kapelník/nekapelník je
+    // čisté. Skutečnou pojistku R13 je "reserves exactly the legend's
+    // height..." níže.
     const withLeader = buildStageplanPlan(vmWith({ leaderSlot: "bass" }));
     const withoutLeader = buildStageplanPlan(vmWith({ leaderSlot: null }));
 
@@ -309,7 +322,6 @@ describe("stageplan legend (R13)", () => {
   it("keeps the print scale width-bound, so the reservation cannot shrink the plan", () => {
     // Tvrzení, na kterém rezerva stojí: měřítko je min(šířková, výšková) mez a
     // váže ho šířka. Kdyby to přestalo platit, ubraná výška by plán zmenšila.
-    const nominalDepthM = 8;
     const blocks = buildDefaultLayout({
       slots: STAGEPLAN_BLOCK_SLOTS,
       stage: null,
@@ -322,7 +334,7 @@ describe("stageplan legend (R13)", () => {
     });
     const heightBound =
       stageplanPrintGeometry.area.heightMm /
-      (nominalDepthM + 2 * OVERHANG_TOLERANCE_M);
+      (NOMINAL_STAGE.depthM + 2 * OVERHANG_TOLERANCE_M);
 
     expect(scale.mmPerM).toBeLessThan(heightBound);
   });
@@ -345,5 +357,70 @@ describe("stageplan legend (R13)", () => {
     expect(narrowestM * scale.mmPerM).toBeLessThan(
       stageplanPrintGeometry.typography.minBoxWidthMm,
     );
+  });
+
+  it("reserves exactly the legend's height in the area budget (R13)", () => {
+    // Tohle je pojistka, která skutečně kousne: kdyby odečet legendHeightPt z
+    // areaHeightMm v stageplan.ts zmizel, actual by se vrátil na hodnotu z
+    // R6 (202,0914 mm), zatímco tahle rezerva je spočtená ze stejných
+    // exportovaných konstant (stageplanLayout.legendSize/legendGap), ne
+    // opsaná jako druhé magické číslo — takže assert spadne, ne mlčky projde.
+    const preLegendAreaHeightMm = 202.0914;
+    const legendReservationMm = ptToMm(
+      parsePt(stageplanLayout.legendSize) *
+        pdfLayout.typography.tableHead.lineHeight +
+        parsePt(stageplanLayout.legendGap),
+    );
+
+    expect(stageplanLayout.areaHeightMm).toBeCloseTo(
+      preLegendAreaHeightMm - legendReservationMm,
+      3,
+    );
+  });
+
+  it("keeps the legend element in the document flow, empty when there is no mark", () => {
+    // R13: element musí zůstat v toku vždy, i prázdný — jinak by rezervovaná
+    // výška neměla co držet. Testuje se skutečné vykreslené HTML, ne jen
+    // plan.legend, protože podmíněné vykreslení celého elementu
+    // (`${plan.legend ? "<div…>" : ""}`) by tenhle rozdíl u plan.legend
+    // vůbec nezachytilo a počet stran PDF by se taky nezměnil.
+    const withLeaderHtml = renderStageplanSection({
+      stageplan: vmWith({ leaderSlot: "bass" }),
+    } as unknown as DocumentViewModel);
+    const withoutLeaderHtml = renderStageplanSection({
+      stageplan: vmWith({ leaderSlot: null }),
+    } as unknown as DocumentViewModel);
+
+    expect(withLeaderHtml).toContain(
+      '<div class="stageplanLegend">* KAPELNÍK</div>',
+    );
+    expect(withoutLeaderHtml).toContain('<div class="stageplanLegend"></div>');
+  });
+
+  it("ignores a band leader whose slot isn't among the printed blocks", () => {
+    // Rozhoduje se podle boxů, které se opravdu tisknou (rects, odvozené z
+    // vm.layout.blocks) — ne podle všech šesti slotů v printModel.boxesBySlot.
+    // Kapelník na basu, když se basa vůbec nekreslí (jen kytara), vysvětlivku
+    // vytisknout nesmí.
+    const plan = buildStageplanPlan({
+      ...emptyStageplan({
+        stage: null,
+        blocks: [
+          {
+            slot: "guitar",
+            centerXM: 6,
+            centerYM: 4,
+            widthM: 2.7,
+            depthM: 1.4,
+            rotationDeg: 0,
+          },
+        ],
+      }),
+      lineupByRole: {
+        bass: { firstName: "Matěj", isBandLeader: true },
+      },
+    });
+
+    expect(plan.legend).toBeNull();
   });
 });
