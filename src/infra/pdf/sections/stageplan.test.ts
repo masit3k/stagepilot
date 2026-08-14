@@ -113,7 +113,7 @@ describe("stageplan print geometry", () => {
         }),
       ),
     ).toThrow(
-      /overflow[\s\S]*extends? past the area — move .* closer to the centre of the stage in the editor\./,
+      /overflow[\s\S]*Block drums extends past the area — move it closer to the centre of the stage in the editor\./,
     );
   });
 
