@@ -7,8 +7,10 @@ import type {
 } from "../../../../../../src/domain/model/types";
 import {
   moveBlockTo,
+  resizeBlockTo,
   rotateBlockTo,
 } from "../../../../../../src/domain/stageplan/layout/blockOps";
+import type { ZoneHandle } from "../../../../../../src/domain/stageplan/layout/blockOps";
 import type { StageScale } from "../../../../../../src/domain/stageplan/layout/scale";
 
 type Gesture =
@@ -18,6 +20,13 @@ type Gesture =
       block: StageplanBlock;
       centerXPx: number;
       centerYPx: number;
+    }
+  | {
+      kind: "resize";
+      block: StageplanBlock;
+      handle: ZoneHandle;
+      startXPx: number;
+      startYPx: number;
     };
 
 type BlockDragArgs = {
@@ -59,6 +68,24 @@ export function useBlockDrag(args: BlockDragArgs) {
             {
               centerXM: gesture.block.centerXM + deltaXM,
               centerYM: gesture.block.centerYM + deltaYM,
+            },
+            { area: current.area, snap: current.snap },
+          ),
+        );
+        return;
+      }
+
+      if (gesture.kind === "resize") {
+        current.onChange(
+          gesture.block.slot,
+          resizeBlockTo(
+            gesture.block,
+            gesture.handle,
+            {
+              // Posun od začátku gesta, ne přírůstek — resizeBlockTo počítá
+              // rozměr z výchozího bloku, který si gesto drží.
+              xM: current.scale.toM(event.clientX - gesture.startXPx),
+              yM: current.scale.toM(event.clientY - gesture.startYPx),
             },
             { area: current.area, snap: current.snap },
           ),
@@ -128,5 +155,24 @@ export function useBlockDrag(args: BlockDragArgs) {
     [bindWindow],
   );
 
-  return { startMove, startRotate };
+  const startResize = useCallback(
+    (event: ReactPointerEvent, block: StageplanBlock, handle: ZoneHandle) => {
+      // stopPropagation je tu nutnost, ne zdvořilost: úchyt leží uvnitř karty,
+      // na které visí tažení, takže bez něj by gesto rozjelo posun (R8).
+      event.preventDefault();
+      event.stopPropagation();
+      gestureRef.current = {
+        kind: "resize",
+        block,
+        handle,
+        startXPx: event.clientX,
+        startYPx: event.clientY,
+      };
+      argsRef.current.onGestureStart();
+      bindWindow();
+    },
+    [bindWindow],
+  );
+
+  return { startMove, startRotate, startResize };
 }

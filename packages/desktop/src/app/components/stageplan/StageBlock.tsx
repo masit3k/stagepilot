@@ -1,8 +1,20 @@
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import type { StageplanBlock } from "../../../../../../src/domain/model/types";
+import type { ZoneHandle } from "../../../../../../src/domain/stageplan/layout/blockOps";
 import type { StageScale } from "../../../../../../src/domain/stageplan/layout/scale";
 import { LABEL_BY_SLOT } from "./blockContent";
 import type { BlockPrint } from "./blockPrint";
+
+const ZONE_HANDLES: readonly ZoneHandle[] = [
+  "n",
+  "s",
+  "e",
+  "w",
+  "ne",
+  "nw",
+  "se",
+  "sw",
+];
 
 type StageBlockProps = {
   block: StageplanBlock;
@@ -14,6 +26,11 @@ type StageBlockProps = {
   onSelect: (slot: StageplanBlock["slot"]) => void;
   onStartMove: (event: ReactPointerEvent, block: StageplanBlock) => void;
   onStartRotate: (event: ReactPointerEvent, block: StageplanBlock) => void;
+  onStartResize: (
+    event: ReactPointerEvent,
+    block: StageplanBlock,
+    handle: ZoneHandle,
+  ) => void;
 };
 
 function BulletGroup({ bullets }: { bullets: readonly string[] }) {
@@ -48,6 +65,7 @@ export function StageBlock({
   onSelect,
   onStartMove,
   onStartRotate,
+  onStartResize,
 }: StageBlockProps) {
   const cardWidthM = print?.footprint.widthM ?? block.widthM;
   const cardDepthM = print?.footprint.depthM ?? block.depthM;
@@ -74,7 +92,19 @@ export function StageBlock({
         onStartMove(event, block);
       }}
     >
-      <div className="stage-block__zone" />
+      <div className="stage-block__zone">
+        {isSelected
+          ? ZONE_HANDLES.map((handle) => (
+              <button
+                key={handle}
+                type="button"
+                className={`stage-block__handle stage-block__handle--${handle}`}
+                aria-label={`Resize zone (${handle})`}
+                onPointerDown={(event) => onStartResize(event, block, handle)}
+              />
+            ))
+          : null}
+      </div>
       <div className="stage-block__label">
         {box ? box.header : LABEL_BY_SLOT[block.slot]}
       </div>

@@ -152,6 +152,64 @@
   box-shadow: var(--elevation-block-selected);
 }
 
+/* Rám zóny nechytá, aby nekradl tažení karty — úchyty si to vrátí samy (R8). */
+.stage-block__handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: 1px solid var(--color-stage-canvas);
+  border-radius: 2px;
+  background: var(--color-primary);
+  cursor: nwse-resize;
+  pointer-events: auto;
+}
+
+.stage-block__handle--n,
+.stage-block__handle--s {
+  left: 50%;
+  margin-left: -5px;
+  cursor: ns-resize;
+}
+
+.stage-block__handle--e,
+.stage-block__handle--w {
+  top: 50%;
+  margin-top: -5px;
+  cursor: ew-resize;
+}
+
+.stage-block__handle--n {
+  top: -5px;
+}
+.stage-block__handle--s {
+  bottom: -5px;
+}
+.stage-block__handle--e {
+  right: -5px;
+}
+.stage-block__handle--w {
+  left: -5px;
+}
+.stage-block__handle--ne {
+  top: -5px;
+  right: -5px;
+  cursor: nesw-resize;
+}
+.stage-block__handle--nw {
+  top: -5px;
+  left: -5px;
+}
+.stage-block__handle--se {
+  bottom: -5px;
+  right: -5px;
+}
+.stage-block__handle--sw {
+  bottom: -5px;
+  left: -5px;
+  cursor: nesw-resize;
+}
+
 .stage-block__label {
   font-weight: 700;
   letter-spacing: 0.04em;

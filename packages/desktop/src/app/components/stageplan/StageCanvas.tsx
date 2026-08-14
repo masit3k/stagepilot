@@ -40,7 +40,7 @@ export function StageCanvas({
 }: StageCanvasProps) {
   const { ref, viewport } = useStageViewport();
   const scale = createStageScale(area, viewport);
-  const { startMove, startRotate } = useBlockDrag({
+  const { startMove, startRotate, startResize } = useBlockDrag({
     scale,
     area,
     snap,
@@ -88,6 +88,7 @@ export function StageCanvas({
             onSelect={onSelect}
             onStartMove={startMove}
             onStartRotate={startRotate}
+            onStartResize={startResize}
           />
         ))}
         <div className="stage-canvas__downstage">DOWNSTAGE · PUBLIKUM</div>
