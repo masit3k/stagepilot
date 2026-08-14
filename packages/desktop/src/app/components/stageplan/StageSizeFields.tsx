@@ -48,10 +48,10 @@ export function StageSizeFields({ stage, onChange }: StageSizeFieldsProps) {
 
   return (
     <div className="stage-size">
-      <span className="stage-size__label">PÓDIUM</span>
+      <span className="stage-size__label">STAGE</span>
       <input
         className="stage-size__input"
-        aria-label="Šířka pódia v metrech"
+        aria-label="Stage width in metres"
         inputMode="decimal"
         placeholder="?"
         value={widthDraft}
@@ -64,7 +64,7 @@ export function StageSizeFields({ stage, onChange }: StageSizeFieldsProps) {
       <span className="stage-size__times">×</span>
       <input
         className="stage-size__input"
-        aria-label="Hloubka pódia v metrech"
+        aria-label="Stage depth in metres"
         inputMode="decimal"
         placeholder="?"
         value={depthDraft}
@@ -74,7 +74,7 @@ export function StageSizeFields({ stage, onChange }: StageSizeFieldsProps) {
           if (event.key === "Enter") event.currentTarget.blur();
         }}
       />
-      <span className="stage-size__unit">{stage ? "m" : "m · NEZADÁNO"}</span>
+      <span className="stage-size__unit">{stage ? "m" : "m · NOT SET"}</span>
     </div>
   );
 }

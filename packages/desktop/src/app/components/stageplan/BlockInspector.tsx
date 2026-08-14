@@ -27,7 +27,7 @@ export function BlockInspector({
   return (
     <aside className="stage-inspector">
       <div className="stage-inspector__section">
-        <div className="stage-inspector__eyebrow">VYBRANÝ BLOK</div>
+        <div className="stage-inspector__eyebrow">SELECTED BLOCK</div>
         <div className="stage-inspector__title">
           {selected ? LABEL_BY_SLOT[selected.slot] : "—"}
         </div>
@@ -36,11 +36,11 @@ export function BlockInspector({
       {selected ? (
         <div className="stage-inspector__section">
           <div className="stage-inspector__row">
-            <span className="stage-inspector__label">ROTACE</span>
+            <span className="stage-inspector__label">ROTATION</span>
             <button
               type="button"
               onClick={() => onRotateBy(-15)}
-              aria-label="Otočit o 15 stupňů vlevo"
+              aria-label="Rotate 15° left"
             >
               ↺
             </button>
@@ -50,7 +50,7 @@ export function BlockInspector({
             <button
               type="button"
               onClick={() => onRotateBy(15)}
-              aria-label="Otočit o 15 stupňů vpravo"
+              aria-label="Rotate 15° right"
             >
               ↻
             </button>
@@ -82,7 +82,7 @@ export function BlockInspector({
       ) : null}
 
       <div className="stage-inspector__section">
-        <div className="stage-inspector__eyebrow">BLOKY NA PÓDIU</div>
+        <div className="stage-inspector__eyebrow">BLOCKS ON STAGE</div>
         <ul className="stage-inspector__list">
           {blocks.map((block) => (
             <li key={block.slot}>
@@ -108,7 +108,7 @@ export function BlockInspector({
         className="stage-inspector__reset"
         onClick={onReset}
       >
-        Reset rozmístění
+        Reset arrangement
       </button>
     </aside>
   );

@@ -90,7 +90,7 @@ export function StagePlanEditorPage({
           message:
             error instanceof Error
               ? error.message
-              : "Projekt se nepodařilo načíst.",
+              : "Project could not be loaded.",
         });
       }
     }
@@ -251,7 +251,7 @@ export function StagePlanEditorPage({
   });
 
   if (state.kind === "loading")
-    return <div className="stage-editor__status">Načítám…</div>;
+    return <div className="stage-editor__status">Loading…</div>;
   if (state.kind === "error")
     return <div className="stage-editor__status">{state.message}</div>;
 
@@ -298,14 +298,16 @@ export function StagePlanEditorPage({
       />
       {state.layout.blocks.length === 0 ? (
         <div className="stage-editor__empty">
-          <p>Projekt nemá obsazený lineup, takže na pódiu není co rozmístit.</p>
+          <p>
+            This project has no lineup, so there is nothing to arrange on stage.
+          </p>
           <button
             type="button"
             onClick={() =>
               navigate(`/projects/${encodeURIComponent(id)}/setup`)
             }
           >
-            Otevřít Lineup Setup
+            Open Lineup Setup
           </button>
         </div>
       ) : (
@@ -343,7 +345,7 @@ export function StagePlanEditorPage({
         onGeneratePdf={async () => {
           if (state.kind !== "ready") return;
           await saveLayout(state.layout, state.project);
-          notify("success", "Rozmístění uloženo.");
+          notify("success", "Arrangement saved.");
           navigate(`/projects/${encodeURIComponent(id)}/preview`);
         }}
       />

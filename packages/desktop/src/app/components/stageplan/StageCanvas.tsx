@@ -91,7 +91,9 @@ export function StageCanvas({
             onStartResize={startResize}
           />
         ))}
-        <div className="stage-canvas__downstage">DOWNSTAGE · PUBLIKUM</div>
+        {/* Anglicky, protože je to značka rozhraní. V PDF stojí česky
+            `DOWNSTAGE · PUBLIKUM`, tam je to obsah dokumentu (R14). */}
+        <div className="stage-canvas__downstage">DOWNSTAGE · AUDIENCE</div>
       </div>
     </div>
   );

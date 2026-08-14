@@ -19,7 +19,7 @@ export function EditorFooter({
         Zpět na Lineup
       </button>
       <span className="stage-footer__note">
-        Změny se propíší do PDF exportu
+        Changes are written to the PDF export
       </span>
       <button
         type="button"
