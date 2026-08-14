@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type {
-  DocumentViewModel,
-  Musician,
-  Project,
-} from "../../model/types.js";
+import type { Musician, Project } from "../../model/types.js";
 import { buildPdfStageplanModel } from "./buildPdfStageplan.js";
 import { buildPdfStageplanPrintModel } from "./buildPdfStageplanPrintModel.js";
 
@@ -186,17 +182,22 @@ describe("buildPdfStageplanPrintModel", () => {
   });
 
   it("flags the band leader on the box instead of leaving it in the header text (R13)", () => {
-    const model = buildPdfStageplanPrintModel({
-      inputs: [],
-      monitorOutputs: [],
-      powerByRole: {},
-      lineupByRole: {
-        bass: { firstName: "Matěj", isBandLeader: true },
-        drums: { firstName: "Pavel", isBandLeader: false },
-      },
-      leadVocals: [],
-      layout: { stage: null, blocks: [] },
-    } as unknown as DocumentViewModel["stageplan"]);
+    const model = buildPdfStageplanPrintModel(
+      baseStageplan({
+        lineupByRole: {
+          bass: {
+            musicianId: "bass-1",
+            firstName: "Matěj",
+            isBandLeader: true,
+          },
+          drums: {
+            musicianId: "drm-1",
+            firstName: "Pavel",
+            isBandLeader: false,
+          },
+        },
+      }),
+    );
 
     expect(model.boxesBySlot.bass.hasBandLeaderMark).toBe(true);
     expect(model.boxesBySlot.drums.hasBandLeaderMark).toBe(false);
