@@ -4,6 +4,7 @@ import type {
   StageplanBlockSlot,
   StageplanStageSize,
 } from "../../../../../../src/domain/model/types";
+import { countStageplanBoxLines } from "../../../../../../src/domain/pipeline/pdf/countStageplanBoxLines";
 import { createStageScale } from "../../../../../../src/domain/stageplan/layout/scale";
 import { computePrintFootprintMm } from "../../../../../../src/domain/stageplan/print/printFootprint";
 import type { StageplanPrintGeometry } from "../../../../../../src/domain/stageplan/print/printMetrics";
@@ -66,13 +67,12 @@ export function StageCanvas({
     : null;
   const footprintFor = (block: StageplanBlock) => {
     if (!printGeometry || !printScale) return null;
-    const metric = printGeometry.blocks.find(
-      (entry) => entry.slot === block.slot,
-    );
-    if (!metric) return null;
+    const box = printGeometry.blocks.find((entry) => entry.slot === block.slot);
+    if (!box) return null;
     const footprint = computePrintFootprintMm({
-      lineCount: metric.lineCount,
-      hasPower: metric.hasPower,
+      // Počet řádků se nepřenáší, počítá se tou samou funkcí jako v rendereru (R4).
+      lineCount: countStageplanBoxLines(box),
+      hasPower: box.hasPowerBadge,
       zone: block,
       mmPerM: printScale.mmPerM,
       typography: printGeometry.typography,

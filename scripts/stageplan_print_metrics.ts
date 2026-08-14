@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 import { normalizeProject } from "../src/app/usecases/normalizeProject.js";
 import type { ProjectJson } from "../src/domain/model/types.js";
 import { buildDocument } from "../src/domain/pipeline/buildDocument.js";
-import { buildStageplanPrintMetrics } from "../src/domain/pipeline/pdf/buildStageplanPrintMetrics.js";
+import { buildPdfStageplanPrintModel } from "../src/domain/pipeline/pdf/buildPdfStageplanPrintModel.js";
 import type { StageplanPrintGeometry } from "../src/domain/stageplan/print/printMetrics.js";
 import { loadJsonFile } from "../src/infra/fs/loadJson.js";
 import { loadRepository } from "../src/infra/fs/repo.js";
@@ -61,12 +61,19 @@ async function run(args: string[], log: MetricsLogger): Promise<Response> {
   log("[stageplan-metrics] buildDocument");
   const vm = buildDocument(project, repo);
 
+  // Metriky pokrývají právě bloky z layoutu — editor kreslí karty jen k nim.
+  // hideMusicianNames se nepředává: je to stav obrazovky Preview, ne vlastnost
+  // projektu, takže editor jména ukazuje vždy (R4).
+  const printModel = buildPdfStageplanPrintModel(vm.stageplan);
+
   return {
     ok: true,
     result: {
       area: stageplanPrintGeometry.area,
       typography: stageplanPrintGeometry.typography,
-      blocks: buildStageplanPrintMetrics(vm.stageplan),
+      blocks: vm.stageplan.layout.blocks.map(
+        (block) => printModel.boxesBySlot[block.slot],
+      ),
     },
   };
 }
