@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { Musician, Project } from "../../model/types.js";
+import type {
+  DocumentViewModel,
+  Musician,
+  Project,
+} from "../../model/types.js";
 import { buildPdfStageplanModel } from "./buildPdfStageplan.js";
 import { buildPdfStageplanPrintModel } from "./buildPdfStageplanPrintModel.js";
 
