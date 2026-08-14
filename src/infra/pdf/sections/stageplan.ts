@@ -268,7 +268,7 @@ export function buildStageplanPlan(
   if (artifactCollisions.length > 0) {
     const pairs = artifactCollisions.map(([a, b]) => `${a} × ${b}`).join(", ");
     throw new Error(
-      `Stageplan print collision: ${pairs}. Bloky se na papíře překrývají — přerovnej rozmístění v editoru.`,
+      `Stageplan print collision: ${pairs}. Blocks overlap on paper — rearrange them in the editor.`,
     );
   }
 
@@ -299,7 +299,7 @@ export function buildStageplanPlan(
     );
     const blockNote =
       culprits.length > 0
-        ? ` Blok${culprits.length > 1 ? "y" : ""} ${culprits.join(", ")} přesahuj${culprits.length > 1 ? "í" : "e"} plochu — posuň ${culprits.length > 1 ? "je" : "ho"} blíž ke středu pódia v editoru.`
+        ? ` Block${culprits.length > 1 ? "s" : ""} ${culprits.join(", ")} extend${culprits.length > 1 ? "" : "s"} past the area — move ${culprits.length > 1 ? "them" : "it"} closer to the centre of the stage in the editor.`
         : "";
     throw new Error(
       `Stageplan layout overflow: required ${container.widthMm.toFixed(2)} × ${container.heightMm.toFixed(2)}mm exceeds available ${areaWidthMm.toFixed(2)} × ${areaHeightMm.toFixed(2)}mm.${blockNote}`,

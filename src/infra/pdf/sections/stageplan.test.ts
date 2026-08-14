@@ -112,7 +112,9 @@ describe("stageplan print geometry", () => {
           ],
         }),
       ),
-    ).toThrow(/overflow/);
+    ).toThrow(
+      /overflow[\s\S]*extends? past the area — move .* closer to the centre of the stage in the editor\./,
+    );
   });
 
   it("prints the stage caption only when the size is entered", () => {
@@ -182,7 +184,9 @@ describe("stageplan print geometry", () => {
           ],
         }),
       ),
-    ).toThrow(/collision: drums × bass/);
+    ).toThrow(
+      /collision: drums × bass\. Blocks overlap on paper — rearrange them in the editor\./,
+    );
   });
 
   it("prints blocks whose zones already overlap on a cramped stage", () => {
