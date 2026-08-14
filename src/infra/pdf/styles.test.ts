@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { pdfStyles } from "./styles.js";
 import { pdfLayout, pdfTokens } from "./layout.js";
 import { stageplanLayout } from "./sections/stageplan.js";
+import { pdfStyles } from "./styles.js";
 
 /** Escapuje regex metaznaky, aby se hodnoty z konstant (např. "7.2pt") daly
  * bezpečně vložit do dynamicky sestaveného regexu. */
@@ -45,20 +45,17 @@ describe("pdf table", () => {
 });
 
 describe("pdf stageplan identity", () => {
-  it("draws stageplan blocks in the F5b identity", () => {
-    // R5: 1px ink bez radiusu, inverzní lead vokál, oranžové napájení.
+  it("draws every stageplan block the same, with no inverted lead vocal (F6 R11)", () => {
+    // R11 mění R5 z F5b: inverze dělala z lead vokálu nejvýraznější prvek
+    // stránky, ačkoli jsou všechny bloky rovnocenné pozice na pódiu.
     expect(pdfStyles).toMatch(
       new RegExp(
         `\\.stageplanBox\\s*\\{[^}]*border:\\s*1px solid ${escapeRegExp(pdfTokens.ink)}`,
       ),
     );
-    expect(pdfStyles).toMatch(
-      /\.stageplanBox--lead\s*\{[^}]*background:\s*#101112/,
-    );
-    expect(pdfStyles).toMatch(/\.stageplanBox--lead\s*\{[^}]*color:\s*#fff/i);
-    expect(pdfStyles).toMatch(
-      /\.stageplanPower\s*\{[^}]*color:\s*#ff5b1f/i,
-    );
+    expect(pdfStyles).toMatch(/\.stageplanBox\s*\{[^}]*background:\s*#fff/i);
+    expect(pdfStyles).not.toContain("stageplanBox--lead");
+    expect(pdfStyles).toMatch(/\.stageplanPower\s*\{[^}]*color:\s*#ff5b1f/i);
     expect(pdfStyles).not.toContain("#F7E65A");
     expect(pdfStyles).not.toContain(".stageplanPowerGap");
   });

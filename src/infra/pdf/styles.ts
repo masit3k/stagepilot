@@ -356,12 +356,6 @@ body {
      poslední řádek, který sound engineerovi řekne, který kanál je čí. */
 }
 
-/* Lead vokál je jediný plný blok — handoff řádek 125. */
-.stageplanBox--lead {
-  background: ${pdfTokens.ink};
-  color: #fff;
-}
-
 .stageplanBoxHeader {
   font-weight: 700;
   margin: 0;

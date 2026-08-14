@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 import type { DocumentViewModel } from "../../../domain/model/types.js";
 import { buildDocument } from "../../../domain/pipeline/buildDocument.js";
 import { loadRepository } from "../../fs/repo.js";
+import { pdfLayout } from "../layout.js";
 import {
   createPdfRendererFixtureProject,
   createPdfRendererFixtureRoot,
 } from "../pdfRendererFixture.js";
-import { pdfLayout } from "../layout.js";
 import {
   buildStageplanPlan,
   renderStageplanSection,
@@ -75,10 +75,9 @@ describe("stageplan print geometry", () => {
       2,
     );
     // Osa y roste od upstage hrany k publiku (R4): 1,2 m = 15,729 mm.
-    expect((box?.yMm ?? 0) + (box?.heightMm ?? 0) / 2 - plan.stage.yMm).toBeCloseTo(
-      15.729,
-      2,
-    );
+    expect(
+      (box?.yMm ?? 0) + (box?.heightMm ?? 0) / 2 - plan.stage.yMm,
+    ).toBeCloseTo(15.729, 2);
   });
 
   it("refuses to print a block that pushes the container past the mirror", () => {
@@ -250,7 +249,7 @@ describe("stageplan print geometry", () => {
       },
     } as unknown as DocumentViewModel);
 
-    expect(html).toContain("stageplanBox--lead");
+    expect(html).not.toContain("stageplanBox--lead");
     expect(html).toContain("DOWNSTAGE · PUBLIKUM");
     expect(html).toContain('<div class="stageplanPower">1x 230V</div>');
   });

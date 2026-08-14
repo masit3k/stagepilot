@@ -122,7 +122,6 @@ export type StageplanBoxPlan = StageplanPrintBox & {
   readonly widthMm: number;
   readonly heightMm: number;
   readonly rotationDeg: number;
-  readonly isLeadVocal: boolean;
 };
 
 export type StageplanPlan = {
@@ -307,8 +306,6 @@ export function buildStageplanPlan(
         widthMm: rect.widthMm,
         heightMm: rect.heightMm,
         rotationDeg: rect.rotationDeg,
-        isLeadVocal:
-          rect.slot === "lead_voc_1" || rect.slot === "lead_voc_2",
       };
     }),
   };
@@ -352,8 +349,7 @@ function renderBox(
     lines.push(`<div class="stageplanPower">${box.powerBadgeText}</div>`);
   }
 
-  const leadClass = box.isLeadVocal ? " stageplanBox--lead" : "";
-  return `<div class="stageplanBox${leadClass}" style="left:${box.xMm}mm; top:${box.yMm}mm; width:${box.widthMm}mm; height:${box.heightMm}mm; transform:rotate(${box.rotationDeg}deg);">${lines.join("")}</div>`;
+  return `<div class="stageplanBox" style="left:${box.xMm}mm; top:${box.yMm}mm; width:${box.widthMm}mm; height:${box.heightMm}mm; transform:rotate(${box.rotationDeg}deg);">${lines.join("")}</div>`;
 }
 
 export function renderStageplanSection(
