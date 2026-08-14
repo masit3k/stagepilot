@@ -404,3 +404,113 @@ by mohla plán potichu zmenšit.
 12. Rozhraní: v editoru ani jinde v aplikaci není český text; pruh na ploše říká `AUDIENCE`,
     v PDF `PUBLIKUM`
 13. Kolize bloků při **exportu**: hláška je anglicky a jmenuje bloky
+
+## Stav implementace
+
+**Hotovo** ve dvaceti commitech `9b27385`…`b1e18f4`. Rozhodnutí R1–R15 platí beze změny — na rozdíl
+od F5b tahle fáze nenarazila na chybu v návrhu, která by vyžadovala přepsat text výše. Odchylky od
+plánu se odehrály jen v tom, *jak* se rozhodnutí ověřila: čtyři z nich prosadil lidský rozhodčí proti
+doslovnému znění briefů, protože brief buď porušoval vlastní pravidlo repozitáře, nebo nechal defekt
+neohlídaný.
+
+### Co vzniklo
+
+| Vrstva | Soubory |
+|---|---|
+| Doména | `src/domain/formatters/stageplan.ts` (hvězdička místo `(band leader)`, R12); `src/domain/pipeline/pdf/buildPdfStageplanPrintModel.ts` (+`hasBandLeaderMark`, R13); `src/domain/stageplan/layout/blockOps.ts` (+`resizeBlockTo`, `MIN_ZONE_M`, R7); `src/domain/stageplan/print/printMetrics.ts` (`StageplanPrintGeometry.blocks` nese celé boxy místo `lineCount`/`hasPower`, R4) |
+| Renderer PDF | `src/infra/pdf/sections/stageplan.ts` — zánik `isLeadVocal` (R11), legenda `* KAPELNÍK` s bezpodmínečnou rezervou výšky (R13), anglické hlášky kolize a přetečení (R15); `src/infra/pdf/styles.ts` — zánik `.stageplanBox--lead`, přírůstek `.stageplanLegend` |
+| Skript | `scripts/stageplan_print_metrics.ts` — vrací celé boxy místo odvozených čísel (R4). `src/domain/pipeline/pdf/buildStageplanPrintMetrics.ts` **zanikl úplně** — po redukci na jediný `map` nezbylo nic k obalení, přesně jak Architektura ve specu výše předpokládala; skript si teď boxy pro slots vybírá sám |
+| Editor | `blockFont.ts` (nový, R5), `blockPrint.ts` (nový, R3/R4, jediné místo, které v editoru počítá tiskovou stopu karty); `StageBlock.tsx` (karta jako tištěný box, plný výpis, R3), `StageCanvas.tsx` (měřítko zvednuté do stránky), `useBlockDrag.ts` (+resize gesto, R7/R8), `blockContent.ts` (formátování v tečkách, `formatScale`, `narrowestZoneSlot`, R10/R14), `BlockInspector.tsx` (`ZONE`/`PRINTED`, R10), `EditorToolbar.tsx` (`SCALE`/`NARROWEST ZONE`, zánik tabu `PDF PREVIEW`, R2/R10), `EditorFooter.tsx` (nová akční lišta, angličtina, R1/R14), `StagePlanEditorPage.tsx`, `ProjectSetupPage.tsx` (cíl `Continue`, R1) |
+
+**Automaticky ověřeno** (`npm test`): 819 z 821 testů prochází — stejné dva trvale padající
+(`assetsPaths`, `repoAssets`) jako baseline, nic navíc. `npx tsc --noEmit` v kořeni: 0 chyb. V
+`packages/desktop`: 10 chyb ve stejných čtyřech předem existujících testovacích souborech jako
+v F5a/F5b, nezměněno. `npx vite build`: 192 modulů bez chyby. `cargo check`: bez nálezu — `lib.rs` se
+v tomto plánu nemění, jde jen o pojistku. `npm run lint`: 1389 chyb, výhradně kategorie CRLF/format
+daná `core.autocrlf=true` bez `.gitattributes`, žádné nové pravidlo.
+
+### Čtyři odchylky od doslovného znění plánu
+
+1. **Fixtury bez `as unknown as`.** Brief Tasků 3 a 5 předepsal fixtury s type cast. Oba dotčené
+   soubory už měly vlastní typované pomocníky (`baseStageplan`, `emptyStageplan`) a repo pravidlo
+   zakazuje cast bez odůvodnění — žádné tu nebylo. Rozhodnuto použít existující pomocníky; typují se
+   beze zbytku, cast nebyl potřeba ani jednou. (Fix kolo 2 Tasku 3 pak muselo vrátit import
+   `DocumentViewModel`, který fix kolo 1 omylem smazalo — vitest transpiluje bez typové kontroly, takže
+   to nezachytil; `tsc --noEmit` ano.)
+2. **Test „geometrie identická" nemohl selhat na defektu, který měl hlídat.** Rezerva na vysvětlivku
+   z Tasku 5 je u testovací fixtury vázaná šířkou, ne výškou, takže odebrání rezervy by
+   `stage.widthMm` ani `heightMm` vůbec nepohnulo — test by prošel, i kdyby R13 přestala platit. Místo
+   přijetí slabého testu se přidaly tři skutečné hlídky: rozpočet výšky ověřený **odvozenou** hodnotou
+   z modulových konstant (ne golden konstantou), tvrzení, že `<div class="stageplanLegend">` zůstává
+   v toku i prázdný, a případ, kdy kapelníkův slot není mezi vytištěnými bloky. Mutační test (dočasné
+   odebrání rezervy, dočasná „optimalizace" prázdného elementu) potvrdil, že každá hlídka na svém
+   defektu skutečně spadne.
+3. **Regex na přetečení hlídal jen slovesnou příponu.** `[\s\S]*` v Tasku 6 spolklo celé jméno bloku
+   a `.*` spolklo zájmeno — z trojice tvarů (jméno viníka, tvar podstatného jména, zájmeno), které měl
+   brief chránit, hlídal doopravdy jen jeden. Zpřísněno na doslovné sepnutí jména, tvaru a zájmena;
+   mutace zájmena (`it` → `them`) v produkčním kódu tím teď test spolehlivě odhalí.
+4. **`blockPrint.test.ts` — soubor, který struktura plánu neuváděla.** `resolveBlockPrint` v Tasku 9
+   mapuje `footprint.widthMm`/`heightMm` na `widthM`/`depthM` karty; prohození os by nakreslilo každou
+   kartu otočenou o 90° a **žádná** existující brána (typy, 347 tehdejších testů, `tsc`) by to
+   nechytila. Fixtura musela být záměrně nečtvercová (šířka a hloubka měřitelně různé), aby prohození
+   bylo vůbec detekovatelné. Vznikl `blockPrint.test.ts` (5 testů) a mutační běh (prohozené osy)
+   potvrdil, že test na defektu skutečně spadne.
+
+### Další review nálezy, které opravily plán, ne implementaci
+
+- **`NARROWEST:` v R10 tvrdilo víc, než platí vždy.** Poznámka v toolbaru říkala, že nejužší zóna vždy
+  určuje měřítko, ale `resolvePrintScale` bere `min(šířka, výška)` a existující test dokazuje, že
+  výška může vyhrát — pak nic „nejužšího" neurčuje. Přeformulováno na `NARROWEST ZONE:`, což tvrdí jen
+  to, co platí vždy; logika `narrowestZoneSlot`/`resolvePrintScale` se neměnila. **Příklad v R10 výše
+  (`SCALE 12.9 mm/m · NARROWEST: LEAD VOC 1`) zůstal s původním textem** — oprava proběhla jen v kódu,
+  ne v tomto specu, protože brief Tasku 11 úpravu spec souboru nezahrnoval.
+- **`EditorFooter.tsx` zůstal česky přesně tam, kde to Task 12 mělo zakázat.** Řádek `Zpět na Lineup`
+  review Tasku 12 přehlédl. Nešlo o konflikt s plánem — diacritics sweep z Kroku 2 je akceptační brána
+  celého úkolu a řetězec do ní spadal. Opraveno bez čekání na rozhodnutí.
+
+### Co ověřeno není
+
+Editor běží v okně Tauri a projekt testuje bez jsdom (CLAUDE.md), takže body 4–13 z Verifikace výše
+zůstávají **ruční kontrola v `npm run dev`**, dosud neproběhlá. Review napříč tasky k nim přidalo
+konkrétní věci, na které se má dívat:
+
+- **Karty se mohou překrývat** (body 6, 9) — karta je teď tištěná stopa, ne zóna, takže je větší a nic
+  ji neřadí podle z-indexu ani výběru; zvětšená karta může sousedovi ukrást `pointerdown` (Task 9).
+- **Zdvojená hrana ve stavu bez metrik** (R6) — když `build_stageplan_print_metrics` neodpoví, obrys
+  zóny padne přesně na hranu karty, takže se kreslí dvě hrany na sobě (Task 9).
+- **Poznámka a rozměr pódia v toolbaru se mohou zalomit pod sebe** (bod 9) — `.stage-toolbar__meta`
+  nemá `display: flex`, takže `SCALE`/`NARROWEST ZONE` a řádek s rozměrem pódia nemusí sedět vedle
+  sebe, jak návrh předpokládá (Task 11).
+- **Cit gesta úchytů** (bod 8) — že protilehlá hrana skutečně stojí, že se otočený blok zvětšuje podél
+  vlastních os a ne os plochy, a že je úchyt na zaslané velikosti canvasu pohodlně klikatelný (Task 10).
+- **Délka anglického textu v patičce** (body 5, 12) — `Changes are written to the PDF export` má
+  38 znaků proti 32 v češtině; zkontrolovat, že se nepřekrývá s tlačítky patičky, a stejným pohledem
+  prázdný stav a dva eyebrow popisky v panelu pevné šířky (Task 12).
+
+### Co se předává dál
+
+- **Gesto zvětšování zóny nemá test na kumulativní posun.** `useBlockDrag.ts` počítá deltu tažení přes
+  celé gesto stejně jako u posunu a rotace, ale ani jedno z těch dvou nemá test — chybí `jsdom`
+  a `@testing-library/react`, které `packages/desktop` nemá a které CLAUDE.md vylučuje výslovně
+  („Vitest, Node prostředí, bez jsdom"). Zavedení DOM test infrastruktury kvůli jednomu ze tří
+  sourozeneckých gest je větší rozhodnutí než rozsah F6. Lidské rozhodnutí (informované): zapsat sem
+  jako společný follow-up pro všechna tři gesta najednou, neřešit teď.
+- **Neuložený stav bez zpětné vazby — předchází F6.** `StagePlanEditorPage.tsx:344–351` nechá selhané
+  uložení propadnout jako neodchycené odmítnutí slibu, bez `notify("error")`; stejná mezera je
+  v `ProjectSetupPage.tsx:1779–1788`. Uživatel tak může odejít v přesvědčení, že se rozmístění uložilo,
+  i když se neuložilo. F6 to nezavedla, oprava patří jinam.
+- **Editor a Preview nemají žádný test.** Pro `ProjectSetupPage.tsx`, `StagePlanEditorPage.tsx`,
+  `EditorFooter.tsx` ani `EditorToolbar.tsx` neexistuje testovací soubor — stejný kořen jako
+  u neotestovaného gesta výše: `packages/desktop` nemá DOM test infrastrukturu.
+- **`(band leader)` v kontaktní řádce PDF exportu zůstává anglicky uvnitř českého textu.**
+  `src/app/usecases/exportPdf.ts:86` je jiná funkce než hlavička boxu, kterou opravil R12, a F6 ji
+  nepokrývala. Kandidát na navazující práci, ne chyba F6.
+- **Editor počítá měřítko z živé plochy, tisk z uložené.** `StageCanvas` volá `resolvePrintScale`
+  s aktuálním prop `area`, zatímco renderer čte `vm.layout.stage` z disku — dokud se rozměr pódia
+  neuloží, mohou se `mmPerM` a zobrazená stopa lišit od tisku. Pravděpodobně záměr (editor ukazuje, co
+  se právě edituje), ale nepotvrzeno; kandidát na potvrzení při některé z dalších fází.
+- **`snapM` v `blockOps.ts` zůstal `export`**, ačkoli ho žádný modul mimo `blockOps.ts` nepotřebuje.
+  Neškodné rozšíření rozhraní, nerozhodnuto, jestli se má vrátit zpět na privátní.
+- **Vědomá mezera ze sekce Rozsah trvá.** Cesta přes Preview dál zahazuje hlášku
+  `buildStageplanPlan` a nahrazuje ji obecnou `Preview could not be generated. Please retry.`
+  (`lib.rs`, `build_project_pdf_preview`) — zapsáno vědomě v Rozsahu výše, F6 to neřešila.

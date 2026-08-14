@@ -18,7 +18,7 @@ designový board, implementuje se **kolo 3** (`3a`–`3d` varianty značky, vybr
 | F5a | Model rozmístění + Stage Plan Editor | hotovo, čeká na ruční kontrolu editoru | [2026-08-13-stageplan-editor-and-layout-model-design.md](../superpowers/specs/2026-08-13-stageplan-editor-and-layout-model-design.md) | `fdee3b8`…`67b3895` |
 | **F5b** | **PDF čte rozmístění z projektu (pozice, rotace, nová kresba bloků)** | **hotovo, čeká na ruční kontrolu** | [2026-08-13-pdf-reads-stageplan-layout-design.md](../superpowers/specs/2026-08-13-pdf-reads-stageplan-layout-design.md) | `7ec42a9`…`b6fbf96` |
 | F5c | Obrazovka `02 INPUTS` | připraveno k otevření | zatím není | — |
-| **F6** | **Tok na editor, obsah bloků, úchyty velikosti, tisk bez zvýraznění, kapelník, angličtina** | **spec schválený, plán zatím není** | [2026-08-13-editor-flow-block-content-and-ui-language-design.md](../superpowers/specs/2026-08-13-editor-flow-block-content-and-ui-language-design.md) | — |
+| **F6** | **Tok na editor, obsah bloků, úchyty velikosti, tisk bez zvýraznění, kapelník, angličtina** | **hotovo, čeká na ruční kontrolu** | [2026-08-13-editor-flow-block-content-and-ui-language-design.md](../superpowers/specs/2026-08-13-editor-flow-block-content-and-ui-language-design.md) | `9b27385`…`b1e18f4` |
 
 ## F4 — typografie a hlavička PDF
 
@@ -95,6 +95,12 @@ do F6 nepustíš hned:
 
 F6 **mění R5 z F5b**: inverzní lead vokál v PDF končí, všechny bloky mají stejnou barvu. Je to vědomá
 odchylka od handoffu, řádek 125. Handoff se neupravuje, je to vstupní artefakt.
+
+**F6 je hotová.** R1–R15 platí beze změny; čtyři místa se za běhu odchýlila od doslovného znění
+briefů (typované fixtury místo castů, dvě testovací hlídky nahrazené za slabé, zpřísněný regex
+a nový `blockPrint.test.ts` proti prohození os) a review opravilo formulaci `NARROWEST:` v R10 na
+`NARROWEST ZONE:`. Zbylé body 4–13 z Verifikace vyžadují `npm run dev` a neproběhly. Detaily a
+seznam manuálních kontrol jsou v sekci „Stav implementace" specu F6.
 
 ## Samostatné položky mimo fáze
 

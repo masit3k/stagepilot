@@ -145,9 +145,13 @@ F4 tuhle kresbu vědomě odložila („patří k blokům, F5 ji stejně přepisu
 | | dnes | po F5b |
 |---|---|---|
 | rámeček boxu | 2px `--c-line` | 1px `--sp-ink`, bez radiusu |
-| lead vokál | jako ostatní | plný `--sp-ink`, bílý text |
+| lead vokál | jako ostatní | jako ostatní — **opraveno v F6, R11** |
 | napájení | žlutý badge v rohu | oranžový text `--sp-signal` 600 v toku |
 | kontejner | šedý podklad `#eeeeee` | rám plochy pódia, bílý vnitřek |
+
+> **Změněno v F6 (R11).** Inverzní lead vokál se zrušil: dělal z jedné pozice nejvýraznější prvek
+> stránky, ačkoli jsou všechny bloky rovnocenné pozice na pódiu. Je to vědomá odchylka od handoffu,
+> řádek 125. Viz [spec F6](2026-08-13-editor-flow-block-content-and-ui-language-design.md).
 
 Napájení v toku textu místo absolutně umístěného rohového badge ruší dnešní vyhrazenou mezeru pod textem a
 **zkrátí každý blok s napájením o ~4 mm**. Oranžová zůstává jedinou barvou na stránce, jak žádá handoff.
