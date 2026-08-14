@@ -4,6 +4,7 @@ import { StageSizeFields } from "./StageSizeFields";
 type EditorToolbarProps = {
   stage: StageplanStageSize | null;
   snap: boolean;
+  scaleNote: string | null;
   onToggleSnap: () => void;
   onChangeStage: (next: StageplanStageSize | null) => void;
   onOpenPreview: () => void;
@@ -16,6 +17,7 @@ type EditorToolbarProps = {
 export function EditorToolbar({
   stage,
   snap,
+  scaleNote,
   onToggleSnap,
   onChangeStage,
   onOpenPreview,
@@ -37,6 +39,9 @@ export function EditorToolbar({
         {snap ? "SNAP 10 CM · 15°" : "SNAP OFF"}
       </button>
       <div className="stage-toolbar__meta">
+        {scaleNote ? (
+          <span className="stage-toolbar__scale">{scaleNote}</span>
+        ) : null}
         <StageSizeFields stage={stage} onChange={onChangeStage} />
       </div>
     </div>

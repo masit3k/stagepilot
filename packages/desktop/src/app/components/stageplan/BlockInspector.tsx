@@ -3,10 +3,12 @@ import type {
   StageplanBlockSlot,
 } from "../../../../../../src/domain/model/types";
 import { LABEL_BY_SLOT, formatZone } from "./blockContent";
+import type { BlockPrint } from "./blockPrint";
 
 type BlockInspectorProps = {
   blocks: readonly StageplanBlock[];
   selectedSlot: StageplanBlockSlot | null;
+  printedZone: BlockPrint | null;
   onSelect: (slot: StageplanBlockSlot) => void;
   onRotateBy: (deltaDeg: number) => void;
   onReset: () => void;
@@ -15,6 +17,7 @@ type BlockInspectorProps = {
 export function BlockInspector({
   blocks,
   selectedSlot,
+  printedZone,
   onSelect,
   onRotateBy,
   onReset,
@@ -53,11 +56,28 @@ export function BlockInspector({
             </button>
           </div>
           <div className="stage-inspector__row">
-            <span className="stage-inspector__label">ROZMĚR</span>
+            <span className="stage-inspector__label">ZONE</span>
             <span className="stage-inspector__value">
               {formatZone(selected.widthM, selected.depthM)}
             </span>
           </div>
+          {printedZone ? (
+            <div className="stage-inspector__row">
+              <span className="stage-inspector__label">PRINTED</span>
+              <span
+                className={`stage-inspector__value${
+                  printedZone.isBelowPrintFloor
+                    ? " stage-inspector__value--flagged"
+                    : ""
+                }`}
+              >
+                {formatZone(
+                  printedZone.footprint.widthM,
+                  printedZone.footprint.depthM,
+                )}
+              </span>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -83,7 +103,11 @@ export function BlockInspector({
         </ul>
       </div>
 
-      <button type="button" className="stage-inspector__reset" onClick={onReset}>
+      <button
+        type="button"
+        className="stage-inspector__reset"
+        onClick={onReset}
+      >
         Reset rozmístění
       </button>
     </aside>

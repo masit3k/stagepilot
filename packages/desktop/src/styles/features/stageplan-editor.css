@@ -41,6 +41,13 @@
   color: var(--color-stage-text-dim);
 }
 
+.stage-toolbar__scale {
+  margin-right: var(--sp-4);
+  font: var(--sp-mono-xs);
+  letter-spacing: 0.1em;
+  color: var(--color-stage-text-dim);
+}
+
 .stage-tab {
   font: var(--sp-mono-xs);
   letter-spacing: 0.1em;
@@ -308,6 +315,11 @@
   color: var(--color-stage-text);
   min-width: 42px;
   text-align: center;
+}
+
+/* Zóna je pod tiskovou mezí — box na papíře je širší, než uživatel nakreslil. */
+.stage-inspector__value--flagged {
+  color: var(--color-primary);
 }
 
 .stage-inspector__row button {

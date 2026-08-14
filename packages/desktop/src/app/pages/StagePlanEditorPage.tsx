@@ -23,6 +23,12 @@ import { BlockInspector } from "../components/stageplan/BlockInspector";
 import { EditorFooter } from "../components/stageplan/EditorFooter";
 import { EditorToolbar } from "../components/stageplan/EditorToolbar";
 import { StageCanvas } from "../components/stageplan/StageCanvas";
+import {
+  LABEL_BY_SLOT,
+  formatScale,
+  narrowestZoneSlot,
+} from "../components/stageplan/blockContent";
+import { resolveBlockPrint } from "../components/stageplan/blockPrint";
 import { useEditorKeyboard } from "../components/stageplan/useEditorKeyboard";
 import { useLayoutHistory } from "../components/stageplan/useLayoutHistory";
 import { resolveBlockSlotsFromPayload } from "../domain/stageplan/resolveBlockSlotsFromPayload";
@@ -261,11 +267,29 @@ export function StagePlanEditorPage({
       })
     : null;
 
+  const narrowestSlot = narrowestZoneSlot(state.layout.blocks);
+  const scaleNote =
+    printScale && narrowestSlot
+      ? `SCALE ${formatScale(printScale.mmPerM)} · NARROWEST: ${LABEL_BY_SLOT[narrowestSlot]}`
+      : null;
+
+  const selectedBlock =
+    state.layout.blocks.find((block) => block.slot === selectedSlot) ?? null;
+  // Stejná funkce, jakou plocha kreslí karty — jiný zdroj by lhal (R10).
+  const printedZone = selectedBlock
+    ? resolveBlockPrint({
+        block: selectedBlock,
+        geometry: printGeometry,
+        scale: printScale,
+      })
+    : null;
+
   return (
     <div className="stage-editor">
       <EditorToolbar
         stage={state.layout.stage}
         snap={snap}
+        scaleNote={scaleNote}
         onToggleSnap={() => setSnap((current) => !current)}
         onChangeStage={applyStageSize}
         onOpenPreview={() =>
@@ -306,6 +330,7 @@ export function StagePlanEditorPage({
           <BlockInspector
             blocks={state.layout.blocks}
             selectedSlot={selectedSlot}
+            printedZone={printedZone}
             onSelect={setSelectedSlot}
             onRotateBy={rotateSelectedBy}
             onReset={resetArrangement}
