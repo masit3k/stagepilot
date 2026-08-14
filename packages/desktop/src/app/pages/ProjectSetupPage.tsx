@@ -41,7 +41,6 @@ import {
   ChevronDown,
   Close,
 } from "../../components/ui/icons";
-import { LineupRow } from "../components/roles/LineupRow";
 import {
   type LineupMap,
   type LineupSlotValue,
@@ -58,6 +57,7 @@ import {
 } from "../../projectRules";
 import { BackVocsBlock } from "../components/roles/BackVocsBlock";
 import { LeadVocsBlock } from "../components/roles/LeadVocsBlock";
+import { LineupRow } from "../components/roles/LineupRow";
 import { ChangeBackVocsModal } from "../components/roles/modals/ChangeBackVocsModal";
 import { ChangeLeadVocsModal } from "../components/roles/modals/ChangeLeadVocsModal";
 import { sanitizeBackVocsSelection } from "../components/roles/utils/backVocs";
@@ -1783,7 +1783,8 @@ export function ProjectSetupPage({
               setIsCommitting(true);
               await persistProject();
             }
-            navigate(withFrom(`/projects/${id}/preview`, "setup"));
+            // Editor rozmístění je krok 03, tedy přirozený krok po lineupu (R1).
+            navigate(`/projects/${id}/stageplan`);
           }}
           disabled={errors.length > 0 || overrideValidationErrors.length > 0}
         >

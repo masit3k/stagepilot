@@ -1,22 +1,34 @@
 type EditorFooterProps = {
-  onBack: () => void;
-  onGeneratePdf: () => void;
   isSaving: boolean;
+  isDirty: boolean;
+  onBack: () => void;
+  onBackToHub: () => void;
+  onContinue: () => void;
 };
 
 /**
- * Tisk rozmístění čte od F5b, takže věta z handoffu je pravdivá — obrys tiskové
- * stopy v canvasu ukazuje, kolik místa blok na papíře zabere.
+ * Stejná semantika jako lišty setupu a preview: vlevo návraty, vpravo
+ * dirty-aware primary. `Generate PDF` odsud zmizelo, protože žádné PDF
+ * negenerovalo — uložilo layout a přešlo na Preview (R1).
  */
 export function EditorFooter({
-  onBack,
-  onGeneratePdf,
   isSaving,
+  isDirty,
+  onBack,
+  onBackToHub,
+  onContinue,
 }: EditorFooterProps) {
   return (
     <div className="stage-footer">
       <button type="button" className="stage-footer__ghost" onClick={onBack}>
         Back to Lineup
+      </button>
+      <button
+        type="button"
+        className="stage-footer__ghost"
+        onClick={onBackToHub}
+      >
+        Back to Hub
       </button>
       <span className="stage-footer__note">
         Changes are written to the PDF export
@@ -24,10 +36,10 @@ export function EditorFooter({
       <button
         type="button"
         className="stage-footer__primary"
-        onClick={onGeneratePdf}
+        onClick={onContinue}
         disabled={isSaving}
       >
-        Generate PDF
+        {isDirty ? "Save & Continue" : "Continue"}
       </button>
     </div>
   );

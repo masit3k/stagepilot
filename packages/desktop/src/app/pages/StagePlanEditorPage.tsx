@@ -292,9 +292,6 @@ export function StagePlanEditorPage({
         scaleNote={scaleNote}
         onToggleSnap={() => setSnap((current) => !current)}
         onChangeStage={applyStageSize}
-        onOpenPreview={() =>
-          navigate(`/projects/${encodeURIComponent(id)}/preview`)
-        }
       />
       {state.layout.blocks.length === 0 ? (
         <div className="stage-editor__empty">
@@ -341,11 +338,15 @@ export function StagePlanEditorPage({
       )}
       <EditorFooter
         isSaving={isSaving}
+        isDirty={isStageplanLayoutDirty(initialLayoutRef.current, state.layout)}
         onBack={() => navigate(`/projects/${encodeURIComponent(id)}/setup`)}
-        onGeneratePdf={async () => {
+        onBackToHub={() => navigate("/")}
+        onContinue={async () => {
           if (state.kind !== "ready") return;
-          await saveLayout(state.layout, state.project);
-          notify("success", "Arrangement saved.");
+          if (isStageplanLayoutDirty(initialLayoutRef.current, state.layout)) {
+            await saveLayout(state.layout, state.project);
+            notify("success", "Arrangement saved.");
+          }
           navigate(`/projects/${encodeURIComponent(id)}/preview`);
         }}
       />

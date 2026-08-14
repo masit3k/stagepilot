@@ -7,12 +7,13 @@ type EditorToolbarProps = {
   scaleNote: string | null;
   onToggleSnap: () => void;
   onChangeStage: (next: StageplanStageSize | null) => void;
-  onOpenPreview: () => void;
 };
 
 /**
  * Nástrojové čtverce z prototypu tu nejsou: tažení i rotace fungují přímo, tak
  * by to byly ovladače bez funkce — stejný důvod, proč vypadl popisek ZOOM.
+ * Tab `PDF PREVIEW` vypadl v F6: dělal totéž co primary v patičce, jen bez
+ * uložení, takže vedly na stejné místo dvě cesty s jinou semantikou (R2).
  */
 export function EditorToolbar({
   stage,
@@ -20,16 +21,12 @@ export function EditorToolbar({
   scaleNote,
   onToggleSnap,
   onChangeStage,
-  onOpenPreview,
 }: EditorToolbarProps) {
   return (
     <div className="stage-toolbar">
       <div className="stage-toolbar__tabs">
         <span className="stage-tab stage-tab--active">STAGE PLAN</span>
         <span className="stage-tab stage-tab--disabled">INPUT LIST</span>
-        <button type="button" className="stage-tab" onClick={onOpenPreview}>
-          PDF PREVIEW
-        </button>
       </div>
       <button
         type="button"
