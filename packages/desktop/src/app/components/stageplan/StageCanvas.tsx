@@ -4,12 +4,12 @@ import type {
   StageplanBlockSlot,
   StageplanStageSize,
 } from "../../../../../../src/domain/model/types";
-import { countStageplanBoxLines } from "../../../../../../src/domain/pipeline/pdf/countStageplanBoxLines";
 import { createStageScale } from "../../../../../../src/domain/stageplan/layout/scale";
-import { computePrintFootprintMm } from "../../../../../../src/domain/stageplan/print/printFootprint";
 import type { StageplanPrintGeometry } from "../../../../../../src/domain/stageplan/print/printMetrics";
-import { resolvePrintScale } from "../../../../../../src/domain/stageplan/print/printScale";
+import type { PrintScale } from "../../../../../../src/domain/stageplan/print/printScale";
 import { StageBlock } from "./StageBlock";
+import { resolveBlockFontPx } from "./blockFont";
+import { resolveBlockPrint } from "./blockPrint";
 import { useBlockDrag } from "./useBlockDrag";
 import { useStageViewport } from "./useStageViewport";
 
@@ -19,6 +19,7 @@ type StageCanvasProps = {
   selectedSlot: StageplanBlockSlot | null;
   snap: boolean;
   printGeometry: StageplanPrintGeometry | null;
+  printScale: PrintScale | null;
   onSelect: (slot: StageplanBlockSlot | null) => void;
   onChangeBlock: (slot: StageplanBlockSlot, next: StageplanBlock) => void;
   onGestureStart: () => void;
@@ -31,6 +32,7 @@ export function StageCanvas({
   selectedSlot,
   snap,
   printGeometry,
+  printScale,
   onSelect,
   onChangeBlock,
   onGestureStart,
@@ -53,35 +55,14 @@ export function StageCanvas({
     "--stage-grid": `${scale.toPx(0.5)}px`,
   } as CSSProperties;
 
-  // Tisková stopa: stejná doménová funkce jako v rendereru — včetně rezervy na
-  // přesah (Task 12), jinak by obrys tvrdil něco jiného, než se vytiskne.
-  // Výsledek v mm se vrací do metrů měřítkem tisku, proto se stopa překreslí
-  // i po změně rozměru pódia.
-  const printScale = printGeometry
-    ? resolvePrintScale({
-        stage: area,
-        blocks,
-        area: printGeometry.area,
-        minBoxWidthMm: printGeometry.typography.minBoxWidthMm,
-      })
-    : null;
-  const footprintFor = (block: StageplanBlock) => {
-    if (!printGeometry || !printScale) return null;
-    const box = printGeometry.blocks.find((entry) => entry.slot === block.slot);
-    if (!box) return null;
-    const footprint = computePrintFootprintMm({
-      // Počet řádků se nepřenáší, počítá se tou samou funkcí jako v rendereru (R4).
-      lineCount: countStageplanBoxLines(box),
-      hasPower: box.hasPowerBadge,
-      zone: block,
-      mmPerM: printScale.mmPerM,
-      typography: printGeometry.typography,
-    });
-    return {
-      widthM: printScale.toM(footprint.widthMm),
-      depthM: printScale.toM(footprint.heightMm),
-    };
-  };
+  const fontPx =
+    printGeometry && printScale
+      ? resolveBlockFontPx({
+          fontSizePt: printGeometry.typography.fontSizePt,
+          pxPerM: scale.pxPerM,
+          mmPerM: printScale.mmPerM,
+        })
+      : null;
 
   return (
     <div className="stage-canvas-frame" ref={ref}>
@@ -98,7 +79,12 @@ export function StageCanvas({
             block={block}
             scale={scale}
             isSelected={block.slot === selectedSlot}
-            printFootprint={footprintFor(block)}
+            print={resolveBlockPrint({
+              block,
+              geometry: printGeometry,
+              scale: printScale,
+            })}
+            fontPx={fontPx}
             onSelect={onSelect}
             onStartMove={startMove}
             onStartRotate={startRotate}

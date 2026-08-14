@@ -17,6 +17,7 @@ import { isStageplanLayoutDirty } from "../../../../../src/domain/stageplan/layo
 import { mergeWithLineup } from "../../../../../src/domain/stageplan/layout/mergeWithLineup";
 import { rescaleForStage } from "../../../../../src/domain/stageplan/layout/rescaleForStage";
 import type { StageplanPrintGeometry } from "../../../../../src/domain/stageplan/print/printMetrics";
+import { resolvePrintScale } from "../../../../../src/domain/stageplan/print/printScale";
 import { useToast } from "../../components/ui/toast/useToast";
 import { BlockInspector } from "../components/stageplan/BlockInspector";
 import { EditorFooter } from "../components/stageplan/EditorFooter";
@@ -140,7 +141,9 @@ export function StagePlanEditorPage({
         const initial = initialLayoutRef.current;
         if (initial)
           setState((current) =>
-            current.kind === "ready" ? { ...current, layout: initial } : current,
+            current.kind === "ready"
+              ? { ...current, layout: initial }
+              : current,
           );
       },
     });
@@ -248,6 +251,16 @@ export function StagePlanEditorPage({
 
   const area = state.layout.stage ?? NOMINAL_STAGE;
 
+  // Jedno měřítko pro plochu i pro čísla v panelu. Stejná funkce jako renderer (R10).
+  const printScale = printGeometry
+    ? resolvePrintScale({
+        stage: area,
+        blocks: state.layout.blocks,
+        area: printGeometry.area,
+        minBoxWidthMm: printGeometry.typography.minBoxWidthMm,
+      })
+    : null;
+
   return (
     <div className="stage-editor">
       <EditorToolbar
@@ -264,7 +277,9 @@ export function StagePlanEditorPage({
           <p>Projekt nemá obsazený lineup, takže na pódiu není co rozmístit.</p>
           <button
             type="button"
-            onClick={() => navigate(`/projects/${encodeURIComponent(id)}/setup`)}
+            onClick={() =>
+              navigate(`/projects/${encodeURIComponent(id)}/setup`)
+            }
           >
             Otevřít Lineup Setup
           </button>
@@ -277,6 +292,7 @@ export function StagePlanEditorPage({
             selectedSlot={selectedSlot}
             snap={snap}
             printGeometry={printGeometry}
+            printScale={printScale}
             onSelect={setSelectedSlot}
             onChangeBlock={updateBlock}
             onGestureStart={() =>
