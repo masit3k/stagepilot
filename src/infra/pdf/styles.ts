@@ -302,6 +302,19 @@ body {
   text-align: center;
 }
 
+.stageplanLegend {
+  /* Zrcadlo popisku nad plánem: výška jednoho řádku vždy, i když je prázdný,
+     protože rozpočet výšky s ní počítá (R13). */
+  height: ${stageplanLayout.legendSize};
+  line-height: 1;
+  margin-top: ${stageplanLayout.legendGap};
+  font-family: '${pdfLayout.typography.monoFamily}', Consolas, monospace;
+  font-size: ${stageplanLayout.legendSize};
+  letter-spacing: ${stageplanLayout.captionTracking};
+  color: ${pdfTokens.steel};
+  text-align: center;
+}
+
 .stageplanContainer {
   display: inline-block;
   margin-top: ${stageplanLayout.containerMarginTop};

@@ -83,4 +83,18 @@ describe("pdf stageplan identity", () => {
       ),
     );
   });
+
+  it("pins the legend's height budget so it cannot drift from the renderer (R13)", () => {
+    expect(pdfStyles).toMatch(
+      new RegExp(
+        `\\.stageplanLegend\\s*\\{[^}]*height:\\s*${escapeRegExp(stageplanLayout.legendSize)}`,
+      ),
+    );
+    expect(pdfStyles).toMatch(/\.stageplanLegend\s*\{[^}]*line-height:\s*1\b/);
+    expect(pdfStyles).toMatch(
+      new RegExp(
+        `\\.stageplanLegend\\s*\\{[^}]*margin-top:\\s*${escapeRegExp(stageplanLayout.legendGap)}`,
+      ),
+    );
+  });
 });

@@ -52,6 +52,17 @@ const captionHeightPt =
   captionGapPt;
 
 /**
+ * Vysvětlivka ke kapelníkovi. Výška se rezervuje **vždy**, i když v lineupu
+ * kapelník není — jinak by měřítko plánu záviselo na datech, přesně jak to
+ * zakazuje R6 u popisku pódia (R13).
+ */
+const legendGapPt = 4;
+const legendHeightPt =
+  parsePt(pdfLayout.typography.tableHead.size) *
+    pdfLayout.typography.tableHead.lineHeight +
+  legendGapPt;
+
+/**
  * Finding 1 (F4): .stageplanContainer je inline-block, takže když areaWidthMm
  * nesedí s paddingem a rámečkem, je kontejner širší než tiskové zrcadlo a
  * Chromium na to reaguje tichým zmenšením *celého* dokumentu. Odvozovat, ne
@@ -72,7 +83,8 @@ const areaHeightMm =
   ptToMm(containerMarginTopPt) -
   2 * ptToMm(containerPadPt) -
   2 * pxToMm(containerBorderPx) -
-  ptToMm(captionHeightPt);
+  ptToMm(captionHeightPt) -
+  ptToMm(legendHeightPt);
 
 /**
  * Šířka dnešního čtyřsloupcového boxu. Není to odhad — je to geometrie, o
@@ -106,6 +118,8 @@ export const stageplanLayout = {
   captionGap: `${captionGapPt}pt`,
   captionSize: pdfLayout.typography.tableHead.size,
   captionTracking: pdfLayout.typography.tableHead.tracking,
+  legendSize: pdfLayout.typography.tableHead.size,
+  legendGap: `${legendGapPt}pt`,
   padX: pdfLayout.table.padX,
   padY: pdfLayout.table.padY,
   boxTitleGap: `${printTypography.titleGapPt}pt`,
@@ -135,6 +149,8 @@ export type StageplanPlan = {
   };
   readonly typography: PrintTypography & { readonly bulletSpacingPx: number };
   readonly boxes: readonly StageplanBoxPlan[];
+  /** Text vysvětlivky, nebo null když se žádný tištěný blok kapelníkem nechlubí. */
+  readonly legend: string | null;
 };
 
 function formatStageCaption(stage: StageplanStageSize | null): string | null {
@@ -197,6 +213,9 @@ function findOverflowCulprits(
     })
     .map(({ rect }) => rect.slot);
 }
+
+/** Česky, protože PDF je česky — na rozdíl od rozhraní (R13, R14). */
+const BAND_LEADER_LEGEND = "* KAPELNÍK";
 
 export function buildStageplanPlan(
   vm: DocumentViewModel["stageplan"],
@@ -308,6 +327,11 @@ export function buildStageplanPlan(
         rotationDeg: rect.rotationDeg,
       };
     }),
+    legend: rects.some(
+      (rect) => printModel.boxesBySlot[rect.slot].hasBandLeaderMark,
+    )
+      ? BAND_LEADER_LEGEND
+      : null,
   };
 }
 
@@ -365,5 +389,5 @@ export function renderStageplanSection(
   // .stageplanContainer — jinak je container padding mrtvý a jeho border-box
   // je jen areaWidthMm místo celého zrcadla (viz styles.ts).
   return `
-<section class="stageplanSection">\n  <div class="stageplanCaption">${plan.stage.caption ?? ""}</div>\n  <div class="stageplanContainer">\n    <div class="stageplanPlanArea" style="width:${plan.container.widthMm}mm; height:${plan.container.heightMm}mm;">\n      <div class="stageplanStage" style="left:${plan.stage.xMm}mm; top:${plan.stage.yMm}mm; width:${plan.stage.widthMm}mm; height:${plan.stage.heightMm}mm;">\n        <div class="stageplanDownstage">DOWNSTAGE · PUBLIKUM</div>\n      </div>\n      ${boxesHtml}\n    </div>\n  </div>\n</section>`.trim();
+<section class="stageplanSection">\n  <div class="stageplanCaption">${plan.stage.caption ?? ""}</div>\n  <div class="stageplanContainer">\n    <div class="stageplanPlanArea" style="width:${plan.container.widthMm}mm; height:${plan.container.heightMm}mm;">\n      <div class="stageplanStage" style="left:${plan.stage.xMm}mm; top:${plan.stage.yMm}mm; width:${plan.stage.widthMm}mm; height:${plan.stage.heightMm}mm;">\n        <div class="stageplanDownstage">DOWNSTAGE · PUBLIKUM</div>\n      </div>\n      ${boxesHtml}\n    </div>\n  </div>\n  <div class="stageplanLegend">${plan.legend ?? ""}</div>\n</section>`.trim();
 }

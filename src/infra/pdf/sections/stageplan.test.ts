@@ -2,6 +2,10 @@ import fs from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import type { DocumentViewModel } from "../../../domain/model/types.js";
 import { buildDocument } from "../../../domain/pipeline/buildDocument.js";
+import { OVERHANG_TOLERANCE_M } from "../../../domain/stageplan/layout/blockOps.js";
+import { buildDefaultLayout } from "../../../domain/stageplan/layout/defaultLayout.js";
+import { STAGEPLAN_BLOCK_SLOTS } from "../../../domain/stageplan/layout/slots.js";
+import { resolvePrintScale } from "../../../domain/stageplan/print/printScale.js";
 import { loadRepository } from "../../fs/repo.js";
 import { pdfLayout } from "../layout.js";
 import {
@@ -36,7 +40,9 @@ describe("stageplan print geometry", () => {
     expect(stageplanLayout.areaWidthMm).toBeLessThan(
       pdfLayout.page.contentWidthMm,
     );
-    expect(stageplanLayout.areaHeightMm).toBeCloseTo(202.0914, 3);
+    // R13: rezerva na vysvětlivku (7,2 pt + 4 pt = 11,2 pt) ubírá dalších
+    // ~3,9511 mm oproti hodnotě z R6 (byla 202,0914 mm).
+    expect(stageplanLayout.areaHeightMm).toBeCloseTo(198.1402, 3);
     expect(stageplanPrintGeometry.typography.minBoxWidthMm).toBeCloseTo(
       36.2594,
       3,
@@ -252,5 +258,92 @@ describe("stageplan print geometry", () => {
     expect(html).not.toContain("stageplanBox--lead");
     expect(html).toContain("DOWNSTAGE · PUBLIKUM");
     expect(html).toContain('<div class="stageplanPower">1x 230V</div>');
+  });
+});
+
+describe("stageplan legend (R13)", () => {
+  function vmWith(args: {
+    leaderSlot: "bass" | null;
+  }): DocumentViewModel["stageplan"] {
+    return {
+      ...emptyStageplan({
+        stage: null,
+        blocks: [
+          {
+            slot: "bass",
+            centerXM: 6,
+            centerYM: 4,
+            widthM: 2.7,
+            depthM: 1.4,
+            rotationDeg: 0,
+          },
+        ],
+      }),
+      lineupByRole: {
+        bass: { firstName: "Matěj", isBandLeader: args.leaderSlot === "bass" },
+      },
+    };
+  }
+
+  it("prints the legend when a printed block carries the mark", () => {
+    const plan = buildStageplanPlan(vmWith({ leaderSlot: "bass" }));
+    expect(plan.legend).toBe("* KAPELNÍK");
+  });
+
+  it("leaves the legend out when no printed block carries the mark", () => {
+    const plan = buildStageplanPlan(vmWith({ leaderSlot: null }));
+    expect(plan.legend).toBeNull();
+  });
+
+  it("keeps the plan geometry identical with and without the legend", () => {
+    // Výška vysvětlivky se rezervuje vždy, jinak by měřítko plánu záviselo na
+    // tom, jestli je někdo označený jako kapelník (R13, po vzoru R6 z F5b).
+    const withLeader = buildStageplanPlan(vmWith({ leaderSlot: "bass" }));
+    const withoutLeader = buildStageplanPlan(vmWith({ leaderSlot: null }));
+
+    expect(withoutLeader.stage.widthMm).toBe(withLeader.stage.widthMm);
+    expect(withoutLeader.stage.heightMm).toBe(withLeader.stage.heightMm);
+    expect(withoutLeader.container).toEqual(withLeader.container);
+  });
+
+  it("keeps the print scale width-bound, so the reservation cannot shrink the plan", () => {
+    // Tvrzení, na kterém rezerva stojí: měřítko je min(šířková, výšková) mez a
+    // váže ho šířka. Kdyby to přestalo platit, ubraná výška by plán zmenšila.
+    const nominalDepthM = 8;
+    const blocks = buildDefaultLayout({
+      slots: STAGEPLAN_BLOCK_SLOTS,
+      stage: null,
+    }).blocks;
+    const scale = resolvePrintScale({
+      stage: null,
+      blocks,
+      area: stageplanPrintGeometry.area,
+      minBoxWidthMm: stageplanPrintGeometry.typography.minBoxWidthMm,
+    });
+    const heightBound =
+      stageplanPrintGeometry.area.heightMm /
+      (nominalDepthM + 2 * OVERHANG_TOLERANCE_M);
+
+    expect(scale.mmPerM).toBeLessThan(heightBound);
+  });
+
+  it("keeps the min-box-width reservation active for the default zones", () => {
+    // Nejužší výchozí zóna je 2,6 m a tisková mez ~2,81 m, takže rezerva
+    // měřítko snižuje už u výchozího rozmístění. Není to hraniční případ.
+    const blocks = buildDefaultLayout({
+      slots: STAGEPLAN_BLOCK_SLOTS,
+      stage: null,
+    }).blocks;
+    const narrowestM = Math.min(...blocks.map((block) => block.widthM));
+    const scale = resolvePrintScale({
+      stage: null,
+      blocks,
+      area: stageplanPrintGeometry.area,
+      minBoxWidthMm: stageplanPrintGeometry.typography.minBoxWidthMm,
+    });
+
+    expect(narrowestM * scale.mmPerM).toBeLessThan(
+      stageplanPrintGeometry.typography.minBoxWidthMm,
+    );
   });
 });
