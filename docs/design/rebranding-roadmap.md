@@ -19,6 +19,7 @@ designový board, implementuje se **kolo 3** (`3a`–`3d` varianty značky, vybr
 | **F5b** | **PDF čte rozmístění z projektu (pozice, rotace, nová kresba bloků)** | **hotovo, čeká na ruční kontrolu** | [2026-08-13-pdf-reads-stageplan-layout-design.md](../superpowers/specs/2026-08-13-pdf-reads-stageplan-layout-design.md) | `7ec42a9`…`b6fbf96` |
 | F5c | Obrazovka `02 INPUTS` | připraveno k otevření | zatím není | — |
 | **F6** | **Tok na editor, obsah bloků, úchyty velikosti, tisk bez zvýraznění, kapelník, angličtina** | **hotovo, čeká na ruční kontrolu** | [2026-08-13-editor-flow-block-content-and-ui-language-design.md](../superpowers/specs/2026-08-13-editor-flow-block-content-and-ui-language-design.md) | `9b27385`…`b1e18f4` |
+| **F7** | **Tištěný box podle textu, kapelník v boxu, kontakt v hlavičce** | **spec hotový, neimplementováno** | [2026-08-15-print-box-sized-by-text-and-header-contact-design.md](../superpowers/specs/2026-08-15-print-box-sized-by-text-and-header-contact-design.md) | — |
 
 ## F4 — typografie a hlavička PDF
 
@@ -76,6 +77,14 @@ V **F5c** přijde **obrazovka `02 INPUTS`**, kterou F3 odložila: dnes se inputy
 v modálu uvnitř setupu, takže krok `02` v procesní stopě má stav `unavailable`. V
 `app/shell/chrome/processSteps.ts` stačí u kroku přepsat `segment` z `null` na routu — krok `03`
 takhle odemkne už F5a.
+
+**Směr je rozhodnutý (2026-08-15), spec zatím není.** Obrazovka je editor kanálů **i
+poznámek**: modály pro editaci inputů se přestěhují z `ProjectSetupPage.tsx` (2756 řádků)
+sem a krok `01` zůstane o lidech a presetech. Poznámky se editují jako **odchylky projektu
+nad šablonou kapely** — šablona (`notesTemplateRef`, dnes `notes_default_cs`) dál určuje,
+co se nabídne, projekt si drží jen to, které řádky vypnout a jaké vlastní přidat, takže
+úprava kvůli jednomu koncertu neovlivní ostatní dokumenty té kapely. Zamítnuto: editovat
+rovnou šablonu kapely a zrušit krok `02`. Podrobnosti v sekci „Navazuje" specu F7.
 
 ## F6 — tok, obsah bloků, úchyty a jazyk
 
