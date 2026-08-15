@@ -413,11 +413,11 @@ by mohla plán potichu zmenšit.
 
 ## Stav implementace
 
-**Hotovo** ve dvaceti commitech `9b27385`…`b1e18f4`. Rozhodnutí R1–R15 platí beze změny — na rozdíl
-od F5b tahle fáze nenarazila na chybu v návrhu, která by vyžadovala přepsat text výše. Odchylky od
-plánu se odehrály jen v tom, *jak* se rozhodnutí ověřila: čtyři z nich prosadil lidský rozhodčí proti
-doslovnému znění briefů, protože brief buď porušoval vlastní pravidlo repozitáře, nebo nechal defekt
-neohlídaný.
+**Hotovo** ve dvaceti commitech `9b27385`…`b1e18f4`. Rozhodnutí R1–R9 a R11–R15 platí beze změny; R10
+byla zpřesněna (viz níže) — ne proto, že by byl mechanismus měřítka špatný, ale protože prosa R10
+tvrdila víc, než `resolvePrintScale` vždy zaručuje. Jinak se odchylky od plánu odehrály jen v tom,
+*jak* se rozhodnutí ověřila: čtyři z nich prosadil lidský rozhodčí proti doslovnému znění briefů,
+protože brief buď porušoval vlastní pravidlo repozitáře, nebo nechal defekt neohlídaný.
 
 ### Co vzniklo
 
@@ -466,10 +466,9 @@ daná `core.autocrlf=true` bez `.gitattributes`, žádné nové pravidlo.
 
 - **`NARROWEST:` v R10 tvrdilo víc, než platí vždy.** Poznámka v toolbaru říkala, že nejužší zóna vždy
   určuje měřítko, ale `resolvePrintScale` bere `min(šířka, výška)` a existující test dokazuje, že
-  výška může vyhrát — pak nic „nejužšího" neurčuje. Přeformulováno na `NARROWEST ZONE:`, což tvrdí jen
-  to, co platí vždy; logika `narrowestZoneSlot`/`resolvePrintScale` se neměnila. **Příklad v R10 výše
-  (`SCALE 12.9 mm/m · NARROWEST: LEAD VOC 1`) zůstal s původním textem** — oprava proběhla jen v kódu,
-  ne v tomto specu, protože brief Tasku 11 úpravu spec souboru nezahrnoval.
+  výška může vyhrát — pak nic „nejužšího" neurčuje. Přeformulováno na `NARROWEST ZONE:` v kódu i v R10
+  výše: příklad teď zní `SCALE 12.9 mm/m · NARROWEST ZONE: LEAD VOC 1` a prosa už netvrdí, že nejužší
+  zóna měřítko určuje, jen že ho pojmenuje; logika `narrowestZoneSlot`/`resolvePrintScale` se neměnila.
 - **`EditorFooter.tsx` zůstal česky přesně tam, kde to Task 12 mělo zakázat.** Řádek `Zpět na Lineup`
   review Tasku 12 přehlédl. Nešlo o konflikt s plánem — diacritics sweep z Kroku 2 je akceptační brána
   celého úkolu a řetězec do ní spadal. Opraveno bez čekání na rozhodnutí.
