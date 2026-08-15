@@ -245,7 +245,7 @@ describe("stageplan print geometry", () => {
     }
   });
 
-  it("marks the lead vocal box and renders power as a line", () => {
+  it("does not mark the lead vocal box and renders power as a line", () => {
     const html = renderStageplanSection({
       stageplan: {
         ...emptyStageplan({
