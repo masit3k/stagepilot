@@ -480,12 +480,12 @@ zůstávají **ruční kontrola v `npm run dev`**, dosud neproběhlá. Review na
 konkrétní věci, na které se má dívat:
 
 - **Karty se mohou překrývat** (body 6, 9) — karta je teď tištěná stopa, ne zóna, takže je větší a nic
-  ji neřadí podle z-indexu ani výběru; zvětšená karta může sousedovi ukrást `pointerdown` (Task 9).
+  ji neřadí podle z-indexu ani výběru; zvětšená karta může sousedovi ukrást `pointerdown`. Opraveno v `d170af2`: vybraná karta má `z-index: 1`.
 - **Zdvojená hrana ve stavu bez metrik** (R6) — když `build_stageplan_print_metrics` neodpoví, obrys
   zóny padne přesně na hranu karty, takže se kreslí dvě hrany na sobě (Task 9).
 - **Poznámka a rozměr pódia v toolbaru se mohou zalomit pod sebe** (bod 9) — `.stage-toolbar__meta`
   nemá `display: flex`, takže `SCALE`/`NARROWEST ZONE` a řádek s rozměrem pódia nemusí sedět vedle
-  sebe, jak návrh předpokládá (Task 11).
+  sebe, jak návrh předpokládá. Opraveno v `d170af2`: `.stage-toolbar__meta` má `display: flex`, `align-items: center` a `gap`; `.stage-toolbar__scale` již nemá redundantní `margin-right`.
 - **Cit gesta úchytů** (bod 8) — že protilehlá hrana skutečně stojí, že se otočený blok zvětšuje podél
   vlastních os a ne os plochy, a že je úchyt na zaslané velikosti canvasu pohodlně klikatelný (Task 10).
 - **Délka anglického textu v patičce** (body 5, 12) — `Changes are written to the PDF export` má
@@ -500,10 +500,8 @@ konkrétní věci, na které se má dívat:
   („Vitest, Node prostředí, bez jsdom"). Zavedení DOM test infrastruktury kvůli jednomu ze tří
   sourozeneckých gest je větší rozhodnutí než rozsah F6. Lidské rozhodnutí (informované): zapsat sem
   jako společný follow-up pro všechna tři gesta najednou, neřešit teď.
-- **Neuložený stav bez zpětné vazby — předchází F6.** `StagePlanEditorPage.tsx:344–351` nechá selhané
-  uložení propadnout jako neodchycené odmítnutí slibu, bez `notify("error")`; stejná mezera je
-  v `ProjectSetupPage.tsx:1779–1788`. Uživatel tak může odejít v přesvědčení, že se rozmístění uložilo,
-  i když se neuložilo. F6 to nezavedla, oprava patří jinam.
+- **Selhané uložení bez zpětné vazby — třetí cesta.** `useAppNavigation.ts:102–104` v `saveAndExit`
+  pouze loguje chybu na konzoli `console.error`, bez `notify`. Stejná chyba byla v `ProjectSetupPage.tsx` a `StagePlanEditorPage.tsx` — oba opraven v `d93d3d9` s `notify("error", ...)` a `setStatus()`. Tato třetí cesta si zůstala bez hlášky.
 - **Editor a Preview nemají žádný test.** Pro `ProjectSetupPage.tsx`, `StagePlanEditorPage.tsx`,
   `EditorFooter.tsx` ani `EditorToolbar.tsx` neexistuje testovací soubor — stejný kořen jako
   u neotestovaného gesta výše: `packages/desktop` nemá DOM test infrastrukturu.
@@ -514,8 +512,10 @@ konkrétní věci, na které se má dívat:
   s aktuálním prop `area`, zatímco renderer čte `vm.layout.stage` z disku — dokud se rozměr pódia
   neuloží, mohou se `mmPerM` a zobrazená stopa lišit od tisku. Pravděpodobně záměr (editor ukazuje, co
   se právě edituje), ale nepotvrzeno; kandidát na potvrzení při některé z dalších fází.
-- **`snapM` v `blockOps.ts` zůstal `export`**, ačkoli ho žádný modul mimo `blockOps.ts` nepotřebuje.
-  Neškodné rozšíření rozhraní, nerozhodnuto, jestli se má vrátit zpět na privátní.
+- **`snapM` v `blockOps.ts` zůstal `export`.** Ačkoli ho žádný modul mimo `blockOps.ts` nepotřebuje, export zůstal v počátečním návrhu. Opraveno v `bd3f16e`: změněno z `export function` na `function` (privátní).
+- **Žádný test neověřuje, že editor a PDF renderer dohodnou na tiskové stopě bloku.** `blockPrint.ts`
+  v editoru a `renderBox` v rendereru jsou dva hand-synchronizované call sites — T9 sjednotil dvě místa
+  v editoru, ale mezi editortem a PDF rendererem zůstává ruční synchronizace bez testovacího pojistky.
 - **Vědomá mezera ze sekce Rozsah trvá.** Cesta přes Preview dál zahazuje hlášku
   `buildStageplanPlan` a nahrazuje ji obecnou `Preview could not be generated. Please retry.`
   (`lib.rs`, `build_project_pdf_preview`) — zapsáno vědomě v Rozsahu výše, F6 to neřešila.
