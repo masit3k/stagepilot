@@ -344,7 +344,13 @@ export function StagePlanEditorPage({
         onContinue={async () => {
           if (state.kind !== "ready") return;
           if (isStageplanLayoutDirty(initialLayoutRef.current, state.layout)) {
-            await saveLayout(state.layout, state.project);
+            try {
+              await saveLayout(state.layout, state.project);
+            } catch (error) {
+              console.error("[stageplan-editor] failed to save layout", error);
+              notify("error", "Arrangement could not be saved.");
+              return;
+            }
             notify("success", "Arrangement saved.");
           }
           navigate(`/projects/${encodeURIComponent(id)}/preview`);

@@ -1781,7 +1781,18 @@ export function ProjectSetupPage({
               return;
             if (isDirty) {
               setIsCommitting(true);
-              await persistProject();
+              try {
+                await persistProject();
+              } catch (error) {
+                console.error("[project-setup] failed to save lineup", {
+                  projectId: id,
+                  error,
+                });
+                setStatus("Project could not be saved.");
+                return;
+              } finally {
+                setIsCommitting(false);
+              }
             }
             // Editor rozmístění je krok 03, tedy přirozený krok po lineupu (R1).
             navigate(`/projects/${id}/stageplan`);
