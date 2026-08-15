@@ -27,9 +27,10 @@ export function formatScale(mmPerM: number): string {
 }
 
 /**
- * Nejužší zóna určuje tiskové měřítko přes rezervu v `resolvePrintScale`, takže
- * když se měřítko změní, tenhle blok za tím stojí. Bez pojmenování je číslo
- * měřítka k ničemu (R10).
+ * Vrátí zónu, kterou toolbar k číslu měřítka pojmenuje — ne nutně tu, co ho
+ * určila. `resolvePrintScale` bere `min(šířka, výška)` a test "binds on height
+ * for a deep stage" dokazuje, že může vyhrát výška; pak nic „nejužšího"
+ * měřítko neurčuje. Bez pojmenování je číslo měřítka k ničemu (R10).
  */
 export function narrowestZoneSlot(
   blocks: readonly StageplanBlock[],

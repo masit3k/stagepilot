@@ -46,7 +46,7 @@ export function clampToArea(
   };
 }
 
-export function snapM(value: number): number {
+function snapM(value: number): number {
   return roundM(Math.round(value / SNAP_STEP_M) * SNAP_STEP_M);
 }
 
