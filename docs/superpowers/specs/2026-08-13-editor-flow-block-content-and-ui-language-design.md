@@ -404,7 +404,7 @@ by mohla plán potichu zmenšit.
 8. Úchyty: rohy i strany, minimum 0,8 × 0,8 m, protilehlá hrana stojí, u otočeného bloku hrana
    neujíždí, undo vrací celé gesto
 9. Zmenšení zóny pod ~2,8 m: karta se nezmění, obrys v ní se zmenší, `PRINTED` se označí,
-   `SCALE` a `NARROWEST` se přepočítají
+   `SCALE` a `NARROWEST ZONE` se přepočítají
 10. Export: žádný blok není inverzní, kapelník má hvězdičku, pod plánem stojí `* KAPELNÍK`
 11. Lineup bez kapelníka: vysvětlivka se netiskne a plán má **stejné měřítko** jako s ní
 12. Rozhraní: v editoru ani jinde v aplikaci není český text; pruh na ploše říká `AUDIENCE`,
