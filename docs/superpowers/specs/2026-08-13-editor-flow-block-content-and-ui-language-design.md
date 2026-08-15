@@ -211,14 +211,20 @@ PRINTED   2.81 × 2.93 m
 Když je zóna užší než tisková mez, `PRINTED` se označí — na papíře je box širší než zóna, kterou
 uživatel nakreslil.
 
-**Toolbar**, měřítko a blok, který ho určuje:
+**Toolbar**, měřítko a blok, který ho jmenuje:
 
 ```
-SCALE 12.9 mm/m · NARROWEST: LEAD VOC 1
+SCALE 12.9 mm/m · NARROWEST ZONE: LEAD VOC 1
 ```
 
-Bez druhé poloviny je první polovina k ničemu: měřítko se změní, uživatel nepozná proč. Nejužší zóna
-ho určuje přes rezervu v `resolvePrintScale`.
+Bez druhé poloviny je první polovina k ničemu: měřítko se změní, uživatel nepozná proč. Měřítko je
+`min(šířková vazba, výšková vazba)` z `resolvePrintScale` — nejužší zóna je ta, kterou popisek
+jmenuje, ne nutně ta, která měřítko svázala; na hlubokém pódiu může svázat výška, a pak neurčuje
+měřítko žádná konkrétní zóna.
+
+> **Opraveno při implementaci.** Text výše dřív tvrdil, že nejužší zóna měřítko vždy určuje; review
+> to vyvrátilo testem `"binds on height for a deep stage"`, kde vyhraje výšková vazba. Mechanismus
+> a nález viz sekce „Stav implementace" níže.
 
 Obě čísla pocházejí z `printGeometry` a `resolvePrintScale`, tedy z toho, co počítá renderer.
 Tisková mez v metrech se dopočítá v `packages/desktop` z `printGeometry.typography.minBoxWidthMm`;
