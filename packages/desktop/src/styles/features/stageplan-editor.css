@@ -35,6 +35,9 @@
 }
 
 .stage-toolbar__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
   margin-left: auto;
   font: var(--sp-mono-xs);
   letter-spacing: 0.1em;
@@ -42,7 +45,6 @@
 }
 
 .stage-toolbar__scale {
-  margin-right: var(--sp-4);
   font: var(--sp-mono-xs);
   letter-spacing: 0.1em;
   color: var(--color-stage-text-dim);
@@ -157,6 +159,8 @@
   background: var(--color-stage-block-selected);
   border: 2px solid var(--color-primary);
   box-shadow: var(--elevation-block-selected);
+  /* Tištěný box je větší než zóna, karty se mohou překrývat — vybraná ať je vždy nahoře a klikatelná. */
+  z-index: 1;
 }
 
 /* Rám zóny nechytá, aby nekradl tažení karty — úchyty si to vrátí samy (R8). */
