@@ -43,9 +43,8 @@ describe("stageplan print geometry", () => {
     expect(stageplanLayout.areaWidthMm).toBeLessThan(
       pdfLayout.page.contentWidthMm,
     );
-    // Vysvětlivka pod plánem zanikla (R9), takže výška plochy je zase přesně
-    // ta, kterou dal rozpočet strany v F5b — bez rezervy na řádek pod plánem.
-    expect(stageplanLayout.areaHeightMm).toBeCloseTo(202.0911, 3);
+    // Hlavička vyrostla o 4,95 mm (R12), takže plocha plánu o tolik klesla.
+    expect(stageplanLayout.areaHeightMm).toBeCloseTo(197.1382, 3);
     expect(stageplanPrintGeometry.typography.minBoxWidthMm).toBeCloseTo(
       36.2594,
       3,

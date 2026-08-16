@@ -1,4 +1,4 @@
-import { pdfLayout, pdfTokens } from "./layout.js";
+import { parsePt, pdfLayout, pdfTokens } from "./layout.js";
 import { stageplanLayout } from "./sections/stageplan.js";
 
 export const pdfStyles = `
@@ -138,6 +138,23 @@ body {
   white-space: nowrap;
 }
 
+/* Kontaktní osoba u nadpisu dokumentu — tam, kde ji čtenář hledá (R12).
+   min-height drží řádek v rozpočtu i tehdy, když projekt kontakt nemá. */
+.docHeader__contact {
+  font-family: '${pdfLayout.typography.monoFamily}', Consolas, monospace;
+  font-size: ${pdfLayout.typography.meta.size};
+  line-height: ${pdfLayout.typography.meta.lineHeight};
+  letter-spacing: ${pdfLayout.typography.meta.tracking};
+  text-transform: uppercase;
+  color: ${pdfTokens.body};
+  white-space: nowrap;
+  min-height: ${parsePt(pdfLayout.typography.meta.size) * pdfLayout.typography.meta.lineHeight}pt;
+}
+
+.docHeader__contactEmail {
+  text-transform: none;
+}
+
 .docHeader__stamp {
   margin-left: auto;
   text-align: right;
@@ -164,13 +181,6 @@ body {
   letter-spacing: ${pdfLayout.typography.footer.tracking};
   text-transform: uppercase;
   color: ${pdfTokens.steel};
-}
-
-.docFooter__contact {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: clip;
-  white-space: nowrap;
 }
 
 .docFooter__page {

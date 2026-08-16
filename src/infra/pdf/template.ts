@@ -27,11 +27,32 @@ function renderMark(): string {
     </svg>`;
 }
 
+/**
+ * Kontaktní osoba v hlavičce (R12). E-mail je zvlášť, protože se jako jediná
+ * část řádku nesází verzálkami — adresa v kapitálkách je hůř čitelná a v
+ * mailu se stejně píše malými.
+ */
+export type PdfContact = {
+  readonly text: string;
+  readonly email: string | null;
+};
+
+function renderContactRow(contact?: PdfContact): string {
+  // Element zůstává v toku i prázdný: rozpočet výšky hlavičky s ním počítá
+  // vždy, stejně jako počítá s popiskem rozměru pódia.
+  if (!contact) return `<div class="docHeader__contact"></div>`;
+  const emailHtml = contact.email
+    ? `<span class="docHeader__contactEmail"> · ${esc(contact.email)}</span>`
+    : "";
+  return `<div class="docHeader__contact">${esc(contact.text)}${emailHtml}</div>`;
+}
+
 function renderDocumentHeader(args: {
   header: DocumentHeaderModel;
   bandName: string;
   documentKind: string;
   logoHref?: string;
+  contact?: PdfContact;
 }): string {
   const markHtml = args.logoHref
     ? `<img class="docHeader__logo" src="${esc(args.logoHref)}" alt="" />`
@@ -44,22 +65,17 @@ function renderDocumentHeader(args: {
       <div class="docHeader__title">
         <div class="docHeader__band">${esc(args.bandName)}</div>
         <div class="docHeader__meta">${esc(metaText)}</div>
+        ${renderContactRow(args.contact)}
       </div>
       <div class="docHeader__stamp">STAGEPILOT<br />UPD ${esc(args.header.updatedDate)}</div>
     </header>`;
 }
 
 function renderFooter(args: {
-  contactLine?: string;
   pageNumber: number;
   pageCount: number;
 }): string {
-  const contactHtml = args.contactLine
-    ? `<div class="docFooter__contact">${esc(args.contactLine)}</div>`
-    : "";
-
   return `<footer class="docFooter">
-      ${contactHtml}
       <div class="docFooter__page">${args.pageNumber} / ${args.pageCount}</div>
     </footer>`;
 }
@@ -86,12 +102,12 @@ function renderPage(args: {
       bandName: args.vm.meta.bandName,
       documentKind: args.page.documentKind,
       logoHref: args.opts.logoHref,
+      contact: args.opts.contact,
     })}
     <main id="${args.page.contentId}">
 ${args.page.body}
     </main>
     ${renderFooter({
-      contactLine: args.opts.contactLine,
       pageNumber: args.index + 1,
       pageCount: args.pageCount,
     })}
@@ -132,7 +148,7 @@ function renderMonitorTable(vm: DocumentViewModel): string {
 export interface RenderTemplateOptions {
   tabTitle: string;
   baseHref: string; // file:///.../src/infra/pdf/
-  contactLine?: string;
+  contact?: PdfContact;
   logoHref?: string;
   stageplan?: Partial<StageplanRenderOptions>;
 }

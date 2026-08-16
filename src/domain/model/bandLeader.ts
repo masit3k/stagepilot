@@ -11,10 +11,6 @@ export function resolveBandLeaderId(band: Band): string {
   return bandLeader;
 }
 
-export function isBandLeader(band: Band, musicianId: string): boolean {
-  return musicianId === resolveBandLeaderId(band);
-}
-
 export function bandLeaderErrorMessage(bandId: string): string {
   return BAND_LEADER_ERROR(bandId);
 }

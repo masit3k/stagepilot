@@ -1,8 +1,7 @@
 import { access, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { stderr } from "node:process";
-import { isBandLeader } from "../../domain/model/bandLeader.js";
-import type { Band, Project, ProjectJson } from "../../domain/model/types.js";
+import type { Project, ProjectJson } from "../../domain/model/types.js";
 import {
   formatProjectSlug,
 } from "../../domain/projectNaming.js";
@@ -12,12 +11,12 @@ import { USER_DATA_ROOT } from "../../infra/fs/dataRoot.js";
 import { catalogPathsForRoot } from "../../infra/storage/catalogPaths.js";
 import { loadJsonFile } from "../../infra/fs/loadJson.js";
 import { loadRepository } from "../../infra/fs/repo.js";
-import type { DataRepository } from "../../infra/fs/repo.js";
 import {
   createProjectVersion,
   prepareVersionDir,
 } from "../../infra/fs/versionStore.js";
 import { renderPdf } from "../../infra/pdf/pdf.js";
+import type { PdfContact } from "../../infra/pdf/template.js";
 import type { StageplanRenderOptions } from "../../infra/pdf/stageplanRenderOptions.js";
 import { getGeneratedAtUtc } from "../../infra/time/today.js";
 import { normalizeProject } from "./normalizeProject.js";
@@ -55,10 +54,8 @@ function formatCzPhone(phoneRaw: string): string {
 
 export function formatContactLine(args: {
   contact: ContactEntity;
-  band: Band;
-  contactMusicianId?: string;
-}): string {
-  const { contact, band, contactMusicianId } = args;
+}): PdfContact {
+  const { contact } = args;
 
   const first = (contact.firstName ?? "").trim();
   const last = (contact.lastName ?? "").trim();
@@ -68,44 +65,22 @@ export function formatContactLine(args: {
     );
   }
 
-  const name = `${first} ${last}`.trim();
-
   const phone = contact.phone ? formatCzPhone(contact.phone) : "";
   const email = contact.email ? contact.email.trim() : "";
 
-  // formát přesně dle zadání:
-  // "Kontaktní osoba – (band leader) [first_name] [last_name], [tel], [mail]"
-  // (pokud některé pole chybí, vynecháme ho i s čárkou)
-  const parts: string[] = [];
+  // "Kontaktní osoba · Jméno Příjmení · + 420 …", e-mail zvlášť (R12).
+  // Vsuvka o kapelníkovi mizí bez náhrady: kapelnictví značí jediné místo,
+  // řádek v boxu, a kontaktní osoba navíc nemusí být hudebník (R13).
+  const parts = ["Kontaktní osoba", `${first} ${last}`.trim()];
   if (phone) parts.push(phone);
-  if (email) parts.push(email);
 
-  const tail = parts.length ? `, ${parts.join(", ")}` : "";
-  const leaderSuffix =
-    contactMusicianId && isBandLeader(band, contactMusicianId)
-      ? " (band leader)"
-      : "";
-  return `Kontaktní osoba –${leaderSuffix} ${name}${tail}`;
+  return { text: parts.join(" · "), email: email || null };
 }
 
-function resolveContactMusicianId(
-  contactId: string,
-  repo: DataRepository,
-): string | undefined {
-  try {
-    repo.getMusician(contactId);
-    return contactId;
-  } catch {
-    return undefined;
-  }
-}
-
-export async function loadDefaultContactLine(
+export async function loadDefaultContact(
   defaultContactId: string | undefined,
-  band: Band,
-  repo: DataRepository,
   runtimeRoot: string,
-): Promise<string | undefined> {
+): Promise<PdfContact | undefined> {
   if (!defaultContactId) return undefined;
 
   const contactPath = path.resolve(
@@ -113,9 +88,8 @@ export async function loadDefaultContactLine(
     `${defaultContactId}.json`,
   );
   const contact = await loadJsonFile<ContactEntity>(contactPath);
-  const contactMusicianId = resolveContactMusicianId(defaultContactId, repo);
 
-  return formatContactLine({ contact, band, contactMusicianId });
+  return formatContactLine({ contact });
 }
 
 export async function exportPdf(projectId: string): Promise<ExportPdfResult> {
@@ -164,12 +138,7 @@ async function exportPdfFromProject(
     }
   }
 
-  const contactLine = await loadDefaultContactLine(
-    band.defaultContactId,
-    band,
-    repo,
-    outDir,
-  );
+  const contact = await loadDefaultContact(band.defaultContactId, outDir);
 
   const slug = project.slug ?? formatProjectSlug(project, band);
   stderr.write(`project=${projectId} slug=${slug}\n`);
@@ -180,7 +149,7 @@ async function exportPdfFromProject(
   const pdfPath = path.join(versionDir, pdfFileName);
 
   await mkdir(versionDir, { recursive: true });
-  await renderPdf(vm, { outFile: pdfPath, contactLine, stageplan });
+  await renderPdf(vm, { outFile: pdfPath, contact, stageplan });
 
   const meta = await createProjectVersion({
     project,

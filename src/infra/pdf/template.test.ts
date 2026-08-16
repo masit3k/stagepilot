@@ -110,7 +110,7 @@ describe("inputlist template layout", () => {
     }
   });
 
-  it("hides names only on stageplan; contact line renders in the footer, not the header", async () => {
+  it("hides names only on stageplan; contact renders in the header, not the footer", async () => {
     const tmpRoot = await createPdfRendererFixtureRoot();
 
     try {
@@ -121,13 +121,16 @@ describe("inputlist template layout", () => {
       const html = renderInputlistHtml(vm, {
         tabTitle: "Stageplan",
         baseHref: "file:///tmp/",
-        contactLine: "Kontaktní osoba – Test User, + 420 111 222 333",
+        contact: {
+          text: "Kontaktní osoba · Test User · + 420 111 222 333",
+          email: null,
+        },
         stageplan: { hideMusicianNames: true },
       });
 
       const headerEnd = html.indexOf("</header>");
-      expect(html.slice(0, headerEnd)).not.toContain("Kontaktní osoba");
-      expect(html).toContain("Kontaktní osoba");
+      expect(html.slice(0, headerEnd)).toContain("Kontaktní osoba");
+      expect(html).not.toContain("docFooter__contact");
       expect(html).toContain("BASS");
       expect(html).not.toContain("BASS – MATEJ");
     } finally {
@@ -227,6 +230,56 @@ describe("document header", () => {
   });
 });
 
+describe("document header contact", () => {
+  const vm = createDocumentViewModelFixture({
+    meta: {
+      bandName: "Friday Night Band",
+      header: { contextParts: ["22. 8. 2026"], updatedDate: "12. 8. 2026" },
+    },
+    inputRows: [],
+    notes: { inputs: [], monitors: [] },
+  });
+
+  it("prints the contact in the header of both pages, with the e-mail in its own span", () => {
+    const html = renderInputlistHtml(vm, {
+      tabTitle: "Doc",
+      baseHref: "file:///tmp/",
+      contact: {
+        text: "Kontaktní osoba · Matěj Krečmer · + 420 731 247 870",
+        email: "matej@example.com",
+      },
+    });
+
+    const { page1, page2 } = splitPages(html);
+
+    for (const page of [page1, page2]) {
+      const headerEnd = page.indexOf("</header>");
+      expect(page.slice(0, headerEnd)).toContain("Matěj Krečmer");
+      // E-mail ve verzálkách je hůř čitelný a v mailu se stejně píše malými,
+      // takže má vlastní span s text-transform: none (R12).
+      expect(page.slice(0, headerEnd)).toContain(
+        '<span class="docHeader__contactEmail"> · matej@example.com</span>',
+      );
+    }
+
+    // Přesně jedna kopie na každé straně, ne jen dvě celkem.
+    expect(page1.match(/Matěj Krečmer/g) ?? []).toHaveLength(1);
+    expect(page2.match(/Matěj Krečmer/g) ?? []).toHaveLength(1);
+  });
+
+  it("keeps the contact row in the flow even without a contact, so the budget holds", () => {
+    // Rozpočet výšky hlavičky s řádkem počítá vždy (R14). Kdyby element mizel,
+    // hlavička by byla o 14 pt nižší, než rozpočet tvrdí, a plán na straně 2
+    // by o tu výšku přišel.
+    const html = renderInputlistHtml(vm, {
+      tabTitle: "Doc",
+      baseHref: "file:///tmp/",
+    });
+
+    expect(html).toContain('<div class="docHeader__contact"></div>');
+  });
+});
+
 describe("document footer", () => {
   const vm = createDocumentViewModelFixture({
     meta: {
@@ -248,27 +301,7 @@ describe("document footer", () => {
     expect(page2).toContain("2 / 2");
   });
 
-  it("moves the contact line from the header into the footer", () => {
-    const html = renderInputlistHtml(vm, {
-      tabTitle: "Doc",
-      baseHref: "file:///tmp/",
-      contactLine: "Matěj Krečmer · +420 731 247 870",
-    });
-
-    const { page1, page2 } = splitPages(html);
-
-    for (const page of [page1, page2]) {
-      const headerEnd = page.indexOf("</header>");
-      expect(page.slice(0, headerEnd)).not.toContain("Matěj Krečmer");
-    }
-
-    // Přesně jedna kopie na každé straně, ne jen dvě celkem — to by prošlo
-    // i kdyby obě skončily na stejné straně.
-    expect(page1.match(/Matěj Krečmer/g) ?? []).toHaveLength(1);
-    expect(page2.match(/Matěj Krečmer/g) ?? []).toHaveLength(1);
-  });
-
-  it("still numbers the pages when there is no contact line", () => {
+  it("still numbers the pages", () => {
     const html = renderInputlistHtml(vm, {
       tabTitle: "Doc",
       baseHref: "file:///tmp/",

@@ -4,7 +4,7 @@ import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { argv, exit } from "node:process";
 import { pathToFileURL } from "node:url";
-import { loadDefaultContactLine } from "../src/app/usecases/exportPdf.js";
+import { loadDefaultContact } from "../src/app/usecases/exportPdf.js";
 import { normalizeProject } from "../src/app/usecases/normalizeProject.js";
 import type { ProjectJson } from "../src/domain/model/types.js";
 import { buildDocument } from "../src/domain/pipeline/buildDocument.js";
@@ -69,12 +69,7 @@ async function run(args: string[], log: PreviewLogger): Promise<Response> {
   log("[pdf-preview] validateDocument");
   validateDocument(vm);
 
-  const contactLine = await loadDefaultContactLine(
-    band.defaultContactId,
-    band,
-    repo,
-    userDataDir,
-  );
+  const contact = await loadDefaultContact(band.defaultContactId, userDataDir);
 
   const tmpDir = path.join(userDataDir, "temp");
   await mkdir(tmpDir, { recursive: true });
@@ -84,7 +79,7 @@ async function run(args: string[], log: PreviewLogger): Promise<Response> {
   log("[pdf-preview] render template", { previewPdfPath });
   await renderPdf(vm, {
     outFile: previewPdfPath,
-    contactLine,
+    contact,
     stageplan: { hideMusicianNames },
   });
 

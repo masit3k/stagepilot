@@ -110,3 +110,20 @@ describe("pdf stageplan identity", () => {
     );
   });
 });
+
+describe("pdf header contact (R12)", () => {
+  it("sets the contact row in the meta cut and keeps the e-mail out of caps", () => {
+    expect(pdfStyles).toMatch(
+      new RegExp(
+        `\\.docHeader__contact\\s*\\{[^}]*font-size:\\s*${escapeRegExp(pdfLayout.typography.meta.size)}`,
+      ),
+    );
+    expect(pdfStyles).toMatch(
+      /\.docHeader__contact\s*\{[^}]*text-transform:\s*uppercase/,
+    );
+    expect(pdfStyles).toMatch(
+      /\.docHeader__contactEmail\s*\{[^}]*text-transform:\s*none/,
+    );
+    expect(pdfStyles).not.toContain(".docFooter__contact");
+  });
+});

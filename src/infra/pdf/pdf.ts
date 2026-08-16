@@ -8,6 +8,7 @@ import type { Browser, LaunchOptions, Page } from "puppeteer";
 
 import type { DocumentViewModel } from "../../domain/model/types.js";
 import { renderInputlistHtml } from "./template.js";
+import type { PdfContact } from "./template.js";
 import { pdfLayout } from "./layout.js";
 import { countPdfPages } from "./pdfPageCount.js";
 import type { StageplanRenderOptions } from "./stageplanRenderOptions.js";
@@ -237,7 +238,7 @@ export async function finalizeRenderedPdf(tempOutFile: string, outFile: string):
 
 export interface RenderPdfOptions {
     outFile: string;         // absolutní nebo relativní
-    contactLine?: string;    // volitelné (doplníš z usecase)
+    contact?: PdfContact;   // volitelné (doplníš z usecase)
     stageplan?: Partial<StageplanRenderOptions>;
 }
 
@@ -261,7 +262,7 @@ export async function renderPdf(vm: DocumentViewModel, opts: RenderPdfOptions): 
     const html = renderInputlistHtml(vm, {
         tabTitle,
         baseHref,
-        contactLine: opts.contactLine,
+        contact: opts.contact,
         logoHref,
         stageplan: opts.stageplan,
     });

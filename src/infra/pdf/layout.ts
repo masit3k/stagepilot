@@ -115,12 +115,36 @@ export const pdfLayout = {
   },
 } as const;
 
+/**
+ * Titulní sloupec: název kapely, meta řádek a kontaktní osoba, prokládané
+ * `textGapPt`. Kontaktní řádek se rezervuje **vždy**, i když projekt kontakt
+ * nemá — jinak by výška hlavičky (a tím i plocha plánu na straně 2) závisela
+ * na datech (R12).
+ */
 const headerTextColumnPt =
   parsePt(pdfLayout.typography.title.size) *
     pdfLayout.typography.title.lineHeight +
   pdfLayout.header.textGapPt +
   parsePt(pdfLayout.typography.meta.size) *
+    pdfLayout.typography.meta.lineHeight +
+  pdfLayout.header.textGapPt +
+  parsePt(pdfLayout.typography.meta.size) *
     pdfLayout.typography.meta.lineHeight;
+
+/**
+ * Tři sloupce hlavičky vedle sebe. Exportované, aby se dal otestovat i ten,
+ * který zrovna nevyhrává — razítko má dva řádky (STAGEPILOT / UPD …) a dnes
+ * je nižší než titul, takže jeho chybějící započtení by jinak nebylo vidět
+ * (R14).
+ */
+export const pdfHeaderColumnsPt = {
+  mark: pdfLayout.header.markSizePt,
+  title: headerTextColumnPt,
+  stamp:
+    2 *
+    parsePt(pdfLayout.typography.stamp.size) *
+    pdfLayout.typography.stamp.lineHeight,
+} as const;
 
 /**
  * Výška hlavičky a patičky v mm. Čte je CSS i výškový rozpočet stage planu,
@@ -129,7 +153,7 @@ const headerTextColumnPt =
  */
 export const pdfChromeHeights = {
   headerMm: ptToMm(
-    Math.max(pdfLayout.header.markSizePt, headerTextColumnPt) +
+    Math.max(...Object.values(pdfHeaderColumnsPt)) +
       pdfLayout.header.padBottomPt +
       pdfLayout.header.rulePt +
       pdfLayout.header.marginBottomPt,
