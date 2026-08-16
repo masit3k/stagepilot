@@ -93,6 +93,22 @@ describe("resolvePrintScale", () => {
     expect(scale.mmPerM).toBeCloseTo(13.1079, 3);
   });
 
+  it("leaves the scale alone when a zone is at least as wide as the inflated stage", () => {
+    // Druhý degenerovaný případ v reservedMmPerM: denominator = inflatedM −
+    // zoneM. Nominál 12 m + 2×0,2 m tolerance dá inflatedWidthM 12,4 m, takže
+    // zóna 12,4 m nebo širší tenhle rozdíl srazí na nulu nebo pod ni.
+    // boxWidthMm musí přerůst zoneM·bound, jinak se vrátí dřív jiná větev
+    // (zóna box unese) — 200 mm je bezpečně nad 12,4 × 13,1079 ≈ 162,58 mm.
+    const scale = resolvePrintScale({
+      stage: null,
+      blocks: [scaleBlock({ zoneWidthM: 12.4, boxWidthMm: 200 })],
+      area: AREA,
+    });
+
+    expect(scale.mmPerM).toBeGreaterThan(0);
+    expect(scale.mmPerM).toBeCloseTo(13.1079, 3);
+  });
+
   it("never returns a scale larger than the unreserved one", () => {
     const reserved = resolvePrintScale({
       stage: null,
