@@ -13,6 +13,8 @@ const MIN_BOX_WIDTH_MM = 36.2594;
 const TYPOGRAPHY = {
   fontSizePt: 8,
   lineHeight: 1.25,
+  roleFontSizePt: 7.2,
+  roleTrackingEm: 0.14,
   titleGapPt: 6,
   padBottomPt: 2,
   minBoxWidthMm: MIN_BOX_WIDTH_MM,
@@ -35,7 +37,7 @@ function box(overrides: Partial<StageplanPrintBox> = {}): StageplanPrintBox {
     slot: "guitar",
     instrument: "Guitar",
     header: "GUITAR",
-    hasBandLeaderMark: false,
+    hasBandLeaderLine: false,
     inputBullets: ["Guitar DI (5)", "Guitar Mic (6)"],
     monitorBullets: ["Wedge 1"],
     extraBullets: [],
@@ -136,5 +138,26 @@ describe("resolveBlockPrint", () => {
 
     expect(narrow?.isBelowPrintFloor).toBe(true);
     expect(wide?.isBelowPrintFloor).toBe(false);
+  });
+
+  it("adds one line to the footprint for the band leader row", () => {
+    const withLeader = resolveBlockPrint({
+      block: block(),
+      geometry: geometry([box({ hasBandLeaderLine: true })]),
+      scale,
+    });
+    const withoutLeader = resolveBlockPrint({
+      block: block(),
+      geometry: geometry([box({ hasBandLeaderLine: false })]),
+      scale,
+    });
+
+    const lineM = scale.toM(
+      (TYPOGRAPHY.fontSizePt * TYPOGRAPHY.lineHeight * 25.4) / 72,
+    );
+    expect(
+      (withLeader?.footprint.depthM ?? 0) -
+        (withoutLeader?.footprint.depthM ?? 0),
+    ).toBeCloseTo(lineM, 6);
   });
 });

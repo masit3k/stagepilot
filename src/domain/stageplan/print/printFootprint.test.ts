@@ -8,6 +8,8 @@ import {
 const TYPOGRAPHY: PrintTypography = {
   fontSizePt: 8,
   lineHeight: 1.25,
+  roleFontSizePt: 7.2,
+  roleTrackingEm: 0.14,
   titleGapPt: 6,
   padBottomPt: 2,
   minBoxWidthMm: 36.2594,

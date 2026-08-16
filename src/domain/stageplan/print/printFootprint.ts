@@ -5,6 +5,12 @@ const MM_PER_PT = 25.4 / 72;
 export type PrintTypography = {
   readonly fontSizePt: number;
   readonly lineHeight: number;
+  /**
+   * Rozměry řádku BANDLEADER (R9). Nic je zatím nečte — Task 5 s nimi
+   * počítá šířku boxu, až footprint přestane vycházet jen z počtu řádků.
+   */
+  readonly roleFontSizePt: number;
+  readonly roleTrackingEm: number;
   readonly titleGapPt: number;
   readonly padBottomPt: number;
   /** Prověřená šířka dnešního čtyřsloupcového boxu — pod ni se nejde (R3). */

@@ -302,19 +302,6 @@ body {
   text-align: center;
 }
 
-.stageplanLegend {
-  /* Zrcadlo popisku nad plánem: výška jednoho řádku vždy, i když je prázdný,
-     protože rozpočet výšky s ní počítá (R13). */
-  height: ${stageplanLayout.legendSize};
-  line-height: 1;
-  margin-top: ${stageplanLayout.legendGap};
-  font-family: '${pdfLayout.typography.monoFamily}', Consolas, monospace;
-  font-size: ${stageplanLayout.legendSize};
-  letter-spacing: ${stageplanLayout.captionTracking};
-  color: ${pdfTokens.steel};
-  text-align: center;
-}
-
 .stageplanContainer {
   display: inline-block;
   margin-top: ${stageplanLayout.containerMarginTop};
@@ -376,6 +363,19 @@ body {
   text-align: center;
 }
 
+/* Řádek role pod jménem: týž řez jako popisek pódia, jen uvnitř boxu (R9).
+   Řádková výška je uzamčená na řádek boxu, ne na vlastní em — jinak by menší
+   písmo rozhodilo rytmus, se kterým počítá tisková stopa. */
+.stageplanBoxRole {
+  font-family: '${pdfLayout.typography.monoFamily}', Consolas, monospace;
+  font-size: ${stageplanLayout.boxRoleSize};
+  line-height: ${stageplanLayout.boxLine};
+  letter-spacing: ${stageplanLayout.boxRoleTracking};
+  color: ${pdfTokens.steel};
+  text-align: center;
+  white-space: nowrap;
+}
+
 .stageplanTitleGap {
   height: ${stageplanLayout.boxTitleGap};
 }
@@ -397,7 +397,7 @@ body {
 }
 
 .stageplanGap {
-  height: calc(1em * ${stageplanLayout.textLineHeight});
+  height: ${stageplanLayout.boxLine};
 }
 
 /* Napájení je jediná barva na stránce (handoff řádek 123). */

@@ -65,7 +65,7 @@ describe("buildPdfStageplanPrintModel", () => {
   it("prepares lead vocal headers from current lead slot behavior", () => {
     const model = buildPdfStageplanPrintModel(baseStageplan());
 
-    expect(model.boxesBySlot.lead_voc_1.header).toBe("LEAD VOC – ALICE*");
+    expect(model.boxesBySlot.lead_voc_1.header).toBe("LEAD VOC – ALICE");
     expect(model.boxesBySlot.lead_voc_2.header).toBe("LEAD VOC – BOB");
   });
 
@@ -203,7 +203,17 @@ describe("buildPdfStageplanPrintModel", () => {
       }),
     );
 
-    expect(model.boxesBySlot.bass.hasBandLeaderMark).toBe(true);
-    expect(model.boxesBySlot.drums.hasBandLeaderMark).toBe(false);
+    expect(model.boxesBySlot.bass.hasBandLeaderLine).toBe(true);
+    expect(model.boxesBySlot.drums.hasBandLeaderLine).toBe(false);
+  });
+
+  it("hides the band leader line together with the musician names (R9)", () => {
+    // Kapelnictví je vlastnost osoby, ne pozice — když se osoba netiskne,
+    // netiskne se ani její role.
+    const model = buildPdfStageplanPrintModel(baseStageplan(), {
+      hideMusicianNames: true,
+    });
+
+    expect(model.boxesBySlot.lead_voc_1.hasBandLeaderLine).toBe(false);
   });
 });

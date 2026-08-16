@@ -228,6 +228,14 @@
   color: var(--color-stage-text);
 }
 
+/* Karta je tištěný box, takže role stojí i tady pod jménem (R9). */
+.stage-block__role {
+  text-align: center;
+  letter-spacing: 0.14em;
+  color: var(--color-stage-text-dim);
+  white-space: nowrap;
+}
+
 .stage-block__body {
   text-align: center;
   color: var(--color-stage-text-mid);

@@ -1,14 +1,19 @@
 export type StageplanBoxHeaderArgs = {
   instrumentLabel: string;
   firstName?: string | null;
-  isBandLeader?: boolean;
   hideMusicianNames?: boolean;
 };
+
+/**
+ * Slovo, kterým se v boxu značí kapelník (R9). Vědomá anglická výjimka z
+ * pravidla „PDF česky" (R10): pro zahraničního zvukaře je to zavedený termín,
+ * srozumitelnější než KAPELNÍK. Neopravovat zpátky jako překlep.
+ */
+export const STAGEPLAN_BAND_LEADER_LINE = "BANDLEADER";
 
 export function formatStageplanBoxHeader({
   instrumentLabel,
   firstName,
-  isBandLeader = false,
   hideMusicianNames = false,
 }: StageplanBoxHeaderArgs): string {
   const resolvedName = firstName && firstName.trim() ? firstName.trim() : "";
@@ -18,11 +23,7 @@ export function formatStageplanBoxHeader({
     !hideMusicianNames && resolvedName
       ? `${displayInstrument} – ${resolvedName}`
       : displayInstrument;
-  const main = mainBase.toUpperCase();
-  // Hvězdička je značka poznámky pod čarou, ta se ke slovu tiskne bez mezery.
-  // Vysvětlivku pod plánem sází renderer (R12, R13).
-  const suffix = isBandLeader ? "*" : "";
-  return `${main}${suffix}`;
+  return mainBase.toUpperCase();
 }
 
 export function formatMonitorBullet(note: string, no: number): string {

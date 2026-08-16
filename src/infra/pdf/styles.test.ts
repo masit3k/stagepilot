@@ -84,16 +84,28 @@ describe("pdf stageplan identity", () => {
     );
   });
 
-  it("pins the legend's height budget so it cannot drift from the renderer (R13)", () => {
+  it("sets the band leader line in the same cut as the stage caption (R9)", () => {
+    // Typografie se stěhuje dovnitř boxu, nová nevzniká: 7,2 pt mono,
+    // prostrkané, šedé — týž řez, který měla vysvětlivka.
+    expect(pdfStyles).not.toContain("stageplanLegend");
     expect(pdfStyles).toMatch(
       new RegExp(
-        `\\.stageplanLegend\\s*\\{[^}]*height:\\s*${escapeRegExp(stageplanLayout.legendSize)}`,
+        `\\.stageplanBoxRole\\s*\\{[^}]*font-size:\\s*${escapeRegExp(stageplanLayout.boxRoleSize)}`,
       ),
     );
-    expect(pdfStyles).toMatch(/\.stageplanLegend\s*\{[^}]*line-height:\s*1\b/);
     expect(pdfStyles).toMatch(
       new RegExp(
-        `\\.stageplanLegend\\s*\\{[^}]*margin-top:\\s*${escapeRegExp(stageplanLayout.legendGap)}`,
+        `\\.stageplanBoxRole\\s*\\{[^}]*letter-spacing:\\s*${escapeRegExp(stageplanLayout.boxRoleTracking)}`,
+      ),
+    );
+    expect(pdfStyles).toMatch(
+      new RegExp(
+        `\\.stageplanBoxRole\\s*\\{[^}]*line-height:\\s*${escapeRegExp(stageplanLayout.boxLine)}`,
+      ),
+    );
+    expect(pdfStyles).toMatch(
+      new RegExp(
+        `\\.stageplanBoxRole\\s*\\{[^}]*color:\\s*${escapeRegExp(pdfTokens.steel)}`,
       ),
     );
   });

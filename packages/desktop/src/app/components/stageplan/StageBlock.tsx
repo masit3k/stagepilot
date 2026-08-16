@@ -1,4 +1,5 @@
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
+import { STAGEPLAN_BAND_LEADER_LINE } from "../../../../../../src/domain/formatters/stageplan";
 import type { StageplanBlock } from "../../../../../../src/domain/model/types";
 import type { ZoneHandle } from "../../../../../../src/domain/stageplan/layout/blockOps";
 import type { StageScale } from "../../../../../../src/domain/stageplan/layout/scale";
@@ -108,6 +109,9 @@ export function StageBlock({
       <div className="stage-block__label">
         {box ? box.header : LABEL_BY_SLOT[block.slot]}
       </div>
+      {box?.hasBandLeaderLine ? (
+        <div className="stage-block__role">{STAGEPLAN_BAND_LEADER_LINE}</div>
+      ) : null}
       {showBullets && box ? (
         <div className="stage-block__body">
           <BulletGroup bullets={box.inputBullets} />

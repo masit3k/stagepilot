@@ -23,26 +23,16 @@ describe("formatStageplanBoxHeader", () => {
     expect(label).toBe("LEAD VOC");
   });
 
-  it("marks the band leader with a footnote asterisk and no space", () => {
+  it("never marks the band leader in the header (R9)", () => {
+    // Kapelnictví značí jediné místo — řádek BANDLEADER uvnitř boxu.
+    // Dvě souběžné mechaniky pro tutéž informaci jsou to, co F6 odstraňovala.
     const label = formatStageplanBoxHeader({
       instrumentLabel: "Bass",
       firstName: "Matěj",
-      isBandLeader: true,
     });
 
-    expect(label).toBe("BASS – MATĚJ*");
-  });
-
-  it("keeps the asterisk when musician names are hidden", () => {
-    // DRUMS* je pořád pravdivá informace o tom, kdo je kapelník (R12).
-    const label = formatStageplanBoxHeader({
-      instrumentLabel: "Drums",
-      firstName: "Matěj",
-      isBandLeader: true,
-      hideMusicianNames: true,
-    });
-
-    expect(label).toBe("DRUMS*");
+    expect(label).toBe("BASS – MATĚJ");
+    expect(label).not.toContain("*");
   });
 
   it("hides musician names when requested", () => {

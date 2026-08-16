@@ -5,8 +5,10 @@ function box(args: {
   inputs?: string[];
   monitors?: string[];
   extras?: string[];
+  bandLeader?: boolean;
 }) {
   return {
+    hasBandLeaderLine: args.bandLeader ?? false,
     inputBullets: args.inputs ?? [],
     monitorBullets: args.monitors ?? [],
     extraBullets: args.extras ?? [],
@@ -44,6 +46,15 @@ describe("countStageplanBoxLines", () => {
   it("does not add a separator when only later groups are filled", () => {
     expect(
       countStageplanBoxLines(box({ monitors: ["a"], extras: ["b"] })),
+    ).toBe(3);
+  });
+
+  it("counts the band leader line as one line of the box (R9)", () => {
+    // Řádek se sází menším písmem, ale rytmus boxu drží stejný, takže se do
+    // stopy počítá týmž násobkem jako odrážka.
+    expect(countStageplanBoxLines(box({ bandLeader: true }))).toBe(1);
+    expect(
+      countStageplanBoxLines(box({ inputs: ["a", "b"], bandLeader: true })),
     ).toBe(3);
   });
 });
