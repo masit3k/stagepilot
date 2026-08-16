@@ -30,6 +30,10 @@ npm run cli:dev -- generate --project <file> --outDir <dir>  # export from file 
 # PDF smoke tests
 npm run pdf:dev
 npm run smoke:pdf-preview
+npm run smoke:stageplan-print       # verifies glyph table vs Chromium + no box overflow
+
+# Regenerate after changing styles.ts typography
+npm run glyphs:generate             # rewrites src/domain/stageplan/print/glyphAdvances.ts
 ```
 
 ## Tech Stack

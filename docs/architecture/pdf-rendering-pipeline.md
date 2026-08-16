@@ -62,6 +62,12 @@ code prepares that model; infrastructure code turns it into HTML and then a PDF.
     version listing.
   - `scripts/smoke_pdf_preview.ts` exercises `buildDocument` plus `renderPdf`
     into a temporary preview PDF.
+  - `scripts/smoke_stageplan_print.ts` (`npm run smoke:stageplan-print`)
+    verifies that the generated glyph-advance table still agrees with
+    Chromium and that no stageplan box overflows in real projects (F7, R16).
+  - `scripts/generate_glyph_advances.ts` (`npm run glyphs:generate`)
+    regenerates `src/domain/stageplan/print/glyphAdvances.ts` by measuring
+    each glyph in Chromium. Run it whenever `styles.ts` typography changes.
 
 ## Data sources
 
@@ -262,6 +268,17 @@ Domain/pipeline responsibilities:
   boxes and bullet content.
 - `resolvePowerForStageplan`, `resolveStageplanRoleForInput`, and
   `collapseStereoForStageplan` support content placement and text shaping.
+- `src/domain/stageplan/print/` (F7) sizes the printed box from its own text
+  and derives a print-safe stage scale, with zero I/O:
+  - `glyphAdvances.ts` — generated glyph-advance table, measured in Chromium
+    by `scripts/generate_glyph_advances.ts` (`npm run glyphs:generate`).
+  - `textWidth.ts` — `measurePrintTextMm`, sums glyph advances for a string.
+  - `printFootprint.ts` — `computePrintFootprintMm`, the box's width/height
+    from its header, band-leader line, bullets, and power badge alone.
+  - `printScale.ts` — `resolvePrintScale`, reserves per-block overhang room
+    in both axes when a printed box outgrows its stage zone.
+  - Both the editor (`packages/desktop`) and the PDF renderer read this same
+    table, so a printed box and its editor card cannot disagree on width.
 
 Infra renderer responsibilities:
 
@@ -287,12 +304,22 @@ domain document model.
   - Converts `DocumentViewModel` to HTML with `renderInputlistHtml`.
   - Resolves font/logo base URLs.
   - Launches Puppeteer/Chromium with fallback strategies.
-  - Checks each PDF page/content pair for overflow.
+  - Exports `setPdfPageContent`, the only supported way to write HTML (and
+    therefore `pdfStyles`) into a Puppeteer page. **Any future code that puts
+    `pdfStyles` into Chromium must go through it.** `page.setContent()` alone
+    leaves the document at `about:blank`; Chromium then silently refuses the
+    page's `file://` `@font-face` files, and the document falls back to a
+    system typeface with no error (this is exactly how F7 discovered every
+    prior export had silently been typeset in Arial). Both `renderPdf` and
+    `scripts/smoke_stageplan_print.ts` / `scripts/generate_glyph_advances.ts`
+    call it for this reason.
+  - Checks each PDF page/content pair, plus each `.docHeader`, for overflow.
   - Writes the final A4 PDF.
 
 - `src/infra/pdf/styles.ts`
-  - Defines PDF CSS, local Inter font faces, table styling, notes styling, and
-    stageplan styling.
+  - Defines PDF CSS: the Space Grotesk and IBM Plex Mono `@font-face` rules
+    (brand typography, F4), table styling, notes styling, and stageplan
+    styling.
 
 - `src/infra/pdf/layout.ts`
   - Defines page, typography, table, and DOM id constants shared by template,
