@@ -15,6 +15,7 @@
     "dev": "npm --prefix packages/desktop run dev",
     "build:desktop": "npm --prefix packages/desktop run build",
     "smoke:pdf-preview": "node --enable-source-maps --import tsx scripts/smoke_pdf_preview.ts",
+    "smoke:stageplan-print": "node --enable-source-maps --import tsx scripts/smoke_stageplan_print.ts",
     "icons": "node --enable-source-maps --import tsx scripts/render_brand_icons.ts",
     "glyphs:generate": "node --enable-source-maps --import tsx scripts/generate_glyph_advances.ts"
   },
