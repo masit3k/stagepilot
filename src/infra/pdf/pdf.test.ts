@@ -11,6 +11,23 @@ import {
   createPdfRendererFixtureRoot,
 } from "./pdfRendererFixture.js";
 
+/**
+ * Jména fontů vložených do PDF. Chromium je sází nekomprimovaně, takže se dají
+ * číst přímo z bajtů; podsada má prefix typu "AAAAAA+", ten se zahazuje.
+ *
+ * Čte se `/BaseFont` i `/FontName`: Space Grotesk je variabilní řez a Chromium
+ * ho nevloží jako běžný CIDFontType2 s `/BaseFont` — každou použitou váhu
+ * převede na samostatný Type3 font, jehož jméno nese jen `/FontDescriptor`
+ * pod `/FontName`. Statické řezy (IBM Plex Mono, systémová náhrada) mají
+ * obojí shodné, takže se stejným vzorem najdou taky.
+ */
+function embeddedFontNames(pdf: Buffer): string[] {
+  const matches = pdf
+    .toString("latin1")
+    .matchAll(/\/(?:BaseFont|FontName)\s*\/(?:[A-Z]{6}\+)?([A-Za-z0-9\-,._]+)/g);
+  return [...new Set([...matches].map((match) => match[1]))];
+}
+
 let chromiumAvailable = false;
 
 beforeAll(async () => {
@@ -84,6 +101,38 @@ describe("PDF export", () => {
 
       const buffer = await fs.readFile(outFile);
       expect(countPdfPages(buffer)).toBe(2);
+    } finally {
+      await fs.rm(tmpRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("embeds the brand fonts, not a fallback", { timeout: 60000 }, async (ctx) => {
+    if (!chromiumAvailable) {
+      ctx.skip();
+    }
+
+    // Pojistka proti tiché náhradě písma. `page.setContent` nechává dokument na
+    // about:blank a Chromium z takového původu odmítne file:// zdroje, takže
+    // @font-face selhal a dokument se sázel Arialem — a nikdo si toho nevšiml,
+    // protože počet stran zůstal správný. Tenhle test se dívá na to, co v PDF
+    // opravdu je.
+    const tmpRoot = await createPdfRendererFixtureRoot();
+
+    try {
+      const repo = await loadRepository({ userDataRoot: tmpRoot });
+      const project = createPdfRendererFixtureProject("stageplan-fonts");
+
+      const vm = buildDocument(project, repo);
+      const outFile = path.join(tmpRoot, "fonts.pdf");
+
+      await renderPdf(vm, { outFile });
+
+      const fonts = embeddedFontNames(await fs.readFile(outFile));
+      // Skia dává jménům instancí variabilního řezu pomlčku ("Space-Grotesk-Bold"),
+      // ne mezeru ani spojení bez oddělovače — ověřeno na skutečném PDF výstupu.
+      expect(fonts.join(" ")).toContain("Space-Grotesk");
+      expect(fonts.join(" ")).toContain("IBMPlexMono");
+      expect(fonts.join(" ")).not.toContain("Arial");
     } finally {
       await fs.rm(tmpRoot, { recursive: true, force: true });
     }

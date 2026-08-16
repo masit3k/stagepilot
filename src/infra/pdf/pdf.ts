@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import puppeteer from "puppeteer";
-import type { Browser, LaunchOptions } from "puppeteer";
+import type { Browser, LaunchOptions, Page } from "puppeteer";
 
 import type { DocumentViewModel } from "../../domain/model/types.js";
 import { renderInputlistHtml } from "./template.js";
@@ -191,6 +191,26 @@ export async function launchPdfBrowser(): Promise<Browser> {
 }
 
 /**
+ * Zapíše HTML do stránky tak, aby si zachovala **file:// původ**. Bez toho
+ * Chromium odmítne .ttf soubory z @font-face a dokument se tiše vysází
+ * náhradním písmem — přesně to se dělo do F7 a v exportech skončil Arial
+ * místo Space Grotesk.
+ *
+ * `setContent` sám tohle nezařídí: provede `document.open()` nad `about:blank`
+ * a URL rámce tím zůstane. Navigace na `baseHref` dá stránce file:// původ,
+ * který jí `document.open()` zachová. `<base href>` to nezachrání — ten řeší
+ * rozklad relativních URL, ne původ dokumentu.
+ */
+export async function setPdfPageContent(
+    page: Page,
+    baseHref: string,
+    html: string,
+): Promise<void> {
+    await page.goto(baseHref, { waitUntil: "load" });
+    await page.setContent(html, { waitUntil: "load" });
+}
+
+/**
  * Přesune ověřený render z dočasné cesty na finální outFile. Puppeteer píše
  * do tempOutFile, ne přímo do outFile — když se stránky nesedí, na místě,
  * kde volající čeká hotový dokument, nesmí zůstat nic. Selhání úklidu se
@@ -253,8 +273,26 @@ export async function renderPdf(vm: DocumentViewModel, opts: RenderPdfOptions): 
     try {
         const page = await browser.newPage();
 
-        // setContent stačí "load" – fonty se načtou přes file://
-        await page.setContent(html, { waitUntil: "load" });
+        await setPdfPageContent(page, baseHref, html);
+
+        // Fonty jsou součást identity dokumentu, ne kosmetika: PDF vysázené
+        // náhradním písmem je vadný výstup a má selhat, ne se vytisknout.
+        const missingFonts = await page.evaluate(async (families: string[]) => {
+            await document.fonts.ready;
+            const missing: string[] = [];
+            for (const family of families) {
+                if (!document.fonts.check(`400 10px '${family}'`)) {
+                    missing.push(family);
+                }
+            }
+            return missing;
+        }, [pdfLayout.typography.fontFamily, pdfLayout.typography.monoFamily]);
+
+        if (missingFonts.length > 0) {
+            throw new Error(
+                `PDF fonts failed to load: ${missingFonts.join(", ")}. The document would be typeset in a fallback face.`,
+            );
+        }
 
         // #content je flex položka s pevnou výškou i šířkou stránky, takže
         // scrollHeight/scrollWidth nad clientHeight/clientWidth je přímé

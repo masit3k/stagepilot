@@ -1,7 +1,8 @@
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { launchPdfBrowser } from "../src/infra/pdf/pdf.js";
+import type { Page } from "puppeteer";
+import { launchPdfBrowser, setPdfPageContent } from "../src/infra/pdf/pdf.js";
 import { pdfStyles } from "../src/infra/pdf/styles.js";
 import { PRINT_TEXT_STYLE_SPECS } from "./printTextStyles.js";
 
@@ -112,6 +113,56 @@ ${bodies}
 `;
 }
 
+async function measureAllStyles(page: Page): Promise<StyleTables> {
+  return (await page.evaluate(
+    async (args) => {
+      const probe = document.createElement("span");
+      probe.className = "probe";
+      document.body.appendChild(probe);
+
+      const result: Record<string, Record<string, number>> = {};
+      for (const style of args.styles) {
+        await document.fonts.load(
+          `${style.fontWeight} ${args.fontPx}px '${style.fontFamily}'`,
+        );
+        probe.style.fontFamily = `'${style.fontFamily}'`;
+        probe.style.fontWeight = String(style.fontWeight);
+
+        const table: Record<string, number> = {};
+        for (const char of args.corpus) {
+          probe.textContent = char;
+          table[char] =
+            Math.round(
+              (probe.getBoundingClientRect().width / args.fontPx) * 1e5,
+            ) / 1e5;
+        }
+        result[style.name] = table;
+      }
+      probe.remove();
+      return result;
+    },
+    {
+      styles: STYLES.map((style) => ({ ...style })),
+      corpus: CORPUS,
+      fontPx: MEASURE_FONT_PX,
+    },
+  )) as StyleTables;
+}
+
+function assertNoZeroWidth(tables: StyleTables): void {
+  for (const style of STYLES) {
+    const table = tables[style.name];
+    const zeroWidth = Object.entries(table).filter(([, value]) => value <= 0);
+    if (zeroWidth.length > 0) {
+      throw new Error(
+        `Style ${style.name} measured zero-width glyphs (font not loaded?): ${zeroWidth
+          .map(([char]) => JSON.stringify(char))
+          .join(", ")}`,
+      );
+    }
+  }
+}
+
 async function run(): Promise<void> {
   const pdfBaseDir = path.join(process.cwd(), "src", "infra", "pdf");
   const baseHref = pathToFileURL(pdfBaseDir + path.sep).href;
@@ -119,62 +170,10 @@ async function run(): Promise<void> {
   const browser = await launchPdfBrowser();
   try {
     const page = await browser.newPage();
-    // Nejdřív se musí navigovat na file:// (adresář s fonty), a teprve pak
-    // vložit obsah přes setContent — ten drží URL i origin beze změny
-    // (document.open zachovává aktuální URL rámce). Bez tohohle kroku
-    // zůstane stránka na "about:blank" a Chromium fonty z file:// odmítne
-    // s "Not allowed to load local resource": ověřeno na skutečném
-    // systémovém Chromu, kde stažené Chromium není k dispozici.
-    await page.goto(baseHref, { waitUntil: "load" });
-    await page.setContent(renderMeasurementHtml(baseHref), {
-      waitUntil: "load",
-    });
+    await setPdfPageContent(page, baseHref, renderMeasurementHtml(baseHref));
 
-    const tables = (await page.evaluate(
-      async (args) => {
-        const probe = document.createElement("span");
-        probe.className = "probe";
-        document.body.appendChild(probe);
-
-        const result: Record<string, Record<string, number>> = {};
-        for (const style of args.styles) {
-          await document.fonts.load(
-            `${style.fontWeight} ${args.fontPx}px '${style.fontFamily}'`,
-          );
-          probe.style.fontFamily = `'${style.fontFamily}'`;
-          probe.style.fontWeight = String(style.fontWeight);
-
-          const table: Record<string, number> = {};
-          for (const char of args.corpus) {
-            probe.textContent = char;
-            table[char] =
-              Math.round(
-                (probe.getBoundingClientRect().width / args.fontPx) * 1e5,
-              ) / 1e5;
-          }
-          result[style.name] = table;
-        }
-        probe.remove();
-        return result;
-      },
-      {
-        styles: STYLES.map((style) => ({ ...style })),
-        corpus: CORPUS,
-        fontPx: MEASURE_FONT_PX,
-      },
-    )) as StyleTables;
-
-    for (const style of STYLES) {
-      const table = tables[style.name];
-      const zeroWidth = Object.entries(table).filter(([, value]) => value <= 0);
-      if (zeroWidth.length > 0) {
-        throw new Error(
-          `Style ${style.name} measured zero-width glyphs (font not loaded?): ${zeroWidth
-            .map(([char]) => JSON.stringify(char))
-            .join(", ")}`,
-        );
-      }
-    }
+    const tables = await measureAllStyles(page);
+    assertNoZeroWidth(tables);
 
     await writeFile(OUT_FILE, renderModule(tables), "utf8");
     console.error(`[glyphs] wrote ${OUT_FILE}`);
