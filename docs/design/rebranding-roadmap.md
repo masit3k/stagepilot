@@ -19,7 +19,7 @@ designový board, implementuje se **kolo 3** (`3a`–`3d` varianty značky, vybr
 | **F5b** | **PDF čte rozmístění z projektu (pozice, rotace, nová kresba bloků)** | **hotovo, čeká na ruční kontrolu** | [2026-08-13-pdf-reads-stageplan-layout-design.md](../superpowers/specs/2026-08-13-pdf-reads-stageplan-layout-design.md) | `7ec42a9`…`b6fbf96` |
 | F5c | Obrazovka `02 INPUTS` | připraveno k otevření | zatím není | — |
 | **F6** | **Tok na editor, obsah bloků, úchyty velikosti, tisk bez zvýraznění, kapelník, angličtina** | **hotovo, čeká na ruční kontrolu** | [2026-08-13-editor-flow-block-content-and-ui-language-design.md](../superpowers/specs/2026-08-13-editor-flow-block-content-and-ui-language-design.md) | `9b27385`…`b1e18f4` |
-| **F7** | **Tištěný box podle textu, kapelník v boxu, kontakt v hlavičce** | **spec hotový, neimplementováno** | [2026-08-15-print-box-sized-by-text-and-header-contact-design.md](../superpowers/specs/2026-08-15-print-box-sized-by-text-and-header-contact-design.md) | — |
+| **F7** | **Tištěný box podle textu, kapelník v boxu, kontakt v hlavičce** | **hotovo, čeká na ruční kontrolu** | [2026-08-15-print-box-sized-by-text-and-header-contact-design.md](../superpowers/specs/2026-08-15-print-box-sized-by-text-and-header-contact-design.md) | `16f05ef`…`8d8c9d3` |
 
 ## F4 — typografie a hlavička PDF
 
@@ -110,6 +110,47 @@ briefů (typované fixtury místo castů, dvě testovací hlídky nahrazené za 
 a nový `blockPrint.test.ts` proti prohození os) a review opravilo formulaci `NARROWEST:` v R10 na
 `NARROWEST ZONE:`. Zbylé body 4–13 z Verifikace vyžadují `npm run dev` a neproběhly. Detaily a
 seznam manuálních kontrol jsou v sekci „Stav implementace" specu F6.
+
+## F7 — tištěný box podle textu, kapelník v boxu, kontakt v hlavičce
+
+Tištěný box stage plánu se teď měří podle vlastního textu, ne podle `max(zóna, text)` z F5b:
+zóna je místo na pódiu, box je štítek se seznamem kanálů, a měření na reálných datech ukázalo,
+že maximum vždycky vyhrával text. Kapelník se v boxu značí řádkem `BANDLEADER` místo hvězdičky
+a legendy pod plánem. Kontaktní osoba se přestěhovala z patičky stránky do hlavičky dokumentu.
+Měřítko tisku teď rezervuje místo na přesah zvlášť na blok a v obou osách — svislá osa dřív
+rezervu neměla vůbec.
+
+**Do fáze se dostaly dva tasky navíc, které spec nepředvídal, a oba váží víc než vlastní rozsah
+fáze:**
+
+- PDF renderer nikdy fakticky nenačetl vlastní fonty. `page.setContent` nechává dokument na
+  `about:blank` a Chromium z jiného než `file://` původu tiše odmítne `@font-face` soubory, takže
+  každé PDF, které aplikace kdy vyexportovala, neslo font **Arial** — typografie F4 se na papír
+  nikdy nedostala. Oprava dá stránce souborový původ ještě před zápisem obsahu, přidá pojistku,
+  která teď hodí výjimku, když se brand font nenačte, a test, který čte fonty skutečně vložené do
+  vyrenderovaného PDF.
+- Vzorec stopy boxu nepočítal s vlastním 1px rámečkem. Při `box-sizing: border-box` je zadaná
+  šířka šířka vnějšího boxu, takže obsahu zbylo o 2 px míň místa, než vzorec předpokládal, a sedm
+  odrážek v reálném projektu přeteklo. Našla to vlastní nová smoke kontrola fáze.
+
+**K čemu jsou smoke kontroly** (`npm run smoke:stageplan-print`): jedna ověřuje, že vygenerovaná
+tabulka šířek glyfů pořád souhlasí s tím, co vysází Chromium, druhá, že žádný box v reálném
+projektu nepřetéká. Obě vady fáze by kontroly odhalily okamžitě, kdyby v době jejich vzniku
+existovaly.
+
+**Caveat k zápisu:** naměřená čísla ve specu (výšky boxů v px, odhadovaný pokles měřítka na
+~12,5 mm/m) pocházela z dokumentu vysázeného Arialem, popisují tedy dokument, který už neexistuje.
+Skutečné měřítko vyšlo na 12,79 mm/m. Autoritou jsou smoke kontroly a reálné rendery, ne tyhle
+odhady.
+
+**Otevřené, na člověku:** oba projekty `blanicka_kapela` teď selžou na kolizní pojistce
+(`guitar × lead_voc_1`, `keys × lead_voc_2`, `lead_voc_1 × lead_voc_2`), protože boxy narostly na
+svou skutečnou textovou šířku. To je pojistka fungující podle návrhu — bloky je potřeba přerovnat
+v editoru, což je úsudek o rozmístění na pódiu, ne oprava kódu.
+
+Space Grotesk se vkládá jako Type3 fonty, protože repozitář nese variabilní řez — text zůstává
+prohledatelný (každý font nese mapu `/ToUnicode`), ale soubor narostl asi o 28 %. Statické řezy by
+vrátily `CIDFontType2`. Nerozhodnuto.
 
 ## Samostatné položky mimo fáze
 
