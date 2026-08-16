@@ -302,34 +302,60 @@ export async function renderPdf(vm: DocumentViewModel, opts: RenderPdfOptions): 
         // jen výšku, takže prvek širší než zrcadlo (např. .stageplanContainer)
         // proklouzl bez povšimnutí — Chromium na to reagovalo tichým
         // zmenšením celého dokumentu při tisku.
+        //
+        // .docHeader je sourozenec #content/#content2, ne jejich potomek, takže
+        // tahle kontrola byla dřív jediné místo, které mohlo vidět, když se do
+        // něj nevejde kontaktní řádek (nowrap, žádné šířkové omezení) — přesně
+        // ten případ, kdy dlouhý kontakt uteče pod razítkový sloupec.
         const contentIds = [pdfLayout.ids.content, pdfLayout.ids.content2];
 
+        // Kontrolované prvky se sbírají do jednoho plochého seznamu a projdou
+        // jedinou smyčkou bez pomocné funkce: page.evaluate() posílá do
+        // Chromia jen text callbacku přes toString(), a esbuild (tsx spouští
+        // skripty přes něj) vnořenou pojmenovanou funkci obalí voláním
+        // __name(...) kvůli zachování jejího jména při ladění. To volání se
+        // do odeslaného textu dostane taky, ale helper __name žije jen v
+        // Node procesu — v prohlížeči je nedefinovaný a evaluate spadne na
+        // ReferenceError dřív, než se k samotné kontrole vůbec dostane.
         const overflow = await page.evaluate((ids: string[]) => {
             const tolerancePx = 2;
+
+            const targets: Array<
+                { readonly elementId: string; readonly el: Element } | { readonly missing: string }
+            > = [];
             for (const id of ids) {
                 const el = document.getElementById(id);
-                if (!el) {
-                    return { ok: false as const, reason: `missing #${id}` };
+                targets.push(el ? { elementId: `#${id}`, el } : { missing: `#${id}` });
+            }
+            for (const header of Array.from(document.querySelectorAll(".docHeader"))) {
+                const pageId = header.closest("[id]")?.id ?? "?";
+                targets.push({ elementId: `#${pageId} .docHeader`, el: header });
+            }
+
+            for (const target of targets) {
+                if ("missing" in target) {
+                    return { ok: false as const, reason: `missing ${target.missing}` };
                 }
-                const heightOverflowPx = el.scrollHeight - el.clientHeight;
+                const heightOverflowPx = target.el.scrollHeight - target.el.clientHeight;
                 if (heightOverflowPx > tolerancePx) {
                     return {
                         ok: false as const,
-                        contentId: id,
+                        elementId: target.elementId,
                         dimension: "height" as const,
                         overflowPx: heightOverflowPx,
                     };
                 }
-                const widthOverflowPx = el.scrollWidth - el.clientWidth;
+                const widthOverflowPx = target.el.scrollWidth - target.el.clientWidth;
                 if (widthOverflowPx > tolerancePx) {
                     return {
                         ok: false as const,
-                        contentId: id,
+                        elementId: target.elementId,
                         dimension: "width" as const,
                         overflowPx: widthOverflowPx,
                     };
                 }
             }
+
             return { ok: true as const };
         }, contentIds);
 
@@ -337,7 +363,7 @@ export async function renderPdf(vm: DocumentViewModel, opts: RenderPdfOptions): 
             throw new Error(
                 `PDF overflow: content does not fit A4 page. ${
                     "overflowPx" in overflow
-                        ? `contentId=${overflow.contentId} dimension=${overflow.dimension} overflowPx=${overflow.overflowPx}`
+                        ? `elementId=${overflow.elementId} dimension=${overflow.dimension} overflowPx=${overflow.overflowPx}`
                         : overflow.reason
                 }`,
             );

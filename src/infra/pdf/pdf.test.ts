@@ -10,6 +10,7 @@ import {
   createPdfRendererFixtureProject,
   createPdfRendererFixtureRoot,
 } from "./pdfRendererFixture.js";
+import type { PdfContact } from "./template.js";
 
 /**
  * Jména fontů vložených do PDF. Chromium je sází nekomprimovaně, takže se dají
@@ -133,6 +134,34 @@ describe("PDF export", () => {
       expect(fonts.join(" ")).toContain("Space-Grotesk");
       expect(fonts.join(" ")).toContain("IBMPlexMono");
       expect(fonts.join(" ")).not.toContain("Arial");
+    } finally {
+      await fs.rm(tmpRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects when the header contact line overflows", { timeout: 60000 }, async (ctx) => {
+    if (!chromiumAvailable) {
+      ctx.skip();
+    }
+
+    // .docHeader__contact je nowrap a bez šířkového omezení; #content/#content2
+    // ho ale neměří, protože je jejich sourozenec, ne potomek. Kontakt je tu
+    // schválně o mnoho znaků delší, než hlavička kdy unese — test má ověřit,
+    // že se přetečení vůbec chytí, ne kde přesně leží hranice.
+    const tmpRoot = await createPdfRendererFixtureRoot();
+
+    try {
+      const repo = await loadRepository({ userDataRoot: tmpRoot });
+      const project = createPdfRendererFixtureProject("stageplan-header-overflow");
+
+      const vm = buildDocument(project, repo);
+      const outFile = path.join(tmpRoot, "header-overflow.pdf");
+      const contact: PdfContact = {
+        text: `Kontaktní osoba · ${"Velmi Dlouhé Jméno ".repeat(10)}· + 420 123 456 789`,
+        email: "velmi.dlouha.emailova.adresa.pro.test@example.com",
+      };
+
+      await expect(renderPdf(vm, { outFile, contact })).rejects.toThrow(/PDF overflow/);
     } finally {
       await fs.rm(tmpRoot, { recursive: true, force: true });
     }
