@@ -131,6 +131,12 @@ describe("pdf stageplan identity", () => {
   it("refuses to wrap a bullet, and shows it when the text still overflows (R11)", () => {
     // Po R3 je box na svůj nejdelší řádek stavěný, takže zalomit nemá co.
     // Kdyby přesto přeteklo, má to být vidět — overflow: hidden se nezavádí.
+    // .stageplanBoxHeader patří do stejné hlídky: je to jediný řádek boxu,
+    // kde by 0,05 px navíc nebylo neviditelné přetečení jako u ostatních
+    // řádků, ale celý řádek (10 pt) navíc, protože se zalomí.
+    expect(pdfStyles).toMatch(
+      /\.stageplanBoxHeader\s*\{[^}]*white-space:\s*nowrap/,
+    );
     expect(pdfStyles).toMatch(
       /\.stageplanBoxLine\s*\{[^}]*white-space:\s*nowrap/,
     );

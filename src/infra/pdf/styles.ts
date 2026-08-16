@@ -381,6 +381,10 @@ body {
   margin: 0;
   padding-top: 0;
   text-align: center;
+  /* Jediný řádek boxu bez nowrap byl slepá skvrna: 0,05 px navíc tu není
+     stejná sub-pixelová chyba jako u ostatních řádků, ale plný řádek navíc
+     (10 pt), protože model počítá s jedním řádkem nadpisu (R3). */
+  white-space: nowrap;
 }
 
 /* Řádek role pod jménem: týž řez jako popisek pódia, jen uvnitř boxu (R9).
