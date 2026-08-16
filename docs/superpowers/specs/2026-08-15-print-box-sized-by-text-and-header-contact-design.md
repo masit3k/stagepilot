@@ -3,7 +3,7 @@
 **Fáze:** F7
 **Datum:** 2026-08-15
 **Předchůdci:** F5b (`2026-08-13-pdf-reads-stageplan-layout-design.md`), F6 (`2026-08-13-editor-flow-block-content-and-ui-language-design.md`)
-**Stav:** návrh
+**Stav:** schváleno k implementaci
 
 ## Kontext
 
@@ -367,3 +367,47 @@ kvůli jednomu koncertu tak neovlivní ostatní dokumenty té kapely.
 
 Zamítnuto: editovat rovnou šablonu kapely (špatná úroveň pro jednorázovou poznámku) a
 zrušit krok `02` (poznámky by zůstaly navždy needitovatelné).
+
+## Stav implementace
+
+**Hotovo** v commitech `16f05ef`…`8d8c9d3` (viz `docs/design/rebranding-roadmap.md`). Rozhodnutí
+R1, R2, R4, R5 a R7–R15 platí beze změny. Čtyři rozhodnutí se za běhu odchýlila od doslovného
+znění výše — tři review zpřesnilo proti reálným datům a reálnému renderu, čtvrté je oprava
+předpokladu, který spec vůbec nepředvídal.
+
+### R3 — vzorec počítal s odsazením, ne s vlastním rámečkem boxu
+
+`* { box-sizing: border-box }` znamená, že zadaná šířka a výška boxu je jeho **vnější** rozměr —
+rámeček se z ní ukrajuje stejně jako padding. Vzorec v R3 výše počítal `2·pad`, ale ne
+`2·rámeček`, takže obsahu zbylo o 2 px míň místa, než model tvrdil, a v reálném projektu
+přeteklo sedm odrážek. Obě osy teď rezervují navíc `2 × borderPx`, čtené ze stejné konstanty
+(`containerBorderPx` v `src/infra/pdf/sections/stageplan.ts`), kterou používá i CSS boxu — z
+téhož důvodu, proč je v R3 sdílená: dvě jedničky by se dřív nebo později rozešly.
+
+### R16, kontrola 1 — přesná rovnost 0,05 px je z konstrukce nesplnitelná
+
+Spec žádal shodu tabulky s Chromiem do 0,05 px. Chromium ale při sazbě kvantuje šířku každého
+glyfu na 1/64 px, kdežto tabulka sčítá nekvantované zlomky — rozdíl s délkou řetězce roste a
+přesná rovnost proto není splnitelná, ať je font sebepřesněji změřený. Naměřeno: tabulka vždy
+**nadhodnocuje**, o 0,019–0,060 %. Kontrola se místo rovnosti ptá na vlastnost, která dokument
+skutečně chrání: podhodnocení (tabulka tvrdí, že je text užší, než ho Chromium vysází) zůstává
+tvrdé na 0,05 px, protože přesně tahle chyba uřízne konec čísla kanálu; nadhodnocení smí být až
+0,2 % + 0,05 px, protože nanejvýš zbytečně nafoukne box. **Tahle odchylka nebyla zapsaná
+nikde** — je to jediné nezdokumentované rozhodnutí celé fáze.
+
+### R6 — odhad poklesu měřítka počítal s Arialem, ne se skutečným písmem
+
+Číslo ~12,54 mm/m v R6 výše vzniklo z dokumentu vysázeného Arialem (viz předpoklad níže) — tedy
+z dokumentu, který po opravě chybějícího `file://` původu už neexistuje. Skutečné měřítko se
+Space Grotesk vyšlo na **12,7864 mm/m**. Autoritou jsou smoke kontroly a reálné rendery, ne
+tenhle dopočet z jiného písma.
+
+### Předpoklad, který spec nepředvídal — renderer nikdy nenačetl vlastní fonty
+
+`page.setContent` nechává dokument na `about:blank`, a Chromium z jiného než `file://` původu
+tiše odmítne `@font-face` soubory — takže každé PDF, které aplikace kdy vyexportovala, neslo
+Arial, a typografie F4 se na papír nikdy nedostala. Oprava (`setPdfPageContent` v
+`src/infra/pdf/pdf.ts`) nechá stránku navigovat na `baseHref` ještě před zápisem obsahu, čímž jí
+zůstane souborový původ i po `document.open()`; k tomu přibyla pojistka, která hodí výjimku, když
+se brandová rodina fontu nenačte, a test, který čte fonty skutečně vložené do vyrenderovaného
+PDF.
