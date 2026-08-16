@@ -114,9 +114,10 @@ describe("default arrangement stays printable", () => {
   it("throws when the zones are apart but the printed boxes overlap", () => {
     // Přesně ten případ, kdy má pojistka zůstat: zóny 1×1 m jsou 1,5 m od
     // sebe (mezera i s rezervou na měřítko), takže samy o sobě nikdy
-    // nekolidují. Box ale roste na minimální šířku (R3, ~36,26 mm) a při
-    // téhle vzdálenosti se dva takové boxy překryjí — to je artefakt textu,
-    // ne stav uložený v rozmístění, a export na něm musí spadnout.
+    // nekolidují. Box po R3 roste podle svého textu, ne podle podlahy — s
+    // reálným obsahem (bicí i basa mají odrážky) na tuhle vzdálenost nevejde:
+    // to je artefakt textu, ne stav uložený v rozmístění, a export na něm
+    // musí spadnout.
     const layout = {
       stage: { widthM: 10, depthM: 6 },
       blocks: [
@@ -139,9 +140,17 @@ describe("default arrangement stays printable", () => {
       ],
     };
 
-    expect(() => buildStageplanPlan(minimalStageplan(layout))).toThrow(
-      /collision: drums × bass/,
-    );
+    expect(() =>
+      buildStageplanPlan({
+        ...minimalStageplan(layout),
+        inputs: [
+          { channelNo: 1, label: "Kick", group: "drums" },
+          { channelNo: 2, label: "Snare", group: "drums" },
+          { channelNo: 3, label: "Hi-hat", group: "drums" },
+          { channelNo: 5, label: "Bass DI", group: "bass" },
+        ],
+      }),
+    ).toThrow(/collision: drums × bass/);
   });
 
   it("prints a block pushed to the legal edge of the stage", () => {

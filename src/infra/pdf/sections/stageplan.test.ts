@@ -8,6 +8,7 @@ import {
   buildDefaultLayout,
 } from "../../../domain/stageplan/layout/defaultLayout.js";
 import { STAGEPLAN_BLOCK_SLOTS } from "../../../domain/stageplan/layout/slots.js";
+import { computePrintFootprintMm } from "../../../domain/stageplan/print/printFootprint.js";
 import { resolvePrintScale } from "../../../domain/stageplan/print/printScale.js";
 import { loadRepository } from "../../fs/repo.js";
 import { pdfLayout } from "../layout.js";
@@ -34,6 +35,17 @@ function emptyStageplan(
     powerByRole: {},
   };
 }
+
+/** Box, který vyjde z prázdného lineupu: hlavička a nic dalšího. */
+const emptyDrumsBox = {
+  header: "DRUMS",
+  hasBandLeaderLine: false,
+  inputBullets: [],
+  monitorBullets: [],
+  extraBullets: ["Drum riser 3x2"],
+  hasPowerBadge: false,
+  powerBadgeText: "",
+};
 
 describe("stageplan print geometry", () => {
   it("keeps the print area derived from the page mirror", () => {
@@ -73,19 +85,55 @@ describe("stageplan print geometry", () => {
     const box = plan.boxes[0];
     expect(box?.slot).toBe("drums");
     expect(box?.rotationDeg).toBe(30);
-    // Jediný blok je 2,8 m široký, takže rezerva na přesah shodí měřítko jen
-    // o toleranci (12 + 0,4 m), ne o dorůstání zóny na minimální šířku:
-    // 162,5375 / 12,4 = 13,1079 mm/m; 2,8 × 13,1079 = 36,702 mm.
-    expect(box?.widthMm).toBeCloseTo(36.702, 2);
-    // Střed 6 m × 13,1079 = 78,647 mm; levý horní roh je o půl šířky vlevo.
+    // Box je široký podle svého textu, ne podle zóny (R3): prázdný lineup dá
+    // hlavičku "DRUMS" a nic víc.
+    expect(box?.widthMm).toBeCloseTo(
+      computePrintFootprintMm({
+        box: { ...emptyDrumsBox },
+        typography: stageplanPrintGeometry.typography,
+      }).widthMm,
+      3,
+    );
+    // Poloha středu na měřítku pořád závisí — spočítej ho z aktuálního plánu,
+    // ne z opsaného čísla, které by se rozešlo s další změnou stopy.
+    const mmPerM = plan.stage.widthMm / NOMINAL_STAGE.widthM;
     expect((box?.xMm ?? 0) + (box?.widthMm ?? 0) / 2).toBeCloseTo(
-      78.647 + plan.stage.xMm,
+      6 * mmPerM + plan.stage.xMm,
       2,
     );
-    // Osa y roste od upstage hrany k publiku (R4): 1,2 m = 15,729 mm.
+    // Osa y roste od upstage hrany k publiku (R4).
     expect(
       (box?.yMm ?? 0) + (box?.heightMm ?? 0) / 2 - plan.stage.yMm,
-    ).toBeCloseTo(15.729, 2);
+    ).toBeCloseTo(1.2 * mmPerM, 2);
+  });
+
+  it("pads the box symmetrically and lifts the power row off the bullets", () => {
+    const plan = buildStageplanPlan(
+      emptyStageplan({
+        stage: null,
+        blocks: [
+          {
+            slot: "drums",
+            centerXM: 6,
+            centerYM: 4,
+            widthM: 2.8,
+            depthM: 1.6,
+            rotationDeg: 0,
+          },
+        ],
+      }),
+    );
+
+    const lineMm =
+      (plan.typography.fontSizePt * plan.typography.lineHeight * 25.4) / 72;
+    const padMm = (plan.typography.padPt * 25.4) / 72;
+    const titleGapMm = (plan.typography.titleGapPt * 25.4) / 72;
+
+    // Hlavička + mezera + jedna odrážka (Drum riser), odsazení 6 pt nahoře i dole.
+    expect(plan.boxes[0]?.heightMm).toBeCloseTo(
+      2 * padMm + lineMm + titleGapMm + lineMm,
+      4,
+    );
   });
 
   it("refuses to print a block that pushes the container past the mirror", () => {
@@ -149,13 +197,14 @@ describe("stageplan print geometry", () => {
   });
 
   it("refuses to print blocks whose boxes overlap even though their zones do not", () => {
-    // Finding 1: zóny 1,5 × 1,5 m jsou 2 m od sebe (osa X), takže samy o
-    // sobě nekolidují. Box ale roste na minimální šířku 36,26 mm (R3) a při
-    // téhle vzdálenosti (~23,2 mm) se dva takové boxy překryjí — artefakt
+    // Finding 1: zóny 1,5 × 1,5 m jsou 1,8 m od sebe (osa X), takže samy o
+    // sobě nekolidují. Box po R3 roste podle svého textu, ne podle podlahy
+    // (minBoxWidthMm už šířku netáhne) — proto mu dáváme reálný obsah (pár
+    // odrážek u bicích i basy), aby na tuhle vzdálenost nevešel: artefakt
     // textu, ne stav uložený v rozmístění, a export na něm musí spadnout.
     expect(() =>
-      buildStageplanPlan(
-        emptyStageplan({
+      buildStageplanPlan({
+        ...emptyStageplan({
           stage: null,
           blocks: [
             {
@@ -168,7 +217,7 @@ describe("stageplan print geometry", () => {
             },
             {
               slot: "bass",
-              centerXM: 7,
+              centerXM: 6.8,
               centerYM: 4,
               widthM: 1.5,
               depthM: 1.5,
@@ -176,7 +225,13 @@ describe("stageplan print geometry", () => {
             },
           ],
         }),
-      ),
+        inputs: [
+          { channelNo: 1, label: "Kick", group: "drums" },
+          { channelNo: 2, label: "Snare", group: "drums" },
+          { channelNo: 3, label: "Hi-hat", group: "drums" },
+          { channelNo: 5, label: "Bass DI", group: "bass" },
+        ],
+      }),
     ).toThrow(
       /collision: drums × bass\. Blocks overlap on paper — rearrange them in the editor\./,
     );

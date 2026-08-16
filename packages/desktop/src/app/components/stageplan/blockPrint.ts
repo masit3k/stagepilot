@@ -1,6 +1,5 @@
 import type { StageplanBlock } from "../../../../../../src/domain/model/types";
 import type { StageplanPrintBox } from "../../../../../../src/domain/pipeline/pdf/buildPdfStageplanPrintModel";
-import { countStageplanBoxLines } from "../../../../../../src/domain/pipeline/pdf/countStageplanBoxLines";
 import { computePrintFootprintMm } from "../../../../../../src/domain/stageplan/print/printFootprint";
 import type { StageplanPrintGeometry } from "../../../../../../src/domain/stageplan/print/printMetrics";
 import type { PrintScale } from "../../../../../../src/domain/stageplan/print/printScale";
@@ -17,8 +16,8 @@ export type BlockPrint = {
  * Co se o bloku dá říct z tiskového modelu. Jediné místo, které tiskovou stopu
  * v editoru počítá — plocha i panel čtou odsud, aby si nemohly odpovídat jinak.
  *
- * Počet řádků se nepřenáší po IPC, dopočítá se `countStageplanBoxLines`, tedy
- * tou samou funkcí, jakou používá renderer (R4).
+ * Celý box se nepřenáší po IPC jako rozměr, ale jako text; stopu z něj počítá
+ * `computePrintFootprintMm`, tedy tatáž funkce, jakou používá renderer (R4).
  */
 export function resolveBlockPrint(args: {
   readonly block: StageplanBlock;
@@ -31,10 +30,7 @@ export function resolveBlockPrint(args: {
   if (!box) return null;
 
   const footprint = computePrintFootprintMm({
-    lineCount: countStageplanBoxLines(box),
-    hasPower: box.hasPowerBadge,
-    zone: block,
-    mmPerM: scale.mmPerM,
+    box,
     typography: geometry.typography,
   });
 

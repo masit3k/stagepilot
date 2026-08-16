@@ -16,7 +16,8 @@ const TYPOGRAPHY = {
   roleFontSizePt: 7.2,
   roleTrackingEm: 0.14,
   titleGapPt: 6,
-  padBottomPt: 2,
+  padPt: 6,
+  bulletSpacingPx: 4,
   minBoxWidthMm: MIN_BOX_WIDTH_MM,
 };
 
@@ -95,12 +96,8 @@ describe("resolveBlockPrint", () => {
       extraBullets: [],
       hasPowerBadge: true,
     });
-    // 2 input + 1 monitor + 1 mezera (obě skupiny neprázdné) = 4 řádky.
     const expectedMm = computePrintFootprintMm({
-      lineCount: 4,
-      hasPower: true,
-      zone,
-      mmPerM: scale.mmPerM,
+      box: printBox,
       typography: TYPOGRAPHY,
     });
     // Bez rozdílu os by test prohození `widthM`/`depthM` nezachytil.

@@ -1,93 +1,227 @@
 import { describe, expect, it } from "vitest";
+import { STAGEPLAN_BAND_LEADER_LINE } from "../../formatters/stageplan.js";
 import {
+  type PrintBoxText,
   type PrintTypography,
   computePrintFootprintMm,
 } from "./printFootprint.js";
+import { measurePrintTextMm } from "./textWidth.js";
 
-/** Skutečná tisková typografie strany 2 — 8 pt je dnešní dolní řada. */
+/** Skutečná tisková typografie strany 2 po F7. */
 const TYPOGRAPHY: PrintTypography = {
   fontSizePt: 8,
   lineHeight: 1.25,
   roleFontSizePt: 7.2,
   roleTrackingEm: 0.14,
   titleGapPt: 6,
-  padBottomPt: 2,
+  padPt: 6,
+  bulletSpacingPx: 4,
   minBoxWidthMm: 36.2594,
 };
 
-/** Nominální pódium 12 × 8 m na ploše 162,5375 mm. */
-const MM_PER_M = 13.5448;
+const MM_PER_PT = 25.4 / 72;
+const MM_PER_PX = 25.4 / 96;
+const LINE_MM = 8 * 1.25 * MM_PER_PT; // 3,52778
+const PAD_MM = 6 * MM_PER_PT; // 2,11667
+const TITLE_GAP_MM = 6 * MM_PER_PT;
 
-describe("computePrintFootprintMm", () => {
-  it("grows the drums box beyond its zone because the text needs the room", () => {
+function bulletWidthMm(text: string): number {
+  return (
+    measurePrintTextMm({ text: "•", style: "boxBody", fontSizePt: 8 }) +
+    4 * MM_PER_PX +
+    measurePrintTextMm({ text, style: "boxBody", fontSizePt: 8 })
+  );
+}
+
+function box(overrides: Partial<PrintBoxText> = {}): PrintBoxText {
+  return {
+    header: "BASS – MATĚJ",
+    hasBandLeaderLine: false,
+    inputBullets: [],
+    monitorBullets: [],
+    extraBullets: [],
+    hasPowerBadge: false,
+    powerBadgeText: "",
+    ...overrides,
+  };
+}
+
+describe("computePrintFootprintMm — výška", () => {
+  it("is header plus symmetric padding for a box with nothing else", () => {
     const footprint = computePrintFootprintMm({
-      lineCount: 8,
-      hasPower: true,
-      zone: { widthM: 2.8, depthM: 1.6 },
-      mmPerM: MM_PER_M,
+      box: box(),
       typography: TYPOGRAPHY,
     });
 
-    expect(footprint.widthMm).toBeCloseTo(37.925, 2);
-    // Zóna dá 21,67 mm, text potřebuje 40,22 mm — vítězí text (R1).
-    expect(footprint.heightMm).toBeCloseTo(40.217, 2);
+    expect(footprint.heightMm).toBeCloseTo(2 * PAD_MM + LINE_MM, 4);
   });
 
-  it("lifts a narrow zone to the minimum readable width", () => {
-    const footprint = computePrintFootprintMm({
-      lineCount: 3,
-      hasPower: false,
-      zone: { widthM: 2.6, depthM: 1.2 },
-      mmPerM: MM_PER_M,
+  it("adds one box line for the band leader row, with no gap above it", () => {
+    const plain = computePrintFootprintMm({
+      box: box(),
+      typography: TYPOGRAPHY,
+    });
+    const leader = computePrintFootprintMm({
+      box: box({ hasBandLeaderLine: true }),
       typography: TYPOGRAPHY,
     });
 
-    // 2,6 m dá 35,22 mm, což je pod prověřenou šířkou 36,26 mm (R3).
-    expect(footprint.widthMm).toBeCloseTo(36.2594, 3);
-    expect(footprint.heightMm).toBeCloseTo(19.05, 2);
+    expect(leader.heightMm - plain.heightMm).toBeCloseTo(LINE_MM, 6);
   });
 
-  it("keeps the zone when the text fits inside it", () => {
-    const footprint = computePrintFootprintMm({
-      lineCount: 1,
-      hasPower: false,
-      zone: { widthM: 2.8, depthM: 1.6 },
-      mmPerM: MM_PER_M,
+  it("adds the gap below the header only when the box has bullets", () => {
+    const bare = computePrintFootprintMm({
+      box: box(),
+      typography: TYPOGRAPHY,
+    });
+    const withBullets = computePrintFootprintMm({
+      box: box({ inputBullets: ["Bass DI (5)"] }),
       typography: TYPOGRAPHY,
     });
 
-    expect(footprint.heightMm).toBeCloseTo(21.672, 2);
+    expect(withBullets.heightMm - bare.heightMm).toBeCloseTo(
+      TITLE_GAP_MM + LINE_MM,
+      6,
+    );
   });
 
-  it("skips the gap below the header when the box has no bullets", () => {
-    const footprint = computePrintFootprintMm({
-      lineCount: 0,
-      hasPower: false,
-      zone: { widthM: 0.1, depthM: 0.1 },
-      mmPerM: MM_PER_M,
+  it("counts the separator line between two non-empty bullet groups", () => {
+    const oneGroup = computePrintFootprintMm({
+      box: box({ inputBullets: ["a", "b"] }),
+      typography: TYPOGRAPHY,
+    });
+    const twoGroups = computePrintFootprintMm({
+      box: box({ inputBullets: ["a"], monitorBullets: ["b"] }),
       typography: TYPOGRAPHY,
     });
 
-    // titleGap + hlavička + padBottom, žádná mezera pod hlavičkou.
-    expect(footprint.heightMm).toBeCloseTo(6.35, 2);
+    expect(twoGroups.heightMm - oneGroup.heightMm).toBeCloseTo(LINE_MM, 6);
   });
 
-  it("counts the power line in the height", () => {
-    const withPower = computePrintFootprintMm({
-      lineCount: 2,
-      hasPower: true,
-      zone: { widthM: 0.1, depthM: 0.1 },
-      mmPerM: MM_PER_M,
-      typography: TYPOGRAPHY,
-    });
+  it("gives the power row a full empty line above it (R8)", () => {
     const withoutPower = computePrintFootprintMm({
-      lineCount: 2,
-      hasPower: false,
-      zone: { widthM: 0.1, depthM: 0.1 },
-      mmPerM: MM_PER_M,
+      box: box({ inputBullets: ["a", "b"] }),
+      typography: TYPOGRAPHY,
+    });
+    const withPower = computePrintFootprintMm({
+      box: box({
+        inputBullets: ["a", "b"],
+        hasPowerBadge: true,
+        powerBadgeText: "1x 230V",
+      }),
       typography: TYPOGRAPHY,
     });
 
-    expect(withPower.heightMm - withoutPower.heightMm).toBeCloseTo(3.5278, 3);
+    // Mezera je stejně vysoká jako mezera mezi skupinami odrážek — napájení je
+    // samostatná informace, ne pokračování poslední odrážky.
+    expect(withPower.heightMm - withoutPower.heightMm).toBeCloseTo(
+      2 * LINE_MM,
+      6,
+    );
+  });
+
+  it("ignores the zone entirely — a huge zone does not make the box taller", () => {
+    // Kdyby zóna do stopy pořád vstupovala, tenhle test by neměl co ověřit:
+    // funkce už zónu ani nepřijímá. Test drží podpis (R3).
+    const footprint = computePrintFootprintMm({
+      box: box({ inputBullets: ["a"] }),
+      typography: TYPOGRAPHY,
+    });
+
+    expect(footprint.heightMm).toBeCloseTo(
+      2 * PAD_MM + LINE_MM + TITLE_GAP_MM + LINE_MM,
+      4,
+    );
+  });
+});
+
+describe("computePrintFootprintMm — šířka", () => {
+  it("is set by the longest bullet, bullet glyph and spacing included", () => {
+    const footprint = computePrintFootprintMm({
+      box: box({
+        header: "BASS",
+        inputBullets: ["Electric bass guitar (12)"],
+        monitorBullets: ["IEM (3)"],
+      }),
+      typography: TYPOGRAPHY,
+    });
+
+    expect(footprint.widthMm).toBeCloseTo(
+      2 * PAD_MM + bulletWidthMm("Electric bass guitar (12)"),
+      6,
+    );
+    // Zdravý rozum: dnešní box je 36,3 mm široký, tenhle má být širší, ale ne
+    // absurdně — kdyby tabulka šířek byla nesmysl, tohle to chytí.
+    expect(footprint.widthMm).toBeGreaterThan(30);
+    expect(footprint.widthMm).toBeLessThan(60);
+  });
+
+  it("lets a long header win over short bullets", () => {
+    const footprint = computePrintFootprintMm({
+      box: box({ header: "LEAD VOC – ELIŠKA", inputBullets: ["A (1)"] }),
+      typography: TYPOGRAPHY,
+    });
+
+    expect(footprint.widthMm).toBeCloseTo(
+      2 * PAD_MM +
+        measurePrintTextMm({
+          text: "LEAD VOC – ELIŠKA",
+          style: "boxHeader",
+          fontSizePt: 8,
+        }),
+      6,
+    );
+  });
+
+  it("lets the power row win when it is the longest line", () => {
+    const footprint = computePrintFootprintMm({
+      box: box({
+        header: "KEYS",
+        hasPowerBadge: true,
+        powerBadgeText: "2x 230V + prodlužovačka",
+      }),
+      typography: TYPOGRAPHY,
+    });
+
+    expect(footprint.widthMm).toBeCloseTo(
+      2 * PAD_MM +
+        measurePrintTextMm({
+          text: "2x 230V + prodlužovačka",
+          style: "boxPower",
+          fontSizePt: 8,
+        }),
+      6,
+    );
+  });
+
+  it("measures the band leader row in the mono cut, tracking included", () => {
+    const footprint = computePrintFootprintMm({
+      box: box({ header: "BASS", hasBandLeaderLine: true }),
+      typography: TYPOGRAPHY,
+    });
+
+    expect(footprint.widthMm).toBeCloseTo(
+      2 * PAD_MM +
+        measurePrintTextMm({
+          text: STAGEPLAN_BAND_LEADER_LINE,
+          style: "boxRole",
+          fontSizePt: 7.2,
+          trackingEm: 0.14,
+        }),
+      6,
+    );
+  });
+
+  it("ignores the power text when the box has no power row", () => {
+    const footprint = computePrintFootprintMm({
+      box: box({ header: "BASS", powerBadgeText: "tenhle text se netiskne" }),
+      typography: TYPOGRAPHY,
+    });
+
+    expect(footprint.widthMm).toBeCloseTo(
+      2 * PAD_MM +
+        measurePrintTextMm({ text: "BASS", style: "boxHeader", fontSizePt: 8 }),
+      6,
+    );
   });
 });

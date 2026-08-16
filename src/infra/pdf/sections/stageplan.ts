@@ -8,7 +8,6 @@ import {
   type StageplanPrintBox,
   buildPdfStageplanPrintModel,
 } from "../../../domain/pipeline/pdf/buildPdfStageplanPrintModel.js";
-import { countStageplanBoxLines } from "../../../domain/pipeline/pdf/countStageplanBoxLines.js";
 import {
   type PrintRect,
   findPrintCollisions,
@@ -89,7 +88,11 @@ const printTypography: PrintTypography = {
   roleFontSizePt: parsePt(pdfLayout.typography.tableHead.size),
   roleTrackingEm: Number.parseFloat(pdfLayout.typography.tableHead.tracking),
   titleGapPt: 6,
-  padBottomPt: parsePt(pdfLayout.table.padY),
+  // R7: jedna hodnota na všechny čtyři strany. Dřívější dolní odsazení
+  // pocházelo z table.padY, tedy z odsazení řádku tabulky — jiné veličiny,
+  // která do tiskového boxu nepatří.
+  padPt: 6,
+  bulletSpacingPx,
   minBoxWidthMm,
 };
 
@@ -113,8 +116,10 @@ export const stageplanLayout = {
   boxRoleTracking: pdfLayout.typography.tableHead.tracking,
   padX: pdfLayout.table.padX,
   padY: pdfLayout.table.padY,
+  boxPad: `${printTypography.padPt}pt`,
   boxTitleGap: `${printTypography.titleGapPt}pt`,
-  boxPaddingBottom: `${printTypography.padBottomPt}pt`,
+  /** Dočasné: CSS boxu se srovná s modelem až v Tasku 6 (R7). */
+  boxPaddingBottom: pdfLayout.table.padY,
   textSize: `${printTypography.fontSizePt}pt`,
   textLineHeight: printTypography.lineHeight,
   /** Řádková výška boxu v bodech — CSS i stopa boxu musí říkat totéž. */
@@ -140,7 +145,7 @@ export type StageplanPlan = {
     readonly heightMm: number;
     readonly caption: string | null;
   };
-  readonly typography: PrintTypography & { readonly bulletSpacingPx: number };
+  readonly typography: PrintTypography;
   readonly boxes: readonly StageplanBoxPlan[];
 };
 
@@ -220,15 +225,21 @@ export function buildStageplanPlan(
     minBoxWidthMm: printTypography.minBoxWidthMm,
   });
 
+  const footprintBySlot = new Map(
+    vm.layout.blocks.map((block) => [
+      block.slot,
+      computePrintFootprintMm({
+        box: printModel.boxesBySlot[block.slot],
+        typography: printTypography,
+      }),
+    ]),
+  );
+
   const rects: PrintRect[] = vm.layout.blocks.map((block) => {
-    const printBox = printModel.boxesBySlot[block.slot];
-    const footprint = computePrintFootprintMm({
-      lineCount: countStageplanBoxLines(printBox),
-      hasPower: printBox.hasPowerBadge,
-      zone: block,
-      mmPerM: scale.mmPerM,
-      typography: printTypography,
-    });
+    const footprint = footprintBySlot.get(block.slot);
+    if (!footprint) {
+      throw new Error(`Missing print footprint for block ${block.slot}`);
+    }
 
     return {
       slot: block.slot,
@@ -303,7 +314,7 @@ export function buildStageplanPlan(
       heightMm: scale.planHeightMm,
       caption: formatStageCaption(vm.layout.stage),
     },
-    typography: { ...printTypography, bulletSpacingPx },
+    typography: printTypography,
     boxes: rects.map((rect) => {
       const printBox = printModel.boxesBySlot[rect.slot];
       return {
