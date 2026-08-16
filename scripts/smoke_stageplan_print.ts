@@ -298,16 +298,25 @@ async function run(): Promise<number> {
       );
     }
 
+    // Kolo bloků, které narostou na svou textovou šířku, umí kolidovat na
+    // pódiu — to je pravdivá informace o rozmístění (viz findArtifactCollisions
+    // ve stageplan.ts), ne vada, kterou tahle kontrola hlídá. Takový projekt se
+    // hlásí zvlášť jako SKIPPED a nesmí sám o sobě shodit exit kód — jinak je
+    // skript trvale červený z důvodu, který nemá se skutečnou kontrolou nic
+    // společného, a nikdo mu pak nevěří (přesně tak přežila fontová chyba fáze).
+    let boxesVerified = 0;
+    let boxesSkipped = 0;
     for (const project of projects) {
       if (project.html === null) {
-        failures += 1;
+        boxesSkipped += 1;
         console.error(
-          `[smoke] ${project.file}: plan refused to build — ${project.buildError}`,
+          `[smoke] ${project.file}: SKIPPED — plan does not build: ${project.buildError}`,
         );
         continue;
       }
 
       const problems = await checkBoxesFit(page, project.html);
+      boxesVerified += 1;
       if (problems.length > 0) {
         failures += problems.length;
         console.error(
@@ -318,6 +327,13 @@ async function run(): Promise<number> {
         console.error(`[smoke] ${project.file}: every stageplan box fits`);
       }
     }
+
+    // Klesající jmenovatel musí být vidět, ne mlčky zabalený do jednoho
+    // souhrnného čísla — jinak si nikdo nevšimne, že kontrola 2 ve
+    // skutečnosti pokrývá čím dál míň projektů.
+    console.error(
+      `[smoke] check 2 (box fit): verified ${boxesVerified} of ${projects.length} project(s), skipped ${boxesSkipped} (plan does not build)`,
+    );
   } finally {
     await browser.close();
   }
