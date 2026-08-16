@@ -114,7 +114,7 @@ ${bodies}
 }
 
 async function measureAllStyles(page: Page): Promise<StyleTables> {
-  return (await page.evaluate(
+  return await page.evaluate(
     async (args) => {
       const probe = document.createElement("span");
       probe.className = "probe";
@@ -146,7 +146,7 @@ async function measureAllStyles(page: Page): Promise<StyleTables> {
       corpus: CORPUS,
       fontPx: MEASURE_FONT_PX,
     },
-  )) as StyleTables;
+  );
 }
 
 function assertNoZeroWidth(tables: StyleTables): void {
