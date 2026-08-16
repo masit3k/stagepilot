@@ -357,13 +357,20 @@ body {
   transform-origin: center;
   border: 1px solid ${pdfTokens.ink};
   background: #fff;
-  padding: 0 ${stageplanLayout.padX} ${stageplanLayout.boxPaddingBottom};
-  padding-top: ${stageplanLayout.boxTitleGap};
+  /* R7: jedna hodnota na všech čtyřech stranách. Dolní odsazení dřív
+     pocházelo z table.padY, tedy z odsazení řádku tabulky — jiné veličiny. */
+  padding: ${stageplanLayout.boxPad};
   font-size: ${stageplanLayout.textSize};
   line-height: ${stageplanLayout.textLineHeight};
-  /* Bez overflow: hidden (Finding 3, F5b fix): R13 je vědomá mezera — box, který
-     přeteče, to má být vidět při vizuální kontrole PDF, ne potichu ztratit
-     poslední řádek, který sound engineerovi řekne, který kanál je čí. */
+  /* R2: bez kerningu a ligatur je součet šířek z glyphAdvances přesné číslo,
+     ne odhad. Tabulka je měřená po jednom znaku, takže je kerningu-prostá už
+     z konstrukce — tohle to dorovná i při sazbě. */
+  font-kerning: none;
+  font-variant-ligatures: none;
+  /* Vlastnost overflow zůstává výchozí (Finding 3, F5b fix): R11 je vědomá
+     mezera — box, který přeteče, to má být vidět při vizuální kontrole PDF,
+     ne potichu ztratit poslední řádek, který sound engineerovi řekne, který
+     kanál je čí. */
 }
 
 .stageplanBoxHeader {
@@ -393,8 +400,9 @@ body {
 .stageplanBoxLine {
   margin: 0;
   text-align: center;
-  white-space: normal;
-  word-break: break-word;
+  /* R11: po R3 je box na svůj nejdelší řádek stavěný, takže zalomit nemá co.
+     Zalomení pod odrážku dělalo z jedné odrážky dva řádky a přetékalo. */
+  white-space: nowrap;
 }
 
 .stageplanBoxLine .bullet {
@@ -402,8 +410,9 @@ body {
   margin-right: ${stageplanLayout.bulletSpacingPx}px;
 }
 
+/* Text se sází vedle odrážky, ne pod ni — proto inline, ne inline-block. */
 .stageplanBoxLine .text {
-  display: inline-block;
+  display: inline;
 }
 
 .stageplanGap {

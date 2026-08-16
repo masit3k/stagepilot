@@ -109,6 +109,39 @@ describe("pdf stageplan identity", () => {
       ),
     );
   });
+
+  it("turns off kerning and ligatures, so the width formula is exact (R2)", () => {
+    // Bez tohohle slepí Chromium dvojice znaků těsněji, než součet šířek z
+    // glyphAdvances tvrdí, a šířka boxu by byla odhad, ne číslo.
+    expect(pdfStyles).toMatch(/\.stageplanBox\s*\{[^}]*font-kerning:\s*none/);
+    expect(pdfStyles).toMatch(
+      /\.stageplanBox\s*\{[^}]*font-variant-ligatures:\s*none/,
+    );
+  });
+
+  it("pads the box with one value on all four sides (R7)", () => {
+    expect(pdfStyles).toMatch(
+      new RegExp(
+        `\\.stageplanBox\\s*\\{[^}]*padding:\\s*${escapeRegExp(stageplanLayout.boxPad)};`,
+      ),
+    );
+    expect(pdfStyles).not.toMatch(/\.stageplanBox\s*\{[^}]*padding-top:/);
+  });
+
+  it("refuses to wrap a bullet, and shows it when the text still overflows (R11)", () => {
+    // Po R3 je box na svůj nejdelší řádek stavěný, takže zalomit nemá co.
+    // Kdyby přesto přeteklo, má to být vidět — overflow: hidden se nezavádí.
+    expect(pdfStyles).toMatch(
+      /\.stageplanBoxLine\s*\{[^}]*white-space:\s*nowrap/,
+    );
+    expect(pdfStyles).not.toMatch(
+      /\.stageplanBoxLine\s*\{[^}]*word-break:\s*break-word/,
+    );
+    expect(pdfStyles).toMatch(
+      /\.stageplanBoxLine \.text\s*\{[^}]*display:\s*inline;/,
+    );
+    expect(pdfStyles).not.toMatch(/\.stageplanBox\s*\{[^}]*overflow:\s*hidden/);
+  });
 });
 
 describe("pdf header contact (R12)", () => {

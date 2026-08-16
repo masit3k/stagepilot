@@ -114,12 +114,8 @@ export const stageplanLayout = {
   captionTracking: pdfLayout.typography.tableHead.tracking,
   boxRoleSize: pdfLayout.typography.tableHead.size,
   boxRoleTracking: pdfLayout.typography.tableHead.tracking,
-  padX: pdfLayout.table.padX,
-  padY: pdfLayout.table.padY,
   boxPad: `${printTypography.padPt}pt`,
   boxTitleGap: `${printTypography.titleGapPt}pt`,
-  /** Dočasné: CSS boxu se srovná s modelem až v Tasku 6 (R7). */
-  boxPaddingBottom: pdfLayout.table.padY,
   textSize: `${printTypography.fontSizePt}pt`,
   textLineHeight: printTypography.lineHeight,
   /** Řádková výška boxu v bodech — CSS i stopa boxu musí říkat totéž. */
@@ -369,8 +365,10 @@ function renderBox(
       lines.push(`<div class="stageplanGap"></div>`);
     addBullets(box.extraBullets);
   }
-  // Napájení je řádek v toku, ne badge v rohu — výška boxu s ním počítá (R5).
+  // Napájení je řádek v toku, ne badge v rohu — a stojí za plnou mezerou,
+  // stejnou jako mezi skupinami odrážek (R8).
   if (box.hasPowerBadge) {
+    lines.push(`<div class="stageplanGap"></div>`);
     lines.push(`<div class="stageplanPower">${box.powerBadgeText}</div>`);
   }
 

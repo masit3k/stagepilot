@@ -50,9 +50,10 @@ function BulletGroup({ bullets }: { bullets: readonly string[] }) {
 }
 
 /**
- * Karta je tištěný box, zóna je obrys uvnitř (R3). Plný výpis se do karty
- * vejde vždy, protože tištěná stopa je `max(zóna, text)` — proto se sází do
- * karty, a ne do zóny.
+ * Karta je tištěný box, zóna je obrys uvnitř (R3). Po F7 kartu měří **jen
+ * text**, takže obrys zóny může ležet i vně karty: karta už nikdy neroste,
+ * aby zónu pohltila (R4). Právě to je viditelná zpětná vazba — zvětšení zóny,
+ * které tisk nepřevezme, je na první pohled poznat.
  *
  * Geometrie jde do `style` jako CSS proměnné, ne jako hotové deklarace —
  * vzhled zůstává v CSS, v komponentě je jen spočítané umístění.
@@ -125,7 +126,10 @@ export function StageBlock({
           ) : null}
           <BulletGroup bullets={box.extraBullets} />
           {box.hasPowerBadge ? (
-            <div className="stage-block__power">{box.powerBadgeText}</div>
+            <>
+              <div className="stage-block__gap" />
+              <div className="stage-block__power">{box.powerBadgeText}</div>
+            </>
           ) : null}
         </div>
       ) : null}

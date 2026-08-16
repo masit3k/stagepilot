@@ -139,6 +139,9 @@
   user-select: none;
   font-size: var(--block-font, 11px);
   line-height: 1.35;
+  /* Karta ukazuje totéž co papír, takže vypíná totéž (R2). */
+  font-kerning: none;
+  font-variant-ligatures: none;
   /* Pozice bez transition — jinak tažení drhne. Barvy ano. */
   transition: background-color 120ms ease-out, border-color 120ms ease-out;
 }

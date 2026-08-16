@@ -321,6 +321,33 @@ describe("stageplan print geometry", () => {
     expect(html).toContain('<div class="stageplanPower">1x 230V</div>');
   });
 
+  it("puts a full empty line above the power row (R8)", () => {
+    const html = renderStageplanSection({
+      stageplan: {
+        ...emptyStageplan({
+          stage: null,
+          blocks: [
+            {
+              slot: "keys",
+              centerXM: 6,
+              centerYM: 4,
+              widthM: 2.7,
+              depthM: 1.4,
+              rotationDeg: 0,
+            },
+          ],
+        }),
+        powerByRole: {
+          keys: { hasPowerBadge: true, powerBadgeText: "1x 230V" },
+        },
+      },
+    } as unknown as DocumentViewModel);
+
+    expect(html).toContain(
+      '<div class="stageplanGap"></div><div class="stageplanPower">1x 230V</div>',
+    );
+  });
+
   it("keeps the print scale width-bound, so the reservation cannot shrink the plan", () => {
     // Tvrzení, na kterém rezerva stojí: měřítko je min(šířková, výšková) mez a
     // váže ho šířka. Kdyby to přestalo platit, ubraná výška by plán zmenšila.
