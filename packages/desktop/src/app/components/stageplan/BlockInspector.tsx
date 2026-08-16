@@ -64,13 +64,7 @@ export function BlockInspector({
           {printedZone ? (
             <div className="stage-inspector__row">
               <span className="stage-inspector__label">PRINTED</span>
-              <span
-                className={`stage-inspector__value${
-                  printedZone.isBelowPrintFloor
-                    ? " stage-inspector__value--flagged"
-                    : ""
-                }`}
-              >
+              <span className="stage-inspector__value">
                 {formatZone(
                   printedZone.footprint.widthM,
                   printedZone.footprint.depthM,

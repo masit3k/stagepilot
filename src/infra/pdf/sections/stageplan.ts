@@ -20,6 +20,7 @@ import {
 import {
   type PrintScale,
   resolvePrintScale,
+  toPrintScaleBlock,
 } from "../../../domain/stageplan/print/printScale.js";
 import { parsePt, pdfChromeHeights, pdfLayout } from "../layout.js";
 import {
@@ -74,12 +75,6 @@ const areaHeightMm =
   2 * pxToMm(containerBorderPx) -
   ptToMm(captionHeightPt);
 
-/**
- * Šířka dnešního čtyřsloupcového boxu. Není to odhad — je to geometrie, o
- * které z dosavadního exportu víme, že se do ní odrážky při 8 pt vejdou (R3).
- */
-const minBoxWidthMm = (areaWidthMm - 2 * 2 - 3 * 4.5) / 4;
-
 const bulletSpacingPx = 4;
 
 const printTypography: PrintTypography = {
@@ -93,7 +88,6 @@ const printTypography: PrintTypography = {
   // která do tiskového boxu nepatří.
   padPt: 6,
   bulletSpacingPx,
-  minBoxWidthMm,
 };
 
 /** Co potřebuje editor, aby si tiskovou stopu spočítal stejnou funkcí (R12). */
@@ -214,13 +208,6 @@ export function buildStageplanPlan(
   const printModel = buildPdfStageplanPrintModel(vm, {
     hideMusicianNames: resolvedOptions.hideMusicianNames,
   });
-  const scale = resolvePrintScale({
-    stage: vm.layout.stage,
-    blocks: vm.layout.blocks,
-    area: stageplanPrintGeometry.area,
-    minBoxWidthMm: printTypography.minBoxWidthMm,
-  });
-
   const footprintBySlot = new Map(
     vm.layout.blocks.map((block) => [
       block.slot,
@@ -230,6 +217,20 @@ export function buildStageplanPlan(
       }),
     ]),
   );
+
+  // Stopa boxu na měřítku nezávisí (text se sází v bodech), takže se počítá
+  // první a měřítko ji bere jako vstup (R3, R6).
+  const scale = resolvePrintScale({
+    stage: vm.layout.stage,
+    blocks: vm.layout.blocks.map((block) => {
+      const footprint = footprintBySlot.get(block.slot);
+      if (!footprint) {
+        throw new Error(`Missing print footprint for block ${block.slot}`);
+      }
+      return toPrintScaleBlock({ zone: block, footprint });
+    }),
+    area: stageplanPrintGeometry.area,
+  });
 
   const rects: PrintRect[] = vm.layout.blocks.map((block) => {
     const footprint = footprintBySlot.get(block.slot);

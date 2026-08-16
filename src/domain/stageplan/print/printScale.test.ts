@@ -1,117 +1,109 @@
 import { describe, expect, it } from "vitest";
-import type { StageplanBlock } from "../../model/types.js";
 import { NOMINAL_STAGE } from "../layout/defaultLayout.js";
-import { rectAabbMm } from "./printCollisions.js";
-import { resolvePrintScale } from "./printScale.js";
+import {
+  type PrintScaleBlock,
+  resolvePrintScale,
+  toPrintScaleBlock,
+} from "./printScale.js";
 
-/** Skutečná tisková plocha strany 2 — stejná čísla, s jakými počítá renderer. */
-const AREA = { widthMm: 162.5375, heightMm: 202.0914 };
-const MIN_BOX_WIDTH_MM = 36.2594;
+/** Skutečná tisková plocha strany 2 po F7 (hlavička s kontaktem, bez vysvětlivky). */
+const AREA = { widthMm: 162.5375, heightMm: 197.1382 };
 
-function block(overrides: Partial<StageplanBlock> = {}): StageplanBlock {
+function scaleBlock(overrides: Partial<PrintScaleBlock> = {}): PrintScaleBlock {
   return {
-    slot: "lead_voc_1",
-    centerXM: 6,
-    centerYM: 5.5,
-    widthM: 2.6,
-    depthM: 1.2,
-    rotationDeg: 0,
+    zoneWidthM: 2.6,
+    zoneDepthM: 1.2,
+    boxWidthMm: 38.6,
+    boxHeightMm: 25,
     ...overrides,
   };
 }
 
 describe("resolvePrintScale", () => {
-  it("leaves room for the legal overhang and for a box wider than its zone", () => {
-    const scale = resolvePrintScale({
-      stage: null,
-      blocks: [block()],
-      area: AREA,
-      minBoxWidthMm: MIN_BOX_WIDTH_MM,
-    });
-
-    // Nominál 12 m + 2 × 20 cm tolerance, a nejužší zóna 2,6 m roste na 36,2594 mm:
-    // (162,5375 − 36,2594) / (12 + 0,4 − 2,6) = 12,8855 mm/m
-    expect(scale.mmPerM).toBeCloseTo(12.8855, 3);
-    expect(scale.planWidthMm).toBeCloseTo(154.626, 2);
-  });
-
-  it("keeps a block at the legal edge inside the print area", () => {
-    const scale = resolvePrintScale({
-      stage: null,
-      blocks: [block({ centerXM: 1.1 })],
-      area: AREA,
-      minBoxWidthMm: MIN_BOX_WIDTH_MM,
-    });
-
-    // Stejný union bbox, jaký sází kontejner v rendereru (R11): rám pódia
-    // 0..planWidthMm plus opsaný obdélník boxu. Zóna 2,6 m je pod podlahou,
-    // takže box na téhle šířce sedí přesně na MIN_BOX_WIDTH_MM.
-    const box = rectAabbMm({
-      slot: "lead_voc_1",
-      centerXMm: 1.1 * scale.mmPerM,
-      centerYMm: 0,
-      widthMm: MIN_BOX_WIDTH_MM,
-      heightMm: 1,
-      rotationDeg: 0,
-    });
-    const containerWidthMm =
-      Math.max(scale.planWidthMm, box.maxXMm) - Math.min(0, box.minXMm);
-
-    // Reálná rezerva, ne poslední platná číslice: přesah je jednostranný
-    // (jen doleva), takže kontejneru zůstává ~4 mm místa navíc, ne 0.
-    expect(containerWidthMm).toBeLessThan(AREA.widthMm);
-    expect(AREA.widthMm - containerWidthMm).toBeGreaterThan(1);
-  });
-
-  it("does not reserve growth room when every zone is already wide enough", () => {
-    const scale = resolvePrintScale({
-      stage: null,
-      blocks: [block({ widthM: 6 })],
-      area: AREA,
-      minBoxWidthMm: MIN_BOX_WIDTH_MM,
-    });
-
-    // Zóna 6 m dá při 13,108 mm/m 78,6 mm, tedy víc než minimum — roste jen tolerance:
-    // 162,5375 / (12 + 0,4) = 13,1079 mm/m
-    expect(scale.mmPerM).toBeCloseTo(13.1079, 3);
-  });
-
   it("falls back to the tolerance-only scale for an empty layout", () => {
+    const scale = resolvePrintScale({ stage: null, blocks: [], area: AREA });
+
+    // Nominál 12 × 8 m plus 2 × 20 cm tolerance:
+    // šířka 162,5375 / 12,4 = 13,1079; výška 197,1382 / 8,4 = 23,4688 → váže šířka.
+    expect(scale.mmPerM).toBeCloseTo(13.1079, 3);
+    expect(scale.planWidthMm).toBeCloseTo(157.294, 2);
+  });
+
+  it("reserves width for the block whose box outgrows its zone", () => {
     const scale = resolvePrintScale({
       stage: null,
-      blocks: [],
+      blocks: [scaleBlock()],
       area: AREA,
-      minBoxWidthMm: MIN_BOX_WIDTH_MM,
     });
 
+    // Zóna 2,6 m dá při 13,1079 jen 34,08 mm, box chce 38,6 mm:
+    // (162,5375 − 38,6) / (12,4 − 2,6) = 12,6467 mm/m.
+    expect(scale.mmPerM).toBeCloseTo(12.6467, 3);
+  });
+
+  it("reserves nothing for a block whose zone already carries its box", () => {
+    const scale = resolvePrintScale({
+      stage: null,
+      blocks: [scaleBlock({ zoneWidthM: 6, zoneDepthM: 4 })],
+      area: AREA,
+    });
+
+    // 6 m dá 78,6 mm, box chce 38,6 — zóna vyhrává, rezerva se neuplatní.
     expect(scale.mmPerM).toBeCloseTo(13.1079, 3);
   });
 
-  it("binds on height for a deep stage", () => {
+  it("takes the tightest block, not the first one", () => {
+    const scale = resolvePrintScale({
+      stage: null,
+      blocks: [
+        scaleBlock({ zoneWidthM: 2.8, boxWidthMm: 37 }),
+        scaleBlock({ zoneWidthM: 2.6, boxWidthMm: 44 }),
+      ],
+      area: AREA,
+    });
+
+    // Druhý blok: (162,5375 − 44) / 9,8 = 12,0957 — a ten je přísnější.
+    expect(scale.mmPerM).toBeCloseTo(12.0957, 3);
+  });
+
+  it("reserves height too, where the budget used to have a hole (R6)", () => {
+    // Dnes se výška počítá jen jako plocha / hloubka s přesahem, takže vysoký
+    // box u horní hrany pódia plochu přeroste a rozpočet o tom neví.
     const scale = resolvePrintScale({
       stage: { widthM: 8, depthM: 14 },
-      blocks: [block({ widthM: 6 })],
+      blocks: [scaleBlock({ zoneDepthM: 1.2, boxHeightMm: 40 })],
       area: AREA,
-      minBoxWidthMm: MIN_BOX_WIDTH_MM,
     });
 
-    // Výška: 202,0914 / (14 + 0,4) = 14,0341; šířka: 162,5375 / 8,4 = 19,35 → váže výška.
-    expect(scale.mmPerM).toBeCloseTo(14.0341, 3);
+    // Výšková mez bez rezervy: 197,1382 / 14,4 = 13,6902.
+    // S rezervou: (197,1382 − 40) / (14,4 − 1,2) = 11,9044 — a ta váže.
+    expect(scale.mmPerM).toBeCloseTo(11.9044, 3);
+  });
+
+  it("leaves the scale alone when a box is wider than the whole area", () => {
+    // Rezervovat nejde; má spadnout pojistka a pojmenovat viníka (R5), ne
+    // vyjít záporné nebo nulové měřítko.
+    const scale = resolvePrintScale({
+      stage: null,
+      blocks: [scaleBlock({ boxWidthMm: 200 })],
+      area: AREA,
+    });
+
+    expect(scale.mmPerM).toBeGreaterThan(0);
+    expect(scale.mmPerM).toBeCloseTo(13.1079, 3);
   });
 
   it("never returns a scale larger than the unreserved one", () => {
     const reserved = resolvePrintScale({
       stage: null,
-      blocks: [block()],
+      blocks: [scaleBlock()],
       area: AREA,
-      minBoxWidthMm: MIN_BOX_WIDTH_MM,
     });
-
-    // Nereservovaný nominál: min(162,5375 / 12, 202,0914 / 8) = 13,5448 mm/m.
     const unreservedMmPerM = Math.min(
       AREA.widthMm / NOMINAL_STAGE.widthM,
       AREA.heightMm / NOMINAL_STAGE.depthM,
     );
+
     expect(reserved.mmPerM).toBeLessThan(unreservedMmPerM);
   });
 
@@ -120,9 +112,26 @@ describe("resolvePrintScale", () => {
       stage: { widthM: 11, depthM: 7 },
       blocks: [],
       area: AREA,
-      minBoxWidthMm: MIN_BOX_WIDTH_MM,
     });
 
     expect(scale.toM(scale.toMm(3.75))).toBeCloseTo(3.75, 6);
+  });
+});
+
+describe("toPrintScaleBlock", () => {
+  it("pairs each axis with its own measurement", () => {
+    // Zóna i stopa jsou schválně nečtvercové, jinak by prohození os nešlo
+    // poznat — a prohození je jediná chyba, kterou tenhle převod umí udělat.
+    const block = toPrintScaleBlock({
+      zone: { widthM: 2.7, depthM: 1.4 },
+      footprint: { widthMm: 38.6, heightMm: 25.1 },
+    });
+
+    expect(block).toEqual({
+      zoneWidthM: 2.7,
+      zoneDepthM: 1.4,
+      boxWidthMm: 38.6,
+      boxHeightMm: 25.1,
+    });
   });
 });

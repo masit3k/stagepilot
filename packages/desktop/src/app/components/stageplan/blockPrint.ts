@@ -2,14 +2,16 @@ import type { StageplanBlock } from "../../../../../../src/domain/model/types";
 import type { StageplanPrintBox } from "../../../../../../src/domain/pipeline/pdf/buildPdfStageplanPrintModel";
 import { computePrintFootprintMm } from "../../../../../../src/domain/stageplan/print/printFootprint";
 import type { StageplanPrintGeometry } from "../../../../../../src/domain/stageplan/print/printMetrics";
-import type { PrintScale } from "../../../../../../src/domain/stageplan/print/printScale";
+import {
+  type PrintScale,
+  type PrintScaleBlock,
+  toPrintScaleBlock,
+} from "../../../../../../src/domain/stageplan/print/printScale";
 
 export type BlockPrint = {
   readonly box: StageplanPrintBox;
   /** Rozměr tištěného boxu v metrech — karta se kreslí v něm (R3). */
   readonly footprint: { readonly widthM: number; readonly depthM: number };
-  /** Zóna je užší, než tisk umí nakreslit; na papíře bude box širší (R10). */
-  readonly isBelowPrintFloor: boolean;
 };
 
 /**
@@ -40,7 +42,23 @@ export function resolveBlockPrint(args: {
       widthM: scale.toM(footprint.widthMm),
       depthM: scale.toM(footprint.heightMm),
     },
-    isBelowPrintFloor:
-      block.widthM * scale.mmPerM < geometry.typography.minBoxWidthMm,
   };
+}
+
+/**
+ * Vstup měřítka pro celý layout. Blok, ke kterému geometrie box nemá (lineup
+ * se změnil, než dorazily metriky), rezervu nevyvolá — nulová stopa se do
+ * každé zóny vejde.
+ */
+export function resolvePrintScaleBlocks(args: {
+  readonly blocks: readonly StageplanBlock[];
+  readonly geometry: StageplanPrintGeometry;
+}): PrintScaleBlock[] {
+  return args.blocks.map((block) => {
+    const box = args.geometry.blocks.find((entry) => entry.slot === block.slot);
+    const footprint = box
+      ? computePrintFootprintMm({ box, typography: args.geometry.typography })
+      : { widthMm: 0, heightMm: 0 };
+    return toPrintScaleBlock({ zone: block, footprint });
+  });
 }

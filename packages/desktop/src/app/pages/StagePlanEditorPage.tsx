@@ -28,7 +28,10 @@ import {
   formatScale,
   narrowestZoneSlot,
 } from "../components/stageplan/blockContent";
-import { resolveBlockPrint } from "../components/stageplan/blockPrint";
+import {
+  resolveBlockPrint,
+  resolvePrintScaleBlocks,
+} from "../components/stageplan/blockPrint";
 import { useEditorKeyboard } from "../components/stageplan/useEditorKeyboard";
 import { useLayoutHistory } from "../components/stageplan/useLayoutHistory";
 import { resolveBlockSlotsFromPayload } from "../domain/stageplan/resolveBlockSlotsFromPayload";
@@ -261,9 +264,11 @@ export function StagePlanEditorPage({
   const printScale = printGeometry
     ? resolvePrintScale({
         stage: area,
-        blocks: state.layout.blocks,
+        blocks: resolvePrintScaleBlocks({
+          blocks: state.layout.blocks,
+          geometry: printGeometry,
+        }),
         area: printGeometry.area,
-        minBoxWidthMm: printGeometry.typography.minBoxWidthMm,
       })
     : null;
 

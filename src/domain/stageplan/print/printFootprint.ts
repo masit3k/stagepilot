@@ -17,8 +17,6 @@ export type PrintTypography = {
   readonly padPt: number;
   /** Mezera mezi odrážkou a textem; v px, protože v px ji sází CSS. */
   readonly bulletSpacingPx: number;
-  /** Prověřená šířka dnešního čtyřsloupcového boxu — zaniká s R6. */
-  readonly minBoxWidthMm: number;
 };
 
 export type PrintFootprintMm = {

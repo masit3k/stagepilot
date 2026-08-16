@@ -3,13 +3,15 @@ import type { StageplanBlock } from "../../../../../../src/domain/model/types";
 import type { StageplanPrintBox } from "../../../../../../src/domain/pipeline/pdf/buildPdfStageplanPrintModel";
 import { computePrintFootprintMm } from "../../../../../../src/domain/stageplan/print/printFootprint";
 import type { StageplanPrintGeometry } from "../../../../../../src/domain/stageplan/print/printMetrics";
-import { resolvePrintScale } from "../../../../../../src/domain/stageplan/print/printScale";
-import { resolveBlockPrint } from "./blockPrint";
+import {
+  resolvePrintScale,
+  toPrintScaleBlock,
+} from "../../../../../../src/domain/stageplan/print/printScale";
+import { resolveBlockPrint, resolvePrintScaleBlocks } from "./blockPrint";
 
-/** Skutečná tisková plocha a prověřená minimální šířka strany 2 — stejná čísla
- *  jako printScale.test.ts a printFootprint.test.ts. */
+/** Skutečná tisková plocha strany 2 — stejná čísla jako printScale.test.ts a
+ *  printFootprint.test.ts. */
 const AREA = { widthMm: 162.5375, heightMm: 202.0914 };
-const MIN_BOX_WIDTH_MM = 36.2594;
 const TYPOGRAPHY = {
   fontSizePt: 8,
   lineHeight: 1.25,
@@ -18,7 +20,6 @@ const TYPOGRAPHY = {
   titleGapPt: 6,
   padPt: 6,
   bulletSpacingPx: 4,
-  minBoxWidthMm: MIN_BOX_WIDTH_MM,
 };
 
 function block(overrides: Partial<StageplanBlock> = {}): StageplanBlock {
@@ -55,9 +56,16 @@ function geometry(boxes: StageplanPrintBox[]): StageplanPrintGeometry {
 /** Reálný výstup resolvePrintScale, ne vymyšlené číslo — stejný nominál 12 × 8 m. */
 const scale = resolvePrintScale({
   stage: null,
-  blocks: [block()],
+  blocks: [
+    toPrintScaleBlock({
+      zone: block(),
+      footprint: computePrintFootprintMm({
+        box: box(),
+        typography: TYPOGRAPHY,
+      }),
+    }),
+  ],
   area: AREA,
-  minBoxWidthMm: MIN_BOX_WIDTH_MM,
 });
 
 describe("resolveBlockPrint", () => {
@@ -119,24 +127,6 @@ describe("resolveBlockPrint", () => {
     );
   });
 
-  it("flags a zone narrower than the print floor, and clears it once wide enough", () => {
-    const floorWidthM = MIN_BOX_WIDTH_MM / scale.mmPerM;
-
-    const narrow = resolveBlockPrint({
-      block: block({ widthM: floorWidthM - 0.1 }),
-      geometry: geometry([box()]),
-      scale,
-    });
-    const wide = resolveBlockPrint({
-      block: block({ widthM: floorWidthM + 0.1 }),
-      geometry: geometry([box()]),
-      scale,
-    });
-
-    expect(narrow?.isBelowPrintFloor).toBe(true);
-    expect(wide?.isBelowPrintFloor).toBe(false);
-  });
-
   it("adds one line to the footprint for the band leader row", () => {
     const withLeader = resolveBlockPrint({
       block: block(),
@@ -156,5 +146,22 @@ describe("resolveBlockPrint", () => {
       (withLeader?.footprint.depthM ?? 0) -
         (withoutLeader?.footprint.depthM ?? 0),
     ).toBeCloseTo(lineM, 6);
+  });
+
+  it("builds one scale input per block, missing boxes reserving nothing", () => {
+    const blocks = [block({ slot: "guitar" }), block({ slot: "bass" })];
+    const inputs = resolvePrintScaleBlocks({
+      blocks,
+      geometry: geometry([box({ slot: "guitar" })]),
+    });
+
+    expect(inputs).toHaveLength(2);
+    expect(inputs[0]?.boxWidthMm).toBeGreaterThan(0);
+    expect(inputs[1]).toEqual({
+      zoneWidthM: 2.7,
+      zoneDepthM: 1.4,
+      boxWidthMm: 0,
+      boxHeightMm: 0,
+    });
   });
 });

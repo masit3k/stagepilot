@@ -16,7 +16,6 @@ const TYPOGRAPHY: PrintTypography = {
   titleGapPt: 6,
   padPt: 6,
   bulletSpacingPx: 4,
-  minBoxWidthMm: 36.2594,
 };
 
 const MM_PER_PT = 25.4 / 72;

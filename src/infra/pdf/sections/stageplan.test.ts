@@ -9,7 +9,6 @@ import {
 } from "../../../domain/stageplan/layout/defaultLayout.js";
 import { STAGEPLAN_BLOCK_SLOTS } from "../../../domain/stageplan/layout/slots.js";
 import { computePrintFootprintMm } from "../../../domain/stageplan/print/printFootprint.js";
-import { resolvePrintScale } from "../../../domain/stageplan/print/printScale.js";
 import { loadRepository } from "../../fs/repo.js";
 import { pdfLayout } from "../layout.js";
 import {
@@ -57,10 +56,6 @@ describe("stageplan print geometry", () => {
     );
     // Hlavička vyrostla o 4,95 mm (R12), takže plocha plánu o tolik klesla.
     expect(stageplanLayout.areaHeightMm).toBeCloseTo(197.1382, 3);
-    expect(stageplanPrintGeometry.typography.minBoxWidthMm).toBeCloseTo(
-      36.2594,
-      3,
-    );
     expect(stageplanPrintGeometry.typography.fontSizePt).toBe(8);
   });
 
@@ -348,44 +343,19 @@ describe("stageplan print geometry", () => {
     );
   });
 
-  it("keeps the print scale width-bound, so the reservation cannot shrink the plan", () => {
+  it("keeps the print scale width-bound for the default arrangement", () => {
     // Tvrzení, na kterém rezerva stojí: měřítko je min(šířková, výšková) mez a
     // váže ho šířka. Kdyby to přestalo platit, ubraná výška by plán zmenšila.
-    const blocks = buildDefaultLayout({
-      slots: STAGEPLAN_BLOCK_SLOTS,
-      stage: null,
-    }).blocks;
-    const scale = resolvePrintScale({
-      stage: null,
-      blocks,
-      area: stageplanPrintGeometry.area,
-      minBoxWidthMm: stageplanPrintGeometry.typography.minBoxWidthMm,
-    });
+    const stageplan = emptyStageplan(
+      buildDefaultLayout({ slots: STAGEPLAN_BLOCK_SLOTS, stage: null }),
+    );
+    const plan = buildStageplanPlan(stageplan);
+    const mmPerM = plan.stage.widthMm / NOMINAL_STAGE.widthM;
     const heightBound =
       stageplanPrintGeometry.area.heightMm /
       (NOMINAL_STAGE.depthM + 2 * OVERHANG_TOLERANCE_M);
 
-    expect(scale.mmPerM).toBeLessThan(heightBound);
-  });
-
-  it("keeps the min-box-width reservation active for the default zones", () => {
-    // Nejužší výchozí zóna je 2,6 m a tisková mez ~2,81 m, takže rezerva
-    // měřítko snižuje už u výchozího rozmístění. Není to hraniční případ.
-    const blocks = buildDefaultLayout({
-      slots: STAGEPLAN_BLOCK_SLOTS,
-      stage: null,
-    }).blocks;
-    const narrowestM = Math.min(...blocks.map((block) => block.widthM));
-    const scale = resolvePrintScale({
-      stage: null,
-      blocks,
-      area: stageplanPrintGeometry.area,
-      minBoxWidthMm: stageplanPrintGeometry.typography.minBoxWidthMm,
-    });
-
-    expect(narrowestM * scale.mmPerM).toBeLessThan(
-      stageplanPrintGeometry.typography.minBoxWidthMm,
-    );
+    expect(mmPerM).toBeLessThan(heightBound);
   });
 });
 
