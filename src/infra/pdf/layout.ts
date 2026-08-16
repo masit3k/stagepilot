@@ -147,17 +147,29 @@ export const pdfHeaderColumnsPt = {
 } as const;
 
 /**
+ * Výška hlavičky ze sloupců, které v ní stojí vedle sebe: rozhoduje nejvyšší
+ * z nich, ať je to kterýkoli (R14). Vyčleněné jako čistá funkce nad předanými
+ * sloupci, protože nad reálnými hodnotami dnes vyhrává titul — a nad nimi by
+ * prošlo i tvrzení, které razítko do maxima vůbec nepustí.
+ */
+export function headerHeightPt(
+  columnsPt: Readonly<Record<string, number>>,
+): number {
+  return (
+    Math.max(...Object.values(columnsPt)) +
+    pdfLayout.header.padBottomPt +
+    pdfLayout.header.rulePt +
+    pdfLayout.header.marginBottomPt
+  );
+}
+
+/**
  * Výška hlavičky a patičky v mm. Čte je CSS i výškový rozpočet stage planu,
  * aby se nemohly rozejít — rozpočet by jinak tvrdil, že je na straně místo,
  * které hlavička zabírá.
  */
 export const pdfChromeHeights = {
-  headerMm: ptToMm(
-    Math.max(...Object.values(pdfHeaderColumnsPt)) +
-      pdfLayout.header.padBottomPt +
-      pdfLayout.header.rulePt +
-      pdfLayout.header.marginBottomPt,
-  ),
+  headerMm: ptToMm(headerHeightPt(pdfHeaderColumnsPt)),
   footerMm: ptToMm(
     pdfLayout.footer.rulePt +
       pdfLayout.footer.padTopPt +
