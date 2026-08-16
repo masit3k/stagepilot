@@ -17,6 +17,9 @@ export type PrintTypography = {
   readonly padPt: number;
   /** Mezera mezi odrážkou a textem; v px, protože v px ji sází CSS. */
   readonly bulletSpacingPx: number;
+  /** Rámeček boxu v px. Šířka i výška jsou border box, takže si ho stopa musí
+   *  přičíst — jinak se obsah do zadaného rozměru nevejde (R3). */
+  readonly borderPx: number;
 };
 
 export type PrintFootprintMm = {
@@ -55,6 +58,7 @@ export function computePrintFootprintMm(args: {
   const lineMm = fontSizePt * typography.lineHeight * MM_PER_PT;
   const padMm = typography.padPt * MM_PER_PT;
   const titleGapMm = typography.titleGapPt * MM_PER_PT;
+  const borderMm = typography.borderPx * MM_PER_PX;
 
   const bullets = [
     ...box.inputBullets,
@@ -90,9 +94,10 @@ export function computePrintFootprintMm(args: {
   ];
 
   return {
-    widthMm: 2 * padMm + Math.max(...widths),
+    widthMm: 2 * padMm + 2 * borderMm + Math.max(...widths),
     heightMm:
       2 * padMm +
+      2 * borderMm +
       lineMm +
       countStageplanBoxLines(box) * lineMm +
       (bullets.length > 0 ? titleGapMm : 0) +

@@ -20,6 +20,7 @@ const TYPOGRAPHY = {
   titleGapPt: 6,
   padPt: 6,
   bulletSpacingPx: 4,
+  borderPx: 1,
 };
 
 function block(overrides: Partial<StageplanBlock> = {}): StageplanBlock {

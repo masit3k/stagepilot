@@ -123,10 +123,13 @@ describe("stageplan print geometry", () => {
       (plan.typography.fontSizePt * plan.typography.lineHeight * 25.4) / 72;
     const padMm = (plan.typography.padPt * 25.4) / 72;
     const titleGapMm = (plan.typography.titleGapPt * 25.4) / 72;
+    const borderMm = (plan.typography.borderPx * 25.4) / 96;
 
-    // Hlavička + mezera + jedna odrážka (Drum riser), odsazení 6 pt nahoře i dole.
+    // Hlavička + mezera + jedna odrážka (Drum riser), odsazení 6 pt nahoře i
+    // dole, rámeček boxu na obou stranách (Task 9 — šířka i výška jsou border
+    // box, viz styles.ts `* { box-sizing: border-box }`).
     expect(plan.boxes[0]?.heightMm).toBeCloseTo(
-      2 * padMm + lineMm + titleGapMm + lineMm,
+      2 * padMm + 2 * borderMm + lineMm + titleGapMm + lineMm,
       4,
     );
   });

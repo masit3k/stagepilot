@@ -19,8 +19,14 @@ import { pdfStyles } from "../src/infra/pdf/styles.js";
 import { renderInputlistHtml } from "../src/infra/pdf/template.js";
 import { PRINT_TEXT_STYLE_SPECS } from "./printTextStyles.js";
 
-/** R16: tabulka se smí od Chromia lišit nejvýš o pětinu setiny pixelu. */
-const WIDTH_TOLERANCE_PX = 0.05;
+/**
+ * Tabulka nesmí být nikdy **užší** než skutečnost — to je vlastnost, která
+ * brání uříznutému textu (R1). Přesná rovnost nejde: Chromium kvantuje
+ * šířku glyfu na 1/64 px, kdežto tabulka sčítá nekvantované zlomky, takže se
+ * rozdíl s délkou řetězce hromadí. Měřením ověřený rozsah je do 0,06 %.
+ */
+const UNDERSHOOT_TOLERANCE_PX = 0.05;
+const OVERSHOOT_TOLERANCE_RATIO = 0.002;
 /** Subpixelová rezerva pro měření řádku uvnitř boxu. */
 const LINE_TOLERANCE_PX = 0.5;
 const MM_TO_PX = 96 / 25.4;
@@ -113,12 +119,15 @@ type WidthMismatch = {
   style: string;
   tablePx: number;
   chromiumPx: number;
+  /** "too narrow" uřízne text (R1), "too wide" jen zbytečně nafoukne box. */
+  kind: "too narrow" | "too wide";
 };
 
 /**
- * Kontrola 1 (R16): šířka z tabulky se rovná šířce naměřené v Chromiu. Tohle
- * je jediná pojistka proti tomu, aby se generovaná data rozešla s fontem —
- * ať už kvůli ručnímu zásahu, jiné verzi fontu, nebo změně shapingu v novém
+ * Kontrola 1 (R16): tabulka nesmí Chromiu tvrdit, že je text užší, než ho
+ * vysází — přesná rovnost nejde (viz UNDERSHOOT_TOLERANCE_PX výše). Tohle je
+ * jediná pojistka proti tomu, aby se generovaná data rozešla s fontem — ať
+ * už kvůli ručnímu zásahu, jiné verzi fontu, nebo změně shapingu v novém
  * Chromiu.
  */
 async function checkTableAgainstChromium(
@@ -187,12 +196,19 @@ async function checkTableAgainstChromium(
         trackingEm: probe.trackingEm,
       }) * MM_TO_PX;
     const chromiumPx = measured[index];
-    if (Math.abs(tablePx - chromiumPx) > WIDTH_TOLERANCE_PX) {
+    const undershoot = chromiumPx - tablePx;
+    const overshoot = tablePx - chromiumPx;
+    const tooNarrow = undershoot > UNDERSHOOT_TOLERANCE_PX;
+    const tooWide =
+      overshoot >
+      chromiumPx * OVERSHOOT_TOLERANCE_RATIO + UNDERSHOOT_TOLERANCE_PX;
+    if (tooNarrow || tooWide) {
       mismatches.push({
         text: probe.text,
         style: probe.style,
         tablePx,
         chromiumPx,
+        kind: tooNarrow ? "too narrow" : "too wide",
       });
     }
   });
@@ -273,7 +289,7 @@ async function run(): Promise<number> {
       );
       for (const mismatch of mismatches.slice(0, 20)) {
         console.error(
-          `  ${mismatch.style} "${mismatch.text}": table ${mismatch.tablePx.toFixed(4)}px vs chromium ${mismatch.chromiumPx.toFixed(4)}px`,
+          `  [${mismatch.kind}] ${mismatch.style} "${mismatch.text}": table ${mismatch.tablePx.toFixed(4)}px vs chromium ${mismatch.chromiumPx.toFixed(4)}px`,
         );
       }
     } else {

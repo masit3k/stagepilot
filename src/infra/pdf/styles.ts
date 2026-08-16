@@ -355,7 +355,10 @@ body {
 .stageplanBox {
   position: absolute;
   transform-origin: center;
-  border: 1px solid ${pdfTokens.ink};
+  /* Táž konstanta jako printTypography.borderPx (Task 9) — kresba a stopa
+     boxu si dřív pletly, kolik má rámeček ubrat, protože každá měla svou
+     jedničku. Sdílená hodnota to rozejít nedovolí. */
+  border: ${stageplanLayout.boxBorderPx}px solid ${pdfTokens.ink};
   background: #fff;
   /* R7: jedna hodnota na všech čtyřech stranách. Dolní odsazení dřív
      pocházelo z table.padY, tedy z odsazení řádku tabulky — jiné veličiny. */

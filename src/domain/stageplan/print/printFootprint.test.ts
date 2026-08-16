@@ -16,6 +16,7 @@ const TYPOGRAPHY: PrintTypography = {
   titleGapPt: 6,
   padPt: 6,
   bulletSpacingPx: 4,
+  borderPx: 1,
 };
 
 const MM_PER_PT = 25.4 / 72;
@@ -23,6 +24,7 @@ const MM_PER_PX = 25.4 / 96;
 const LINE_MM = 8 * 1.25 * MM_PER_PT; // 3,52778
 const PAD_MM = 6 * MM_PER_PT; // 2,11667
 const TITLE_GAP_MM = 6 * MM_PER_PT;
+const BORDER_MM = 1 * MM_PER_PX; // rámeček boxu, obě strany se přičítají zvlášť
 
 function bulletWidthMm(text: string): number {
   return (
@@ -52,7 +54,10 @@ describe("computePrintFootprintMm — výška", () => {
       typography: TYPOGRAPHY,
     });
 
-    expect(footprint.heightMm).toBeCloseTo(2 * PAD_MM + LINE_MM, 4);
+    expect(footprint.heightMm).toBeCloseTo(
+      2 * PAD_MM + 2 * BORDER_MM + LINE_MM,
+      4,
+    );
   });
 
   it("adds one box line for the band leader row, with no gap above it", () => {
@@ -128,8 +133,32 @@ describe("computePrintFootprintMm — výška", () => {
     });
 
     expect(footprint.heightMm).toBeCloseTo(
-      2 * PAD_MM + LINE_MM + TITLE_GAP_MM + LINE_MM,
+      2 * PAD_MM + 2 * BORDER_MM + LINE_MM + TITLE_GAP_MM + LINE_MM,
       4,
+    );
+  });
+
+  it("reserves room for its own border, because the width is a border box", () => {
+    // `* { box-sizing: border-box }` v styles.ts znamená, že zadaná šířka je
+    // šířka vnějšího boxu — rámeček i odsazení se z ní ukrajují. Bez téhle
+    // rezervy vyjde obsah o 2 px širší než místo, které na něj zbylo, a
+    // nejdelší odrážka vyteče. Přesně to našla smoke kontrola 2.
+    const withBorder = computePrintFootprintMm({
+      box: box(),
+      typography: TYPOGRAPHY,
+    });
+    const withoutBorder = computePrintFootprintMm({
+      box: box(),
+      typography: { ...TYPOGRAPHY, borderPx: 0 },
+    });
+
+    expect(withBorder.widthMm - withoutBorder.widthMm).toBeCloseTo(
+      2 * BORDER_MM,
+      9,
+    );
+    expect(withBorder.heightMm - withoutBorder.heightMm).toBeCloseTo(
+      2 * BORDER_MM,
+      9,
     );
   });
 });
@@ -146,7 +175,7 @@ describe("computePrintFootprintMm — šířka", () => {
     });
 
     expect(footprint.widthMm).toBeCloseTo(
-      2 * PAD_MM + bulletWidthMm("Electric bass guitar (12)"),
+      2 * PAD_MM + 2 * BORDER_MM + bulletWidthMm("Electric bass guitar (12)"),
       6,
     );
     // Zdravý rozum: dnešní box je 36,3 mm široký, tenhle má být širší, ale ne
@@ -163,6 +192,7 @@ describe("computePrintFootprintMm — šířka", () => {
 
     expect(footprint.widthMm).toBeCloseTo(
       2 * PAD_MM +
+        2 * BORDER_MM +
         measurePrintTextMm({
           text: "LEAD VOC – ELIŠKA",
           style: "boxHeader",
@@ -184,6 +214,7 @@ describe("computePrintFootprintMm — šířka", () => {
 
     expect(footprint.widthMm).toBeCloseTo(
       2 * PAD_MM +
+        2 * BORDER_MM +
         measurePrintTextMm({
           text: "2x 230V + prodlužovačka",
           style: "boxPower",
@@ -201,6 +232,7 @@ describe("computePrintFootprintMm — šířka", () => {
 
     expect(footprint.widthMm).toBeCloseTo(
       2 * PAD_MM +
+        2 * BORDER_MM +
         measurePrintTextMm({
           text: STAGEPLAN_BAND_LEADER_LINE,
           style: "boxRole",
@@ -219,6 +251,7 @@ describe("computePrintFootprintMm — šířka", () => {
 
     expect(footprint.widthMm).toBeCloseTo(
       2 * PAD_MM +
+        2 * BORDER_MM +
         measurePrintTextMm({ text: "BASS", style: "boxHeader", fontSizePt: 8 }),
       6,
     );

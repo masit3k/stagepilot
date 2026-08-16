@@ -88,6 +88,9 @@ const printTypography: PrintTypography = {
   // která do tiskového boxu nepatří.
   padPt: 6,
   bulletSpacingPx,
+  // Sdílené s .stageplanContainer i .stageplanBox v styles.ts (R3 Task 9) —
+  // rámeček je jeden a týž, stopa a CSS ho nesmí mít každý svůj.
+  borderPx: containerBorderPx,
 };
 
 /** Co potřebuje editor, aby si tiskovou stopu spočítal stejnou funkcí (R12). */
@@ -115,6 +118,8 @@ export const stageplanLayout = {
   /** Řádková výška boxu v bodech — CSS i stopa boxu musí říkat totéž. */
   boxLine: `${printTypography.fontSizePt * printTypography.lineHeight}pt`,
   bulletSpacingPx,
+  /** .stageplanBox border-width — táž konstanta jako v printTypography.borderPx. */
+  boxBorderPx: containerBorderPx,
 } as const;
 
 export type StageplanBoxPlan = StageplanPrintBox & {
