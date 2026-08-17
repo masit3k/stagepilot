@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { applyManualInputOrder } from "./applyManualInputOrder.js";
 
-type Row = { key: string; group?: string; label?: string; note?: string };
+type Row = { key: string; label: string; group: string; note?: string };
 
 const keys = (rows: Row[]) => rows.map((row) => row.key);
-const rows = (...list: string[]): Row[] => list.map((key) => ({ key }));
+const rows = (...list: string[]): Row[] =>
+  list.map((key) => ({ key, label: key, group: "bass" }));
 
 describe("applyManualInputOrder", () => {
   it("returns the computed order unchanged when there is no manual order", () => {
@@ -61,9 +62,9 @@ describe("applyManualInputOrder", () => {
 
   it("lets the manual order cross group boundaries", () => {
     const computed: Row[] = [
-      { key: "kick", group: "drums" },
-      { key: "bass", group: "bass" },
-      { key: "voc", group: "vocs" },
+      { key: "kick", label: "kick", group: "drums" },
+      { key: "bass", label: "bass", group: "bass" },
+      { key: "voc", label: "voc", group: "vocs" },
     ];
 
     const result = applyManualInputOrder(computed, ["voc", "kick", "bass"]);
@@ -83,5 +84,67 @@ describe("applyManualInputOrder", () => {
     const result = applyManualInputOrder(rows("a", "b"), ["b", "b", "a"]);
 
     expect(keys(result)).toEqual(["b", "a"]);
+  });
+
+  it("pulls a stereo partner back next to its pair", () => {
+    const computed = [
+      { key: "keys_l", label: "Keys L", group: "keys" },
+      { key: "keys_r", label: "Keys R", group: "keys" },
+      { key: "bass", label: "Bass DI", group: "bass" },
+    ];
+
+    // Uživatel protáhl bass mezi L a R.
+    const result = applyManualInputOrder(computed, [
+      "keys_l",
+      "bass",
+      "keys_r",
+    ]);
+
+    expect(result.map((row) => row.key)).toEqual(["keys_l", "keys_r", "bass"]);
+  });
+
+  it("keeps a pair together when the partner was moved in front", () => {
+    const computed = [
+      { key: "keys_l", label: "Keys L", group: "keys" },
+      { key: "keys_r", label: "Keys R", group: "keys" },
+      { key: "bass", label: "Bass DI", group: "bass" },
+    ];
+
+    const result = applyManualInputOrder(computed, [
+      "keys_r",
+      "bass",
+      "keys_l",
+    ]);
+
+    expect(result.map((row) => row.key)).toEqual(["keys_r", "keys_l", "bass"]);
+  });
+
+  it("does not join two channels that only look like a pair", () => {
+    // Různá poznámka znamená, že to pár není — `resolveStereoPair` je
+    // odmítne a pořadí se nesmí měnit.
+    const computed = [
+      { key: "keys_l", label: "Keys L", group: "keys", note: "DI" },
+      { key: "bass", label: "Bass DI", group: "bass" },
+      { key: "keys_r", label: "Keys R", group: "keys", note: "mic" },
+    ];
+
+    const result = applyManualInputOrder(computed, [
+      "keys_l",
+      "bass",
+      "keys_r",
+    ]);
+
+    expect(result.map((row) => row.key)).toEqual(["keys_l", "bass", "keys_r"]);
+  });
+
+  it("leaves an unpaired stereo side alone", () => {
+    const computed = [
+      { key: "keys_l", label: "Keys L", group: "keys" },
+      { key: "bass", label: "Bass DI", group: "bass" },
+    ];
+
+    const result = applyManualInputOrder(computed, ["bass", "keys_l"]);
+
+    expect(result.map((row) => row.key)).toEqual(["bass", "keys_l"]);
   });
 });
