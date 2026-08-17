@@ -198,7 +198,7 @@ describe("buildPdfNotes project deviations", () => {
     expect(ids(notes.inputs)).toEqual(["always", "custom_2", "custom_1"]);
   });
 
-  it("does not let a custom line be disabled by an unrelated template id", () => {
+  it("keeps a custom line when an unrelated template line is disabled", () => {
     const notes = buildPdfNotes({
       template,
       monitors: NOTHING,
@@ -211,7 +211,7 @@ describe("buildPdfNotes project deviations", () => {
     expect(ids(notes.inputs)).toEqual(["custom_1"]);
   });
 
-  it("behaves exactly as before when there are no deviations", () => {
+  it("treats an empty deviation object the same as no deviations at all", () => {
     expect(buildPdfNotes({ template, monitors: NOTHING })).toEqual(
       buildPdfNotes({ template, monitors: NOTHING, overrides: {} }),
     );

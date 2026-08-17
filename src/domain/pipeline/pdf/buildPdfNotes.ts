@@ -37,6 +37,9 @@ function matchesCondition(
 /**
  * Poznámky projektu vzniknou ve **čtyřech krocích a v tomto pořadí** (R11):
  * filtr podmínek, vyhození vypnutých, přepis textu, připojení vlastních.
+ * Tahle funkce dělá jen kroky 2–4 — vyhození vypnutých, přepis textu,
+ * připojení vlastních; krok 1 (filtr podmínek) proběhl už u volajícího
+ * `buildPdfNotes`, a jen pro sekci monitors.
  *
  * Pořadí není libovolné. Přepis se aplikuje až po filtru, takže přepsat řádek,
  * který podmínka skrývá, ho nezobrazí — editor to uživateli říká předem (R13).
