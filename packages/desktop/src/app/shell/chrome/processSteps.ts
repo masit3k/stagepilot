@@ -3,7 +3,7 @@
  *
  * All four steps now have screens. `StepState.unavailable` remains in the model
  * for future process extensions; a step becomes unavailable when its screen is
- * removed or not yet implemented. Modelling the state per step rather than branching
+ * not yet implemented. Modelling the state per step rather than branching
  * inside the component means that a phase transition flips one `segment` from null to a
  * route, and nothing else moves; that is exactly how the stage plan landed.
  *

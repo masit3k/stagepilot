@@ -95,11 +95,18 @@ describe("buildProcessSteps", () => {
   });
 
   it("makes the inputs step available from other project screens", () => {
-    const trail = buildProcessSteps("/projects/p1/setup");
-    const inputs = trail?.find((step) => step.id === "inputs");
+    for (const pathname of [
+      "/projects/p1/setup",
+      "/projects/p1/preview",
+      "/projects/p1/stageplan",
+    ]) {
+      const inputs = buildProcessSteps(pathname)?.find(
+        (step) => step.id === "inputs",
+      );
 
-    expect(inputs?.state).toBe("available");
-    expect(inputs?.path).toBe("/projects/p1/inputs");
+      expect(inputs?.state, pathname).toBe("available");
+      expect(inputs?.path, pathname).toBe("/projects/p1/inputs");
+    }
   });
 
   it("marks the inputs step as current on its own screen", () => {
