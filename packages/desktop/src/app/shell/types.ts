@@ -5,6 +5,7 @@ import type {
   PowerRequirement,
   PresetEntity,
   PresetItem,
+  ProjectNotesOverride,
   StageplanLayout,
 } from "../../../../../src/domain/model/types";
 
@@ -116,6 +117,16 @@ export type NewProjectPayload = {
     powerOverridesByMusician?: Record<string, PowerRequirement>;
     layout?: StageplanLayout;
   };
+
+  /**
+   * Ruční pořadí kanálů z obrazovky `02` (R8). Whitelist v
+   * `toPersistableProject` ho musí nést výslovně — jinak by uložení z jiné
+   * obrazovky ruční pořadí smazalo, a to bez chyby.
+   */
+  inputOrder?: readonly string[];
+
+  /** Odchylky poznámek proti šabloně kapely (R11). Platí totéž o whitelistu. */
+  notes?: ProjectNotesOverride;
 };
 
 export type NavigationGuard = {
@@ -149,6 +160,8 @@ export function toPersistableProject(
     bandLeaderId,
     note,
     stageplan,
+    inputOrder,
+    notes,
   } = project;
   const serializedLineup = lineup
     ? serializeLineupForProject(lineup, [...CANONICAL_LINEUP_ROLE_ORDER])
@@ -177,5 +190,7 @@ export function toPersistableProject(
     ...(overlays ? { overlays } : {}),
     ...(bandLeaderId ? { bandLeaderId } : {}),
     ...(stageplan ? { stageplan } : {}),
+    ...(inputOrder && inputOrder.length > 0 ? { inputOrder } : {}),
+    ...(notes ? { notes } : {}),
   };
 }

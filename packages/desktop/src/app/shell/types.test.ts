@@ -181,3 +181,69 @@ describe("toPersistableProject stageplan persistence", () => {
     expect("stageplan" in persisted).toBe(false);
   });
 });
+
+describe("toPersistableProject inputs screen persistence", () => {
+  const base = {
+    id: "p1",
+    purpose: "event" as const,
+    bandRef: "b1",
+    documentDate: "2026-08-22",
+    createdAt: "2026-08-01T00:00:00.000Z",
+  };
+
+  it("keeps the manual input order", () => {
+    const persisted = toPersistableProject({
+      ...base,
+      inputOrder: ["kick_in", "snare_top"],
+    });
+
+    expect(persisted.inputOrder).toEqual(["kick_in", "snare_top"]);
+  });
+
+  it("keeps notes deviations", () => {
+    const notes = {
+      disabled: ["drum_riser_required"],
+      overrides: { no_foh_engineer: "Vlastní znění." },
+      custom: [
+        { id: "custom_1", section: "inputs" as const, text: "Naše věta." },
+      ],
+    };
+
+    expect(toPersistableProject({ ...base, notes }).notes).toEqual(notes);
+  });
+
+  it("omits both keys entirely when there is nothing to store", () => {
+    const persisted = toPersistableProject(base);
+
+    expect("inputOrder" in persisted).toBe(false);
+    expect("notes" in persisted).toBe(false);
+  });
+
+  it("omits an empty manual order rather than storing an empty array", () => {
+    const persisted = toPersistableProject({ ...base, inputOrder: [] });
+
+    expect("inputOrder" in persisted).toBe(false);
+  });
+
+  /**
+   * Tohle je ta past. Krok `01` ani `03` o nových polích nic nevědí, ale
+   * ukládají celý projekt — kdyby whitelist pole zapomněl, uložení odjinud
+   * by ruční pořadí i poznámky tiše smazalo.
+   */
+  it("survives a save issued from another screen", () => {
+    const loaded = {
+      ...base,
+      inputOrder: ["kick_in"],
+      notes: { disabled: ["x"] },
+      stageplan: { powerOverridesByMusician: {} },
+    };
+
+    const afterForeignSave = toPersistableProject({
+      ...loaded,
+      eventVenue: "Jiné místo",
+    });
+
+    expect(afterForeignSave.inputOrder).toEqual(["kick_in"]);
+    expect(afterForeignSave.notes?.disabled).toEqual(["x"]);
+  });
+});
