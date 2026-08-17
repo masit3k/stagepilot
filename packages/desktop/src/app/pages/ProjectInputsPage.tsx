@@ -1,9 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ProjectNotesOverride } from "../../../../../src/domain/model/types";
+import { normalizeProject } from "../../../../../src/app/usecases/normalizeProject";
+import type {
+  DocumentViewModel,
+  ProjectNotesOverride,
+} from "../../../../../src/domain/model/types";
+import { buildDocument } from "../../../../../src/domain/pipeline/buildDocument";
 import { useToast } from "../../components/ui/toast/useToast";
 import type { LineupMap } from "../../projectRules";
 import { InputTable } from "../components/inputs/InputTable";
-import { buildInputEditorRows } from "../domain/inputs/buildInputEditorRows";
+import {
+  type DisabledInputRow,
+  buildInputEditorRows,
+  collectDisabledInputRows,
+} from "../domain/inputs/buildInputEditorRows";
+import { createDocumentRepository } from "../domain/inputs/createDocumentRepository";
 import { useSetupOverrides } from "../domain/setup/useSetupOverrides";
 import {
   getBandSetupData,
@@ -14,6 +24,18 @@ import {
 import { CANONICAL_LINEUP_ROLE_ORDER } from "../shell/lineupSerialize";
 import type { BandSetupData, NewProjectPayload } from "../shell/types";
 import type { ProjectRouteProps } from "./shared/pageTypes";
+
+/**
+ * Výsledek přepočtu dokumentu pro obrazovku `02`. `normalizeProject` i
+ * `buildDocument` vyhazují na nekompletní/ručně editovaná data (chybějící
+ * preset, muzikant, povinné pole projektu) — chyba se nese jako hodnota, ne
+ * jako výjimka, aby ji `useMemo` mohl bezpečně vrátit a stránka nespadla na
+ * bílou stránku (nejdůležitější požadavek tohoto tasku).
+ */
+type DocumentBuildResult =
+  | { kind: "pending" }
+  | { kind: "ready"; document: DocumentViewModel }
+  | { kind: "error"; message: string };
 
 export type InputsEditorSnapshot = {
   inputOrder: readonly string[] | undefined;
@@ -68,9 +90,7 @@ export function ProjectInputsPage({
   const [state, setState] = useState<LoadState>({ kind: "loading" });
   const [isSaving, setIsSaving] = useState(false);
   const [setupData, setSetupData] = useState<BandSetupData | null>(null);
-  const [selectedInputKey, setSelectedInputKey] = useState<string | null>(
-    null,
-  );
+  const [selectedInputKey, setSelectedInputKey] = useState<string | null>(null);
   const { notify } = useToast();
   /** Stav, proti kterému se poznává dirty — po každém uložení se posune. */
   const initialSnapshotRef = useRef<InputsEditorSnapshot | undefined>(
@@ -142,17 +162,74 @@ export function ProjectInputsPage({
   const { setupForSlot } = useSetupOverrides({ setupData, presetCatalog });
 
   const lineup = state.kind === "ready" ? state.snapshot.lineup : {};
-  const inputOrder = state.kind === "ready" ? state.snapshot.inputOrder : undefined;
+  const project = state.kind === "ready" ? state.project : null;
+
+  /**
+   * Dokument, jehož `inputs` obrazovka `02` zrcadlí (R1). `normalizeProject`
+   * i `buildDocument` běží nad daty, která uživatel ručně edituje (JSON na
+   * disku, kapelní presety) a obojí může vyhodit — nekompletní projekt,
+   * chybějící preset, muzikanta nebo notes šablonu. Chyba se zachytí tady a
+   * jde do `documentResult.kind === "error"`; render z ní nikdy nesmí spadnout
+   * na bílou stránku.
+   */
+  const documentResult = useMemo<DocumentBuildResult>(() => {
+    if (!project || !setupData) return { kind: "pending" };
+    try {
+      const normalizedProject = normalizeProject(project);
+      const repo = createDocumentRepository({
+        project: normalizedProject,
+        setupData,
+      });
+      return {
+        kind: "ready",
+        document: buildDocument(normalizedProject, repo),
+      };
+    } catch (error) {
+      console.error("[project-inputs] failed to build the document", {
+        projectId: id,
+        error,
+      });
+      return {
+        kind: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "The input list could not be built from the current project data.",
+      };
+    }
+  }, [project, setupData, id]);
+
+  /**
+   * Vypnuté kanály obsazených slotů — jediná věc, kterou tento modul počítá
+   * sám, protože se netisknou a v `document.inputs` tedy nejsou. Selhání se
+   * nesmí strhnout aktivní řádky s sebou: bez vypnutých řádků se obrazovka
+   * pořád vykreslí, jen bez přeškrtnutí (R3).
+   */
+  const disabledRows = useMemo<readonly DisabledInputRow[]>(() => {
+    try {
+      return collectDisabledInputRows({
+        lineup,
+        roleOrder: CANONICAL_LINEUP_ROLE_ORDER,
+        setupForSlot,
+      });
+    } catch (error) {
+      console.error("[project-inputs] failed to collect disabled rows", {
+        projectId: id,
+        error,
+      });
+      return [];
+    }
+  }, [lineup, setupForSlot, id]);
 
   const inputRows = useMemo(
     () =>
-      buildInputEditorRows({
-        lineup,
-        roleOrder: CANONICAL_LINEUP_ROLE_ORDER,
-        inputOrder,
-        setupForSlot,
-      }),
-    [lineup, inputOrder, setupForSlot],
+      documentResult.kind === "ready"
+        ? buildInputEditorRows({
+            document: documentResult.document,
+            disabledRows,
+          })
+        : [],
+    [documentResult, disabledRows],
   );
 
   const saveSnapshot = useCallback(
@@ -221,6 +298,11 @@ export function ProjectInputsPage({
       {state.kind === "error" ? (
         <div className="status status--error" role="alert">
           {state.message}
+        </div>
+      ) : null}
+      {documentResult.kind === "error" ? (
+        <div className="status status--error" role="alert">
+          {documentResult.message}
         </div>
       ) : null}
       <section className="inputsSection" aria-label="Input list">

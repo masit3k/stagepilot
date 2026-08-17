@@ -1,11 +1,14 @@
 import type { Group } from "../../../../../../src/domain/model/groups";
 import type {
+  DocumentViewModel,
   MusicianSetupPreset,
   PresetOverridePatch,
 } from "../../../../../../src/domain/model/types";
-import { applyManualInputOrder } from "../../../../../../src/domain/pipeline/applyManualInputOrder";
-import { assignPdfChannels } from "../../../../../../src/domain/pipeline/pdf/assignPdfChannels";
-import type { LineupMap } from "../../../projectRules";
+import {
+  type LineupMap,
+  getRoleSlotLimit,
+  normalizeLineupSlots,
+} from "../../../projectRules";
 
 export type InputEditorRow = {
   readonly key: string;
@@ -20,6 +23,21 @@ export type InputEditorRow = {
   readonly state: "active" | "removed" | "filler";
 };
 
+/**
+ * Vypnutý kanál, dokud nemá řádek v `InputEditorRow`. `neighborKey` je klíč,
+ * který ve výchozím presetu slotu předchází tomuto kanálu — `null`, když byl
+ * ve výchozím presetu první a soused tedy neexistuje.
+ */
+export type DisabledInputRow = {
+  readonly key: string;
+  readonly label: string;
+  readonly note: string;
+  readonly ownerRole: Group;
+  readonly ownerMusicianId: string;
+  readonly slotKey: string;
+  readonly neighborKey: string | null;
+};
+
 export type SetupForSlot = (
   role: Group,
   musicianId: string,
@@ -29,118 +47,176 @@ export type SetupForSlot = (
   effective: MusicianSetupPreset;
 };
 
+const FILLER_KEY_PREFIX = "spare_ch_";
+
 /**
- * Co? Řádky tabulky kanálů na obrazovce `02`.
+ * Co? Řádky tabulky kanálů na obrazovce `02`, poskládané joinem nad
+ * `document.inputs` — tím, co `buildDocument` skutečně vytiskne (R1).
  *
- * Proč vypnuté řádky zůstávají? Je to jediné vědomé místo, kde se editor
- * liší od tisku (R3): uživatel vidí, co odškrtl, a vrátí to jedním klikem.
- * Číslo takový řádek nedostane, aby čísla souhlasila s dokumentem.
- *
- * Proč čísluje `assignPdfChannels` a ne tenhle modul? Protože ta funkce
- * vkládá výplňový kanál pro zarovnání stereo páru na nepatrné číslo. Vlastní
- * číslování od jedničky by se od PDF rozešlo přesně tam, kde na tom záleží.
+ * Proč join a ne výpočet? Číslo, label, poznámka, skupina, vlastník i pořadí
+ * v `document.inputs` už jsou hotové — je to tatáž řada, co jde do PDF. Tenhle
+ * modul je jen kopíruje. Jediná práce navíc: vypnuté kanály se netisknou,
+ * takže v dokumentu nejsou vůbec — přicházejí zvlášť (`disabledRows`, ze
+ * `collectDisabledInputRows`) a vkládají se za svého souseda (R3).
  */
 export function buildInputEditorRows(args: {
+  document: DocumentViewModel;
+  disabledRows: readonly DisabledInputRow[];
+}): InputEditorRow[] {
+  const { document, disabledRows } = args;
+  const slotKeyByRowKey = deriveSlotKeys(document.inputs);
+
+  const rows: InputEditorRow[] = document.inputs.map((input) => {
+    const isFiller = input.key.startsWith(FILLER_KEY_PREFIX);
+    return {
+      key: input.key,
+      ch: input.ch,
+      label: input.label,
+      note: input.note ?? "",
+      group: input.group,
+      ownerRole: input.ownerRole ?? input.group,
+      ownerMusicianId: input.ownerMusicianId ?? "",
+      slotKey: isFiller ? "" : (slotKeyByRowKey.get(input.key) ?? ""),
+      state: isFiller ? "filler" : "active",
+    };
+  });
+
+  for (const disabled of disabledRows) {
+    rows.splice(insertionIndexFor(rows, disabled), 0, {
+      key: disabled.key,
+      ch: null,
+      label: disabled.label,
+      note: disabled.note,
+      group: disabled.ownerRole,
+      ownerRole: disabled.ownerRole,
+      ownerMusicianId: disabled.ownerMusicianId,
+      slotKey: disabled.slotKey,
+      state: "removed",
+    });
+  }
+
+  return rows;
+}
+
+/**
+ * Kam patří vypnutý řádek: hned za svého souseda, pokud se v joinu najde.
+ * Bez souseda (nebo když soused sám v dokumentu není, protože je taky
+ * vypnutý a ještě nebyl vložen) skončí za posledním řádkem téhož vlastníka
+ * (`slotKey`) — to odliší dva muzikanty stejné role od sebe. Bez shody ani
+ * tam skončí na konci vlastní skupiny (`ownerRole`), ne na konci celé
+ * tabulky, kde by vypadal, že patří k poslední vytištěné roli.
+ */
+function insertionIndexFor(
+  rows: InputEditorRow[],
+  disabled: DisabledInputRow,
+): number {
+  if (disabled.neighborKey !== null) {
+    const neighborIndex = rows.findIndex(
+      (row) => row.key === disabled.neighborKey,
+    );
+    if (neighborIndex !== -1) return neighborIndex + 1;
+  }
+
+  if (disabled.slotKey) {
+    for (let i = rows.length - 1; i >= 0; i--) {
+      if (rows[i].slotKey === disabled.slotKey) return i + 1;
+    }
+  }
+
+  for (let i = rows.length - 1; i >= 0; i--) {
+    if (rows[i].ownerRole === disabled.ownerRole) return i + 1;
+  }
+  return rows.length;
+}
+
+/**
+ * `slotKey` identifikuje, který výskyt role patří danému vlastníkovi
+ * (1. kytarista, 2. kytarista, ...), aby ho pozdější inspektor (Task 12) mohl
+ * skupinovat. `document.inputs` index slotu nenese přímo — nese ale
+ * `ownerRole`/`ownerMusicianId` na každém řádku, a řádky jsou už ve
+ * vytištěném pořadí. Index se tedy odvodí z pořadí, ve kterém se který
+ * vlastník v rámci role poprvé objeví; víc informací dokument nedává.
+ * Řádek bez vlastníka (typicky filler) slotKey nedostane.
+ */
+function deriveSlotKeys(
+  inputs: DocumentViewModel["inputs"],
+): Map<string, string> {
+  const indexByRoleAndMusician = new Map<string, number>();
+  const nextIndexByRole = new Map<Group, number>();
+  const slotKeyByRowKey = new Map<string, string>();
+
+  for (const input of inputs) {
+    if (input.key.startsWith(FILLER_KEY_PREFIX)) continue;
+    const role = input.ownerRole;
+    const musicianId = input.ownerMusicianId;
+    if (!role || !musicianId) {
+      console.warn(
+        `[buildInputEditorRows] input "${input.key}" has no owner in the document; slotKey left empty (the Task 12 inspector needs it).`,
+      );
+      continue;
+    }
+
+    const comboKey = `${role}:${musicianId}`;
+    let index = indexByRoleAndMusician.get(comboKey);
+    if (index === undefined) {
+      index = nextIndexByRole.get(role) ?? 0;
+      indexByRoleAndMusician.set(comboKey, index);
+      nextIndexByRole.set(role, index + 1);
+    }
+    slotKeyByRowKey.set(input.key, `${role}:${index}`);
+  }
+
+  return slotKeyByRowKey;
+}
+
+/**
+ * Co? Vypnuté kanály obsazených slotů lineupu — rozdíl mezi výchozím
+ * presetem slotu a jeho efektivním presetem.
+ *
+ * Proč samostatná funkce a ne součást joinu? `buildInputEditorRows` čte jen
+ * `document.inputs`, kde vypnuté kanály nejsou (netisknou se). Tahle funkce
+ * je jediné místo, které smí sáhnout do lineupu — a musí to dělat přes
+ * `normalizeLineupSlots`, aby uměla i lineup zapsaný jako pole holých
+ * musicianId stringů (to zahodil původní Task 11).
+ */
+export function collectDisabledInputRows(args: {
   lineup: LineupMap;
   roleOrder: readonly Group[];
-  inputOrder: readonly string[] | undefined;
   setupForSlot: SetupForSlot;
-}): InputEditorRow[] {
-  const { lineup, roleOrder, inputOrder, setupForSlot } = args;
-  const collected: InputEditorRow[] = [];
+}): DisabledInputRow[] {
+  const { lineup, roleOrder, setupForSlot } = args;
+  const rows: DisabledInputRow[] = [];
 
   for (const role of roleOrder) {
-    const value = lineup[role];
-    const slots = Array.isArray(value) ? value : [];
+    const slots = normalizeLineupSlots(lineup[role], getRoleSlotLimit(role));
 
     slots.forEach((slot, slotIndex) => {
-      // `LineupEntry` also allows a bare musician-id string; that shape never
-      // carries a preset override, so it can never own an editable input row.
-      if (typeof slot === "string") return;
-      const musicianId = slot.musicianId.trim();
-      if (!musicianId) return;
-
+      const musicianId = slot.musicianId;
       const { resolved, effective } = setupForSlot(
         role,
         musicianId,
         slot.presetOverride,
       );
-      const slotKey = `${role}:${slotIndex}`;
       const activeKeys = new Set(effective.inputs.map((input) => input.key));
-
-      const toRow = (
-        input: { key: string; label: string; note?: string; group?: Group },
-        state: "active" | "removed",
-      ): InputEditorRow => ({
-        key: input.key,
-        ch: null,
-        label: input.label,
-        note: input.note ?? "",
-        group: input.group ?? role,
-        ownerRole: role,
-        ownerMusicianId: musicianId,
-        slotKey,
-        state,
-      });
-
-      for (const input of effective.inputs) collected.push(toRow(input, "active"));
+      const slotKey = `${role}:${slotIndex}`;
+      let previousKey: string | null = null;
 
       for (const input of resolved.defaultPreset.inputs) {
-        if (activeKeys.has(input.key)) continue;
-        collected.push(toRow(input, "removed"));
+        if (!activeKeys.has(input.key)) {
+          rows.push({
+            key: input.key,
+            label: input.label,
+            note: input.note ?? "",
+            ownerRole: role,
+            ownerMusicianId: musicianId,
+            slotKey,
+            neighborKey: previousKey,
+          });
+        }
+        previousKey = input.key;
       }
     });
   }
 
-  const ordered = applyManualInputOrder(collected, inputOrder);
-
-  // Čísla přiřadí doména nad tištěnými řádky; vypnuté se do ní neposílají.
-  //
-  // Pole `ch` se musí odstranit, ne jen ignorovat: `assignPdfChannels` staví
-  // výsledek jako `{ ch: nextCh, ...input }`, takže vlastní `ch: null` na vstupu
-  // by přiřazené číslo spreadem přepsalo zpátky na `null`.
-  const printable = ordered
-    .filter((row) => row.state === "active")
-    .map(({ key, label, note, group, ownerRole, ownerMusicianId }) => ({
-      key,
-      label,
-      note,
-      group,
-      ownerRole,
-      ownerMusicianId,
-    }));
-  const numbered = new Map<string, number>();
-  const fillers: InputEditorRow[] = [];
-
-  for (const row of assignPdfChannels(printable)) {
-    if (row.key.startsWith("spare_ch_")) {
-      fillers.push({
-        key: row.key,
-        ch: row.ch,
-        label: row.label,
-        note: row.note ?? "",
-        group: row.group,
-        ownerRole: row.ownerRole,
-        ownerMusicianId: "",
-        slotKey: "",
-        state: "filler",
-      });
-      continue;
-    }
-    numbered.set(row.key, row.ch);
-  }
-
-  const withNumbers = ordered.map((row) =>
-    row.state === "active" ? { ...row, ch: numbered.get(row.key) ?? null } : row,
-  );
-
-  // Výplň patří na své číslo, tedy před řádek, který ho následuje.
-  for (const filler of fillers) {
-    const at = withNumbers.findIndex(
-      (row) => row.ch !== null && row.ch > (filler.ch ?? 0),
-    );
-    withNumbers.splice(at === -1 ? withNumbers.length : at, 0, filler);
-  }
-
-  return withNumbers;
+  return rows;
 }
