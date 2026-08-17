@@ -195,3 +195,82 @@ describe("normalizeProject", () => {
     expect(project.stageplan?.layout?.blocks).toHaveLength(1);
   });
 });
+
+describe("normalizeProject inputs screen fields", () => {
+  const base = {
+    id: "p1",
+    bandRef: "b1",
+    purpose: "event" as const,
+    eventDate: "2026-08-22",
+    eventVenue: "Zámek Bon Repos",
+    documentDate: "2026-08-22",
+  };
+
+  it("passes the manual input order through", () => {
+    const project = normalizeProject({
+      ...base,
+      inputOrder: ["kick_in", "snare_top"],
+    } as never);
+
+    expect(project.inputOrder).toEqual(["kick_in", "snare_top"]);
+  });
+
+  it("passes notes deviations through", () => {
+    const project = normalizeProject({
+      ...base,
+      notes: {
+        disabled: ["drum_riser_required"],
+        overrides: { no_foh_engineer: "Vlastní znění." },
+        custom: [{ id: "custom_1", section: "inputs", text: "Naše věta." }],
+      },
+    } as never);
+
+    expect(project.notes?.disabled).toEqual(["drum_riser_required"]);
+    expect(project.notes?.overrides).toEqual({
+      no_foh_engineer: "Vlastní znění.",
+    });
+    expect(project.notes?.custom).toEqual([
+      { id: "custom_1", section: "inputs", text: "Naše věta." },
+    ]);
+  });
+
+  it("leaves both fields undefined when the json has neither", () => {
+    const project = normalizeProject(base as never);
+
+    expect(project.inputOrder).toBeUndefined();
+    expect(project.notes).toBeUndefined();
+  });
+
+  it("drops an empty manual order instead of storing an empty array", () => {
+    const project = normalizeProject({ ...base, inputOrder: [] } as never);
+
+    expect(project.inputOrder).toBeUndefined();
+  });
+
+  it("passes the fields through the generic branch as well", () => {
+    const project = normalizeProject({
+      id: "p2",
+      bandRef: "b1",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+      inputOrder: ["kick_in"],
+      notes: { disabled: ["x"] },
+    } as never);
+
+    expect(project.inputOrder).toEqual(["kick_in"]);
+    expect(project.notes?.disabled).toEqual(["x"]);
+  });
+
+  it("passes the fields through the legacy date branch as well", () => {
+    const project = normalizeProject({
+      id: "p3",
+      bandRef: "b1",
+      date: "2026-08-22",
+      inputOrder: ["kick_in"],
+      notes: { disabled: ["x"] },
+    } as never);
+
+    expect(project.inputOrder).toEqual(["kick_in"]);
+    expect(project.notes?.disabled).toEqual(["x"]);
+  });
+});

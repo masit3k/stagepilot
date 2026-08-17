@@ -118,6 +118,15 @@ export interface Project {
     powerOverridesByMusician?: Record<string, PowerRequirement>;
     layout?: StageplanLayout;
   };
+
+  /**
+   * Ruční pořadí kanálů jako seznam klíčů (R8). Chybí, dokud uživatel
+   * nepřeřadil — projekt bez tohoto pole se řídí vypočteným pořadím.
+   */
+  inputOrder?: readonly string[];
+
+  /** Odchylky poznámek proti šabloně kapely (R11). */
+  notes?: ProjectNotesOverride;
 }
 
 /**
@@ -170,6 +179,15 @@ export interface ProjectJsonV2 {
     powerOverridesByMusician?: Record<string, PowerRequirement>;
     layout?: StageplanLayout;
   };
+
+  /**
+   * Ruční pořadí kanálů jako seznam klíčů (R8). Chybí, dokud uživatel
+   * nepřeřadil — projekt bez tohoto pole se řídí vypočteným pořadím.
+   */
+  inputOrder?: readonly string[];
+
+  /** Odchylky poznámek proti šabloně kapely (R11). */
+  notes?: ProjectNotesOverride;
 }
 
 /**
@@ -298,6 +316,25 @@ export type PartialInputUpdate = {
 export type InputReplacePatch = {
   targetKey: string;
   with: InputChannel;
+};
+
+/**
+ * Poznámky pod tabulkami jako odchylka projektu nad šablonou kapely (R11).
+ * Šablona dál určuje, co se nabídne; projekt drží jen rozdíl, takže nový
+ * řádek v šabloně se ve starším projektu objeví sám.
+ */
+export type ProjectNotesOverride = {
+  /** id řádků šablony, které se v tomto projektu netisknou */
+  readonly disabled?: readonly string[];
+  /** id řádku šablony -> vlastní znění */
+  readonly overrides?: Readonly<Record<string, string>>;
+  /** vlastní řádky projektu, řadí se za šablonové ve své sekci */
+  readonly custom?: readonly {
+    /** vždy s prefixem `custom_`, aby nekolidovalo s id ze šablony */
+    readonly id: string;
+    readonly section: "inputs" | "monitors";
+    readonly text: string;
+  }[];
 };
 
 export type PresetOverridePatch = {

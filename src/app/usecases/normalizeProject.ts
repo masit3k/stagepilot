@@ -4,6 +4,7 @@ import type {
   Project,
   ProjectJson,
   ProjectLineup,
+  ProjectNotesOverride,
   ProjectOverlays,
   StagePlanPurpose,
 } from "../../domain/model/types.js";
@@ -203,6 +204,76 @@ function normalizeProjectStageplan(
   };
 }
 
+/** Prázdné pořadí se nedrží — absence pole znamená „řiď se výpočtem" (R8). */
+function normalizeInputOrder(value: unknown): readonly string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const keys = value
+    .filter((entry): entry is string => typeof entry === "string")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+  return keys.length > 0 ? keys : undefined;
+}
+
+function normalizeProjectNotes(
+  value: unknown,
+): ProjectNotesOverride | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const raw = value as {
+    disabled?: unknown;
+    overrides?: unknown;
+    custom?: unknown;
+  };
+
+  const disabled = Array.isArray(raw.disabled)
+    ? raw.disabled
+        .filter((id): id is string => typeof id === "string")
+        .map((id) => id.trim())
+        .filter((id) => id.length > 0)
+    : [];
+
+  const overrides: Record<string, string> = {};
+  if (raw.overrides && typeof raw.overrides === "object") {
+    for (const [id, text] of Object.entries(
+      raw.overrides as Record<string, unknown>,
+    )) {
+      if (typeof text === "string" && text.trim().length > 0) {
+        overrides[id] = text;
+      }
+    }
+  }
+
+  const custom = Array.isArray(raw.custom)
+    ? raw.custom
+        .filter(
+          (
+            entry,
+          ): entry is { id: string; section: "inputs" | "monitors"; text: string } =>
+            Boolean(entry) &&
+            typeof entry === "object" &&
+            typeof (entry as { id?: unknown }).id === "string" &&
+            typeof (entry as { text?: unknown }).text === "string" &&
+            ((entry as { section?: unknown }).section === "inputs" ||
+              (entry as { section?: unknown }).section === "monitors"),
+        )
+        .map((entry) => ({
+          id: entry.id.trim(),
+          section: entry.section,
+          text: entry.text,
+        }))
+        .filter((entry) => entry.id.length > 0 && entry.text.trim().length > 0)
+    : [];
+
+  const hasAnything =
+    disabled.length > 0 || Object.keys(overrides).length > 0 || custom.length > 0;
+  if (!hasAnything) return undefined;
+
+  return {
+    ...(disabled.length > 0 ? { disabled } : {}),
+    ...(Object.keys(overrides).length > 0 ? { overrides } : {}),
+    ...(custom.length > 0 ? { custom } : {}),
+  };
+}
+
 export function normalizeProject(input: ProjectJson): Project {
   const id = assertString((input as ProjectJson).id, "project id");
   const bandRef = assertString((input as ProjectJson).bandRef, "bandRef");
@@ -215,6 +286,10 @@ export function normalizeProject(input: ProjectJson): Project {
       : undefined;
 
   const stageplan = normalizeProjectStageplan((input as ProjectJson).stageplan);
+  const inputOrder = normalizeInputOrder(
+    (input as { inputOrder?: unknown }).inputOrder,
+  );
+  const notes = normalizeProjectNotes((input as { notes?: unknown }).notes);
   const createdAt =
     "createdAt" in input &&
     typeof input.createdAt === "string" &&
@@ -281,6 +356,8 @@ export function normalizeProject(input: ProjectJson): Project {
         overlays,
         bandLeaderId,
         stageplan,
+        inputOrder,
+        notes,
       };
     }
 
@@ -300,6 +377,8 @@ export function normalizeProject(input: ProjectJson): Project {
       overlays,
       bandLeaderId,
       stageplan,
+      inputOrder,
+      notes,
     };
   }
 
@@ -325,6 +404,8 @@ export function normalizeProject(input: ProjectJson): Project {
       overlays,
       bandLeaderId,
       stageplan,
+      inputOrder,
+      notes,
     };
   }
 
