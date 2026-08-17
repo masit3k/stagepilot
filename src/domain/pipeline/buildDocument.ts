@@ -625,6 +625,7 @@ export function buildDocument(
   const notesTemplateId = band.notesTemplateRef ?? "notes_default_cs";
   const notes = buildPdfNotes({
     template: repo.getNotesTemplate(notesTemplateId),
+    overrides: project.notes,
     monitors: {
       hasWedge: monitors.some((m) => m.kind === "wedge"),
       hasBandSuppliedIem: monitors.some(
