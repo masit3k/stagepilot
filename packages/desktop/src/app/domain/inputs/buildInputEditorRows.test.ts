@@ -26,6 +26,13 @@ function makeDocument(inputs: DocInput[]): DocumentViewModel {
   return { inputs } as unknown as DocumentViewModel;
 }
 
+/** `${role}:${musicianId}` -> `${role}:${index}`, the shape `buildSlotKeyIndex` produces. */
+function ownerSlotKeys(
+  pairs: Record<string, string>,
+): ReadonlyMap<string, string> {
+  return new Map(Object.entries(pairs));
+}
+
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
@@ -42,7 +49,11 @@ describe("buildInputEditorRows", () => {
       }),
     ]);
 
-    const rows = buildInputEditorRows({ document, disabledRows: [] });
+    const rows = buildInputEditorRows({
+      document,
+      disabledRows: [],
+      slotKeysByOwner: ownerSlotKeys({ "bass:m1": "bass:0" }),
+    });
 
     expect(rows.map((r) => [r.key, r.ch])).toEqual([
       ["bass_di", 1],
@@ -79,7 +90,11 @@ describe("buildInputEditorRows", () => {
       }),
     ]);
 
-    const rows = buildInputEditorRows({ document, disabledRows: [] });
+    const rows = buildInputEditorRows({
+      document,
+      disabledRows: [],
+      slotKeysByOwner: ownerSlotKeys({ "keys:m2": "keys:0" }),
+    });
 
     const filler = rows.find((r) => r.key === "spare_ch_2");
     expect(filler?.state).toBe("filler");
@@ -101,6 +116,7 @@ describe("buildInputEditorRows", () => {
         key: "bass_mic",
         label: "Bass mic",
         note: "",
+        group: "bass",
         ownerRole: "bass",
         ownerMusicianId: "m1",
         slotKey: "bass:0",
@@ -108,14 +124,22 @@ describe("buildInputEditorRows", () => {
       },
     ];
 
-    const rows = buildInputEditorRows({ document, disabledRows });
+    const rows = buildInputEditorRows({
+      document,
+      disabledRows,
+      slotKeysByOwner: ownerSlotKeys({ "bass:m1": "bass:0" }),
+    });
 
-    expect(rows.map((r) => r.key)).toEqual(["bass_di", "bass_mic", "bass_amp"]);
-    const disabled = rows.find((r) => r.key === "bass_mic");
+    expect(rows.map((r) => r.label)).toEqual([
+      "Bass DI",
+      "Bass mic",
+      "Bass amp mic",
+    ]);
+    const disabled = rows.find((r) => r.label === "Bass mic");
     expect(disabled?.ch).toBeNull();
     expect(disabled?.state).toBe("removed");
-    expect(rows.find((r) => r.key === "bass_di")?.ch).toBe(1);
-    expect(rows.find((r) => r.key === "bass_amp")?.ch).toBe(2);
+    expect(rows.find((r) => r.label === "Bass DI")?.ch).toBe(1);
+    expect(rows.find((r) => r.label === "Bass amp mic")?.ch).toBe(2);
   });
 
   it("places a disabled row with no known neighbor at the end of its own group, not inside another one", () => {
@@ -135,6 +159,7 @@ describe("buildInputEditorRows", () => {
         key: "bass_mic",
         label: "Bass mic",
         note: "",
+        group: "bass",
         ownerRole: "bass",
         ownerMusicianId: "m1",
         slotKey: "bass:0",
@@ -142,12 +167,19 @@ describe("buildInputEditorRows", () => {
       },
     ];
 
-    const rows = buildInputEditorRows({ document, disabledRows });
+    const rows = buildInputEditorRows({
+      document,
+      disabledRows,
+      slotKeysByOwner: ownerSlotKeys({
+        "bass:m1": "bass:0",
+        "guitar:m2": "guitar:0",
+      }),
+    });
 
-    expect(rows.map((r) => r.key)).toEqual([
-      "bass_di",
-      "bass_mic",
-      "guitar_di",
+    expect(rows.map((r) => r.label)).toEqual([
+      "Bass DI",
+      "Bass mic",
+      "Guitar DI",
     ]);
   });
 
@@ -175,6 +207,7 @@ describe("buildInputEditorRows", () => {
         key: "guitar1_mic",
         label: "Guitar 1 mic",
         note: "",
+        group: "guitar",
         ownerRole: "guitar",
         ownerMusicianId: "m1",
         slotKey: "guitar:0",
@@ -184,6 +217,7 @@ describe("buildInputEditorRows", () => {
         key: "guitar2_mic",
         label: "Guitar 2 mic",
         note: "",
+        group: "guitar",
         ownerRole: "guitar",
         ownerMusicianId: "m2",
         slotKey: "guitar:1",
@@ -191,19 +225,32 @@ describe("buildInputEditorRows", () => {
       },
     ];
 
-    const rows = buildInputEditorRows({ document, disabledRows });
+    const rows = buildInputEditorRows({
+      document,
+      disabledRows,
+      slotKeysByOwner: ownerSlotKeys({
+        "guitar:m1": "guitar:0",
+        "guitar:m2": "guitar:1",
+      }),
+    });
 
-    expect(rows.map((r) => r.key)).toEqual([
-      "guitar1_di",
-      "guitar1_mic",
-      "guitar2_di",
-      "guitar2_mic",
+    expect(rows.map((r) => r.label)).toEqual([
+      "Guitar 1",
+      "Guitar 1 mic",
+      "Guitar 2",
+      "Guitar 2 mic",
     ]);
   });
 
   it("matches the document exactly when there are no disabled rows", () => {
     const inputs = [
-      row({ ch: 1, key: "bass_di", label: "Bass DI", ownerMusicianId: "m1" }),
+      row({
+        ch: 1,
+        key: "bass_di",
+        label: "Bass DI",
+        note: "DI box",
+        ownerMusicianId: "m1",
+      }),
       row({
         ch: 2,
         key: "bass_amp",
@@ -213,13 +260,18 @@ describe("buildInputEditorRows", () => {
     ];
     const document = makeDocument(inputs);
 
-    const rows = buildInputEditorRows({ document, disabledRows: [] });
+    const rows = buildInputEditorRows({
+      document,
+      disabledRows: [],
+      slotKeysByOwner: ownerSlotKeys({ "bass:m1": "bass:0" }),
+    });
 
     expect(
       rows.map((r) => ({
         key: r.key,
         ch: r.ch,
         label: r.label,
+        note: r.note,
         group: r.group,
         ownerRole: r.ownerRole,
         ownerMusicianId: r.ownerMusicianId,
@@ -230,6 +282,7 @@ describe("buildInputEditorRows", () => {
         key: i.key,
         ch: i.ch,
         label: i.label,
+        note: i.note ?? "",
         group: i.group,
         ownerRole: i.ownerRole,
         ownerMusicianId: i.ownerMusicianId,
@@ -253,6 +306,7 @@ describe("buildInputEditorRows", () => {
         key: "bass_mic",
         label: "Bass mic",
         note: "",
+        group: "bass",
         ownerRole: "bass",
         ownerMusicianId: "m1",
         slotKey: "bass:0",
@@ -262,49 +316,252 @@ describe("buildInputEditorRows", () => {
     const inputsBefore = clone(inputs);
     const disabledRowsBefore = clone(disabledRows);
 
-    buildInputEditorRows({ document: makeDocument(inputs), disabledRows });
+    buildInputEditorRows({
+      document: makeDocument(inputs),
+      disabledRows,
+      slotKeysByOwner: ownerSlotKeys({ "bass:m1": "bass:0" }),
+    });
 
     expect(inputs).toEqual(inputsBefore);
     expect(disabledRows).toEqual(disabledRowsBefore);
   });
 
-  it("derives slotKey from ownerRole and the order the owner's rows first appear", () => {
+  it("keys an active row by owner identity from the supplied map, not by the order rows print in", () => {
+    // Mirrors the real bug: `comparePdfInputs` sorts acoustic guitars after
+    // electric ones, ahead of the lineup tie-break, so the second guitarist's
+    // row can print before the first's. `slotKey` must still point at each
+    // musician's real lineup slot, not at the print position.
     const document = makeDocument([
       row({
         ch: 1,
-        key: "guitar1_di",
-        label: "Guitar 1",
-        group: "guitar",
-        ownerRole: "guitar",
-        ownerMusicianId: "m1",
-      }),
-      row({
-        ch: 2,
-        key: "guitar2_di",
-        label: "Guitar 2",
+        key: "el_guitar_2",
+        label: "Electric guitar 2",
         group: "guitar",
         ownerRole: "guitar",
         ownerMusicianId: "m2",
       }),
       row({
-        ch: 3,
-        key: "guitar1_mic",
-        label: "Guitar 1 mic",
+        ch: 2,
+        key: "ac_guitar_1",
+        label: "Acoustic guitar 1",
         group: "guitar",
         ownerRole: "guitar",
         ownerMusicianId: "m1",
       }),
     ]);
 
-    const rows = buildInputEditorRows({ document, disabledRows: [] });
+    const rows = buildInputEditorRows({
+      document,
+      disabledRows: [],
+      slotKeysByOwner: ownerSlotKeys({
+        "guitar:m1": "guitar:0",
+        "guitar:m2": "guitar:1",
+      }),
+    });
 
-    expect(rows.find((r) => r.key === "guitar1_di")?.slotKey).toBe("guitar:0");
-    expect(rows.find((r) => r.key === "guitar2_di")?.slotKey).toBe("guitar:1");
-    expect(rows.find((r) => r.key === "guitar1_mic")?.slotKey).toBe("guitar:0");
+    expect(rows.find((r) => r.key === "ac_guitar_1")?.slotKey).toBe("guitar:0");
+    expect(rows.find((r) => r.key === "el_guitar_2")?.slotKey).toBe("guitar:1");
+  });
+
+  it("leaves slotKey empty when the row's owner isn't in the supplied map", () => {
+    const document = makeDocument([
+      row({ ch: 1, key: "bass_di", label: "Bass DI", ownerMusicianId: "m1" }),
+    ]);
+
+    const rows = buildInputEditorRows({
+      document,
+      disabledRows: [],
+      slotKeysByOwner: new Map(),
+    });
+
+    expect(rows[0].slotKey).toBe("");
+  });
+
+  it("keeps two consecutive disabled channels of the same musician in their relative order", () => {
+    const document = makeDocument([
+      row({ ch: 1, key: "bass_di", label: "Bass DI", ownerMusicianId: "m1" }),
+    ]);
+    const disabledRows: DisabledInputRow[] = [
+      {
+        key: "bass_mic",
+        label: "Bass mic",
+        note: "",
+        group: "bass",
+        ownerRole: "bass",
+        ownerMusicianId: "m1",
+        slotKey: "bass:0",
+        neighborKey: "bass_di",
+      },
+      {
+        key: "bass_pedal",
+        label: "Bass pedal",
+        note: "",
+        group: "bass",
+        ownerRole: "bass",
+        ownerMusicianId: "m1",
+        slotKey: "bass:0",
+        neighborKey: "bass_mic",
+      },
+    ];
+
+    const rows = buildInputEditorRows({
+      document,
+      disabledRows,
+      slotKeysByOwner: ownerSlotKeys({ "bass:m1": "bass:0" }),
+    });
+
+    expect(rows.map((r) => r.label)).toEqual([
+      "Bass DI",
+      "Bass mic",
+      "Bass pedal",
+    ]);
+  });
+
+  it("falls back to the end of the ownerRole block when the owner has no rows of its own yet", () => {
+    const document = makeDocument([
+      row({
+        ch: 1,
+        key: "bass_di",
+        label: "Bass DI (m2)",
+        ownerMusicianId: "m2",
+      }),
+    ]);
+    const disabledRows: DisabledInputRow[] = [
+      {
+        key: "bass_mic",
+        label: "Bass mic (m1)",
+        note: "",
+        group: "bass",
+        ownerRole: "bass",
+        ownerMusicianId: "m1",
+        slotKey: "bass:0",
+        neighborKey: null,
+      },
+    ];
+
+    const rows = buildInputEditorRows({
+      document,
+      disabledRows,
+      slotKeysByOwner: ownerSlotKeys({
+        "bass:m1": "bass:0",
+        "bass:m2": "bass:1",
+      }),
+    });
+
+    expect(rows.map((r) => r.label)).toEqual(["Bass DI (m2)", "Bass mic (m1)"]);
+  });
+
+  it("keeps a disabled row's identity distinct from an active row that happens to share its raw key", () => {
+    // Only one instance of "el_guitar" prints (guitarist 1's is disabled), so
+    // `disambiguateInputKeys` leaves it bare — it belongs to guitarist 2.
+    const document = makeDocument([
+      row({
+        ch: 1,
+        key: "el_guitar",
+        label: "Electric guitar 2",
+        group: "guitar",
+        ownerRole: "guitar",
+        ownerMusicianId: "m2",
+      }),
+    ]);
+    const disabledRows: DisabledInputRow[] = [
+      {
+        key: "el_guitar",
+        label: "Electric guitar",
+        note: "",
+        group: "guitar",
+        ownerRole: "guitar",
+        ownerMusicianId: "m1",
+        slotKey: "guitar:0",
+        neighborKey: null,
+      },
+    ];
+
+    const rows = buildInputEditorRows({
+      document,
+      disabledRows,
+      slotKeysByOwner: ownerSlotKeys({
+        "guitar:m1": "guitar:0",
+        "guitar:m2": "guitar:1",
+      }),
+    });
+
+    const keys = rows.map((r) => r.key);
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(rows.find((r) => r.ownerMusicianId === "m1")?.key).not.toBe(
+      rows.find((r) => r.ownerMusicianId === "m2")?.key,
+    );
+  });
+
+  it("does not let a same-named active row from a different musician satisfy the neighbor lookup", () => {
+    const document = makeDocument([
+      row({
+        ch: 1,
+        key: "el_guitar_mic",
+        label: "Guitar 2 mic",
+        group: "guitar",
+        ownerRole: "guitar",
+        ownerMusicianId: "m2",
+      }),
+      row({
+        ch: 2,
+        key: "el_guitar",
+        label: "Guitar 2",
+        group: "guitar",
+        ownerRole: "guitar",
+        ownerMusicianId: "m2",
+      }),
+    ]);
+    // Guitarist 1 has the identical preset, both channels disabled. Its
+    // `el_guitar`'s neighbor is `el_guitar_mic` — a raw key guitarist 2 also
+    // uses. The lookup must not lock onto guitarist 2's printed row.
+    const disabledRows: DisabledInputRow[] = [
+      {
+        key: "el_guitar_mic",
+        label: "Guitar 1 mic",
+        note: "",
+        group: "guitar",
+        ownerRole: "guitar",
+        ownerMusicianId: "m1",
+        slotKey: "guitar:0",
+        neighborKey: null,
+      },
+      {
+        key: "el_guitar",
+        label: "Guitar 1",
+        note: "",
+        group: "guitar",
+        ownerRole: "guitar",
+        ownerMusicianId: "m1",
+        slotKey: "guitar:0",
+        neighborKey: "el_guitar_mic",
+      },
+    ];
+
+    const rows = buildInputEditorRows({
+      document,
+      disabledRows,
+      slotKeysByOwner: ownerSlotKeys({
+        "guitar:m1": "guitar:0",
+        "guitar:m2": "guitar:1",
+      }),
+    });
+
+    expect(rows.map((r) => r.label)).toEqual([
+      "Guitar 2 mic",
+      "Guitar 2",
+      "Guitar 1 mic",
+      "Guitar 1",
+    ]);
   });
 });
 
-type InputDefLike = { key: string; label: string; note?: string };
+type InputDefLike = {
+  key: string;
+  label: string;
+  note?: string;
+  group?: DocInput["group"];
+};
 
 function stubSetup(args: {
   defaults: InputDefLike[];
@@ -338,6 +595,7 @@ describe("collectDisabledInputRows", () => {
         key: "bass_mic",
         label: "Bass mic",
         note: "",
+        group: "bass",
         ownerRole: "bass",
         ownerMusicianId: "m1",
         slotKey: "bass:0",
@@ -400,5 +658,20 @@ describe("collectDisabledInputRows", () => {
     });
 
     expect(rows).toEqual([]);
+  });
+
+  it("carries the disabled channel's own group instead of assuming the owner's role", () => {
+    const setupForSlot = stubSetup({
+      defaults: [{ key: "vocal_mic", label: "Vocal mic", group: "vocs" }],
+      effective: [],
+    });
+
+    const rows = collectDisabledInputRows({
+      lineup: { guitar: [{ musicianId: "m1" }] },
+      roleOrder: ["guitar"],
+      setupForSlot,
+    });
+
+    expect(rows[0].group).toBe("vocs");
   });
 });

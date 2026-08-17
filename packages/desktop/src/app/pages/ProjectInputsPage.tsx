@@ -9,8 +9,8 @@ import { useToast } from "../../components/ui/toast/useToast";
 import type { LineupMap } from "../../projectRules";
 import { InputTable } from "../components/inputs/InputTable";
 import {
-  type DisabledInputRow,
   buildInputEditorRows,
+  buildSlotKeyIndex,
   collectDisabledInputRows,
 } from "../domain/inputs/buildInputEditorRows";
 import { createDocumentRepository } from "../domain/inputs/createDocumentRepository";
@@ -200,24 +200,33 @@ export function ProjectInputsPage({
   }, [project, setupData, id]);
 
   /**
-   * Vypnuté kanály obsazených slotů — jediná věc, kterou tento modul počítá
-   * sám, protože se netisknou a v `document.inputs` tedy nejsou. Selhání se
-   * nesmí strhnout aktivní řádky s sebou: bez vypnutých řádků se obrazovka
-   * pořád vykreslí, jen bez přeškrtnutí (R3).
+   * Vypnuté kanály obsazených slotů a `slotKey` podle vlastníka — obojí se
+   * čte přímo z lineupu, ne z dokumentu: pořadí muzikanta v `document.inputs`
+   * se s pořadím v lineupu nemusí shodovat (vokály jdou přes overlay,
+   * akustická kytara se řadí za elektrickou před rozlišením podle lineupu).
+   * Selhání se nesmí strhnout aktivní řádky s sebou: bez vypnutých řádků a
+   * bez `slotKey` se obrazovka pořád vykreslí, jen bez přeškrtnutí (R3) a
+   * bez adresy pro Task 12.
    */
-  const disabledRows = useMemo<readonly DisabledInputRow[]>(() => {
+  const { disabledRows, slotKeysByOwner } = useMemo(() => {
     try {
-      return collectDisabledInputRows({
-        lineup,
-        roleOrder: CANONICAL_LINEUP_ROLE_ORDER,
-        setupForSlot,
-      });
+      return {
+        slotKeysByOwner: buildSlotKeyIndex({
+          lineup,
+          roleOrder: CANONICAL_LINEUP_ROLE_ORDER,
+        }),
+        disabledRows: collectDisabledInputRows({
+          lineup,
+          roleOrder: CANONICAL_LINEUP_ROLE_ORDER,
+          setupForSlot,
+        }),
+      };
     } catch (error) {
       console.error("[project-inputs] failed to collect disabled rows", {
         projectId: id,
         error,
       });
-      return [];
+      return { disabledRows: [], slotKeysByOwner: new Map<string, string>() };
     }
   }, [lineup, setupForSlot, id]);
 
@@ -227,9 +236,10 @@ export function ProjectInputsPage({
         ? buildInputEditorRows({
             document: documentResult.document,
             disabledRows,
+            slotKeysByOwner,
           })
         : [],
-    [documentResult, disabledRows],
+    [documentResult, disabledRows, slotKeysByOwner],
   );
 
   const saveSnapshot = useCallback(

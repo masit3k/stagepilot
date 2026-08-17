@@ -24,14 +24,16 @@ export type InputEditorRow = {
 };
 
 /**
- * Vypnutý kanál, dokud nemá řádek v `InputEditorRow`. `neighborKey` je klíč,
- * který ve výchozím presetu slotu předchází tomuto kanálu — `null`, když byl
- * ve výchozím presetu první a soused tedy neexistuje.
+ * Vypnutý kanál, dokud nemá řádek v `InputEditorRow`. `neighborKey` je klíč
+ * (z výchozího presetu, tedy ne disambiguovaný), který ve výchozím presetu
+ * slotu předchází tomuto kanálu — `null`, když byl ve výchozím presetu první
+ * a soused tedy neexistuje.
  */
 export type DisabledInputRow = {
   readonly key: string;
   readonly label: string;
   readonly note: string;
+  readonly group: Group;
   readonly ownerRole: Group;
   readonly ownerMusicianId: string;
   readonly slotKey: string;
@@ -50,6 +52,51 @@ export type SetupForSlot = (
 const FILLER_KEY_PREFIX = "spare_ch_";
 
 /**
+ * Co? `slotKey` pro každého vlastníka role, odvozený z lineupu —
+ * `${role}:${musicianId}` -> `${role}:${index}`. Jediný zdroj pravdy, ze
+ * kterého čerpá join (aktivní i vypnuté řádky), ve stejné konvenci
+ * `${role}:${index}`, jakou `ProjectSetupPage.tsx` (`parseSlotIndex`,
+ * ř. 1226–1257) používá pro zápis patche zpátky do konkrétního slotu.
+ *
+ * Proč z lineupu, a ne z pořadí řádků v dokumentu? `document.inputs`
+ * nezachovává pořadí muzikantů v rámci role: vokální řádky jdou přes overlay
+ * (lead se tiskne před back, bez ohledu na pořadí v lineupu) a
+ * `comparePdfInputs` řadí akustickou kytaru za elektrickou ještě před
+ * rozlišením podle pořadí v lineupu. `slotKey` odvozený z pořadí tisku by tak
+ * mohl označit jiného muzikanta, než pro kterého se patch skutečně zapíše —
+ * proto tahle funkce chodí přímo do `lineup`u, stejně jako
+ * `collectDisabledInputRows`.
+ */
+export function buildSlotKeyIndex(args: {
+  lineup: LineupMap;
+  roleOrder: readonly Group[];
+}): Map<string, string> {
+  const { lineup, roleOrder } = args;
+  const slotKeyByOwner = new Map<string, string>();
+
+  for (const role of roleOrder) {
+    const slots = normalizeLineupSlots(lineup[role], getRoleSlotLimit(role));
+    slots.forEach((slot, index) => {
+      slotKeyByOwner.set(`${role}:${slot.musicianId}`, `${role}:${index}`);
+    });
+  }
+
+  return slotKeyByOwner;
+}
+
+/**
+ * `InputEditorRow.key` je jmenný prostor, ve kterém `InputTable` hledá React
+ * klíč i identitu výběru. Klíč vypnutého kanálu je vždy syrový (z výchozího
+ * presetu) — jakmile dva muzikanti stejné role sdílejí preset a jeden z nich
+ * má kanál vypnutý, zatímco druhému se tiskne beze změny (disambiguace ho
+ * nechá bez sufixu, protože v dokumentu je jen jednou), vypnutý i aktivní
+ * řádek by měly stejný `key`. Jmenný prostor vlastníka to vylučuje.
+ */
+function composeRemovedRowKey(ownerMusicianId: string, rawKey: string): string {
+  return `${ownerMusicianId}:${rawKey}`;
+}
+
+/**
  * Co? Řádky tabulky kanálů na obrazovce `02`, poskládané joinem nad
  * `document.inputs` — tím, co `buildDocument` skutečně vytiskne (R1).
  *
@@ -62,32 +109,36 @@ const FILLER_KEY_PREFIX = "spare_ch_";
 export function buildInputEditorRows(args: {
   document: DocumentViewModel;
   disabledRows: readonly DisabledInputRow[];
+  slotKeysByOwner: ReadonlyMap<string, string>;
 }): InputEditorRow[] {
-  const { document, disabledRows } = args;
-  const slotKeyByRowKey = deriveSlotKeys(document.inputs);
+  const { document, disabledRows, slotKeysByOwner } = args;
 
   const rows: InputEditorRow[] = document.inputs.map((input) => {
     const isFiller = input.key.startsWith(FILLER_KEY_PREFIX);
+    const ownerRole = input.ownerRole ?? input.group;
+    const ownerMusicianId = input.ownerMusicianId ?? "";
     return {
       key: input.key,
       ch: input.ch,
       label: input.label,
       note: input.note ?? "",
       group: input.group,
-      ownerRole: input.ownerRole ?? input.group,
-      ownerMusicianId: input.ownerMusicianId ?? "",
-      slotKey: isFiller ? "" : (slotKeyByRowKey.get(input.key) ?? ""),
+      ownerRole,
+      ownerMusicianId,
+      slotKey: isFiller
+        ? ""
+        : (slotKeysByOwner.get(`${ownerRole}:${ownerMusicianId}`) ?? ""),
       state: isFiller ? "filler" : "active",
     };
   });
 
   for (const disabled of disabledRows) {
     rows.splice(insertionIndexFor(rows, disabled), 0, {
-      key: disabled.key,
+      key: composeRemovedRowKey(disabled.ownerMusicianId, disabled.key),
       ch: null,
       label: disabled.label,
       note: disabled.note,
-      group: disabled.ownerRole,
+      group: disabled.group,
       ownerRole: disabled.ownerRole,
       ownerMusicianId: disabled.ownerMusicianId,
       slotKey: disabled.slotKey,
@@ -99,20 +150,32 @@ export function buildInputEditorRows(args: {
 }
 
 /**
- * Kam patří vypnutý řádek: hned za svého souseda, pokud se v joinu najde.
- * Bez souseda (nebo když soused sám v dokumentu není, protože je taky
- * vypnutý a ještě nebyl vložen) skončí za posledním řádkem téhož vlastníka
- * (`slotKey`) — to odliší dva muzikanty stejné role od sebe. Bez shody ani
- * tam skončí na konci vlastní skupiny (`ownerRole`), ne na konci celé
- * tabulky, kde by vypadal, že patří k poslední vytištěné roli.
+ * Kam patří vypnutý řádek:
+ *
+ * 1. Hned za svého souseda (`neighborKey`), pokud se najde **u téhož
+ *    vlastníka** — hledání je schválně omezené na `ownerMusicianId`, protože
+ *    soused je syrový klíč z výchozího presetu a dva muzikanti stejné role na
+ *    stejném presetu ho mají stejný. Soused může být i dřív vložený vypnutý
+ *    řádek (`composeRemovedRowKey`), proto se porovnává v obou tvarech.
+ * 2. Bez souseda (nebo když soused sám v dokumentu není, protože je taky
+ *    vypnutý a ještě nebyl vložen) skončí za posledním řádkem téhož
+ *    vlastníka (`slotKey`) — to odliší dva muzikanty stejné role od sebe.
+ * 3. Bez shody ani tam skončí na konci vlastní skupiny (`ownerRole`), ne na
+ *    konci celé tabulky, kde by vypadal, že patří k poslední vytištěné roli.
  */
 function insertionIndexFor(
   rows: InputEditorRow[],
   disabled: DisabledInputRow,
 ): number {
   if (disabled.neighborKey !== null) {
+    const composedNeighborKey = composeRemovedRowKey(
+      disabled.ownerMusicianId,
+      disabled.neighborKey,
+    );
     const neighborIndex = rows.findIndex(
-      (row) => row.key === disabled.neighborKey,
+      (row) =>
+        row.ownerMusicianId === disabled.ownerMusicianId &&
+        (row.key === disabled.neighborKey || row.key === composedNeighborKey),
     );
     if (neighborIndex !== -1) return neighborIndex + 1;
   }
@@ -130,46 +193,6 @@ function insertionIndexFor(
 }
 
 /**
- * `slotKey` identifikuje, který výskyt role patří danému vlastníkovi
- * (1. kytarista, 2. kytarista, ...), aby ho pozdější inspektor (Task 12) mohl
- * skupinovat. `document.inputs` index slotu nenese přímo — nese ale
- * `ownerRole`/`ownerMusicianId` na každém řádku, a řádky jsou už ve
- * vytištěném pořadí. Index se tedy odvodí z pořadí, ve kterém se který
- * vlastník v rámci role poprvé objeví; víc informací dokument nedává.
- * Řádek bez vlastníka (typicky filler) slotKey nedostane.
- */
-function deriveSlotKeys(
-  inputs: DocumentViewModel["inputs"],
-): Map<string, string> {
-  const indexByRoleAndMusician = new Map<string, number>();
-  const nextIndexByRole = new Map<Group, number>();
-  const slotKeyByRowKey = new Map<string, string>();
-
-  for (const input of inputs) {
-    if (input.key.startsWith(FILLER_KEY_PREFIX)) continue;
-    const role = input.ownerRole;
-    const musicianId = input.ownerMusicianId;
-    if (!role || !musicianId) {
-      console.warn(
-        `[buildInputEditorRows] input "${input.key}" has no owner in the document; slotKey left empty (the Task 12 inspector needs it).`,
-      );
-      continue;
-    }
-
-    const comboKey = `${role}:${musicianId}`;
-    let index = indexByRoleAndMusician.get(comboKey);
-    if (index === undefined) {
-      index = nextIndexByRole.get(role) ?? 0;
-      indexByRoleAndMusician.set(comboKey, index);
-      nextIndexByRole.set(role, index + 1);
-    }
-    slotKeyByRowKey.set(input.key, `${role}:${index}`);
-  }
-
-  return slotKeyByRowKey;
-}
-
-/**
  * Co? Vypnuté kanály obsazených slotů lineupu — rozdíl mezi výchozím
  * presetem slotu a jeho efektivním presetem.
  *
@@ -177,7 +200,9 @@ function deriveSlotKeys(
  * `document.inputs`, kde vypnuté kanály nejsou (netisknou se). Tahle funkce
  * je jediné místo, které smí sáhnout do lineupu — a musí to dělat přes
  * `normalizeLineupSlots`, aby uměla i lineup zapsaný jako pole holých
- * musicianId stringů (to zahodil původní Task 11).
+ * musicianId stringů (to zahodil původní Task 11). `slotKey` sdílí s
+ * aktivními řádky tutéž `buildSlotKeyIndex`, aby oba typy řádků téhož
+ * vlastníka nikdy nedostaly různý `slotKey`.
  */
 export function collectDisabledInputRows(args: {
   lineup: LineupMap;
@@ -185,12 +210,13 @@ export function collectDisabledInputRows(args: {
   setupForSlot: SetupForSlot;
 }): DisabledInputRow[] {
   const { lineup, roleOrder, setupForSlot } = args;
+  const slotKeyByOwner = buildSlotKeyIndex({ lineup, roleOrder });
   const rows: DisabledInputRow[] = [];
 
   for (const role of roleOrder) {
     const slots = normalizeLineupSlots(lineup[role], getRoleSlotLimit(role));
 
-    slots.forEach((slot, slotIndex) => {
+    for (const slot of slots) {
       const musicianId = slot.musicianId;
       const { resolved, effective } = setupForSlot(
         role,
@@ -198,7 +224,7 @@ export function collectDisabledInputRows(args: {
         slot.presetOverride,
       );
       const activeKeys = new Set(effective.inputs.map((input) => input.key));
-      const slotKey = `${role}:${slotIndex}`;
+      const slotKey = slotKeyByOwner.get(`${role}:${musicianId}`) ?? "";
       let previousKey: string | null = null;
 
       for (const input of resolved.defaultPreset.inputs) {
@@ -207,6 +233,7 @@ export function collectDisabledInputRows(args: {
             key: input.key,
             label: input.label,
             note: input.note ?? "",
+            group: input.group ?? role,
             ownerRole: role,
             ownerMusicianId: musicianId,
             slotKey,
@@ -215,7 +242,7 @@ export function collectDisabledInputRows(args: {
         }
         previousKey = input.key;
       }
-    });
+    }
   }
 
   return rows;
