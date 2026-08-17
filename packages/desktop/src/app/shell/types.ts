@@ -1,7 +1,9 @@
 import type { LineupMap } from "../../projectRules";
 import { serializeLineupForProject, CANONICAL_LINEUP_ROLE_ORDER } from "./lineupSerialize";
 import type {
+  Musician,
   MusicianSetupPreset,
+  NotesTemplate,
   PowerRequirement,
   PresetEntity,
   PresetItem,
@@ -73,10 +75,13 @@ export type BandSetupData = {
     backVocals?: string[] | null;
   } | null;
   members: Record<string, MemberOption[]>;
+  musicians?: Record<string, Musician>;
   musicianDefaults?: Record<string, Partial<MusicianSetupPreset>>;
   musicianPresetsById?: Record<string, PresetItem[]>;
   loadWarnings?: string[];
   presetCatalog?: Record<string, PresetEntity>;
+  notesTemplateRef?: string | null;
+  notesTemplate?: NotesTemplate | null;
 };
 
 export type NewProjectPayload = {

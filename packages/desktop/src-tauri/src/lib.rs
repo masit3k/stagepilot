@@ -114,9 +114,12 @@ struct BandSetupData {
     default_lineup: Option<Value>,
     default_overlays: Option<Value>,
     members: HashMap<String, Vec<MemberOption>>,
+    musicians: HashMap<String, Value>,
     musician_defaults: HashMap<String, Value>,
     musician_presets_by_id: HashMap<String, Vec<Value>>,
     preset_catalog: HashMap<String, Value>,
+    notes_template_ref: Option<String>,
+    notes_template: Option<Value>,
     load_warnings: Vec<String>,
 }
 
@@ -848,6 +851,38 @@ fn list_bands(app: tauri::AppHandle) -> Result<Vec<BandOption>, ApiError> {
     Ok(results)
 }
 
+/// Looks up a notes template by id in the `templates/notes` catalog folder.
+/// Mirrors how bands/musicians are matched (scan + compare `id`), so a
+/// template's filename need not match its id. Any I/O or parse problem is
+/// reported as `Ok(None)` — a missing/broken notes template must never fail
+/// the whole command; the caller turns that into a `load_warnings` entry.
+fn load_notes_template(app: &tauri::AppHandle, reference: &str) -> Result<Option<Value>, ApiError> {
+    let templates_dir = catalog_entity_dir(app, "templates")?.join("notes");
+    if !templates_dir.exists() {
+        return Ok(None);
+    }
+    let Ok(entries) = fs::read_dir(&templates_dir) else {
+        return Ok(None);
+    };
+    for entry in entries {
+        let Ok(entry) = entry else { continue };
+        let path = entry.path();
+        if path.extension().and_then(|s| s.to_str()) != Some("json") {
+            continue;
+        }
+        let Ok(contents) = fs::read_to_string(&path) else {
+            continue;
+        };
+        let Ok(template) = serde_json::from_str::<Value>(&contents) else {
+            continue;
+        };
+        if template.get("id").and_then(|v| v.as_str()) == Some(reference) {
+            return Ok(Some(template));
+        }
+    }
+    Ok(None)
+}
+
 #[tauri::command]
 fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSetupData, ApiError> {
     let bands_dir = catalog_entity_dir(&app, "bands")?;
@@ -911,9 +946,11 @@ fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSet
 
     let members_root = catalog_entity_dir(&app, "musicians")?;
     let mut members: HashMap<String, Vec<MemberOption>> = HashMap::new();
+    let mut musicians: HashMap<String, Value> = HashMap::new();
     let mut musicians_by_id: HashMap<String, (String, String)> = HashMap::new();
     let mut musician_defaults: HashMap<String, Value> = HashMap::new();
     let mut musician_presets_by_id: HashMap<String, Vec<Value>> = HashMap::new();
+    let mut load_warnings: Vec<String> = Vec::new();
     for role in ["drums", "bass", "guitar", "keys", "vocs", "talkback"] {
         let role_dir = members_root.join(role);
         let mut role_members: Vec<MemberOption> = Vec::new();
@@ -930,23 +967,33 @@ fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSet
                 if role_path.extension().and_then(|s| s.to_str()) != Some("json") {
                     continue;
                 }
-                let contents = fs::read_to_string(&role_path).map_err(|err| {
-                    map_io_error(
-                        err,
-                        "BAND_SETUP_LOAD_FAILED",
-                        "Failed to read musician file",
-                    )
-                })?;
-                let musician: Value = serde_json::from_str(&contents).map_err(|err| ApiError {
-                    code: "BAND_SETUP_LOAD_FAILED".into(),
-                    message: format!("Invalid musician JSON in {} ({})", role_path.display(), err),
-                    export_pdf_path: None,
-                    version_pdf_path: None,
-                })?;
+                let contents = match fs::read_to_string(&role_path) {
+                    Ok(contents) => contents,
+                    Err(err) => {
+                        load_warnings.push(format!(
+                            "Failed to read musician file {} ({})",
+                            role_path.display(),
+                            err
+                        ));
+                        continue;
+                    }
+                };
+                let musician: Value = match serde_json::from_str(&contents) {
+                    Ok(value) => value,
+                    Err(err) => {
+                        load_warnings.push(format!(
+                            "Invalid musician JSON in {} ({})",
+                            role_path.display(),
+                            err
+                        ));
+                        continue;
+                    }
+                };
                 let id = musician.get("id").and_then(|v| v.as_str()).unwrap_or("");
                 if id.is_empty() {
                     continue;
                 }
+                musicians.insert(id.to_string(), musician.clone());
                 let monitor_ref =
                     musician
                         .get("presets")
@@ -1030,7 +1077,6 @@ fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSet
         }
     }
 
-    let mut load_warnings: Vec<String> = Vec::new();
     if let Some(default_lineup) = normalize_default_lineup_keys(json.get("defaultLineup").cloned())
     {
         if let Some(obj) = default_lineup.as_object() {
@@ -1098,6 +1144,31 @@ fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSet
         &mut load_warnings,
     );
 
+    let notes_template_reference = json
+        .get("notesTemplateRef")
+        .and_then(|v| v.as_str())
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty());
+    let (notes_template_ref, notes_template) = match &notes_template_reference {
+        None => {
+            load_warnings.push(format!(
+                "Band '{}' has no notesTemplateRef; notes template unavailable",
+                requested
+            ));
+            (None, None)
+        }
+        Some(reference) => match load_notes_template(&app, reference)? {
+            Some(template) => (Some(reference.clone()), Some(template)),
+            None => {
+                load_warnings.push(format!(
+                    "Band '{}' notesTemplateRef '{}' not found in templates/notes catalog",
+                    requested, reference
+                ));
+                (None, None)
+            }
+        },
+    };
+
     Ok(BandSetupData {
         id: json
             .get("id")
@@ -1135,9 +1206,12 @@ fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSet
         default_lineup: normalize_default_lineup_keys(json.get("defaultLineup").cloned()),
         default_overlays,
         members,
+        musicians,
         musician_defaults,
         musician_presets_by_id,
         preset_catalog,
+        notes_template_ref,
+        notes_template,
         load_warnings,
     })
 }
