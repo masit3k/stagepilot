@@ -1,13 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ProjectNotesOverride } from "../../../../../src/domain/model/types";
 import { useToast } from "../../components/ui/toast/useToast";
 import type { LineupMap } from "../../projectRules";
+import { InputTable } from "../components/inputs/InputTable";
+import { buildInputEditorRows } from "../domain/inputs/buildInputEditorRows";
+import { useSetupOverrides } from "../domain/setup/useSetupOverrides";
 import {
+  getBandSetupData,
   parseProjectPayload,
   readProject,
   saveProjectPayload,
 } from "../services/projectsApi";
-import type { NewProjectPayload } from "../shell/types";
+import { CANONICAL_LINEUP_ROLE_ORDER } from "../shell/lineupSerialize";
+import type { BandSetupData, NewProjectPayload } from "../shell/types";
 import type { ProjectRouteProps } from "./shared/pageTypes";
 
 export type InputsEditorSnapshot = {
@@ -62,6 +67,10 @@ export function ProjectInputsPage({
 }: ProjectRouteProps) {
   const [state, setState] = useState<LoadState>({ kind: "loading" });
   const [isSaving, setIsSaving] = useState(false);
+  const [setupData, setSetupData] = useState<BandSetupData | null>(null);
+  const [selectedInputKey, setSelectedInputKey] = useState<string | null>(
+    null,
+  );
   const { notify } = useToast();
   /** Stav, proti kterému se poznává dirty — po každém uložení se posune. */
   const initialSnapshotRef = useRef<InputsEditorSnapshot | undefined>(
@@ -95,6 +104,56 @@ export function ProjectInputsPage({
       cancelled = true;
     };
   }, [id]);
+
+  const bandRef = state.kind === "ready" ? state.project.bandRef : null;
+
+  /**
+   * Katalog presetů kapely, potřebný pro `setupForSlot`. Bez něj by řádky
+   * ukazovaly jen obecné výchozí kanály skupiny (R1 by přestalo platit u
+   * kapel s vlastními presety), takže se dotahuje samostatně od projektu.
+   */
+  useEffect(() => {
+    if (!bandRef) return;
+    let cancelled = false;
+
+    getBandSetupData(bandRef)
+      .then((data) => {
+        if (!cancelled) setSetupData(data);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error("[project-inputs] failed to load band setup data", {
+          projectId: id,
+          bandRef,
+          error,
+        });
+        notify(
+          "error",
+          "Band defaults could not be loaded. Input list may not match the band's setup.",
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [bandRef, id, notify]);
+
+  const presetCatalog = setupData?.presetCatalog ?? {};
+  const { setupForSlot } = useSetupOverrides({ setupData, presetCatalog });
+
+  const lineup = state.kind === "ready" ? state.snapshot.lineup : {};
+  const inputOrder = state.kind === "ready" ? state.snapshot.inputOrder : undefined;
+
+  const inputRows = useMemo(
+    () =>
+      buildInputEditorRows({
+        lineup,
+        roleOrder: CANONICAL_LINEUP_ROLE_ORDER,
+        inputOrder,
+        setupForSlot,
+      }),
+    [lineup, inputOrder, setupForSlot],
+  );
 
   const saveSnapshot = useCallback(
     async (snapshot: InputsEditorSnapshot, project: NewProjectPayload) => {
@@ -166,6 +225,11 @@ export function ProjectInputsPage({
       ) : null}
       <section className="inputsSection" aria-label="Input list">
         <h2 className="inputsSectionTitle">INPUT LIST</h2>
+        <InputTable
+          rows={inputRows}
+          selectedKey={selectedInputKey}
+          onSelect={setSelectedInputKey}
+        />
       </section>
       <section className="inputsSection" aria-label="Monitors">
         <h2 className="inputsSectionTitle">MONITORS</h2>

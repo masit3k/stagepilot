@@ -23,3 +23,50 @@
   text-transform: uppercase;
   color: var(--color-text);
 }
+
+.inputTable {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.inputRow {
+  display: grid;
+  grid-template-columns: 3ch minmax(160px, 2fr) minmax(120px, 1.6fr);
+  gap: var(--sp-4);
+  align-items: center;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--sp-r-card);
+}
+
+.inputRow--head {
+  font: var(--sp-mono-xs);
+  letter-spacing: var(--sp-track-mono-label);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.inputRow:not(.inputRow--head):hover {
+  background: var(--color-row-highlight);
+}
+
+.inputRow__no {
+  font: var(--sp-mono-sm);
+  color: var(--color-text-secondary);
+  text-align: right;
+}
+
+.inputRow--removed {
+  color: var(--color-text-secondary);
+  text-decoration: line-through;
+}
+
+.inputRow--filler .inputRow__input,
+.inputRow--filler .inputRow__note {
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.inputRow--selected {
+  background: var(--color-row-highlight);
+  outline: 1px solid var(--color-border-strong);
+}
