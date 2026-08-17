@@ -70,3 +70,102 @@
   background: var(--color-row-highlight);
   outline: 1px solid var(--color-border-strong);
 }
+
+/* --------------------------------------------------------------------------
+   Body layout — table on the left, selected-row inspector on the right (R2)
+   -------------------------------------------------------------------------- */
+
+.inputsBody {
+  display: grid;
+  grid-template-columns: 1fr 296px;
+  gap: var(--sp-7);
+  align-items: start;
+  min-width: 0;
+}
+
+.inputsBody__main {
+  display: grid;
+  gap: var(--sp-7);
+  min-width: 0;
+}
+
+.inputInspector {
+  display: grid;
+  gap: var(--sp-6);
+  align-content: start;
+  border: 1px solid var(--color-border);
+  border-radius: var(--sp-r-card);
+  background: var(--color-surface);
+  padding: var(--sp-7);
+}
+
+.inputInspector__section {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.inputInspector__eyebrow {
+  font: var(--sp-mono-xs);
+  letter-spacing: var(--sp-track-mono-label);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.inputInspector__title {
+  font: var(--sp-mono-md);
+  color: var(--color-text);
+}
+
+.inputInspector__hint {
+  margin: 0;
+  font: var(--sp-body-sm);
+  color: var(--color-text-secondary);
+}
+
+.inputInspector__field {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.inputInspector__label {
+  font: var(--sp-mono-xs);
+  letter-spacing: var(--sp-track-mono-label);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.inputInspector__divider {
+  width: 100%;
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 0;
+}
+
+.inputInspector__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+
+.inputInspector__ownerName {
+  font: var(--sp-body-md);
+  color: var(--color-text);
+}
+
+.inputInspector__ownerRole {
+  font: var(--sp-mono-xs);
+  letter-spacing: var(--sp-track-mono-label);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.inputInspector__value {
+  font: var(--sp-mono-sm);
+  color: var(--color-text);
+}
+
+.inputInspector__actions {
+  display: grid;
+  gap: var(--sp-3);
+}

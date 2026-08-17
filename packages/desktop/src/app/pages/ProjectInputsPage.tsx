@@ -2,18 +2,23 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { normalizeProject } from "../../../../../src/app/usecases/normalizeProject";
 import type {
   DocumentViewModel,
+  PresetOverridePatch,
   ProjectNotesOverride,
 } from "../../../../../src/domain/model/types";
 import { buildDocument } from "../../../../../src/domain/pipeline/buildDocument";
 import { useToast } from "../../components/ui/toast/useToast";
+import { getRoleSlotLimit, normalizeLineupSlots } from "../../projectRules";
 import type { LineupMap } from "../../projectRules";
+import { InputRowInspector } from "../components/inputs/InputRowInspector";
 import { InputTable } from "../components/inputs/InputTable";
 import {
+  type InputEditorRow,
   buildInputEditorRows,
   buildSlotKeyIndex,
   collectDisabledInputRows,
 } from "../domain/inputs/buildInputEditorRows";
 import { createDocumentRepository } from "../domain/inputs/createDocumentRepository";
+import { updateInputRow } from "../domain/inputs/updateInputRow";
 import { useSetupOverrides } from "../domain/setup/useSetupOverrides";
 import {
   getBandSetupData,
@@ -81,6 +86,69 @@ type LoadState =
       project: NewProjectPayload;
       snapshot: InputsEditorSnapshot;
     };
+
+/**
+ * Stejná konvence jako `parseSlotIndex` v `ProjectSetupPage.tsx` (~ř. 1177) —
+ * `row.slotKey` je `${role}:${index}`, vlastníkovu roli editor má vedle v
+ * `row.ownerRole`, takže se tu parsuje jen index.
+ */
+function parseSlotIndex(slotKey: string): number {
+  const [, rawIndex] = slotKey.split(":");
+  const parsed = Number(rawIndex);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function isOverridePatchEmpty(patch: PresetOverridePatch): boolean {
+  return !patch.inputs && !patch.monitoring;
+}
+
+/**
+ * Počet odchylek slotu od výchozí výbavy muzikanta — zobrazuje se v panelu
+ * (R2) a řídí, jestli je `Reset to default` k něčemu. Počítá se přímo z
+ * patche, ne z `diffMeta` (`computeSetupDiff`): ten značí jako `override` jen
+ * přidané/odebrané kanály, přejmenování a poznámka (`inputs.update`) by tak
+ * nikdy neprošly jako odchylka, přestože přesně tohle R6 zavádí.
+ */
+function countPatchDeviations(patch: PresetOverridePatch | undefined): number {
+  if (!patch) return 0;
+  const inputs = patch.inputs;
+  const inputDeviations =
+    (inputs?.add?.length ?? 0) +
+    (inputs?.remove?.length ?? 0) +
+    (inputs?.removeKeys?.length ?? 0) +
+    (inputs?.replace?.length ?? 0) +
+    (inputs?.update?.length ?? 0);
+  const monitoringDeviations = patch.monitoring
+    ? Object.keys(patch.monitoring).length
+    : 0;
+  return inputDeviations + monitoringDeviations;
+}
+
+/** Zapíše (nebo smaže) `presetOverride` jednoho slotu v `lineup`, beze změny tvaru pole/objektu, jaký `role` používá. */
+function replaceSlotOverride(
+  lineup: LineupMap,
+  role: string,
+  slotIndex: number,
+  nextPatch: PresetOverridePatch | undefined,
+): LineupMap {
+  const roleSlotLimit = getRoleSlotLimit(role);
+  const slots = normalizeLineupSlots(lineup[role], roleSlotLimit);
+  if (!slots[slotIndex]) return lineup;
+
+  const nextSlots = slots.map((slot, index) => {
+    if (index !== slotIndex) return slot;
+    return {
+      musicianId: slot.musicianId,
+      ...(nextPatch && !isOverridePatchEmpty(nextPatch)
+        ? { presetOverride: nextPatch }
+        : {}),
+      ...(slot.drumDefinition ? { drumDefinition: slot.drumDefinition } : {}),
+    };
+  });
+
+  const value = roleSlotLimit <= 1 ? nextSlots[0] : nextSlots;
+  return { ...lineup, [role]: value as LineupMap[string] };
+}
 
 export function ProjectInputsPage({
   id,
@@ -163,19 +231,37 @@ export function ProjectInputsPage({
 
   const lineup = state.kind === "ready" ? state.snapshot.lineup : {};
   const project = state.kind === "ready" ? state.project : null;
+  const snapshot = state.kind === "ready" ? state.snapshot : null;
+
+  /**
+   * Projekt, ze kterého se staví dokument — načtený projekt s právě
+   * editovaným snapshotem (ruční pořadí, poznámky, patche lineupu) navrchu.
+   * Patche z panelu (R6) chodí do `snapshot`, ne do `project`; kdyby dokument
+   * dál stavěl z `project`, přejmenování by se v tabulce projevilo až po
+   * uložení, protože `snapshot` a `project` by se do té doby rozešly.
+   */
+  const editedProject = useMemo<NewProjectPayload | null>(() => {
+    if (!project || !snapshot) return null;
+    return {
+      ...project,
+      inputOrder: snapshot.inputOrder,
+      notes: snapshot.notes,
+      lineup: snapshot.lineup,
+    };
+  }, [project, snapshot]);
 
   /**
    * Dokument, jehož `inputs` obrazovka `02` zrcadlí (R1). `normalizeProject`
    * i `buildDocument` běží nad daty, která uživatel ručně edituje (JSON na
-   * disku, kapelní presety) a obojí může vyhodit — nekompletní projekt,
-   * chybějící preset, muzikanta nebo notes šablonu. Chyba se zachytí tady a
-   * jde do `documentResult.kind === "error"`; render z ní nikdy nesmí spadnout
-   * na bílou stránku.
+   * disku, kapelní presety, právě editovaný snapshot) a obojí může vyhodit —
+   * nekompletní projekt, chybějící preset, muzikanta nebo notes šablonu.
+   * Chyba se zachytí tady a jde do `documentResult.kind === "error"`; render
+   * z ní nikdy nesmí spadnout na bílou stránku.
    */
   const documentResult = useMemo<DocumentBuildResult>(() => {
-    if (!project || !setupData) return { kind: "pending" };
+    if (!editedProject || !setupData) return { kind: "pending" };
     try {
-      const normalizedProject = normalizeProject(project);
+      const normalizedProject = normalizeProject(editedProject);
       const repo = createDocumentRepository({
         project: normalizedProject,
         setupData,
@@ -197,7 +283,7 @@ export function ProjectInputsPage({
             : "The input list could not be built from the current project data.",
       };
     }
-  }, [project, setupData, id]);
+  }, [editedProject, setupData, id]);
 
   /**
    * Vypnuté kanály obsazených slotů a `slotKey` podle vlastníka — obojí se
@@ -241,6 +327,95 @@ export function ProjectInputsPage({
         : [],
     [documentResult, disabledRows, slotKeysByOwner],
   );
+
+  const selectedRow =
+    inputRows.find((row) => row.key === selectedInputKey) ?? null;
+
+  /** Jméno muzikanta pro panel (R2) — `setupData.members` je jediné místo, které už drží zobrazitelné jméno pro dané id. */
+  const musicianNameById = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const members of Object.values(setupData?.members ?? {})) {
+      for (const member of members) byId.set(member.id, member.name);
+    }
+    return byId;
+  }, [setupData]);
+
+  const ownerChannelCount = selectedRow
+    ? inputRows.filter(
+        (row) =>
+          row.state === "active" &&
+          row.ownerMusicianId === selectedRow.ownerMusicianId &&
+          row.ownerRole === selectedRow.ownerRole,
+      ).length
+    : 0;
+
+  const ownerDeviationCount = useMemo(() => {
+    if (!selectedRow || !selectedRow.slotKey) return 0;
+    const slots = normalizeLineupSlots(
+      lineup[selectedRow.ownerRole],
+      getRoleSlotLimit(selectedRow.ownerRole),
+    );
+    const slot = slots[parseSlotIndex(selectedRow.slotKey)];
+    return countPatchDeviations(slot?.presetOverride);
+  }, [selectedRow, lineup]);
+
+  /**
+   * Zapíše přejmenování/poznámku vybraného řádku do patche jeho slotu (R6).
+   * Adresuje se přes `row.rawKey` (skutečný klíč kanálu), nikdy přes
+   * `row.key` (opaque identita, u vypnutého řádku jmenný prostor vlastníka —
+   * viz doc komentář `InputEditorRow.key`). Prázdný `slotKey` znamená, že
+   * vlastník není v `project.lineup`, takže není kam patch zapsat.
+   */
+  const applyRowChange = useCallback(
+    (row: InputEditorRow, change: { label?: string; note?: string }) => {
+      if (!row.slotKey) return;
+      const role = row.ownerRole;
+      const slotIndex = parseSlotIndex(row.slotKey);
+      setState((current) => {
+        if (current.kind !== "ready") return current;
+        const slots = normalizeLineupSlots(
+          current.snapshot.lineup[role],
+          getRoleSlotLimit(role),
+        );
+        const currentPatch = slots[slotIndex]?.presetOverride;
+        const nextPatch = updateInputRow(currentPatch, {
+          key: row.rawKey,
+          ...change,
+        });
+        const nextLineup = replaceSlotOverride(
+          current.snapshot.lineup,
+          role,
+          slotIndex,
+          nextPatch,
+        );
+        return {
+          ...current,
+          snapshot: { ...current.snapshot, lineup: nextLineup },
+        };
+      });
+    },
+    [],
+  );
+
+  /** Zahodí celý `presetOverride` vlastníkova slotu (owner action v panelu, R2) — ne jen jednu vlastnost. */
+  const resetOwnerToDefault = useCallback((row: InputEditorRow) => {
+    if (!row.slotKey) return;
+    const role = row.ownerRole;
+    const slotIndex = parseSlotIndex(row.slotKey);
+    setState((current) => {
+      if (current.kind !== "ready") return current;
+      const nextLineup = replaceSlotOverride(
+        current.snapshot.lineup,
+        role,
+        slotIndex,
+        undefined,
+      );
+      return {
+        ...current,
+        snapshot: { ...current.snapshot, lineup: nextLineup },
+      };
+    });
+  }, []);
 
   const saveSnapshot = useCallback(
     async (snapshot: InputsEditorSnapshot, project: NewProjectPayload) => {
@@ -315,20 +490,44 @@ export function ProjectInputsPage({
           {documentResult.message}
         </div>
       ) : null}
-      <section className="inputsSection" aria-label="Input list">
-        <h2 className="inputsSectionTitle">INPUT LIST</h2>
-        <InputTable
-          rows={inputRows}
-          selectedKey={selectedInputKey}
-          onSelect={setSelectedInputKey}
+      <div className="inputsBody">
+        <div className="inputsBody__main">
+          <section className="inputsSection" aria-label="Input list">
+            <h2 className="inputsSectionTitle">INPUT LIST</h2>
+            <InputTable
+              rows={inputRows}
+              selectedKey={selectedInputKey}
+              onSelect={setSelectedInputKey}
+            />
+          </section>
+          <section className="inputsSection" aria-label="Monitors">
+            <h2 className="inputsSectionTitle">MONITORS</h2>
+          </section>
+          <section className="inputsSection" aria-label="Notes">
+            <h2 className="inputsSectionTitle">NOTES</h2>
+          </section>
+        </div>
+        <InputRowInspector
+          row={selectedRow}
+          ownerName={
+            selectedRow
+              ? (musicianNameById.get(selectedRow.ownerMusicianId) ??
+                "Unknown musician")
+              : ""
+          }
+          channelCount={ownerChannelCount}
+          deviationCount={ownerDeviationCount}
+          onLabelChange={(label) =>
+            selectedRow && applyRowChange(selectedRow, { label })
+          }
+          onNoteChange={(note) =>
+            selectedRow && applyRowChange(selectedRow, { note })
+          }
+          onResetToDefault={() =>
+            selectedRow && resetOwnerToDefault(selectedRow)
+          }
         />
-      </section>
-      <section className="inputsSection" aria-label="Monitors">
-        <h2 className="inputsSectionTitle">MONITORS</h2>
-      </section>
-      <section className="inputsSection" aria-label="Notes">
-        <h2 className="inputsSectionTitle">NOTES</h2>
-      </section>
+      </div>
       <div className="setup-action-bar setup-action-bar--equal">
         <button
           type="button"
