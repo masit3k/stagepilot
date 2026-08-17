@@ -24,7 +24,7 @@ export function applyManualInputOrder<T extends StereoSortable>(
   computed: readonly T[],
   manualOrder: readonly string[] | undefined,
 ): T[] {
-  if (!manualOrder || manualOrder.length === 0) return [...computed] as T[];
+  if (!manualOrder || manualOrder.length === 0) return [...computed];
 
   const byKey = new Map<string, T>();
   for (const row of computed) {

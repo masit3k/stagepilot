@@ -23,6 +23,7 @@ import type { MonitorPresetIndex } from "../monitors/getMonitorLabel.js";
 import { resolveCanonicalOverlayAssignments } from "../project/resolveProjectAudioAssignments.js";
 import { applyPresetOverride } from "../rules/presetOverride.js";
 import { resolveEffectiveProjectSetup } from "../setup/resolveEffectiveProjectSetup.js";
+import { applyManualInputOrder } from "./applyManualInputOrder.js";
 import { disambiguateInputKeys } from "./disambiguateInputKeys.js";
 import { formatKeysInputInstances } from "./formatKeysInputs.js";
 import {
@@ -603,7 +604,11 @@ export function buildDocument(
     backVocsSlotByMusicianId,
   );
 
-  const inputsWithCh = assignPdfChannels(orderedInputs);
+  // Ruční pořadí se aplikuje až na vypočtené (R8), aby nový kanál po změně
+  // lineupu přistál na své vypočtené pozici a ne na konci.
+  const inputsWithCh = assignPdfChannels(
+    applyManualInputOrder(orderedInputs, project.inputOrder),
+  );
   const inputRows = buildPdfInputRows(inputsWithCh);
   const stageplan = buildPdfStageplanModel({
     lineupMusicians: ctx.lineupMusicians,
