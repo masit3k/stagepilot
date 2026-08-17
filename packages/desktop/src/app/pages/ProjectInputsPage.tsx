@@ -12,6 +12,7 @@ import { getRoleSlotLimit, normalizeLineupSlots } from "../../projectRules";
 import type { LineupMap } from "../../projectRules";
 import { InputRowInspector } from "../components/inputs/InputRowInspector";
 import { InputTable } from "../components/inputs/InputTable";
+import { areSetupsEqual } from "../components/setup/adapters/eventSetupAdapter";
 import {
   type InputEditorRow,
   buildInputEditorRows,
@@ -20,6 +21,7 @@ import {
 } from "../domain/inputs/buildInputEditorRows";
 import { createDocumentRepository } from "../domain/inputs/createDocumentRepository";
 import { updateInputRow } from "../domain/inputs/updateInputRow";
+import { buildMusicianDefaultPayload } from "../domain/setup/buildMusicianDefaultPayload";
 import { musicianDefaultsKey } from "../domain/setup/musicianDefaultsKey";
 import { useSetupOverrides } from "../domain/setup/useSetupOverrides";
 import {
@@ -250,7 +252,10 @@ export function ProjectInputsPage({
   }, [bandRef, id, notify]);
 
   const presetCatalog = setupData?.presetCatalog ?? {};
-  const { setupForSlot } = useSetupOverrides({ setupData, presetCatalog });
+  const { setupForSlot, defaultPresetFor } = useSetupOverrides({
+    setupData,
+    presetCatalog,
+  });
 
   const lineup = state.kind === "ready" ? state.snapshot.lineup : {};
   const project = state.kind === "ready" ? state.project : null;
@@ -383,6 +388,33 @@ export function ProjectInputsPage({
   }, [selectedRow, lineup]);
 
   /**
+   * Jestli má smysl `Save as musician default` (R5) — na rozdíl od
+   * `ownerDeviationCount` (počet polí v patchi) porovnává **hodnoty**: patch
+   * se strukturou, který se přesně vrátí zpátky k defaultu, by jinak nechal
+   * tlačítko aktivní, přestože by nebylo co povyšovat. Stejná podmínka jako
+   * `canUpdateMusicianDefault` v `ProjectSetupPage.tsx` (~ř. 1991):
+   * `!areSetupsEqual(effective, musicianDefaultPreset)`.
+   */
+  const canSaveAsMusicianDefault = useMemo(() => {
+    if (!selectedRow || !selectedRow.slotKey) return false;
+    const patch = getSlotOverride(
+      lineup,
+      selectedRow.ownerRole,
+      parseSlotIndex(selectedRow.slotKey),
+    );
+    const { effective } = setupForSlot(
+      selectedRow.ownerRole,
+      selectedRow.ownerMusicianId,
+      patch,
+    );
+    const musicianDefault = defaultPresetFor(
+      selectedRow.ownerRole,
+      selectedRow.ownerMusicianId,
+    );
+    return !areSetupsEqual(effective, musicianDefault);
+  }, [selectedRow, lineup, setupForSlot, defaultPresetFor]);
+
+  /**
    * Zapíše přejmenování/poznámku vybraného řádku do patche jeho slotu (R6).
    * Adresuje se přes `row.rawKey` (skutečný klíč kanálu), nikdy přes
    * `row.key` (opaque identita, u vypnutého řádku jmenný prostor vlastníka —
@@ -445,9 +477,11 @@ export function ProjectInputsPage({
    * Task 12b) — kanály z tohoto slotu tak nastartují každý příští projekt,
    * ne jen tenhle. `effective` se počítá stejně jako v `ProjectSetupPage.tsx`
    * (setup modál na obrazovce `01`): `setupForSlot` nad aktuálním patchem
-   * slotu. Mění data sdílená napříč projekty, proto se volá až po potvrzení
-   * v modálu níž, a chybu nikdy nepolyká — jde přes existující chybový kanál
-   * stránky (`notify`).
+   * slotu. Payload skládá `buildMusicianDefaultPayload` (testováno přímo) —
+   * ta funkce patch vůbec nepřijímá, takže poslat ho omylem místo efektivního
+   * presetu nejde. Mění data sdílená napříč projekty, proto se volá až po
+   * potvrzení v modálu níž, a chybu nikdy nepolyká — jde přes existující
+   * chybový kanál stránky (`notify`).
    */
   const saveSelectedRowAsMusicianDefault = useCallback(
     async (row: InputEditorRow) => {
@@ -456,16 +490,22 @@ export function ProjectInputsPage({
       const musicianId = row.ownerMusicianId;
       const patch = getSlotOverride(lineup, role, parseSlotIndex(row.slotKey));
       const { effective } = setupForSlot(role, musicianId, patch);
+      const payload = buildMusicianDefaultPayload({
+        ownerMusicianId: musicianId,
+        ownerRole: role,
+        effectivePreset: effective,
+      });
       setIsSavingMusicianDefault(true);
       try {
-        await updateMusicianDefaults({ musicianId, role, setup: effective });
+        await updateMusicianDefaults(payload);
         setSetupData((prev) => {
           if (!prev) return prev;
           return {
             ...prev,
             musicianDefaults: {
               ...(prev.musicianDefaults ?? {}),
-              [musicianDefaultsKey(musicianId, role)]: effective,
+              [musicianDefaultsKey(payload.musicianId, payload.role)]:
+                payload.setup,
             },
           };
         });
@@ -590,6 +630,7 @@ export function ProjectInputsPage({
           ownerName={ownerName}
           channelCount={ownerChannelCount}
           deviationCount={ownerDeviationCount}
+          canSaveAsMusicianDefault={canSaveAsMusicianDefault}
           onLabelChange={(label) =>
             selectedRow && applyRowChange(selectedRow, { label })
           }

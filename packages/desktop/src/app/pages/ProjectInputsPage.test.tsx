@@ -90,6 +90,7 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         ownerName=""
         channelCount={0}
         deviationCount={0}
+        canSaveAsMusicianDefault={false}
         onLabelChange={noop}
         onNoteChange={noop}
         onResetToDefault={noop}
@@ -107,6 +108,7 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         ownerName="Matěj Novák"
         channelCount={3}
         deviationCount={1}
+        canSaveAsMusicianDefault={true}
         onLabelChange={noop}
         onNoteChange={noop}
         onResetToDefault={noop}
@@ -124,13 +126,14 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
     expect(html).not.toContain("Not editable");
   });
 
-  it("offers a live Save as musician default button when the row has a slot", () => {
+  it("offers a live Save as musician default button when it can promote something", () => {
     const html = renderToStaticMarkup(
       <InputRowInspector
         row={editableRow}
         ownerName="Matěj Novák"
         channelCount={3}
         deviationCount={1}
+        canSaveAsMusicianDefault={true}
         onLabelChange={noop}
         onNoteChange={noop}
         onResetToDefault={noop}
@@ -145,6 +148,31 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
     expect(saveDefaultButtonHtml).not.toContain("disabled");
   });
 
+  it("disables Save as musician default when the effective preset already equals the musician default", () => {
+    // A no-op override: `deviationCount` is still 1 (the patch has an entry),
+    // but the page-level `canSaveAsMusicianDefault` compares resolved values,
+    // not patch shape — this is what the button must key off of.
+    const html = renderToStaticMarkup(
+      <InputRowInspector
+        row={editableRow}
+        ownerName="Matěj Novák"
+        channelCount={3}
+        deviationCount={1}
+        canSaveAsMusicianDefault={false}
+        onLabelChange={noop}
+        onNoteChange={noop}
+        onResetToDefault={noop}
+        onSaveAsMusicianDefault={noop}
+      />,
+    );
+
+    const saveDefaultButtonHtml = html
+      .split("<button")
+      .find((chunk) => chunk.includes("Save as musician default"));
+    expect(saveDefaultButtonHtml).toBeDefined();
+    expect(saveDefaultButtonHtml).toContain("disabled");
+  });
+
   it("does not offer editing when the owner has no lineup slot", () => {
     const html = renderToStaticMarkup(
       <InputRowInspector
@@ -152,6 +180,7 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         ownerName="Matěj Novák"
         channelCount={3}
         deviationCount={0}
+        canSaveAsMusicianDefault={false}
         onLabelChange={noop}
         onNoteChange={noop}
         onResetToDefault={noop}
@@ -180,6 +209,7 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         ownerName=""
         channelCount={0}
         deviationCount={0}
+        canSaveAsMusicianDefault={false}
         onLabelChange={noop}
         onNoteChange={noop}
         onResetToDefault={noop}

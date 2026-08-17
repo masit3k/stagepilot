@@ -19,6 +19,7 @@ export function InputRowInspector({
   ownerName,
   channelCount,
   deviationCount,
+  canSaveAsMusicianDefault,
   onLabelChange,
   onNoteChange,
   onResetToDefault,
@@ -28,6 +29,8 @@ export function InputRowInspector({
   ownerName: string;
   channelCount: number;
   deviationCount: number;
+  /** Value-based, unlike `deviationCount`: false when the slot's effective preset already equals the musician's current default — nothing left to promote (R5). */
+  canSaveAsMusicianDefault: boolean;
   onLabelChange: (label: string) => void;
   onNoteChange: (note: string) => void;
   onResetToDefault: () => void;
@@ -122,7 +125,7 @@ export function InputRowInspector({
               <button
                 type="button"
                 className="button-secondary"
-                disabled={deviationCount === 0}
+                disabled={!canSaveAsMusicianDefault}
                 onClick={onSaveAsMusicianDefault}
               >
                 Save as musician default
