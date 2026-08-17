@@ -27,7 +27,6 @@ import {
   summarizeEffectivePresetValidation,
   validateEffectivePresets,
 } from "../../../../../src/domain/rules/presetOverride";
-import { resolveEffectiveMusicianSetup } from "../../../../../src/domain/setup/resolveEffectiveMusicianSetup";
 import { DrumsPartsEditor } from "../../components/setup/DrumsPartsEditor";
 import { MonitoringEditor } from "../../components/setup/MonitoringEditor";
 import {
@@ -75,6 +74,7 @@ import { ensureMusiciansInLineup } from "../domain/roles/ensureMusiciansInLineup
 import { resolveLeadVocalCandidates } from "../domain/roles/resolveLeadVocalCandidates";
 import { resolveLineupVocalCandidates } from "../domain/roles/resolveLineupVocalCandidates";
 import { enforceVocalSelectionInvariant } from "../domain/roles/vocalSelectionInvariant";
+import { useSetupOverrides } from "../domain/setup/useSetupOverrides";
 import {
   type LineupDirtyComparisonState,
   createLineupDirtyBaseline,
@@ -99,8 +99,6 @@ import {
   buildSetupFieldCatalog,
   buildVisibleLineupSections,
   createFallbackSetupData,
-  getGroupDefaultPreset,
-  resolveMusicianDefaultSetupForRole,
   resolveSetupCardLabel,
 } from "./shared/setupConstants";
 import { resolveTalkbackSummaryLabel } from "./shared/talkbackSummary";
@@ -1196,7 +1194,7 @@ export function ProjectSetupPage({
   }
 
   function hasSetupOverrideDiff(
-    resolved: ReturnType<typeof resolveSlotSetup>["resolved"],
+    resolved: ReturnType<typeof setupForSlot>["resolved"],
   ): boolean {
     return (
       resolved.diffMeta.inputs.some((item) =>
@@ -1236,8 +1234,7 @@ export function ProjectSetupPage({
             ? draftOverrides[slotKey]
             : slot.presetOverride;
           const normalizedOverride = normalizeSetupOverridePatch(
-            resolveSlotSetup(role as Group, slot.musicianId).resolved
-              .defaultPreset,
+            setupForSlot(role as Group, slot.musicianId).resolved.defaultPreset,
             override,
           );
           const persistedSlot = normalizeLineupSlots(
@@ -1262,42 +1259,10 @@ export function ProjectSetupPage({
     applyState(nextLineup, setupData, bandLeaderId, talkbackOwnerId);
   }
 
-  const resolveMusicianDefaultPreset = useCallback(
-    (role: Group, musicianId: string): MusicianSetupPreset => {
-      const roleScopedDefaults =
-        setupData?.musicianDefaults?.[`${musicianId}:${role}`];
-      const genericDefaults = setupData?.musicianDefaults?.[musicianId];
-      return resolveMusicianDefaultSetupForRole({
-        role,
-        musicianDefaults: genericDefaults,
-        roleScopedDefaults,
-        presetItems: setupData?.musicianPresetsById?.[musicianId],
-        presetCatalog,
-        bandDefaults: getGroupDefaultPreset(role),
-      });
-    },
-    [presetCatalog, setupData],
-  );
-
-  const resolveSlotSetup = useCallback(
-    (role: Group, musicianId: string, patch?: PresetOverridePatch) => {
-      const musicianDefaults = resolveMusicianDefaultPreset(role, musicianId);
-      const resolved = resolveEffectiveMusicianSetup({
-        musicianDefaults,
-        bandDefaults: getGroupDefaultPreset(role),
-        eventOverride: patch,
-        group: role,
-      });
-      return {
-        resolved,
-        effective: {
-          inputs: resolved.effectiveInputs,
-          monitoring: resolved.effectiveMonitoring,
-        },
-      };
-    },
-    [resolveMusicianDefaultPreset],
-  );
+  const { defaultPresetFor, setupForSlot } = useSetupOverrides({
+    setupData,
+    presetCatalog,
+  });
 
   const effectiveSlotPresets = useMemo(() => {
     if (!setupData)
@@ -1316,7 +1281,7 @@ export function ProjectSetupPage({
           slotIndex,
           musicianId: slot.musicianId,
           patch: slot.presetOverride,
-          effective: resolveSlotSetup(
+          effective: setupForSlot(
             role as Group,
             slot.musicianId,
             slot.presetOverride,
@@ -1324,7 +1289,7 @@ export function ProjectSetupPage({
         }))
         .filter((slot) => Boolean(slot.musicianId));
     });
-  }, [lineup, resolveSlotSetup, setupData]);
+  }, [lineup, setupForSlot, setupData]);
 
   const overrideValidation = useMemo(
     () =>
@@ -1451,7 +1416,7 @@ export function ProjectSetupPage({
         if (!setupSlot.musicianId) continue;
         draftEntries[`${setupRole}:${setupIndex}`] =
           normalizeSetupOverridePatch(
-            resolveSlotSetup(setupRole as Group, setupSlot.musicianId).resolved
+            setupForSlot(setupRole as Group, setupSlot.musicianId).resolved
               .defaultPreset,
             setupSlot.presetOverride,
           );
@@ -1611,7 +1576,7 @@ export function ProjectSetupPage({
                       role: "guitar",
                       musicianId: slots[0]?.musicianId,
                       resolveInputs: (musicianId) =>
-                        resolveSlotSetup("guitar", musicianId).resolved
+                        setupForSlot("guitar", musicianId).resolved
                           .defaultPreset.inputs,
                       fallback: getRoleDisplayName(role),
                     })
@@ -1911,7 +1876,7 @@ export function ProjectSetupPage({
                   selectedSetupMusician.slotKey,
                   existingPatch,
                 );
-                const { effective } = resolveSlotSetup(
+                const { effective } = setupForSlot(
                   selectedSetupMusician.role,
                   selectedSetupMusician.musicianId,
                   currentPatch,
@@ -1968,7 +1933,7 @@ export function ProjectSetupPage({
                 selectedSetupMusician.slotKey,
                 existingPatch,
               );
-              const { resolved, effective } = resolveSlotSetup(
+              const { resolved, effective } = setupForSlot(
                 selectedSetupMusician.role,
                 selectedSetupMusician.musicianId,
                 currentPatch,
@@ -2019,7 +1984,7 @@ export function ProjectSetupPage({
                         ],
                     })
                   : null;
-              const musicianDefaultPreset = resolveMusicianDefaultPreset(
+              const musicianDefaultPreset = defaultPresetFor(
                 selectedSetupMusician.role,
                 selectedSetupMusician.musicianId,
               );
@@ -2037,7 +2002,7 @@ export function ProjectSetupPage({
                     slot.slotKey,
                     existingSlotPatch,
                   );
-                  const { resolved: slotResolved } = resolveSlotSetup(
+                  const { resolved: slotResolved } = setupForSlot(
                     slot.role,
                     slot.musicianId,
                     slotPatch,
@@ -2157,7 +2122,7 @@ export function ProjectSetupPage({
                         items={setupMusicians.map((item) => ({
                           ...item,
                           hasOverride: hasSetupOverrideDiff(
-                            resolveSlotSetup(
+                            setupForSlot(
                               item.role,
                               item.musicianId,
                               resolveDraftOverride(
