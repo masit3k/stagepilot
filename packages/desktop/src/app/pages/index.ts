@@ -3,6 +3,7 @@ export * from "./ChooseProjectTypePage";
 export * from "./NewEventProjectPage";
 export * from "./NewGenericProjectPage";
 export * from "./ProjectSetupPage";
+export * from "./ProjectInputsPage";
 export * from "./ProjectPreviewPage";
 export * from "./StagePlanEditorPage";
 export * from "./SettingsPage";

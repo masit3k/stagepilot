@@ -9,6 +9,7 @@ import {
   LibraryMusiciansPage,
   NewEventProjectPage,
   NewGenericProjectPage,
+  ProjectInputsPage,
   ProjectPreviewPage,
   ProjectSetupPage,
   SettingsPage,
@@ -20,6 +21,7 @@ import {
   matchLibraryBandDetailPath,
   matchProjectEventPath,
   matchProjectGenericPath,
+  matchProjectInputsPath,
   matchProjectPreviewPath,
   matchProjectSetupPath,
   matchProjectStageplanPath,
@@ -57,6 +59,7 @@ export function ShellRouter({
   const eventEditProjectId = matchProjectEventPath(pathname);
   const genericEditProjectId = matchProjectGenericPath(pathname);
   const setupProjectId = matchProjectSetupPath(pathname);
+  const inputsProjectId = matchProjectInputsPath(pathname);
   const stageplanProjectId = matchProjectStageplanPath(pathname);
   const previewProjectId = matchProjectPreviewPath(pathname);
   const libraryBandDetailId = matchLibraryBandDetailPath(pathname);
@@ -128,6 +131,16 @@ export function ShellRouter({
     return (
       <ProjectSetupPage
         id={setupProjectId}
+        navigate={navigate}
+        registerNavigationGuard={registerNavigationGuard}
+        search={search}
+      />
+    );
+  }
+  if (inputsProjectId) {
+    return (
+      <ProjectInputsPage
+        id={inputsProjectId}
         navigate={navigate}
         registerNavigationGuard={registerNavigationGuard}
         search={search}
