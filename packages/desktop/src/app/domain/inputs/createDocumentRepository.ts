@@ -48,10 +48,11 @@ export function createDocumentRepository(args: {
     },
 
     getNotesTemplate: (id: string): NotesTemplate => {
-      if (!setupData.notesTemplateRef || id !== setupData.notesTemplateRef) {
-        throw new Error(`Notes template not found in band setup data: ${id}`);
-      }
-      if (!setupData.notesTemplate) {
+      if (
+        !setupData.notesTemplateRef ||
+        id !== setupData.notesTemplateRef ||
+        !setupData.notesTemplate
+      ) {
         throw new Error(`Notes template not found in band setup data: ${id}`);
       }
       return setupData.notesTemplate;
@@ -64,13 +65,17 @@ export function createDocumentRepository(args: {
 /**
  * Skládá `Band` ze `setupData`. Jediné pole, které vyžaduje práci, je
  * `defaultLineup` — `BandSetupData` ho typuje jako `LineupMap` (sdílený tvar
- * s projektovým lineupem, kde slot může nést i `presetOverride`/`drumDefinition`),
- * ale kapelní default lineup nikdy takhle bohatý není: reálná data z disku
- * (viz `catalog/bands/*.json`) i Rust strana příkazu ho drží jako
- * `Record<Group, string[]>`. Převod tedy jen ověří tenhle předpoklad a
- * vyhodí čitelnou chybu, pokud by ho jednou porušil — nejde o normalizaci
+ * s projektovým lineupem, kde slot je `string | { musicianId, ... }`, případně
+ * pole takových položek). Kapelní storage je uživatelsky editovaný JSON, takže
+ * i objektový tvar (`{ "bass": [{ "musicianId": "bass-1" }] }`) je reálně
+ * dosažitelný — Rust strana příkazu ověří jen že hodnota role je array
+ * (`lib.rs:153-171`), obsah prvků nekontroluje. `toDefaultLineup` proto čte
+ * `musicianId` z objektové podoby stejně jako `normalizeLineupValue`
+ * (`projectRules.ts:281-292`) a položku, ze které nevzejde žádné id,
+ * zahodí — nevyhazuje. Obrazovka `02` se musí vykreslit i s neúplnými daty;
+ * na to slouží `load_warnings`, ne shozený render. Nejde o normalizaci
  * projektového lineupu (ta zůstává na `normalizeProject`, který používá
- * volající), jen o úzké přetypování jednoho pole kapely.
+ * volající) — jen o čtení téhož tvaru, jaký zná zbytek aplikace.
  */
 function buildBand(setupData: BandSetupData): Band {
   const bandLeader =
@@ -83,7 +88,7 @@ function buildBand(setupData: BandSetupData): Band {
     bandLeaderId: setupData.bandLeaderId ?? bandLeader,
     defaultTalkbackOwnerId: setupData.defaultTalkbackOwnerId ?? undefined,
     defaultContactId: setupData.defaultContactId ?? undefined,
-    defaultLineup: toDefaultLineup(setupData.defaultLineup, setupData.id),
+    defaultLineup: toDefaultLineup(setupData.defaultLineup),
     defaultOverlays: toDefaultOverlays(setupData.defaultOverlays),
     notesTemplateRef: setupData.notesTemplateRef ?? undefined,
   };
@@ -98,10 +103,7 @@ const BAND_LINEUP_GROUPS: readonly Group[] = [
   "talkback",
 ];
 
-function toDefaultLineup(
-  raw: BandSetupData["defaultLineup"],
-  bandId: string,
-): DefaultLineup {
+function toDefaultLineup(raw: BandSetupData["defaultLineup"]): DefaultLineup {
   const lineup: DefaultLineup = {};
   if (!raw) return lineup;
 
@@ -110,15 +112,11 @@ function toDefaultLineup(
     if (value === undefined) continue;
 
     const entries = Array.isArray(value) ? value : [value];
-    const ids: string[] = [];
-    for (const entry of entries) {
-      if (typeof entry !== "string") {
-        throw new Error(
-          `Band ${bandId} defaultLineup.${group} must list musician ids, found: ${JSON.stringify(entry)}`,
-        );
-      }
-      ids.push(entry);
-    }
+    const ids = entries
+      .map((entry) =>
+        typeof entry === "string" ? entry : (entry?.musicianId ?? ""),
+      )
+      .filter((id): id is string => id.length > 0);
     lineup[group] = ids;
   }
 

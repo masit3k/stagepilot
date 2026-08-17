@@ -162,6 +162,45 @@ describe("createDocumentRepository", () => {
     });
   });
 
+  it("getBand extracts musicianId from an object-shaped lineup entry", () => {
+    const repo = createDocumentRepository({
+      project,
+      setupData: makeSetupData({
+        defaultLineup: { bass: [{ musicianId: "bass-1" }] },
+      }),
+    });
+
+    expect(repo.getBand("band-1").defaultLineup).toEqual({
+      bass: ["bass-1"],
+    });
+  });
+
+  it("getBand reads a lineup role mixing string and object entries", () => {
+    const repo = createDocumentRepository({
+      project,
+      setupData: makeSetupData({
+        defaultLineup: { vocs: ["vocs-1", { musicianId: "vocs-2" }] },
+      }),
+    });
+
+    expect(repo.getBand("band-1").defaultLineup).toEqual({
+      vocs: ["vocs-1", "vocs-2"],
+    });
+  });
+
+  it("getBand drops a lineup entry with no usable musician id and keeps its siblings", () => {
+    const repo = createDocumentRepository({
+      project,
+      setupData: makeSetupData({
+        defaultLineup: { guitar: [{ musicianId: "" }, "guitar-1"] },
+      }),
+    });
+
+    expect(repo.getBand("band-1").defaultLineup).toEqual({
+      guitar: ["guitar-1"],
+    });
+  });
+
   /**
    * Tohle je test, o který ve skutečnosti jde: dokazuje, že adaptér skládá
    * repozitář, který skutečné `buildDocument` prožene end-to-end a vyprodukuje
