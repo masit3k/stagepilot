@@ -239,7 +239,11 @@ Vlastní poznámky nemají podmínky ani vlastní řazení — když je píšeš
 jestli platí.
 
 Přepis na řádku, který podmínka skrývá, se v editoru ukáže šedě s vysvětlením
-(„nezobrazí se: kapela nepoužívá IEM od pořadatele"). Jinak by uživatel psal text do prázdna.
+(`Hidden: band has no FOH-supplied IEM`). Jinak by uživatel psal text do prázdna.
+
+**Jazyk:** popisky rozhraní jsou anglicky podle R14 z F6, text poznámek zůstává český, protože
+je to obsah dokumentu, ne rozhraní. Platí to pro celou obrazovku, včetně štítku `edited` u
+přepsaného řádku z R12.
 
 ### R14 — Nová pole musí být na whitelistu, krytá testem
 
