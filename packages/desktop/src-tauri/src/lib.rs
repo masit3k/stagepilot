@@ -851,6 +851,10 @@ fn list_bands(app: tauri::AppHandle) -> Result<Vec<BandOption>, ApiError> {
     Ok(results)
 }
 
+/// Mirrors `buildDocument.ts`'s `band.notesTemplateRef ?? "notes_default_cs"` —
+/// the id the pipeline actually resolves to when a band has no override.
+const DEFAULT_NOTES_TEMPLATE_ID: &str = "notes_default_cs";
+
 /// Looks up a notes template by id in the `templates/notes` catalog folder.
 /// Mirrors how bands/musicians are matched (scan + compare `id`), so a
 /// template's filename need not match its id. Any I/O or parse problem is
@@ -1144,30 +1148,26 @@ fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSet
         &mut load_warnings,
     );
 
+    // Same fallback the pipeline itself applies (buildDocument.ts:625): a band
+    // without an explicit override still resolves to the default template, so
+    // the payload must serve that effective id, not the band's raw null.
     let notes_template_reference = json
         .get("notesTemplateRef")
         .and_then(|v| v.as_str())
         .map(|v| v.trim().to_string())
-        .filter(|v| !v.is_empty());
-    let (notes_template_ref, notes_template) = match &notes_template_reference {
-        None => {
-            load_warnings.push(format!(
-                "Band '{}' has no notesTemplateRef; notes template unavailable",
-                requested
-            ));
-            (None, None)
-        }
-        Some(reference) => match load_notes_template(&app, reference)? {
-            Some(template) => (Some(reference.clone()), Some(template)),
+        .filter(|v| !v.is_empty())
+        .unwrap_or_else(|| DEFAULT_NOTES_TEMPLATE_ID.to_string());
+    let (notes_template_ref, notes_template) =
+        match load_notes_template(&app, &notes_template_reference)? {
+            Some(template) => (Some(notes_template_reference.clone()), Some(template)),
             None => {
                 load_warnings.push(format!(
                     "Band '{}' notesTemplateRef '{}' not found in templates/notes catalog",
-                    requested, reference
+                    requested, notes_template_reference
                 ));
                 (None, None)
             }
-        },
-    };
+        };
 
     Ok(BandSetupData {
         id: json
