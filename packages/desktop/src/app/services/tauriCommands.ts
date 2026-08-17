@@ -6,4 +6,5 @@ export const TAURI_COMMANDS = {
   DELETE_PROJECT_PERMANENTLY: "delete_project_permanently",
   GET_BAND_SETUP_DATA: "get_band_setup_data",
   STAGEPLAN_PRINT_METRICS: "build_stageplan_print_metrics",
+  UPDATE_MUSICIAN_DEFAULTS: "update_musician_defaults",
 } as const;

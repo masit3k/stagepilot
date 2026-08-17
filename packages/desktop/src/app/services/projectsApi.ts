@@ -3,6 +3,7 @@ import { TAURI_COMMANDS } from "./tauriCommands";
 import { type SaveIntent, stampProjectUpdate } from "../domain/project/stampProjectUpdate";
 import type { BandOption, BandSetupData, NewProjectPayload, ProjectSummary } from "../shell/types";
 import { toPersistableProject } from "../shell/types";
+import type { MusicianSetupPreset } from "../../../../../src/domain/model/types";
 
 export function listBands() {
   return invoke<BandOption[]>(TAURI_COMMANDS.LIST_BANDS);
@@ -44,6 +45,22 @@ export function deleteProjectPermanently(projectId: string) {
 
 export function getBandSetupData(bandId: string) {
   return invoke<BandSetupData>(TAURI_COMMANDS.GET_BAND_SETUP_DATA, { bandId });
+}
+
+/**
+ * Co? Povýší dočasnou odchylku jednoho slotu na trvalý default muzikanta
+ * (R5) — `setup` je efektivní preset slotu (`setupForSlot(...).effective`),
+ * stejný tvar, jaký dřív posílal setup modál na obrazovce `01`.
+ * Proč přes tuhle vrstvu? CLAUDE.md vyžaduje, aby desktop volal Tauri příkazy
+ * přes `tauriCommands.ts` — přímé `invoke` v `ProjectSetupPage.tsx` je starý
+ * kód, který zaniká s Taskem 19, tenhle je jeho náhrada pro obrazovku `02`.
+ */
+export function updateMusicianDefaults(args: {
+  musicianId: string;
+  role: string;
+  setup: MusicianSetupPreset;
+}) {
+  return invoke<void>(TAURI_COMMANDS.UPDATE_MUSICIAN_DEFAULTS, args);
 }
 
 export function parseProjectPayload(raw: string): NewProjectPayload & Record<string, unknown> {

@@ -10,6 +10,7 @@ import {
   resolveMusicianDefaultSetupForRole,
 } from "../../pages/shared/setupConstants";
 import type { BandSetupData } from "../../shell/types";
+import { musicianDefaultsKey } from "./musicianDefaultsKey";
 
 /**
  * Co? Rozlišení výchozího a efektivního setupu jednoho slotu lineupu.
@@ -27,7 +28,7 @@ export function resolveMusicianDefaultPreset(args: {
 }): MusicianSetupPreset {
   const { role, musicianId, setupData, presetCatalog } = args;
   const roleScopedDefaults =
-    setupData?.musicianDefaults?.[`${musicianId}:${role}`];
+    setupData?.musicianDefaults?.[musicianDefaultsKey(musicianId, role)];
   const genericDefaults = setupData?.musicianDefaults?.[musicianId];
   return resolveMusicianDefaultSetupForRole({
     role,

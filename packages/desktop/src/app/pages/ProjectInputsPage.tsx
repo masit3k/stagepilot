@@ -6,6 +6,7 @@ import type {
   ProjectNotesOverride,
 } from "../../../../../src/domain/model/types";
 import { buildDocument } from "../../../../../src/domain/pipeline/buildDocument";
+import { ModalOverlay, useModalBehavior } from "../../components/ui/Modal";
 import { useToast } from "../../components/ui/toast/useToast";
 import { getRoleSlotLimit, normalizeLineupSlots } from "../../projectRules";
 import type { LineupMap } from "../../projectRules";
@@ -19,12 +20,14 @@ import {
 } from "../domain/inputs/buildInputEditorRows";
 import { createDocumentRepository } from "../domain/inputs/createDocumentRepository";
 import { updateInputRow } from "../domain/inputs/updateInputRow";
+import { musicianDefaultsKey } from "../domain/setup/musicianDefaultsKey";
 import { useSetupOverrides } from "../domain/setup/useSetupOverrides";
 import {
   getBandSetupData,
   parseProjectPayload,
   readProject,
   saveProjectPayload,
+  updateMusicianDefaults,
 } from "../services/projectsApi";
 import { CANONICAL_LINEUP_ROLE_ORDER } from "../shell/lineupSerialize";
 import type { BandSetupData, NewProjectPayload } from "../shell/types";
@@ -124,6 +127,21 @@ function countPatchDeviations(patch: PresetOverridePatch | undefined): number {
   return inputDeviations + monitoringDeviations;
 }
 
+/**
+ * Aktuální `presetOverride` jednoho slotu, čtený přímo z editovaného
+ * snapshotu — sdílí ho výpočet `deviationCount` pro panel (R2) a payload pro
+ * `Save as musician default` (R5): obě potřebují ten samý patch, jaký na
+ * obrazovce `02` právě platí, ne to, co je uložené na disku.
+ */
+function getSlotOverride(
+  lineup: LineupMap,
+  role: string,
+  slotIndex: number,
+): PresetOverridePatch | undefined {
+  const slots = normalizeLineupSlots(lineup[role], getRoleSlotLimit(role));
+  return slots[slotIndex]?.presetOverride;
+}
+
 /** Zapíše (nebo smaže) `presetOverride` jednoho slotu v `lineup`, beze změny tvaru pole/objektu, jaký `role` používá. */
 function replaceSlotOverride(
   lineup: LineupMap,
@@ -159,6 +177,11 @@ export function ProjectInputsPage({
   const [isSaving, setIsSaving] = useState(false);
   const [setupData, setSetupData] = useState<BandSetupData | null>(null);
   const [selectedInputKey, setSelectedInputKey] = useState<string | null>(null);
+  const [
+    showSaveMusicianDefaultConfirmation,
+    setShowSaveMusicianDefaultConfirmation,
+  ] = useState(false);
+  const [isSavingMusicianDefault, setIsSavingMusicianDefault] = useState(false);
   const { notify } = useToast();
   /** Stav, proti kterému se poznává dirty — po každém uložení se posune. */
   const initialSnapshotRef = useRef<InputsEditorSnapshot | undefined>(
@@ -351,12 +374,12 @@ export function ProjectInputsPage({
 
   const ownerDeviationCount = useMemo(() => {
     if (!selectedRow || !selectedRow.slotKey) return 0;
-    const slots = normalizeLineupSlots(
-      lineup[selectedRow.ownerRole],
-      getRoleSlotLimit(selectedRow.ownerRole),
+    const patch = getSlotOverride(
+      lineup,
+      selectedRow.ownerRole,
+      parseSlotIndex(selectedRow.slotKey),
     );
-    const slot = slots[parseSlotIndex(selectedRow.slotKey)];
-    return countPatchDeviations(slot?.presetOverride);
+    return countPatchDeviations(patch);
   }, [selectedRow, lineup]);
 
   /**
@@ -417,6 +440,52 @@ export function ProjectInputsPage({
     });
   }, []);
 
+  /**
+   * Povýší efektivní preset vybraného vlastníka na jeho trvalý default (R5,
+   * Task 12b) — kanály z tohoto slotu tak nastartují každý příští projekt,
+   * ne jen tenhle. `effective` se počítá stejně jako v `ProjectSetupPage.tsx`
+   * (setup modál na obrazovce `01`): `setupForSlot` nad aktuálním patchem
+   * slotu. Mění data sdílená napříč projekty, proto se volá až po potvrzení
+   * v modálu níž, a chybu nikdy nepolyká — jde přes existující chybový kanál
+   * stránky (`notify`).
+   */
+  const saveSelectedRowAsMusicianDefault = useCallback(
+    async (row: InputEditorRow) => {
+      if (!row.slotKey) return;
+      const role = row.ownerRole;
+      const musicianId = row.ownerMusicianId;
+      const patch = getSlotOverride(lineup, role, parseSlotIndex(row.slotKey));
+      const { effective } = setupForSlot(role, musicianId, patch);
+      setIsSavingMusicianDefault(true);
+      try {
+        await updateMusicianDefaults({ musicianId, role, setup: effective });
+        setSetupData((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            musicianDefaults: {
+              ...(prev.musicianDefaults ?? {}),
+              [musicianDefaultsKey(musicianId, role)]: effective,
+            },
+          };
+        });
+        notify("success", "Musician defaults updated.");
+        setShowSaveMusicianDefaultConfirmation(false);
+      } catch (error) {
+        console.error("[project-inputs] failed to update musician defaults", {
+          projectId: id,
+          musicianId,
+          role,
+          error,
+        });
+        notify("error", "Musician defaults could not be updated.");
+      } finally {
+        setIsSavingMusicianDefault(false);
+      }
+    },
+    [lineup, setupForSlot, notify, id],
+  );
+
   const saveSnapshot = useCallback(
     async (snapshot: InputsEditorSnapshot, project: NewProjectPayload) => {
       setIsSaving(true);
@@ -475,6 +544,15 @@ export function ProjectInputsPage({
       state.snapshot,
     );
 
+  const ownerName = selectedRow
+    ? (musicianNameById.get(selectedRow.ownerMusicianId) ?? "Unknown musician")
+    : "";
+
+  const saveMusicianDefaultModalRef = useModalBehavior(
+    showSaveMusicianDefaultConfirmation && Boolean(selectedRow?.slotKey),
+    () => setShowSaveMusicianDefaultConfirmation(false),
+  );
+
   return (
     <section className="panel panel--inputs">
       <div className="panel__header">
@@ -509,12 +587,7 @@ export function ProjectInputsPage({
         </div>
         <InputRowInspector
           row={selectedRow}
-          ownerName={
-            selectedRow
-              ? (musicianNameById.get(selectedRow.ownerMusicianId) ??
-                "Unknown musician")
-              : ""
-          }
+          ownerName={ownerName}
           channelCount={ownerChannelCount}
           deviationCount={ownerDeviationCount}
           onLabelChange={(label) =>
@@ -525,6 +598,9 @@ export function ProjectInputsPage({
           }
           onResetToDefault={() =>
             selectedRow && resetOwnerToDefault(selectedRow)
+          }
+          onSaveAsMusicianDefault={() =>
+            setShowSaveMusicianDefaultConfirmation(true)
           }
         />
       </div>
@@ -560,6 +636,54 @@ export function ProjectInputsPage({
                 : "Continue"}
         </button>
       </div>
+
+      <ModalOverlay
+        open={
+          showSaveMusicianDefaultConfirmation && Boolean(selectedRow?.slotKey)
+        }
+        onClose={() => setShowSaveMusicianDefaultConfirmation(false)}
+      >
+        <div
+          className="selector-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="save-musician-default-title"
+          aria-describedby="save-musician-default-body"
+          ref={saveMusicianDefaultModalRef}
+        >
+          <div className="panel__header panel__header--stack selector-dialog__title">
+            <h3 id="save-musician-default-title">Save as musician default?</h3>
+            <p id="save-musician-default-body" className="subtle">
+              {`You are about to update default setup for: ${ownerName}.`}
+            </p>
+            <p className="subtle">
+              This will affect all future projects and all bands.
+            </p>
+            <p className="subtle">This does not change the band defaults.</p>
+          </div>
+          <div className="selector-dialog__divider section-divider" />
+          <div className="modal-actions">
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={() => setShowSaveMusicianDefaultConfirmation(false)}
+              disabled={isSavingMusicianDefault}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="button-primary"
+              onClick={() =>
+                selectedRow && saveSelectedRowAsMusicianDefault(selectedRow)
+              }
+              disabled={isSavingMusicianDefault}
+            >
+              Save default
+            </button>
+          </div>
+        </div>
+      </ModalOverlay>
     </section>
   );
 }

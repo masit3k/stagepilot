@@ -93,6 +93,7 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         onLabelChange={noop}
         onNoteChange={noop}
         onResetToDefault={noop}
+        onSaveAsMusicianDefault={noop}
       />,
     );
 
@@ -109,6 +110,7 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         onLabelChange={noop}
         onNoteChange={noop}
         onResetToDefault={noop}
+        onSaveAsMusicianDefault={noop}
       />,
     );
 
@@ -122,6 +124,27 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
     expect(html).not.toContain("Not editable");
   });
 
+  it("offers a live Save as musician default button when the row has a slot", () => {
+    const html = renderToStaticMarkup(
+      <InputRowInspector
+        row={editableRow}
+        ownerName="Matěj Novák"
+        channelCount={3}
+        deviationCount={1}
+        onLabelChange={noop}
+        onNoteChange={noop}
+        onResetToDefault={noop}
+        onSaveAsMusicianDefault={noop}
+      />,
+    );
+
+    const saveDefaultButtonHtml = html
+      .split("<button")
+      .find((chunk) => chunk.includes("Save as musician default"));
+    expect(saveDefaultButtonHtml).toBeDefined();
+    expect(saveDefaultButtonHtml).not.toContain("disabled");
+  });
+
   it("does not offer editing when the owner has no lineup slot", () => {
     const html = renderToStaticMarkup(
       <InputRowInspector
@@ -132,6 +155,7 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         onLabelChange={noop}
         onNoteChange={noop}
         onResetToDefault={noop}
+        onSaveAsMusicianDefault={noop}
       />,
     );
 
@@ -139,6 +163,7 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
     expect(html).not.toMatch(/<input/);
     // No slot to act on, so the owner actions do not render either.
     expect(html).not.toContain("Reset to default");
+    expect(html).not.toContain("Save as musician default");
   });
 
   it("has no owner block for a filler row", () => {
@@ -158,11 +183,13 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         onLabelChange={noop}
         onNoteChange={noop}
         onResetToDefault={noop}
+        onSaveAsMusicianDefault={noop}
       />,
     );
 
     expect(html).not.toContain("CHANNELS");
     expect(html).not.toContain("DEVIATIONS");
+    expect(html).not.toContain("Save as musician default");
   });
 });
 

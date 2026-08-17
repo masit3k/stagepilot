@@ -9,6 +9,10 @@ import type { InputEditorRow } from "../../domain/inputs/buildInputEditorRows";
  * Textová pole pro `input` a `note` editují přímo `row.label` / `row.note` —
  * volající je zapisuje do `presetOverride.inputs.update[]` přes
  * `updateInputRow` (R6).
+ *
+ * `Save as musician default` (R5) jen volá callback z propsů — potvrzení a
+ * samotné volání Tauri příkazu žijí ve stránce, protože mění trvalá data
+ * muzikanta napříč projekty, ne jen tenhle slot.
  */
 export function InputRowInspector({
   row,
@@ -18,6 +22,7 @@ export function InputRowInspector({
   onLabelChange,
   onNoteChange,
   onResetToDefault,
+  onSaveAsMusicianDefault,
 }: {
   row: InputEditorRow | null;
   ownerName: string;
@@ -26,6 +31,7 @@ export function InputRowInspector({
   onLabelChange: (label: string) => void;
   onNoteChange: (note: string) => void;
   onResetToDefault: () => void;
+  onSaveAsMusicianDefault: () => void;
 }) {
   if (!row) {
     return (
@@ -116,8 +122,8 @@ export function InputRowInspector({
               <button
                 type="button"
                 className="button-secondary"
-                disabled
-                title="Coming soon"
+                disabled={deviationCount === 0}
+                onClick={onSaveAsMusicianDefault}
               >
                 Save as musician default
               </button>
