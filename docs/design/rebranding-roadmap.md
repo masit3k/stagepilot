@@ -17,7 +17,7 @@ designový board, implementuje se **kolo 3** (`3a`–`3d` varianty značky, vybr
 | F4 | Typografie a hlavička PDF | hotovo, čeká na vizuální kontrolu | [2026-08-12-pdf-typography-and-header-design.md](../superpowers/specs/2026-08-12-pdf-typography-and-header-design.md) | `785377d`…`b8c9e40` |
 | F5a | Model rozmístění + Stage Plan Editor | hotovo, čeká na ruční kontrolu editoru | [2026-08-13-stageplan-editor-and-layout-model-design.md](../superpowers/specs/2026-08-13-stageplan-editor-and-layout-model-design.md) | `fdee3b8`…`67b3895` |
 | **F5b** | **PDF čte rozmístění z projektu (pozice, rotace, nová kresba bloků)** | **hotovo, čeká na ruční kontrolu** | [2026-08-13-pdf-reads-stageplan-layout-design.md](../superpowers/specs/2026-08-13-pdf-reads-stageplan-layout-design.md) | `7ec42a9`…`b6fbf96` |
-| F5c | Obrazovka `02 INPUTS` | připraveno k otevření | zatím není | — |
+| F5c | Obrazovka `02 INPUTS` | spec schválený, bez implementace | [2026-08-17-inputs-screen-design.md](../superpowers/specs/2026-08-17-inputs-screen-design.md) | — |
 | **F6** | **Tok na editor, obsah bloků, úchyty velikosti, tisk bez zvýraznění, kapelník, angličtina** | **hotovo, čeká na ruční kontrolu** | [2026-08-13-editor-flow-block-content-and-ui-language-design.md](../superpowers/specs/2026-08-13-editor-flow-block-content-and-ui-language-design.md) | `9b27385`…`b1e18f4` |
 | **F7** | **Tištěný box podle textu, kapelník v boxu, kontakt v hlavičce** | **hotovo, čeká na ruční kontrolu** | [2026-08-15-print-box-sized-by-text-and-header-contact-design.md](../superpowers/specs/2026-08-15-print-box-sized-by-text-and-header-contact-design.md) | `16f05ef`…`8d8c9d3` |
 
@@ -78,13 +78,24 @@ v modálu uvnitř setupu, takže krok `02` v procesní stopě má stav `unavaila
 `app/shell/chrome/processSteps.ts` stačí u kroku přepsat `segment` z `null` na routu — krok `03`
 takhle odemkne už F5a.
 
-**Směr je rozhodnutý (2026-08-15), spec zatím není.** Obrazovka je editor kanálů **i
-poznámek**: modály pro editaci inputů se přestěhují z `ProjectSetupPage.tsx` (2756 řádků)
-sem a krok `01` zůstane o lidech a presetech. Poznámky se editují jako **odchylky projektu
-nad šablonou kapely** — šablona (`notesTemplateRef`, dnes `notes_default_cs`) dál určuje,
-co se nabídne, projekt si drží jen to, které řádky vypnout a jaké vlastní přidat, takže
-úprava kvůli jednomu koncertu neovlivní ostatní dokumenty té kapely. Zamítnuto: editovat
-rovnou šablonu kapely a zrušit krok `02`. Podrobnosti v sekci „Navazuje" specu F7.
+**Spec je schválený (2026-08-17), implementace zatím není.** Obrazovka je editovatelné
+zrcadlo strany 1 dokumentu: tabulka kanálů, tabulka monitorů a poznámky pod sebou v tiskovém
+pořadí. Editace inputů, monitoringu a skladby bicí soupravy se přestěhuje
+z `ProjectSetupPage.tsx` (2756 řádků) sem a krok `01` zůstane o lidech a presetech. Poznámky
+se editují jako **odchylky projektu nad šablonou kapely** — šablona (`notesTemplateRef`, dnes
+`notes_default_cs`) dál určuje, co se nabídne, projekt si drží jen to, které řádky vypnout,
+které přepsat a jaké vlastní přidat, takže úprava kvůli jednomu koncertu neovlivní ostatní
+dokumenty té kapely. Zamítnuto: editovat rovnou šablonu kapely a zrušit krok `02`.
+
+**Tři věci ze specu, které stojí za přečtení, i když se do F5c nepustíš hned:**
+
+- **Přejmenování kanálu a jeho poznámka už mají doménu i persistenci.** `PresetOverridePatch`
+  nese `update?: PartialInputUpdate[]` a `applyPresetOverride` to aplikuje — chybí jen UI.
+  Nové datové vrstvy potřebují jen ruční pořadí a poznámky.
+- **`toPersistableProject` je whitelist.** Nová pole na projektu do něj musí přijít výslovně,
+  jinak je uložení z kroku `01` nebo `03` tiše smaže. Přesně to už jednou hrozilo u `stageplan`.
+- **`ProjectSetupPage.tsx` nemá vlastní test.** Extrakce sdíleného stavu do hooku je proto
+  nejrizikovější část fáze; spec ji řeší tím, že logika hooku má být testovatelná bez Reactu.
 
 ## F6 — tok, obsah bloků, úchyty a jazyk
 
