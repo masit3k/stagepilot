@@ -11,7 +11,10 @@ import {
 } from "../../../projectRules";
 
 export type InputEditorRow = {
+  /** Opaque React/selection identity — namespaced by owner on a removed row (see `composeRemovedRowKey`). Never parse this; read `rawKey` instead. */
   readonly key: string;
+  /** The channel key as the preset/document actually knows it — same value as `key` on active and filler rows, the un-namespaced key on a removed one. */
+  readonly rawKey: string;
   /** null u vypnutého řádku — číslo spotřebují jen tištěné kanály (R3). */
   readonly ch: number | null;
   readonly label: string;
@@ -24,13 +27,14 @@ export type InputEditorRow = {
 };
 
 /**
- * Vypnutý kanál, dokud nemá řádek v `InputEditorRow`. `neighborKey` je klíč
- * (z výchozího presetu, tedy ne disambiguovaný), který ve výchozím presetu
- * slotu předchází tomuto kanálu — `null`, když byl ve výchozím presetu první
- * a soused tedy neexistuje.
+ * Vypnutý kanál, dokud nemá řádek v `InputEditorRow`. `rawKey` a
+ * `neighborKey` jsou oba syrové klíče z výchozího presetu (ne
+ * disambiguované) — `neighborKey` je klíč, který ve výchozím presetu slotu
+ * předchází tomuto kanálu, `null`, když byl ve výchozím presetu první a
+ * soused tedy neexistuje.
  */
 export type DisabledInputRow = {
-  readonly key: string;
+  readonly rawKey: string;
   readonly label: string;
   readonly note: string;
   readonly group: Group;
@@ -90,7 +94,8 @@ export function buildSlotKeyIndex(args: {
  * presetu) — jakmile dva muzikanti stejné role sdílejí preset a jeden z nich
  * má kanál vypnutý, zatímco druhému se tiskne beze změny (disambiguace ho
  * nechá bez sufixu, protože v dokumentu je jen jednou), vypnutý i aktivní
- * řádek by měly stejný `key`. Jmenný prostor vlastníka to vylučuje.
+ * řádek by měly stejný `key`. Jmenný prostor vlastníka to vylučuje. Nikdo
+ * tenhle tvar nerozebírá zpátky — kdo potřebuje syrový klíč, čte `rawKey`.
  */
 function composeRemovedRowKey(ownerMusicianId: string, rawKey: string): string {
   return `${ownerMusicianId}:${rawKey}`;
@@ -119,6 +124,7 @@ export function buildInputEditorRows(args: {
     const ownerMusicianId = input.ownerMusicianId ?? "";
     return {
       key: input.key,
+      rawKey: input.key,
       ch: input.ch,
       label: input.label,
       note: input.note ?? "",
@@ -134,7 +140,8 @@ export function buildInputEditorRows(args: {
 
   for (const disabled of disabledRows) {
     rows.splice(insertionIndexFor(rows, disabled), 0, {
-      key: composeRemovedRowKey(disabled.ownerMusicianId, disabled.key),
+      key: composeRemovedRowKey(disabled.ownerMusicianId, disabled.rawKey),
+      rawKey: disabled.rawKey,
       ch: null,
       label: disabled.label,
       note: disabled.note,
@@ -230,7 +237,7 @@ export function collectDisabledInputRows(args: {
       for (const input of resolved.defaultPreset.inputs) {
         if (!activeKeys.has(input.key)) {
           rows.push({
-            key: input.key,
+            rawKey: input.key,
             label: input.label,
             note: input.note ?? "",
             group: input.group ?? role,

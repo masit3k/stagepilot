@@ -70,6 +70,7 @@ describe("InputTable (the INPUT LIST section's channel table)", () => {
     const rows: InputEditorRow[] = [
       {
         key: "el_bass_di",
+        rawKey: "el_bass_di",
         ch: 1,
         label: "Bass DI",
         note: "",
@@ -81,6 +82,7 @@ describe("InputTable (the INPUT LIST section's channel table)", () => {
       },
       {
         key: "el_bass_mic",
+        rawKey: "el_bass_mic",
         ch: null,
         label: "Bass mic",
         note: "",
