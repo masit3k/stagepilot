@@ -196,11 +196,13 @@ export function ProjectInputsPage({
             navigate(`/projects/${encodeURIComponent(id)}/stageplan`);
           }}
         >
-          {state.kind !== "ready"
+          {state.kind === "loading"
             ? "Loading…"
-            : isDirty
-              ? "Save & Continue"
-              : "Continue"}
+            : state.kind === "error"
+              ? "Unavailable"
+              : isDirty
+                ? "Save & Continue"
+                : "Continue"}
         </button>
       </div>
     </section>

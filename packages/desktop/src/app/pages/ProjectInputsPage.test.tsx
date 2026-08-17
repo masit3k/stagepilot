@@ -35,7 +35,7 @@ describe("isInputsDirty", () => {
     ).toBe(true);
   });
 
-  it("ignores key order inside notes deviations", () => {
+  it("is clean when both snapshots carry equal notes deviations", () => {
     expect(
       isInputsDirty(
         { ...empty, notes: { disabled: ["a", "b"] } },
