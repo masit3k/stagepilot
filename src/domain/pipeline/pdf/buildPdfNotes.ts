@@ -2,6 +2,7 @@ import type {
   DocumentViewModel,
   NoteLine,
   NotesTemplate,
+  ProjectNotesOverride,
 } from "../../model/types.js";
 
 /**
@@ -33,15 +34,59 @@ function matchesCondition(
   return true;
 }
 
+/**
+ * Poznámky projektu vzniknou ve **čtyřech krocích a v tomto pořadí** (R11):
+ * filtr podmínek, vyhození vypnutých, přepis textu, připojení vlastních.
+ *
+ * Pořadí není libovolné. Přepis se aplikuje až po filtru, takže přepsat řádek,
+ * který podmínka skrývá, ho nezobrazí — editor to uživateli říká předem (R13).
+ * Vlastní řádky se připojují nakonec, protože nesou vlastní text a žádné
+ * podmínky se na ně nevztahují.
+ */
+function applySectionDeviations(
+  lines: NoteLine[],
+  section: "inputs" | "monitors",
+  overrides: ProjectNotesOverride | undefined,
+): NoteLine[] {
+  if (!overrides) return lines;
+
+  const disabled = new Set(overrides.disabled ?? []);
+  const texts = overrides.overrides ?? {};
+
+  const kept = lines
+    .filter((note) => !disabled.has(note.id))
+    .map((note) =>
+      typeof texts[note.id] === "string"
+        ? { ...note, text: texts[note.id] }
+        : note,
+    );
+
+  const custom = (overrides.custom ?? [])
+    .filter((entry) => entry.section === section)
+    .map((entry) => ({ id: entry.id, text: entry.text }));
+
+  return [...kept, ...custom];
+}
+
 export function buildPdfNotes(args: {
   template: NotesTemplate;
   monitors: MonitorNoteContext;
+  overrides?: ProjectNotesOverride;
 }): DocumentViewModel["notes"] {
-  const { template, monitors } = args;
+  const { template, monitors, overrides } = args;
+
   return {
-    inputs: template.inputs ?? [],
-    monitors: (template.monitors ?? []).filter((note) =>
-      matchesCondition(note, monitors),
+    inputs: applySectionDeviations(
+      template.inputs ?? [],
+      "inputs",
+      overrides,
+    ),
+    monitors: applySectionDeviations(
+      (template.monitors ?? []).filter((note) =>
+        matchesCondition(note, monitors),
+      ),
+      "monitors",
+      overrides,
     ),
   };
 }

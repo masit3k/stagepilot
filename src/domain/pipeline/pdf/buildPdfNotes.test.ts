@@ -108,3 +108,112 @@ describe("buildPdfNotes", () => {
     ]);
   });
 });
+
+const ALL_IEM = {
+  hasWedge: false,
+  hasBandSuppliedIem: true,
+  hasFohSuppliedIem: false,
+};
+
+describe("buildPdfNotes project deviations", () => {
+  it("drops a disabled template line", () => {
+    const notes = buildPdfNotes({
+      template,
+      monitors: NOTHING,
+      overrides: { disabled: ["always"] },
+    });
+
+    expect(ids(notes.inputs)).toEqual([]);
+  });
+
+  it("drops a disabled line even when a condition would show it", () => {
+    const notes = buildPdfNotes({
+      template,
+      monitors: ALL_IEM,
+      overrides: { disabled: ["band_iem"] },
+    });
+
+    expect(ids(notes.monitors)).toEqual(["unconditional"]);
+  });
+
+  it("replaces the text of a template line and keeps its id and position", () => {
+    const notes = buildPdfNotes({
+      template,
+      monitors: NOTHING,
+      overrides: { overrides: { always: "Jiné znění." } },
+    });
+
+    expect(notes.inputs).toEqual([{ id: "always", text: "Jiné znění." }]);
+  });
+
+  it("ignores an override for a line the condition hides", () => {
+    const notes = buildPdfNotes({
+      template,
+      monitors: NOTHING,
+      overrides: { overrides: { band_iem: "Nezobrazí se." } },
+    });
+
+    expect(ids(notes.monitors)).toEqual(["unconditional"]);
+  });
+
+  it("ignores an override for an id the template does not have", () => {
+    const notes = buildPdfNotes({
+      template,
+      monitors: NOTHING,
+      overrides: { overrides: { nonsense: "Nikam nepatří." } },
+    });
+
+    expect(ids(notes.inputs)).toEqual(["always"]);
+    expect(ids(notes.monitors)).toEqual(["unconditional"]);
+  });
+
+  it("appends custom lines at the end of their own section", () => {
+    const notes = buildPdfNotes({
+      template,
+      monitors: NOTHING,
+      overrides: {
+        custom: [
+          { id: "custom_1", section: "inputs", text: "Vstupní věta." },
+          { id: "custom_2", section: "monitors", text: "Monitorová věta." },
+        ],
+      },
+    });
+
+    expect(ids(notes.inputs)).toEqual(["always", "custom_1"]);
+    expect(ids(notes.monitors)).toEqual(["unconditional", "custom_2"]);
+  });
+
+  it("keeps custom lines in their stored order", () => {
+    const notes = buildPdfNotes({
+      template,
+      monitors: NOTHING,
+      overrides: {
+        custom: [
+          { id: "custom_2", section: "inputs", text: "Druhá." },
+          { id: "custom_1", section: "inputs", text: "První." },
+        ],
+      },
+    });
+
+    expect(ids(notes.inputs)).toEqual(["always", "custom_2", "custom_1"]);
+  });
+
+  it("does not let a custom line be disabled by an unrelated template id", () => {
+    const notes = buildPdfNotes({
+      template,
+      monitors: NOTHING,
+      overrides: {
+        disabled: ["always"],
+        custom: [{ id: "custom_1", section: "inputs", text: "Zůstane." }],
+      },
+    });
+
+    expect(ids(notes.inputs)).toEqual(["custom_1"]);
+  });
+
+  it("behaves exactly as before when there are no deviations", () => {
+    expect(buildPdfNotes({ template, monitors: NOTHING })).toEqual(
+      buildPdfNotes({ template, monitors: NOTHING, overrides: {} }),
+    );
+  });
+});
