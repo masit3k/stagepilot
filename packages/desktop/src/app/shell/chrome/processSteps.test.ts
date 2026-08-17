@@ -60,19 +60,6 @@ describe("buildProcessSteps", () => {
     expect(trail?.find((step) => step.id === "lineup")?.path).toBeNull();
   });
 
-  it("leaves the inputs step unavailable and unlinked — the screen is still missing", () => {
-    for (const pathname of [
-      "/projects/p1/setup",
-      "/projects/p1/preview",
-      "/projects/p1/stageplan",
-    ]) {
-      const trail = buildProcessSteps(pathname);
-      const step = trail?.find((s) => s.id === "inputs");
-      expect(step?.state, `inputs on ${pathname}`).toBe("unavailable");
-      expect(step?.path, `inputs on ${pathname}`).toBeNull();
-    }
-  });
-
   it("marks the stage plan as the current step on its own route", () => {
     const trail = buildProcessSteps("/projects/p1/stageplan");
     const step = trail?.find((s) => s.id === "stageplan");
@@ -82,7 +69,9 @@ describe("buildProcessSteps", () => {
 
   it("offers the stage plan as a link from the other project screens", () => {
     for (const pathname of ["/projects/p1/setup", "/projects/p1/preview"]) {
-      const step = buildProcessSteps(pathname)?.find((s) => s.id === "stageplan");
+      const step = buildProcessSteps(pathname)?.find(
+        (s) => s.id === "stageplan",
+      );
       expect(step?.state, pathname).toBe("available");
       expect(step?.path, pathname).toBe("/projects/p1/stageplan");
     }
@@ -103,5 +92,39 @@ describe("buildProcessSteps", () => {
     expect(trail?.find((step) => step.id === "export")?.path).toBe(
       "/projects/other-project/preview",
     );
+  });
+
+  it("makes the inputs step available from other project screens", () => {
+    const trail = buildProcessSteps("/projects/p1/setup");
+    const inputs = trail?.find((step) => step.id === "inputs");
+
+    expect(inputs?.state).toBe("available");
+    expect(inputs?.path).toBe("/projects/p1/inputs");
+  });
+
+  it("marks the inputs step as current on its own screen", () => {
+    const trail = buildProcessSteps("/projects/p1/inputs");
+
+    expect(trail?.map((step) => step.state)).toEqual([
+      "available",
+      "current",
+      "available",
+      "available",
+    ]);
+  });
+
+  it("has no unavailable step left", () => {
+    for (const pathname of [
+      "/projects/p1/setup",
+      "/projects/p1/inputs",
+      "/projects/p1/stageplan",
+      "/projects/p1/preview",
+    ]) {
+      const trail = buildProcessSteps(pathname);
+      expect(
+        trail?.every((step) => step.state !== "unavailable"),
+        pathname,
+      ).toBe(true);
+    }
   });
 });

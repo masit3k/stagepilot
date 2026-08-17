@@ -1,9 +1,10 @@
 /**
  * The step model behind the process trail.
  *
- * One of the four steps has no screen yet — inputs are still edited in a modal
- * inside the setup page. Modelling the state per step rather than branching
- * inside the component means that phase flips one `segment` from null to a
+ * All four steps now have screens. `StepState.unavailable` remains in the model
+ * for future process extensions; a step becomes unavailable when its screen is
+ * removed or not yet implemented. Modelling the state per step rather than branching
+ * inside the component means that a phase transition flips one `segment` from null to a
  * route, and nothing else moves; that is exactly how the stage plan landed.
  *
  * Pure on purpose: the project's tests run in the node environment, so the
@@ -11,6 +12,7 @@
  */
 
 import {
+  matchProjectInputsPath,
   matchProjectPreviewPath,
   matchProjectSetupPath,
   matchProjectStageplanPath,
@@ -38,7 +40,7 @@ const STEPS: readonly {
   readonly segment: string | null;
 }[] = [
   { id: "lineup", label: "LINEUP", segment: "setup" },
-  { id: "inputs", label: "INPUTS", segment: null },
+  { id: "inputs", label: "INPUTS", segment: "inputs" },
   { id: "stageplan", label: "STAGE PLAN", segment: "stageplan" },
   { id: "export", label: "EXPORT", segment: "preview" },
 ];
@@ -51,17 +53,23 @@ export function buildProcessSteps(
   pathname: string,
 ): readonly ProcessStep[] | null {
   const setupProjectId = matchProjectSetupPath(pathname);
+  const inputsProjectId = matchProjectInputsPath(pathname);
   const stageplanProjectId = matchProjectStageplanPath(pathname);
   const projectId =
-    setupProjectId ?? stageplanProjectId ?? matchProjectPreviewPath(pathname);
+    setupProjectId ??
+    inputsProjectId ??
+    stageplanProjectId ??
+    matchProjectPreviewPath(pathname);
   if (projectId === null) return null;
 
   const currentId: StepId =
     setupProjectId !== null
       ? "lineup"
-      : stageplanProjectId !== null
-        ? "stageplan"
-        : "export";
+      : inputsProjectId !== null
+        ? "inputs"
+        : stageplanProjectId !== null
+          ? "stageplan"
+          : "export";
 
   return STEPS.map((step, index) => {
     const state: StepState =
