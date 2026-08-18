@@ -36,6 +36,7 @@ import {
   moveInputRow,
   resolveActiveDropIndex,
 } from "../domain/inputs/moveInputRow";
+import { resolveInputRowEditability } from "../domain/inputs/resolveInputRowEditability";
 import {
   addInputRow,
   removeInputRow,
@@ -541,10 +542,20 @@ export function ProjectInputsPage({
    * zapsat patch. Stejný zdroj (`normalizeLineupSlots` nad `roleOrder`) jako
    * `buildSlotKeyIndex`, takže vlastník tady a `slotKeysByOwner` se nikdy
    * nerozejdou v tom, kdo je „obsazený".
+   *
+   * Role `drums` a `vocs` taky chybí (task 13b) — kanál z pickeru vždy nese
+   * `group` shodnou s vlastníkovou lineup rolí (`GROUP_INPUT_LIBRARY[role]`),
+   * takže `resolveInputRowEditability({ownerRole: role, group: role})`
+   * odpovídá na stejnou otázku jako u existujícího řádku: `drums` `add`
+   * zahodí `resolveEffectiveProjectSetup` beze stopy, `vocs` `add` vyrobí
+   * trvalý needitovatelný osiřelý řádek, který se přesto vytiskne
+   * (ověřeno `.superpowers/sdd/2026-08-17-inputs-screen/drums-vocals-patch-reach-verification.md`).
    */
   const ownerOptions = useMemo<AddInputOwnerOption[]>(() => {
     const options: AddInputOwnerOption[] = [];
     for (const role of CANONICAL_LINEUP_ROLE_ORDER) {
+      if (!resolveInputRowEditability({ ownerRole: role, group: role }).canEdit)
+        continue;
       const slots = normalizeLineupSlots(lineup[role], getRoleSlotLimit(role));
       for (const slot of slots) {
         options.push({

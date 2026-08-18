@@ -1,5 +1,6 @@
 import { getRoleDisplayName } from "../../../projectRules";
 import type { InputEditorRow } from "../../domain/inputs/buildInputEditorRows";
+import { resolveInputRowEditability } from "../../domain/inputs/resolveInputRowEditability";
 
 /**
  * Panel vybraného řádku obrazovky `02` (R2). Vlastník kanálu, který tabulka
@@ -20,7 +21,13 @@ import type { InputEditorRow } from "../../domain/inputs/buildInputEditorRows";
  *
  * `Remove channel` / `Restore channel` (R3) jsou navzájem výlučné podle
  * `row.state` — vypnutí a vrácení kanálu, patch zapisuje `toggleInputRow`
- * (Task 13) ve stránce.
+ * (Task 13) ve stránce. Ani jedno se nenabízí, když
+ * `resolveInputRowEditability` řekne, že patch, který by tlačítko zapsalo,
+ * se do dokumentu nedostane — bicí kanál (`ownerRole === "drums"`) a každý
+ * vokální/talkback řádek (`group === "vocs"`/`"talkback"`), viz task 13b.
+ * Bez tohohle gatu by `Remove channel` na bicím kanálu řádek přeškrtl,
+ * zatímco dokument by ho dál tiskl beze změny — aktivní falešné potvrzení
+ * úspěchu.
  */
 export function InputRowInspector({
   row,
@@ -61,6 +68,10 @@ export function InputRowInspector({
   // panel must not offer editing in that case.
   const canEditSlot = row.slotKey !== "";
   const hasOwner = row.ownerMusicianId !== "";
+  const toggleEditability = resolveInputRowEditability({
+    ownerRole: row.ownerRole,
+    group: row.group,
+  });
 
   return (
     <aside className="inputInspector" aria-label="Selected channel">
@@ -132,7 +143,7 @@ export function InputRowInspector({
                   Edit kit
                 </button>
               ) : null}
-              {row.state === "active" ? (
+              {toggleEditability.canEdit && row.state === "active" ? (
                 <button
                   type="button"
                   className="button-secondary"
@@ -141,7 +152,7 @@ export function InputRowInspector({
                   Remove channel
                 </button>
               ) : null}
-              {row.state === "removed" ? (
+              {toggleEditability.canEdit && row.state === "removed" ? (
                 <button
                   type="button"
                   className="button-secondary"
@@ -149,6 +160,14 @@ export function InputRowInspector({
                 >
                   Restore channel
                 </button>
+              ) : null}
+              {!toggleEditability.canEdit &&
+              (row.state === "active" || row.state === "removed") ? (
+                <p className="inputInspector__hint">
+                  {toggleEditability.reason === "drums-not-supported"
+                    ? "Removing or restoring a drum channel isn't picked up by the printed document yet — not editable here."
+                    : "Removing or restoring a vocal or talkback channel isn't picked up by the printed document yet — not editable here."}
+                </p>
               ) : null}
               <button
                 type="button"

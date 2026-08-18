@@ -143,4 +143,151 @@ describe("InputRowInspector", () => {
     expect(html).toContain("Restore channel");
     expect(html).not.toContain("Remove channel");
   });
+
+  // Ruling (task 13b): `resolveEffectiveProjectSetup` reads only
+  // `inputs.update` for a drums slot (task 12c fix round 1) — `add`/`remove`
+  // written from this panel never reach the printed document. Without this
+  // gate, clicking `Remove channel` strikes the row through while the
+  // document keeps printing it unchanged — an active false confirmation of
+  // success, not just silence.
+  it("hides Remove channel for a drums-owned row and explains why, instead of offering a silently-dropped action", () => {
+    const html = renderToStaticMarkup(
+      <InputRowInspector
+        row={makeRow({
+          key: "dr_kick_1_out",
+          rawKey: "dr_kick_1_out",
+          label: "Kick OUT",
+          group: "drums",
+          ownerRole: "drums",
+          state: "active",
+        })}
+        ownerName="Dana Drummer"
+        channelCount={5}
+        deviationCount={0}
+        canSaveAsMusicianDefault={false}
+        onLabelChange={noop}
+        onNoteChange={noop}
+        onResetToDefault={noop}
+        onSaveAsMusicianDefault={noop}
+        onRemoveChannel={noop}
+        onRestoreChannel={noop}
+      />,
+    );
+
+    expect(html).not.toContain("Remove channel");
+    expect(html).toMatch(/not editable here/i);
+    expect(html).toMatch(/drum channel/i);
+  });
+
+  it("hides Restore channel for a removed drums-owned row and explains why", () => {
+    const html = renderToStaticMarkup(
+      <InputRowInspector
+        row={makeRow({
+          key: "dr_kick_1_out",
+          rawKey: "dr_kick_1_out",
+          label: "Kick OUT",
+          group: "drums",
+          ownerRole: "drums",
+          state: "removed",
+          ch: null,
+        })}
+        ownerName="Dana Drummer"
+        channelCount={5}
+        deviationCount={0}
+        canSaveAsMusicianDefault={false}
+        onLabelChange={noop}
+        onNoteChange={noop}
+        onResetToDefault={noop}
+        onSaveAsMusicianDefault={noop}
+        onRemoveChannel={noop}
+        onRestoreChannel={noop}
+      />,
+    );
+
+    expect(html).not.toContain("Restore channel");
+    expect(html).toMatch(/not editable here/i);
+  });
+
+  // Ruling (task 13b): the criterion is `row.group`, not `row.ownerRole` — a
+  // back-vocal overlay row owned by a bassist carries `ownerRole: "bass"`
+  // but `group: "vocs"`. `narrowPatchToUpdatesFor`
+  // (`src/domain/pipeline/buildDocument.ts:213-220`) only forwards `update`
+  // for this row, so `Remove channel` would be a silent no-op.
+  it("hides Remove channel for a vocal overlay row owned by an instrumentalist, keyed by group not ownerRole", () => {
+    const html = renderToStaticMarkup(
+      <InputRowInspector
+        row={makeRow({
+          key: "voc_back_bass_2",
+          rawKey: "voc_back_bass_2",
+          label: "Back Vocal",
+          group: "vocs",
+          ownerRole: "bass",
+          state: "active",
+        })}
+        ownerName="Ben Bass"
+        channelCount={2}
+        deviationCount={0}
+        canSaveAsMusicianDefault={false}
+        onLabelChange={noop}
+        onNoteChange={noop}
+        onResetToDefault={noop}
+        onSaveAsMusicianDefault={noop}
+        onRemoveChannel={noop}
+        onRestoreChannel={noop}
+      />,
+    );
+
+    expect(html).not.toContain("Remove channel");
+    expect(html).toMatch(/not editable here/i);
+    expect(html).toMatch(/vocal or talkback channel/i);
+  });
+
+  it("hides Remove channel for the talkback row regardless of the owner's instrument role", () => {
+    const html = renderToStaticMarkup(
+      <InputRowInspector
+        row={makeRow({
+          key: "tb_bass",
+          rawKey: "tb_bass",
+          label: "Talkback (Bass)",
+          group: "talkback",
+          ownerRole: "bass",
+          state: "active",
+        })}
+        ownerName="Ben Bass"
+        channelCount={2}
+        deviationCount={0}
+        canSaveAsMusicianDefault={false}
+        onLabelChange={noop}
+        onNoteChange={noop}
+        onResetToDefault={noop}
+        onSaveAsMusicianDefault={noop}
+        onRemoveChannel={noop}
+        onRestoreChannel={noop}
+      />,
+    );
+
+    expect(html).not.toContain("Remove channel");
+    expect(html).toMatch(/not editable here/i);
+  });
+
+  it("still offers Remove channel for a plain instrument row (regression guard)", () => {
+    const html = renderToStaticMarkup(
+      <InputRowInspector
+        row={makeRow({ state: "active" })}
+        ownerName="Ben Bass"
+        channelCount={1}
+        deviationCount={0}
+        canSaveAsMusicianDefault={false}
+        onLabelChange={noop}
+        onNoteChange={noop}
+        onResetToDefault={noop}
+        onSaveAsMusicianDefault={noop}
+        onRemoveChannel={noop}
+        onRestoreChannel={noop}
+      />,
+    );
+
+    expect(html).toContain("Remove channel");
+    expect(html).not.toMatch(/not editable here/i);
+  });
 });

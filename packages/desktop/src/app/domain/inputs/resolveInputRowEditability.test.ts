@@ -1,0 +1,69 @@
+import { describe, expect, it } from "vitest";
+import { resolveInputRowEditability } from "./resolveInputRowEditability";
+
+describe("resolveInputRowEditability", () => {
+  it("allows a plain bass/guitar/keys instrument row", () => {
+    for (const role of ["bass", "guitar", "keys"] as const) {
+      expect(
+        resolveInputRowEditability({ ownerRole: role, group: role }),
+      ).toEqual({ canEdit: true });
+    }
+  });
+
+  // Ruling (task 13b): `resolveEffectiveProjectSetup` reads only
+  // `inputs.update` for a drums slot (task 12c fix round 1) — an `add`/
+  // `remove` written from screen 02 never reaches the printed document, and
+  // for `remove` specifically the row would strike through as if it worked.
+  it("refuses a drums-owned row even though it looks like a plain instrument row", () => {
+    expect(
+      resolveInputRowEditability({ ownerRole: "drums", group: "drums" }),
+    ).toEqual({ canEdit: false, reason: "drums-not-supported" });
+  });
+
+  // Ruling (task 13b): the criterion is the row's own `group`, not its
+  // `ownerRole` — a back-vocal overlay row owned by a bassist/guitarist/
+  // keyboardist carries `ownerRole` for their instrument but `group: "vocs"`.
+  it("refuses a vocal overlay row owned by an instrumentalist, keyed by group not ownerRole", () => {
+    expect(
+      resolveInputRowEditability({ ownerRole: "bass", group: "vocs" }),
+    ).toEqual({ canEdit: false, reason: "overlay-not-supported" });
+    expect(
+      resolveInputRowEditability({ ownerRole: "guitar", group: "vocs" }),
+    ).toEqual({ canEdit: false, reason: "overlay-not-supported" });
+    expect(
+      resolveInputRowEditability({ ownerRole: "keys", group: "vocs" }),
+    ).toEqual({ canEdit: false, reason: "overlay-not-supported" });
+  });
+
+  it("refuses a lead/back vocal row owned by a pure vocs slot", () => {
+    expect(
+      resolveInputRowEditability({ ownerRole: "vocs", group: "vocs" }),
+    ).toEqual({ canEdit: false, reason: "overlay-not-supported" });
+  });
+
+  it("refuses the talkback row regardless of the owner's instrument role", () => {
+    expect(
+      resolveInputRowEditability({ ownerRole: "bass", group: "talkback" }),
+    ).toEqual({ canEdit: false, reason: "overlay-not-supported" });
+  });
+
+  // `+ Add input`'s owner picker asks the same question about a not-yet-
+  // existing row: would a new channel of this owner's own group reach the
+  // document? A new channel always carries `group === owner.role`
+  // (`GROUP_INPUT_LIBRARY[owner.role]`), so calling with `group` equal to
+  // `ownerRole` is the intended shape for that call site.
+  it("refuses drums and vocs as +Add input owners, allows bass/guitar/keys", () => {
+    expect(
+      resolveInputRowEditability({ ownerRole: "drums", group: "drums" })
+        .canEdit,
+    ).toBe(false);
+    expect(
+      resolveInputRowEditability({ ownerRole: "vocs", group: "vocs" }).canEdit,
+    ).toBe(false);
+    for (const role of ["bass", "guitar", "keys"] as const) {
+      expect(
+        resolveInputRowEditability({ ownerRole: role, group: role }).canEdit,
+      ).toBe(true);
+    }
+  });
+});
