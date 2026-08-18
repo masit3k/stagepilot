@@ -182,6 +182,88 @@ function applyInputOverridePatch(
   }));
 }
 
+/**
+ * Same idea as `applyInputOverridePatch`, but for the lead/back vocal rows
+ * `resolveOverlayDrivenVocalRows` builds. Those rows carry fields
+ * (`vocalRole`/`vocalSlot`/`vocalOrderRank`/`ownerGender`) the instrument
+ * helper above doesn't need to preserve, so it can't be reused as-is: it
+ * would silently drop them (defaulting `vocalOrderRank` to 999 downstream)
+ * and would also merge every row's `ownerMusicianId` onto `source[0]`'s —
+ * fine for a single-musician "affected" slice, wrong once two vocal rows
+ * from two different owners are patched together (task 12c: a bassist and a
+ * keyboardist can both sing back vocals in the same document). This
+ * reattaches the original row's own fields by key instead of borrowing
+ * `source[0]`'s.
+ */
+function applyVocalOverlayOverridePatch(
+  source: BuiltInput[],
+  patch: PresetOverridePatch,
+): BuiltInput[] {
+  const defaultPreset = {
+    inputs: source.map((item) => ({
+      key: item.key,
+      label: item.label,
+      baseLabel: item.baseLabel,
+      compactGroupKey: item.compactGroupKey,
+      channel: item.channel,
+      group: item.group,
+      note: item.note,
+    })),
+    monitoring: { monitorRef: "wedge_foh" as const },
+  };
+  const patched = applyPresetOverride(defaultPreset, patch).inputs;
+  const originalByKey = new Map(source.map((item) => [item.key, item]));
+  const fallback = source[0];
+  return patched.map((input) => {
+    const original = originalByKey.get(input.key);
+    return {
+      key: input.key,
+      label: input.label,
+      baseLabel: input.baseLabel,
+      compactGroupKey: input.compactGroupKey,
+      channel: input.channel,
+      group: input.group ?? original?.group ?? fallback?.group ?? "vocs",
+      note: input.note,
+      ownerGender: original?.ownerGender ?? fallback?.ownerGender,
+      ownerRole: original?.ownerRole ?? fallback?.ownerRole ?? "vocs",
+      ownerMusicianId: original?.ownerMusicianId ?? fallback?.ownerMusicianId,
+      ownerLineupIndex: original?.ownerLineupIndex ?? fallback?.ownerLineupIndex ?? 0,
+      vocalRole: original?.vocalRole ?? fallback?.vocalRole,
+      vocalSlot: original?.vocalSlot ?? fallback?.vocalSlot,
+      vocalOrderRank: original?.vocalOrderRank ?? fallback?.vocalOrderRank,
+    };
+  });
+}
+
+/**
+ * Applies each owner's `inputs.update`/`add`/`remove`/`replace` patch to
+ * their own lead/back vocal overlay row(s) — keyed by the row's key as
+ * `resolveOverlayDrivenVocalRows` built it, i.e. before
+ * `disambiguateInputKeys` ever runs (task 12c). Grouped by owner so a patch
+ * belonging to one singer can never touch another singer's row.
+ */
+function applyVocalOverlayOverrides(
+  rows: BuiltInput[],
+  presetOverrideByMusicianId: Map<string, PresetOverridePatch>,
+): BuiltInput[] {
+  const ownerOrder: string[] = [];
+  const rowsByOwner = new Map<string, BuiltInput[]>();
+  for (const row of rows) {
+    const ownerId = row.ownerMusicianId ?? "";
+    if (!rowsByOwner.has(ownerId)) {
+      rowsByOwner.set(ownerId, []);
+      ownerOrder.push(ownerId);
+    }
+    rowsByOwner.get(ownerId)?.push(row);
+  }
+
+  return ownerOrder.flatMap((ownerId) => {
+    const ownerRows = rowsByOwner.get(ownerId) ?? [];
+    const patch = ownerId ? presetOverrideByMusicianId.get(ownerId) : undefined;
+    return patch ? applyVocalOverlayOverridePatch(ownerRows, patch) : ownerRows;
+  });
+}
+
 /* ============================================================
  * Per-musician input collection
  * ============================================================ */
@@ -515,7 +597,13 @@ export function buildDocument(
       ownerGroupByMusicianId,
     }),
   ];
-  inputs.push(...vocalRows);
+  // R6 / task 12c: lead/back vocal rows never went through
+  // `ctx.presetOverrideByMusicianId` — a rename or note change on a
+  // `voc_lead_*`/`voc_back_*` row was silently discarded. Apply each owner's
+  // patch here, before disambiguation, matching the row's own key.
+  inputs.push(
+    ...applyVocalOverlayOverrides(vocalRows, ctx.presetOverrideByMusicianId),
+  );
   inputs.push(
     ...buildPdfTalkbackInputs({
       talkbackOwnerId: ctx.talkbackOwnerId,

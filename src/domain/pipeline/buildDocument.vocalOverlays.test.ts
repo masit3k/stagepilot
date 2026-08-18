@@ -1036,4 +1036,202 @@ describe("buildDocument vocal overlay composition", () => {
     expect(personCount).toBe(5);
     expect(vm.stageplan.monitorOutputs).toHaveLength(5);
   });
+
+  it("applies a lineup presetOverride.inputs.update note patch to the lead vocal overlay row (task 12c)", () => {
+    const band: Band = {
+      id: "band-lead-note-patch",
+      name: "Band",
+      bandLeader: "voc-1",
+      defaultLineup: { vocs: ["voc-1"] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
+    };
+    const singer: Musician = {
+      id: "voc-1",
+      firstName: "Vera",
+      lastName: "Vocal",
+      gender: "f",
+      group: "vocs",
+      presets: [{ kind: "monitor", ref: "wedge_foh" }],
+    };
+    const notes: NotesTemplate = { id: "notes_default_cs", lang: "cs", inputs: [], monitors: [] };
+    const presets: Record<string, PresetEntity> = {
+      wedge_foh: { type: "monitor", id: "wedge_foh", label: "Wedge", kind: "wedge", supplier: "foh" },
+      talkback: {
+        type: "talkback_type",
+        id: "talkback",
+        label: "Talkback",
+        group: "talkback",
+        input: { key: "tb_{ownerKey}", label: "Talkback - {ownerLabel}" },
+      },
+    };
+    const makeProject = (withPatch: boolean): Project => ({
+      id: withPatch ? "p-lead-note-on" : "p-lead-note-off",
+      bandRef: band.id,
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: {
+        vocs: withPatch
+          ? [
+              {
+                musicianId: "voc-1",
+                presetOverride: {
+                  inputs: { update: [{ key: "voc_lead_1", note: "Lead vocal custom note EDITED" }] },
+                },
+              },
+            ]
+          : ["voc-1"],
+      },
+      overlays: { leadVocals: ["voc-1"] },
+    });
+
+    const buildFor = (withPatch: boolean) => {
+      const project = makeProject(withPatch);
+      return buildDocument(project, createRepo({ band, musicians: { "voc-1": singer }, presets, project }));
+    };
+
+    const vmOff = buildFor(false);
+    const vmOn = buildFor(true);
+
+    expect(vmOff.inputs.find((i) => i.key === "voc_lead_1")?.note).toBeUndefined();
+    expect(vmOn.inputs.find((i) => i.key === "voc_lead_1")?.note).toBe(
+      "Lead vocal custom note EDITED",
+    );
+    // Label stays whatever the pipeline would have printed anyway — a lead
+    // vocal row's label is canonical (R6 does not make it user text).
+    expect(vmOn.inputs.find((i) => i.key === "voc_lead_1")?.label).toBe(
+      vmOff.inputs.find((i) => i.key === "voc_lead_1")?.label,
+    );
+  });
+
+  it("applies presetOverride.inputs.update note patches to back-vocal overlay rows owned by a bassist and a keyboardist, without touching their instrument rows or the canonical vocal label (task 12c)", () => {
+    const band: Band = {
+      id: "band-back-note-patch",
+      name: "Band",
+      bandLeader: "bass-1",
+      defaultLineup: { bass: ["bass-1"], keys: ["keys-1"] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
+    };
+    const musicians: Record<string, Musician> = {
+      "bass-1": {
+        id: "bass-1",
+        firstName: "Ben",
+        lastName: "Bass",
+        gender: "m",
+        group: "bass",
+        presets: [
+          { kind: "preset", ref: "el_bass_xlr_pedalboard" },
+          { kind: "monitor", ref: "wedge_foh" },
+        ],
+      },
+      "keys-1": {
+        id: "keys-1",
+        firstName: "Kira",
+        lastName: "Keys",
+        gender: "f",
+        group: "keys",
+        presets: [
+          { kind: "preset", ref: "keys_mono" },
+          { kind: "monitor", ref: "wedge_foh" },
+        ],
+      },
+    };
+    const presets: Record<string, PresetEntity> = {
+      el_bass_xlr_pedalboard: {
+        type: "preset",
+        id: "el_bass_xlr_pedalboard",
+        label: "Electric bass guitar",
+        group: "bass",
+        inputs: [{ key: "el_bass_xlr_pedalboard", label: "Electric bass guitar", group: "bass" }],
+      },
+      keys_mono: {
+        type: "preset",
+        id: "keys_mono",
+        label: "Keys",
+        group: "keys",
+        inputs: [{ key: "keys_mono", label: "Keys", group: "keys" }],
+      },
+      wedge_foh: { type: "monitor", id: "wedge_foh", label: "Wedge", kind: "wedge", supplier: "foh" },
+      talkback: {
+        type: "talkback_type",
+        id: "talkback",
+        label: "Talkback",
+        group: "talkback",
+        input: { key: "tb_{ownerKey}", label: "Talkback - {ownerLabel}" },
+      },
+    };
+    const makeProject = (withPatch: boolean): Project => ({
+      id: withPatch ? "p-back-note-on" : "p-back-note-off",
+      bandRef: band.id,
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: {
+        bass: withPatch
+          ? [
+              {
+                musicianId: "bass-1",
+                presetOverride: {
+                  inputs: { update: [{ key: "voc_back_bass_1", note: "Bassist brings own SM58" }] },
+                },
+              },
+            ]
+          : ["bass-1"],
+        keys: withPatch
+          ? [
+              {
+                musicianId: "keys-1",
+                presetOverride: {
+                  inputs: {
+                    update: [
+                      {
+                        key: "voc_back_keys_2",
+                        label: "Nickname EDITED",
+                        note: "Keys brings own mic",
+                      },
+                    ],
+                  },
+                },
+              },
+            ]
+          : ["keys-1"],
+      },
+      overlays: { backVocals: ["bass-1", "keys-1"] },
+    });
+
+    const buildFor = (withPatch: boolean) => {
+      const project = makeProject(withPatch);
+      return buildDocument(project, createRepo({ band, musicians, presets, project }));
+    };
+
+    const vmOff = buildFor(false);
+    const vmOn = buildFor(true);
+
+    expect(vmOn.inputs.find((i) => i.key === "voc_back_bass_1")?.note).toBe(
+      "Bassist brings own SM58",
+    );
+    expect(vmOn.inputs.find((i) => i.key === "voc_back_keys_2")?.note).toBe(
+      "Keys brings own mic",
+    );
+    // The canonical back-vocal label formatter still wins over the rename —
+    // "Nickname EDITED" never reaches the printed label.
+    expect(vmOn.inputs.find((i) => i.key === "voc_back_keys_2")?.label).toBe(
+      vmOff.inputs.find((i) => i.key === "voc_back_keys_2")?.label,
+    );
+    expect(vmOn.inputs.find((i) => i.key === "voc_back_keys_2")?.label).toBe(
+      "Back vocal 2 (keys)",
+    );
+    // The patch must not leak onto either musician's own instrument channel.
+    expect(vmOn.inputs.find((i) => i.key === "el_bass_xlr_pedalboard")).toEqual(
+      vmOff.inputs.find((i) => i.key === "el_bass_xlr_pedalboard"),
+    );
+    expect(vmOn.inputs.find((i) => i.key === "keys_mono")).toEqual(
+      vmOff.inputs.find((i) => i.key === "keys_mono"),
+    );
+    // No-patch regression guard: every other field of every other row is
+    // byte-for-byte identical between the two builds.
+    const pick = (vm: ReturnType<typeof buildDocument>) =>
+      vm.inputs
+        .filter((i) => i.key !== "voc_back_bass_1" && i.key !== "voc_back_keys_2")
+        .map((i) => ({ key: i.key, label: i.label, note: i.note }));
+    expect(pick(vmOn)).toEqual(pick(vmOff));
+  });
 });
