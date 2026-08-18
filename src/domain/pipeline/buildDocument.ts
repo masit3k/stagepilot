@@ -7,7 +7,9 @@ import {
   formatDrumInputDisplayLabel,
   formatLeadVocalPdfLabel,
   groupActiveDrumInputsByFamily,
+  isBackVocalLabelCanonical,
   isDrumLabelCanonical,
+  isLeadVocalLabelCanonical,
 } from "../formatters/index.js";
 import type { Group } from "../model/groups.js";
 import type {
@@ -716,7 +718,13 @@ export function buildDocument(
           genderByBackVocsSlot: backVocsGenderBySlot,
           fallbackLabel: input.label,
         }),
-        labelIsCanonical: true,
+        // Not unconditional (fix round 1, Minor 5): a back-vocal-keyed row
+        // whose owner never resolves a slot prints `fallbackLabel` verbatim
+        // — same two conditions `formatBackVocalPdfLabel` itself checks.
+        labelIsCanonical: isBackVocalLabelCanonical({
+          ownerMusicianId: input.ownerMusicianId,
+          backVocsSlotByMusicianId,
+        }),
       };
     }
     if (isLeadVocalInput(input)) {
@@ -730,7 +738,10 @@ export function buildDocument(
           leadVocsSlotByMusicianId,
           genderByLeadVocsSlot: leadVocsGenderBySlot,
         }),
-        labelIsCanonical: true,
+        labelIsCanonical: isLeadVocalLabelCanonical({
+          ownerMusicianId: input.ownerMusicianId,
+          leadVocsSlotByMusicianId,
+        }),
       };
     }
     return { ...input, labelIsCanonical: false };

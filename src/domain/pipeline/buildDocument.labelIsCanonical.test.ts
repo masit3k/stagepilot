@@ -163,4 +163,82 @@ describe("buildDocument labelIsCanonical flag", () => {
     expect(byKey("voc_back_keys_1")?.labelIsCanonical).toBe(true);
     expect(byKey("keys_mono")?.labelIsCanonical).toBe(false);
   });
+
+  it("leaves labelIsCanonical false for a voc_lead-keyed row whose owner isn't in the slot map (fix round 1, Minor 5)", () => {
+    // A lineup-role "vocs" musician's own preset, patched via a `replace`
+    // whose targetKey isn't found — an existing, working mechanism
+    // unrelated to the overlay rows this task fixed (see the "replace
+    // trick" in `applyInputReplacements`). It produces a `voc_lead`-keyed
+    // row with no `ownerMusicianId`, so `formatLeadVocalPdfLabel` takes its
+    // `!ownerMusicianId` early return and prints `fallbackLabel` verbatim —
+    // that row's name is NOT computed, so a rename on it would actually
+    // land, and `labelIsCanonical` must say so.
+    const band: Band = {
+      id: "band-lead-no-owner",
+      name: "Band",
+      bandLeader: "lead-1",
+      defaultLineup: { vocs: ["lead-1"] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
+    };
+    const lead: Musician = {
+      id: "lead-1",
+      firstName: "Lead",
+      lastName: "Singer",
+      group: "vocs",
+      presets: [{ kind: "preset", ref: "vocal_lead_no_mic" }],
+    };
+    const notes: NotesTemplate = { id: "notes_default_cs", lang: "cs", inputs: [], monitors: [] };
+    const project: Project = {
+      id: "p-lead-no-owner",
+      bandRef: band.id,
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: {
+        vocs: {
+          musicianId: "lead-1",
+          presetOverride: {
+            inputs: {
+              replace: [
+                {
+                  targetKey: "voc_lead",
+                  with: { key: "voc_lead", label: "Lead vocal", note: "Custom note", group: "vocs" },
+                },
+              ],
+            },
+          },
+        },
+      },
+    };
+    const repo: DataRepository = {
+      getBand: () => band,
+      getMusician: () => lead,
+      getProject: () => project,
+      getPreset: (id) => {
+        if (id === "vocal_lead_no_mic")
+          return {
+            type: "preset",
+            id,
+            label: "Lead vocal (no mic)",
+            group: "vocs",
+            inputs: [{ key: "voc_lead", label: "Lead vocal", group: "vocs" }],
+          };
+        if (id === "wedge_foh") return { type: "monitor", id, label: "Wedge", kind: "wedge", supplier: "foh" };
+        if (id === "talkback")
+          return {
+            type: "talkback_type",
+            id,
+            label: "Talkback",
+            group: "talkback",
+            input: { key: "tb_{ownerKey}", label: "Talkback ({ownerLabel})" },
+          };
+        throw new Error(`unknown preset ${id}`);
+      },
+      getNotesTemplate: () => notes,
+    };
+
+    const vm = buildDocument(project, repo);
+    const row = vm.inputs.find((i) => i.key === "voc_lead");
+    expect(row?.label).toBe("Lead vocal");
+    expect(row?.labelIsCanonical).toBe(false);
+  });
 });

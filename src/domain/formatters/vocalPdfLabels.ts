@@ -16,6 +16,23 @@ function formatOwnerDescriptor(ownerRole: Group | undefined, gender: string | un
   return "vocs";
 }
 
+/**
+ * The one place that decides whether `formatIndexedVocalPdfLabel` recomputes
+ * a row's label at all. `undefined` means it doesn't — the two conditions
+ * below (`formatIndexedVocalPdfLabel`'s `!ownerMusicianId` and `!slot` early
+ * returns) are exactly the cases where the row prints whatever `fallbackLabel`
+ * it was given instead. `isLeadVocalLabelCanonical`/`isBackVocalLabelCanonical`
+ * below share this so a "canonical" flag derived from it can never drift from
+ * what the formatter actually does (task 12c fix round 1, Minor 5).
+ */
+function resolveVocalSlot(
+  ownerMusicianId: string | undefined,
+  slotByMusicianId: Map<string, number>,
+): number | undefined {
+  if (!ownerMusicianId) return undefined;
+  return slotByMusicianId.get(ownerMusicianId);
+}
+
 function formatIndexedVocalPdfLabel(args: {
   role: VocalRole;
   ownerRole: Group | undefined;
@@ -23,11 +40,9 @@ function formatIndexedVocalPdfLabel(args: {
   fallbackLabel: string;
   metadata: SlottedVocalMetadata;
 }): string {
-  const { role, ownerRole, ownerMusicianId, fallbackLabel, metadata } = args;
-  if (!ownerMusicianId) return fallbackLabel;
-
-  const slot = metadata.slotByMusicianId.get(ownerMusicianId);
-  if (!slot) return fallbackLabel;
+  const { role, ownerRole, fallbackLabel, metadata } = args;
+  const slot = resolveVocalSlot(args.ownerMusicianId, metadata.slotByMusicianId);
+  if (slot === undefined) return fallbackLabel;
 
   const gender = metadata.genderBySlot[slot - 1];
   if (ownerRole === "vocs") {
@@ -86,4 +101,25 @@ export function formatBackVocalPdfLabel(args: {
       genderBySlot: args.genderByBackVocsSlot,
     },
   });
+}
+
+/**
+ * True exactly when `formatLeadVocalPdfLabel` would recompute this row's
+ * label instead of printing `fallbackLabel` verbatim (task 12c fix round 1,
+ * Minor 5) — shares `resolveVocalSlot` with the formatter so the two can't
+ * drift apart.
+ */
+export function isLeadVocalLabelCanonical(args: {
+  ownerMusicianId: string | undefined;
+  leadVocsSlotByMusicianId: Map<string, number>;
+}): boolean {
+  return resolveVocalSlot(args.ownerMusicianId, args.leadVocsSlotByMusicianId) !== undefined;
+}
+
+/** Same as `isLeadVocalLabelCanonical`, for `formatBackVocalPdfLabel`. */
+export function isBackVocalLabelCanonical(args: {
+  ownerMusicianId: string | undefined;
+  backVocsSlotByMusicianId: Map<string, number>;
+}): boolean {
+  return resolveVocalSlot(args.ownerMusicianId, args.backVocsSlotByMusicianId) !== undefined;
 }

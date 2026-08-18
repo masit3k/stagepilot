@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { formatBackVocalPdfLabel, formatLeadVocalPdfLabel } from "./vocalPdfLabels.js";
+import {
+  formatBackVocalPdfLabel,
+  formatLeadVocalPdfLabel,
+  isBackVocalLabelCanonical,
+  isLeadVocalLabelCanonical,
+} from "./vocalPdfLabels.js";
 
 describe("vocalPdfLabels", () => {
   it("formats single lead as unnumbered label", () => {
@@ -98,5 +103,40 @@ describe("vocalPdfLabels", () => {
         fallbackLabel: "Back vocal",
       }),
     ).toBe("Back vocal");
+  });
+});
+
+describe("isLeadVocalLabelCanonical / isBackVocalLabelCanonical", () => {
+  it("is true whenever the owner resolves a slot", () => {
+    expect(
+      isLeadVocalLabelCanonical({
+        ownerMusicianId: "voc-1",
+        leadVocsSlotByMusicianId: new Map([["voc-1", 1]]),
+      }),
+    ).toBe(true);
+    expect(
+      isBackVocalLabelCanonical({
+        ownerMusicianId: "gtr-1",
+        backVocsSlotByMusicianId: new Map([["gtr-1", 1]]),
+      }),
+    ).toBe(true);
+  });
+
+  it("is false when ownerMusicianId is missing — matches formatLeadVocalPdfLabel's !ownerMusicianId early return", () => {
+    expect(
+      isLeadVocalLabelCanonical({
+        ownerMusicianId: undefined,
+        leadVocsSlotByMusicianId: new Map([["voc-1", 1]]),
+      }),
+    ).toBe(false);
+  });
+
+  it("is false when the owner has no slot — matches formatBackVocalPdfLabel's !slot early return, the exact case a rename would actually print (fix round 1, Minor 5)", () => {
+    expect(
+      isBackVocalLabelCanonical({
+        ownerMusicianId: "voc-2",
+        backVocsSlotByMusicianId: new Map([["voc-1", 1]]),
+      }),
+    ).toBe(false);
   });
 });
