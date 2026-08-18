@@ -8,7 +8,11 @@ import type { InputEditorRow } from "../../domain/inputs/buildInputEditorRows";
  *
  * Textová pole pro `input` a `note` editují přímo `row.label` / `row.note` —
  * volající je zapisuje do `presetOverride.inputs.update[]` přes
- * `updateInputRow` (R6).
+ * `updateInputRow` (R6). `Input` je ale needitovatelný, když
+ * `row.labelIsCanonical` (bicí kick/snare/tom/floor a každý lead/back
+ * vokální řádek) — jejich label si dokument vždycky přepočítá sám, takže
+ * přejmenování by se tiše zahodilo (task 12c). `Note` zůstává editovatelné
+ * vždy.
  *
  * `Save as musician default` (R5) jen volá callback z propsů — potvrzení a
  * samotné volání Tauri příkazu žijí ve stránce, protože mění trvalá data
@@ -64,9 +68,15 @@ export function InputRowInspector({
             <input
               type="text"
               value={row.label}
+              disabled={row.labelIsCanonical}
               onChange={(event) => onLabelChange(event.target.value)}
             />
           </label>
+          {row.labelIsCanonical ? (
+            <p className="inputInspector__hint">
+              Name follows the document's naming convention — not editable.
+            </p>
+          ) : null}
           <label className="inputInspector__field">
             <span className="inputInspector__label">Note</span>
             <input

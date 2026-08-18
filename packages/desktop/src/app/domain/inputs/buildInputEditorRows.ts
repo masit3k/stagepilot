@@ -1,3 +1,4 @@
+import { isDrumLabelCanonical } from "../../../../../../src/domain/formatters/inputLabels";
 import type { Group } from "../../../../../../src/domain/model/groups";
 import type {
   DocumentViewModel,
@@ -24,6 +25,8 @@ export type InputEditorRow = {
   readonly ownerMusicianId: string;
   readonly slotKey: string;
   readonly state: "active" | "removed" | "filler";
+  /** True when the document (or, for a removed row, the raw key) says this row's name is computed, not free text — the inspector disables the rename field for it (task 12c). */
+  readonly labelIsCanonical: boolean;
 };
 
 /**
@@ -135,6 +138,7 @@ export function buildInputEditorRows(args: {
         ? ""
         : (slotKeysByOwner.get(`${ownerRole}:${ownerMusicianId}`) ?? ""),
       state: isFiller ? "filler" : "active",
+      labelIsCanonical: input.labelIsCanonical,
     };
   });
 
@@ -150,6 +154,11 @@ export function buildInputEditorRows(args: {
       ownerMusicianId: disabled.ownerMusicianId,
       slotKey: disabled.slotKey,
       state: "removed",
+      // A removed row never passed through `buildDocument`'s recompute, so
+      // there is no stored flag to copy — fall back to the same pure
+      // predicate the document itself is built from, keyed by the row's own
+      // (pre-disambiguation) raw key.
+      labelIsCanonical: isDrumLabelCanonical(disabled.rawKey),
     });
   }
 

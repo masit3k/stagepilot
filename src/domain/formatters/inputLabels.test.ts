@@ -3,6 +3,7 @@ import {
   formatDrumInputDisplayLabel,
   formatLeadVocalDisplayLabel,
   groupActiveDrumInputsByFamily,
+  isDrumLabelCanonical,
 } from "./inputLabels.js";
 
 describe("drum input display label compaction", () => {
@@ -54,6 +55,27 @@ describe("drum input display label compaction", () => {
     expect(formatDrumInputDisplayLabel(multi[3], multiState)).toBe("Floor 2");
     expect(formatDrumInputDisplayLabel(multi[4], multiState)).toBe("Snare 1 BOTTOM");
     expect(formatDrumInputDisplayLabel(multi[5], multiState)).toBe("Snare 2 BOTTOM");
+  });
+});
+
+describe("isDrumLabelCanonical", () => {
+  it("is true for kick, snare, tom and floor tom channels — formatDrumInputDisplayLabel always recomputes their label", () => {
+    expect(isDrumLabelCanonical("dr_kick_1_out")).toBe(true);
+    expect(isDrumLabelCanonical("dr_snare1_top")).toBe(true);
+    expect(isDrumLabelCanonical("dr_tom_1")).toBe(true);
+    expect(isDrumLabelCanonical("dr_floor_1")).toBe(true);
+  });
+
+  it("is false for hi-hat, overheads, pad and tracks channels — their label passes through unchanged", () => {
+    expect(isDrumLabelCanonical("dr_hihat")).toBe(false);
+    expect(isDrumLabelCanonical("dr_oh_l")).toBe(false);
+    expect(isDrumLabelCanonical("dr_pad_mono_sfx")).toBe(false);
+    expect(isDrumLabelCanonical("dr_tracks_l")).toBe(false);
+  });
+
+  it("is false for a key outside the drum catalog", () => {
+    expect(isDrumLabelCanonical("spare_ch_1")).toBe(false);
+    expect(isDrumLabelCanonical("el_bass_xlr_pedalboard")).toBe(false);
   });
 });
 

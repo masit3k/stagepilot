@@ -7,6 +7,7 @@ import {
   formatDrumInputDisplayLabel,
   formatLeadVocalPdfLabel,
   groupActiveDrumInputsByFamily,
+  isDrumLabelCanonical,
 } from "../formatters/index.js";
 import type { Group } from "../model/groups.js";
 import type {
@@ -40,6 +41,8 @@ import { buildPdfTalkbackInputs } from "./pdf/buildPdfTalkback.js";
 import {
   comparePdfInputs,
   composeFinalPdfInputOrder,
+  isBackVocalInput,
+  isLeadVocalInput,
 } from "./pdf/pdfOrdering.js";
 import { reorderAcousticGuitars } from "./reorderAcousticGuitars.js";
 import { resolveDocumentContext } from "./resolveDocumentContext.js";
@@ -81,6 +84,16 @@ type BuiltInput = {
   vocalRole?: "lead" | "back";
   vocalSlot?: number;
   vocalOrderRank?: number;
+  /**
+   * True once the label has been recomputed by a formatter that ignores
+   * whatever text the row carried (drum kick/snare/tom/floor families, every
+   * lead/back vocal row) — set only in `finalizedInputs` below, at the exact
+   * place that recompute happens, so the "02 INPUTS" screen can disable the
+   * rename field for these rows instead of accepting an edit it discards
+   * (task 12c). Absent until then; always present on the rows `buildDocument`
+   * returns.
+   */
+  labelIsCanonical?: boolean;
 };
 
 function resolveOverlaySlots(args: {
@@ -655,9 +668,10 @@ export function buildDocument(
       return {
         ...input,
         label: formatDrumInputDisplayLabel(input, drumFamilyState),
+        labelIsCanonical: isDrumLabelCanonical(input.key),
       };
     }
-    if (input.vocalRole === "back" || input.key.startsWith("voc_back_")) {
+    if (isBackVocalInput(input)) {
       return {
         ...input,
         label: formatBackVocalPdfLabel({
@@ -668,9 +682,10 @@ export function buildDocument(
           genderByBackVocsSlot: backVocsGenderBySlot,
           fallbackLabel: input.label,
         }),
+        labelIsCanonical: true,
       };
     }
-    if (input.vocalRole === "lead" || input.key.startsWith("voc_lead")) {
+    if (isLeadVocalInput(input)) {
       return {
         ...input,
         label: formatLeadVocalPdfLabel({
@@ -681,9 +696,10 @@ export function buildDocument(
           leadVocsSlotByMusicianId,
           genderByLeadVocsSlot: leadVocsGenderBySlot,
         }),
+        labelIsCanonical: true,
       };
     }
-    return input;
+    return { ...input, labelIsCanonical: false };
   });
 
   const orderedInputs = composeFinalPdfInputOrder(

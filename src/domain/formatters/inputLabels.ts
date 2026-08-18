@@ -60,9 +60,26 @@ export function shouldShowIndexedDrumFamily(state: DrumFamilyState, family: Drum
   return state[family].size > 1;
 }
 
+/**
+ * True for the drum catalog families whose printed label
+ * `formatDrumInputDisplayLabel` always recomputes from the catalog
+ * (kick/snare position, tom/floor index) — never from whatever `label` the
+ * channel carries. Task 12c: the "02 INPUTS" screen must disable the rename
+ * field for exactly these rows, so this lives next to the formatter it
+ * describes instead of being re-derived in the UI.
+ */
+export function isDrumLabelCanonical(key: string): boolean {
+  const catalogItem = getDrumCatalogItemByKey(key);
+  if (!catalogItem) return false;
+  if (catalogItem.category === "kick" || catalogItem.category === "snare") {
+    return Boolean(catalogItem.position);
+  }
+  return catalogItem.category === "tom" || catalogItem.category === "floorTom";
+}
+
 export function formatDrumInputDisplayLabel(input: DisplayInput, state: DrumFamilyState): string {
   const catalogItem = getDrumCatalogItemByKey(input.key);
-  if (!catalogItem) return input.label;
+  if (!catalogItem || !isDrumLabelCanonical(input.key)) return input.label;
 
   if (catalogItem.category === "kick" && catalogItem.position) {
     const showIndex = shouldShowIndexedDrumFamily(state, "kick");

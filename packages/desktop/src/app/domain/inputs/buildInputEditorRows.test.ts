@@ -13,7 +13,7 @@ type DocInput = DocumentViewModel["inputs"][number];
 function row(
   overrides: Partial<DocInput> & Pick<DocInput, "ch" | "key" | "label">,
 ): DocInput {
-  return { group: "bass", ownerRole: "bass", note: "", ...overrides };
+  return { group: "bass", ownerRole: "bass", note: "", labelIsCanonical: false, ...overrides };
 }
 
 /**
@@ -607,6 +607,81 @@ describe("buildInputEditorRows", () => {
       "Guitar 1 mic",
       "Guitar 1",
     ]);
+  });
+
+  it("copies labelIsCanonical from the document onto an active row, never recomputing it (task 12c)", () => {
+    const document = makeDocument([
+      row({
+        ch: 1,
+        key: "dr_kick_1_out",
+        label: "Kick OUT",
+        group: "drums",
+        ownerRole: "drums",
+        ownerMusicianId: "dr1",
+        labelIsCanonical: true,
+      }),
+      row({
+        ch: 2,
+        key: "voc_lead_1",
+        label: "Lead vocal",
+        group: "vocs",
+        ownerRole: "vocs",
+        ownerMusicianId: "voc1",
+        labelIsCanonical: true,
+      }),
+      row({ ch: 3, key: "bass_di", label: "Bass DI", ownerMusicianId: "m1" }),
+    ]);
+
+    const rows = buildInputEditorRows({
+      document,
+      disabledRows: [],
+      slotKeysByOwner: ownerSlotKeys({
+        "drums:dr1": "drums:0",
+        "vocs:voc1": "vocs:0",
+        "bass:m1": "bass:0",
+      }),
+    });
+
+    expect(rows.find((r) => r.key === "dr_kick_1_out")?.labelIsCanonical).toBe(true);
+    expect(rows.find((r) => r.key === "voc_lead_1")?.labelIsCanonical).toBe(true);
+    expect(rows.find((r) => r.key === "bass_di")?.labelIsCanonical).toBe(false);
+  });
+
+  it("computes labelIsCanonical for a disabled row from its raw key, since disabled rows never went through the document's own recompute (task 12c)", () => {
+    const document = makeDocument([
+      row({ ch: 1, key: "dr_hihat", label: "Hi-hat", group: "drums", ownerRole: "drums", ownerMusicianId: "dr1" }),
+    ]);
+    const disabledRows: DisabledInputRow[] = [
+      {
+        rawKey: "dr_kick_1_out",
+        label: "Kick OUT",
+        note: "",
+        group: "drums",
+        ownerRole: "drums",
+        ownerMusicianId: "dr1",
+        slotKey: "drums:0",
+        neighborKey: null,
+      },
+      {
+        rawKey: "bass_mic",
+        label: "Bass mic",
+        note: "",
+        group: "bass",
+        ownerRole: "bass",
+        ownerMusicianId: "m1",
+        slotKey: "bass:0",
+        neighborKey: null,
+      },
+    ];
+
+    const rows = buildInputEditorRows({
+      document,
+      disabledRows,
+      slotKeysByOwner: ownerSlotKeys({ "drums:dr1": "drums:0", "bass:m1": "bass:0" }),
+    });
+
+    expect(rows.find((r) => r.rawKey === "dr_kick_1_out")?.labelIsCanonical).toBe(true);
+    expect(rows.find((r) => r.rawKey === "bass_mic")?.labelIsCanonical).toBe(false);
   });
 });
 
