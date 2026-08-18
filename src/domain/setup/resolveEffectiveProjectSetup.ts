@@ -52,10 +52,27 @@ export function resolveEffectiveProjectSetup(args: {
           (musicianPresetDefinition
             ? parsePersistedDrumDefinition(musicianPresetDefinition, `musician ${musicianId} drum_setup`)
             : createDefaultDrumDefinition());
-        byMusicianId.set(musicianId, {
+        const drumPreset: MusicianSetupPreset = {
           inputs: resolveDrumDefinitionInputs(drumDefinition),
           monitoring: defaultPreset.monitoring,
-        });
+        };
+        // Bicí kanály nevznikají z presetu, takže sem `inputs.update`/`add`/
+        // `remove` z R6 dřív nedosáhly (task 12c) — patch se aplikuje až tady,
+        // po sestavení kanálů ze `drumDefinition`, stejně jako o pár řádků níž
+        // pro ostatní role. `buildDocument.ts` bicí (i basu) z fallbackové
+        // patch cesty schválně vylučuje, protože obě role už mají patch
+        // zapečený tady — dvojí aplikace by patch uplatnila dvakrát.
+        const drumPatch: PresetOverridePatch | undefined = state.presetOverrideByMusicianId.get(musicianId);
+        const effectiveDrumPreset = applyPresetOverride(drumPreset, drumPatch);
+        if (drumPatch?.monitoring?.monitorRef) {
+          assertMonitorPresetRef({
+            ref: drumPatch.monitoring.monitorRef,
+            role,
+            musicianId,
+            getPresetByRef: args.getPresetByRef,
+          });
+        }
+        byMusicianId.set(musicianId, effectiveDrumPreset);
         continue;
       }
       const patch: PresetOverridePatch | undefined = state.presetOverrideByMusicianId.get(musicianId);

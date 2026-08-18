@@ -1694,4 +1694,86 @@ describe("buildDocument setup overrides", () => {
       ["Keys 2", "TS jack 6.3mm – DI box"],
     ]);
   });
+
+  it("carries a lineup presetOverride.inputs.update patch onto drum-kit channels in vm.inputs (task 12c)", () => {
+    const band: Band = {
+      id: "band-drum-update",
+      name: "Band",
+      bandLeader: "dr-1",
+      defaultLineup: { drums: ["dr-1"] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
+    };
+    const drummer: Musician = {
+      id: "dr-1",
+      firstName: "Dr",
+      lastName: "One",
+      group: "drums",
+      presets: [{ kind: "drum_setup", setup: createDefaultDrumDefinition() }],
+    };
+    const notes: NotesTemplate = { id: "notes_default_cs", lang: "cs", inputs: [], monitors: [] };
+    const repoFor = (project: Project): DataRepository => ({
+      getBand: () => band,
+      getMusician: () => drummer,
+      getProject: () => project,
+      getPreset: (id: string) => {
+        if (id === "wedge_foh") return { type: "monitor", id, label: "Wedge", kind: "wedge", supplier: "foh" };
+        if (id === "talkback")
+          return {
+            type: "talkback_type",
+            id,
+            label: "Talkback",
+            group: "talkback",
+            input: { key: "tb_{ownerKey}", label: "Talkback ({ownerLabel})" },
+          };
+        throw new Error(`unknown preset ${id}`);
+      },
+      getNotesTemplate: () => notes,
+    });
+
+    const baseProject: Project = {
+      id: "p-drum-update-off",
+      bandRef: band.id,
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: { drums: ["dr-1"] },
+    };
+    const patchedProject: Project = {
+      ...baseProject,
+      id: "p-drum-update-on",
+      lineup: {
+        drums: {
+          musicianId: "dr-1",
+          presetOverride: {
+            inputs: {
+              update: [
+                // Hi-hat isn't one of the catalog families (kick/snare/tom/
+                // floor) that the drum label formatter always recomputes, so
+                // its rename is expected to survive to the printed label.
+                { key: "dr_hihat", label: "Hi-hat EDITED" },
+                { key: "dr_kick_1_out", note: "Custom kick note EDITED" },
+              ],
+            },
+          },
+        },
+      },
+    };
+
+    const vmBase = buildDocument(baseProject, repoFor(baseProject));
+    const vmPatched = buildDocument(patchedProject, repoFor(patchedProject));
+
+    expect(vmBase.inputs.find((i) => i.key === "dr_hihat")?.label).toBe("Hi-hat");
+    expect(vmPatched.inputs.find((i) => i.key === "dr_hihat")?.label).toBe(
+      "Hi-hat EDITED",
+    );
+    expect(vmPatched.inputs.find((i) => i.key === "dr_kick_1_out")?.note).toBe(
+      "Custom kick note EDITED",
+    );
+
+    // Regression: every other channel is untouched by the patch.
+    const pick = (vm: ReturnType<typeof buildDocument>) =>
+      vm.inputs
+        .filter((i) => i.key !== "dr_hihat" && i.key !== "dr_kick_1_out")
+        .map((i) => ({ key: i.key, label: i.label, note: i.note }));
+    expect(pick(vmPatched)).toEqual(pick(vmBase));
+  });
 });
