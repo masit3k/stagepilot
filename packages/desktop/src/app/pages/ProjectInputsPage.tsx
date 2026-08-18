@@ -3,10 +3,12 @@ import { normalizeProject } from "../../../../../src/app/usecases/normalizeProje
 import type {
   DocumentViewModel,
   InputChannel,
+  PresetEntity,
   PresetOverridePatch,
   ProjectNotesOverride,
 } from "../../../../../src/domain/model/types";
 import { buildDocument } from "../../../../../src/domain/pipeline/buildDocument";
+import { summarizeEffectivePresetValidation } from "../../../../../src/domain/rules/presetOverride";
 import { ModalOverlay, useModalBehavior } from "../../components/ui/Modal";
 import { useToast } from "../../components/ui/toast/useToast";
 import { getRoleSlotLimit, normalizeLineupSlots } from "../../projectRules";
@@ -17,6 +19,11 @@ import {
 } from "../components/inputs/AddInputPicker";
 import { InputRowInspector } from "../components/inputs/InputRowInspector";
 import { InputTable } from "../components/inputs/InputTable";
+import { MonitorRowInspector } from "../components/inputs/MonitorRowInspector";
+import {
+  type MonitorEditorRow,
+  MonitorTable,
+} from "../components/inputs/MonitorTable";
 import { areSetupsEqual } from "../components/setup/adapters/eventSetupAdapter";
 import {
   type InputEditorRow,
@@ -195,6 +202,9 @@ export function ProjectInputsPage({
   const [isSaving, setIsSaving] = useState(false);
   const [setupData, setSetupData] = useState<BandSetupData | null>(null);
   const [selectedInputKey, setSelectedInputKey] = useState<string | null>(null);
+  const [selectedMonitorSlotKey, setSelectedMonitorSlotKey] = useState<
+    string | null
+  >(null);
   const [
     showSaveMusicianDefaultConfirmation,
     setShowSaveMusicianDefaultConfirmation,
@@ -274,9 +284,57 @@ export function ProjectInputsPage({
     presetCatalog,
   });
 
+  /** Katalog monitorových presetů (R7) — stejný filtr jako `ProjectSetupPage.tsx`'s `monitorEntities`/`monitorsById`, jen přesunutý sem s editací. */
+  const monitorEntities = useMemo(
+    () =>
+      Object.values(presetCatalog).filter(
+        (preset): preset is Extract<PresetEntity, { type: "monitor" }> =>
+          preset.type === "monitor",
+      ),
+    [presetCatalog],
+  );
+  const monitorsById = useMemo(
+    () =>
+      Object.fromEntries(monitorEntities.map((preset) => [preset.id, preset])),
+    [monitorEntities],
+  );
+
   const lineup = state.kind === "ready" ? state.snapshot.lineup : {};
   const project = state.kind === "ready" ? state.project : null;
   const snapshot = state.kind === "ready" ? state.snapshot : null;
+
+  /**
+   * Efektivní preset každého obsazeného slotu (všechny role, R7) — vstup pro
+   * `summarizeEffectivePresetValidation`. Zrcadlí `ProjectSetupPage.tsx`'s
+   * `effectiveSlotPresets`, jen nad `CANONICAL_LINEUP_ROLE_ORDER`, protože
+   * `02` talkback slot nemá.
+   */
+  const effectiveSlotPresets = useMemo(
+    () =>
+      CANONICAL_LINEUP_ROLE_ORDER.flatMap((role) =>
+        normalizeLineupSlots(lineup[role], getRoleSlotLimit(role))
+          .filter((slot) => Boolean(slot.musicianId))
+          .map((slot) => ({
+            role,
+            effective: setupForSlot(role, slot.musicianId, slot.presetOverride)
+              .effective,
+          })),
+      ),
+    [lineup, setupForSlot],
+  );
+
+  /** Chyby a varování nad limity (kanály, monitor mixy, pořadí skupin) přes celou sestavu — zobrazí se nad tabulkou MONITORS (R7). */
+  const overrideValidation = useMemo(
+    () =>
+      summarizeEffectivePresetValidation(
+        effectiveSlotPresets.map((slot) => ({
+          group: slot.role,
+          preset: slot.effective,
+        })),
+        monitorsById,
+      ),
+    [effectiveSlotPresets, monitorsById],
+  );
 
   /**
    * Projekt, ze kterého se staví dokument — načtený projekt s právě
@@ -375,6 +433,67 @@ export function ProjectInputsPage({
 
   const selectedRow =
     inputRows.find((row) => row.key === selectedInputKey) ?? null;
+
+  /**
+   * Řádky sekce MONITORS (R7) — join `document.monitorTableRows` (číslo,
+   * výstup, poznámka — nikdy se tu nepřepočítávají) se `slotKeysByOwner`,
+   * stejným zdrojem `slotKey`, jaký používá `InputEditorRow`. Prázdný
+   * `slotKey` znamená, že vlastník nemá slot v lineupu (obranný případ, viz
+   * `MonitorEditorRow` doc komentář) — takový řádek `MonitorTable` nedovolí
+   * vybrat.
+   */
+  const monitorRows = useMemo<MonitorEditorRow[]>(() => {
+    if (documentResult.kind !== "ready") return [];
+    return documentResult.document.monitorTableRows.map((row) => ({
+      no: row.no,
+      output: row.output,
+      note: row.note,
+      ownerRole: row.ownerRole,
+      ownerMusicianId: row.ownerMusicianId,
+      slotKey:
+        slotKeysByOwner.get(`${row.ownerRole}:${row.ownerMusicianId}`) ?? "",
+    }));
+  }, [documentResult, slotKeysByOwner]);
+
+  const selectedMonitorRow =
+    monitorRows.find(
+      (row) => row.slotKey !== "" && row.slotKey === selectedMonitorSlotKey,
+    ) ?? null;
+
+  const selectedMonitorPatch = useMemo(() => {
+    if (!selectedMonitorRow) return undefined;
+    return getSlotOverride(
+      lineup,
+      selectedMonitorRow.ownerRole,
+      parseSlotIndex(selectedMonitorRow.slotKey),
+    );
+  }, [selectedMonitorRow, lineup]);
+
+  /** `resolved`/`effective` preset toho slotu — vstup pro `MonitoringEditor` (efektivní hodnota, diff badge) přesně jako v `ProjectSetupPage.tsx`'s setup modálu. */
+  const selectedMonitorSetup = useMemo(() => {
+    if (!selectedMonitorRow) return null;
+    return setupForSlot(
+      selectedMonitorRow.ownerRole,
+      selectedMonitorRow.ownerMusicianId,
+      selectedMonitorPatch,
+    );
+  }, [selectedMonitorRow, selectedMonitorPatch, setupForSlot]);
+
+  /**
+   * Výběr v tabulce kanálů a v tabulce monitorů se navzájem vylučuje —
+   * panel vpravo je jeden slot, který ukazuje buď `InputRowInspector`, nebo
+   * `MonitorRowInspector` (R7). Klik do jedné tabulky proto vždy zruší výběr
+   * v té druhé.
+   */
+  const selectChannelRow = useCallback((key: string) => {
+    setSelectedInputKey(key);
+    setSelectedMonitorSlotKey(null);
+  }, []);
+
+  const selectMonitorRow = useCallback((slotKey: string) => {
+    setSelectedMonitorSlotKey(slotKey);
+    setSelectedInputKey(null);
+  }, []);
 
   /**
    * Ruční přeřazení řádku tažením (R8) — zapisuje `snapshot.inputOrder`.
@@ -528,6 +647,37 @@ export function ProjectInputsPage({
           key: row.rawKey,
           ...change,
         });
+        const nextLineup = replaceSlotOverride(
+          current.snapshot.lineup,
+          role,
+          slotIndex,
+          nextPatch,
+        );
+        return {
+          ...current,
+          snapshot: { ...current.snapshot, lineup: nextLineup },
+        };
+      });
+    },
+    [],
+  );
+
+  /**
+   * Zapíše `presetOverride.monitoring` vybraného slotu monitoru (R7) —
+   * `MonitoringEditor` vždy posílá kompletní další patch (spread stávajícího
+   * plus novou hodnotu monitoringu), takže se tu jen zapisuje beze změny
+   * tvaru, stejně jako `applyRowChange` dělá pro kanály. Volající
+   * (`MonitorRowInspector`) tohle nikdy nezavolá pro needitovatelný slot
+   * (`resolveMonitorRowEditability`), ale prázdný `slotKey` se přesto hlídá
+   * defenzivně, stejně jako všude jinde na téhle stránce.
+   */
+  const applyMonitorPatch = useCallback(
+    (row: MonitorEditorRow, nextPatch: PresetOverridePatch) => {
+      if (!row.slotKey) return;
+      const role = row.ownerRole;
+      const slotIndex = parseSlotIndex(row.slotKey);
+      setState((current) => {
+        if (current.kind !== "ready") return current;
         const nextLineup = replaceSlotOverride(
           current.snapshot.lineup,
           role,
@@ -769,6 +919,11 @@ export function ProjectInputsPage({
     ? (musicianNameById.get(selectedRow.ownerMusicianId) ?? "Unknown musician")
     : "";
 
+  const monitorOwnerName = selectedMonitorRow
+    ? (musicianNameById.get(selectedMonitorRow.ownerMusicianId) ??
+      "Unknown musician")
+    : "";
+
   const saveMusicianDefaultModalRef = useModalBehavior(
     showSaveMusicianDefaultConfirmation && Boolean(selectedRow?.slotKey),
     () => setShowSaveMusicianDefaultConfirmation(false),
@@ -796,7 +951,7 @@ export function ProjectInputsPage({
             <InputTable
               rows={inputRows}
               selectedKey={selectedInputKey}
-              onSelect={setSelectedInputKey}
+              onSelect={selectChannelRow}
               onReorder={reorderInputRow}
             />
             <button
@@ -810,34 +965,72 @@ export function ProjectInputsPage({
           </section>
           <section className="inputsSection" aria-label="Monitors">
             <h2 className="inputsSectionTitle">MONITORS</h2>
+            {overrideValidation.errors.length > 0 ? (
+              <div className="status status--error" role="alert">
+                {overrideValidation.errors.map((error) => (
+                  <p key={error}>{error}</p>
+                ))}
+              </div>
+            ) : null}
+            {overrideValidation.warnings.length > 0 ? (
+              <div className="status status--warning" aria-live="polite">
+                {overrideValidation.warnings.map((warning) => (
+                  <p key={warning}>{warning}</p>
+                ))}
+              </div>
+            ) : null}
+            <MonitorTable
+              rows={monitorRows}
+              selectedSlotKey={selectedMonitorSlotKey}
+              onSelect={selectMonitorRow}
+            />
           </section>
           <section className="inputsSection" aria-label="Notes">
             <h2 className="inputsSectionTitle">NOTES</h2>
           </section>
         </div>
-        <InputRowInspector
-          row={selectedRow}
-          ownerName={ownerName}
-          channelCount={ownerChannelCount}
-          deviationCount={ownerDeviationCount}
-          canSaveAsMusicianDefault={canSaveAsMusicianDefault}
-          onLabelChange={(label) =>
-            selectedRow && applyRowChange(selectedRow, { label })
-          }
-          onNoteChange={(note) =>
-            selectedRow && applyRowChange(selectedRow, { note })
-          }
-          onResetToDefault={() =>
-            selectedRow && resetOwnerToDefault(selectedRow)
-          }
-          onSaveAsMusicianDefault={() =>
-            setShowSaveMusicianDefaultConfirmation(true)
-          }
-          onRemoveChannel={() => selectedRow && removeSelectedRow(selectedRow)}
-          onRestoreChannel={() =>
-            selectedRow && restoreSelectedRow(selectedRow)
-          }
-        />
+        {selectedMonitorSlotKey ? (
+          <MonitorRowInspector
+            row={selectedMonitorRow}
+            ownerName={monitorOwnerName}
+            monitors={monitorEntities}
+            effectiveMonitoring={
+              selectedMonitorSetup?.effective.monitoring ?? null
+            }
+            diffMeta={selectedMonitorSetup?.resolved.diffMeta ?? null}
+            patch={selectedMonitorPatch}
+            onChangePatch={(nextPatch) =>
+              selectedMonitorRow &&
+              applyMonitorPatch(selectedMonitorRow, nextPatch)
+            }
+          />
+        ) : (
+          <InputRowInspector
+            row={selectedRow}
+            ownerName={ownerName}
+            channelCount={ownerChannelCount}
+            deviationCount={ownerDeviationCount}
+            canSaveAsMusicianDefault={canSaveAsMusicianDefault}
+            onLabelChange={(label) =>
+              selectedRow && applyRowChange(selectedRow, { label })
+            }
+            onNoteChange={(note) =>
+              selectedRow && applyRowChange(selectedRow, { note })
+            }
+            onResetToDefault={() =>
+              selectedRow && resetOwnerToDefault(selectedRow)
+            }
+            onSaveAsMusicianDefault={() =>
+              setShowSaveMusicianDefaultConfirmation(true)
+            }
+            onRemoveChannel={() =>
+              selectedRow && removeSelectedRow(selectedRow)
+            }
+            onRestoreChannel={() =>
+              selectedRow && restoreSelectedRow(selectedRow)
+            }
+          />
+        )}
       </div>
       <div className="setup-action-bar setup-action-bar--equal">
         <button

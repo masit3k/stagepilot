@@ -1,8 +1,18 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import type {
+  Monitor,
+  MusicianSetupPreset,
+} from "../../../../../src/domain/model/types";
+import type { SetupDiffMeta } from "../../../../../src/domain/setup/computeSetupDiff";
 import { ToastProvider } from "../../components/ui/toast/ToastProvider";
 import { InputRowInspector } from "../components/inputs/InputRowInspector";
 import { InputTable } from "../components/inputs/InputTable";
+import { MonitorRowInspector } from "../components/inputs/MonitorRowInspector";
+import {
+  type MonitorEditorRow,
+  MonitorTable,
+} from "../components/inputs/MonitorTable";
 import type { InputEditorRow } from "../domain/inputs/buildInputEditorRows";
 import { ProjectInputsPage, isInputsDirty } from "./ProjectInputsPage";
 
@@ -65,6 +75,20 @@ describe("ProjectInputsPage", () => {
     expect(html).toContain("NOTES");
     // No row is selected before the project finishes loading.
     expect(html).toContain("NO CHANNEL SELECTED");
+  });
+
+  it("renders the MONITORS table header before any project data loads (R7)", () => {
+    const html = renderToStaticMarkup(
+      <ToastProvider>
+        <ProjectInputsPage
+          id="p1"
+          navigate={() => undefined}
+          registerNavigationGuard={() => () => undefined}
+        />
+      </ToastProvider>,
+    );
+
+    expect(html).toContain("monitor output");
   });
 });
 
@@ -355,5 +379,212 @@ describe("InputTable (the INPUT LIST section's channel table)", () => {
     expect(activeRowHtml).toContain('draggable="true"');
     expect(removedRowHtml).toContain('draggable="false"');
     expect(fillerRowHtml).toContain('draggable="false"');
+  });
+});
+
+describe("MonitorTable (the MONITORS section's table, R7)", () => {
+  const bassRow: MonitorEditorRow = {
+    no: "1",
+    output: "Bass",
+    note: "IEM mono wired (own)",
+    ownerRole: "bass",
+    ownerMusicianId: "m1",
+    slotKey: "bass:0",
+  };
+  const drumsRow: MonitorEditorRow = {
+    no: "2",
+    output: "Drums",
+    note: "IEM mono wired (own)",
+    ownerRole: "drums",
+    ownerMusicianId: "m2",
+    slotKey: "drums:0",
+  };
+
+  it("renders the same header columns as the printed monitor table", () => {
+    const html = renderToStaticMarkup(
+      <MonitorTable
+        rows={[]}
+        selectedSlotKey={null}
+        onSelect={() => undefined}
+      />,
+    );
+
+    expect(html).toContain("no.");
+    expect(html).toContain("monitor output");
+    expect(html).toContain("note");
+  });
+
+  it("makes every owned row selectable, including the drums row", () => {
+    const html = renderToStaticMarkup(
+      <MonitorTable
+        rows={[bassRow, drumsRow]}
+        selectedSlotKey={null}
+        onSelect={() => undefined}
+      />,
+    );
+
+    const bassRowHtml = html
+      .split("<div")
+      .find((chunk) => chunk.includes("Bass"));
+    const drumsRowHtml = html
+      .split("<div")
+      .find((chunk) => chunk.includes("Drums"));
+    expect(bassRowHtml).toContain('role="button"');
+    expect(drumsRowHtml).toContain('role="button"');
+  });
+
+  it("does not let a row with no lineup slot be selected", () => {
+    const noSlotRow: MonitorEditorRow = { ...bassRow, slotKey: "" };
+    const html = renderToStaticMarkup(
+      <MonitorTable
+        rows={[noSlotRow]}
+        selectedSlotKey={null}
+        onSelect={() => undefined}
+      />,
+    );
+
+    const rowHtml = html.split("<div").find((chunk) => chunk.includes("Bass"));
+    expect(rowHtml).not.toContain('role="button"');
+  });
+
+  it("marks the selected slot's row", () => {
+    const html = renderToStaticMarkup(
+      <MonitorTable
+        rows={[bassRow, drumsRow]}
+        selectedSlotKey="drums:0"
+        onSelect={() => undefined}
+      />,
+    );
+
+    const drumsRowHtml = html
+      .split("<div")
+      .find((chunk) => chunk.includes("Drums"));
+    const bassRowHtml = html
+      .split("<div")
+      .find((chunk) => chunk.includes("Bass"));
+    expect(drumsRowHtml).toContain("inputRow--selected");
+    expect(bassRowHtml).not.toContain("inputRow--selected");
+  });
+});
+
+describe("MonitorRowInspector (the panel for the selected monitor, R7)", () => {
+  const monitors: Monitor[] = [
+    {
+      type: "monitor",
+      id: "wedge_foh",
+      label: "Wedge",
+      kind: "wedge",
+      supplier: "foh",
+    },
+    {
+      type: "monitor",
+      id: "iem_mono_wired_own",
+      label: "IEM mono wired",
+      kind: "iem",
+      supplier: "band",
+      mode: "mono",
+      wireless: false,
+    },
+  ];
+  const effectiveMonitoring: MusicianSetupPreset["monitoring"] = {
+    monitorRef: "iem_mono_wired_own",
+  };
+  const diffMeta: SetupDiffMeta = {
+    inputs: [],
+    monitoring: {
+      monitorRef: { origin: "default", changeType: "unchanged" },
+      additionalWedgeCount: { origin: "default", changeType: "unchanged" },
+    },
+  };
+  const bassRow: MonitorEditorRow = {
+    no: "1",
+    output: "Bass",
+    note: "IEM mono wired (own)",
+    ownerRole: "bass",
+    ownerMusicianId: "m1",
+    slotKey: "bass:0",
+  };
+  const drumsRow: MonitorEditorRow = {
+    no: "2",
+    output: "Drums",
+    note: "IEM mono wired (own)",
+    ownerRole: "drums",
+    ownerMusicianId: "m2",
+    slotKey: "drums:0",
+  };
+  const noop = () => undefined;
+
+  it("shows NO MONITOR SELECTED when nothing is selected", () => {
+    const html = renderToStaticMarkup(
+      <MonitorRowInspector
+        row={null}
+        ownerName=""
+        monitors={monitors}
+        effectiveMonitoring={null}
+        diffMeta={null}
+        patch={undefined}
+        onChangePatch={noop}
+      />,
+    );
+
+    expect(html).toContain("NO MONITOR SELECTED");
+  });
+
+  it("offers the monitoring editor for a bass/guitar/keys/vocs slot", () => {
+    const html = renderToStaticMarkup(
+      <MonitorRowInspector
+        row={bassRow}
+        ownerName="Matěj Novák"
+        monitors={monitors}
+        effectiveMonitoring={effectiveMonitoring}
+        diffMeta={diffMeta}
+        patch={undefined}
+        onChangePatch={noop}
+      />,
+    );
+
+    expect(html).toContain("SELECTED MONITOR");
+    expect(html).toContain("Matěj Novák");
+    // The monitoring editor's own controls are present (select + supplier switch).
+    expect(html).toMatch(/<select/);
+    expect(html).not.toContain("not editable");
+  });
+
+  // Ruling (task 15): the document ignores a drums slot's monitoring patch
+  // (`resolveEffectiveProjectSetup.ts:81-90`, task 12c fix round 1) — the
+  // panel must not offer an edit that silently gets discarded.
+  it("disables editing for a drums slot and explains why, instead of offering a silently-dropped edit", () => {
+    const html = renderToStaticMarkup(
+      <MonitorRowInspector
+        row={drumsRow}
+        ownerName="Filip Arnold"
+        monitors={monitors}
+        effectiveMonitoring={effectiveMonitoring}
+        diffMeta={diffMeta}
+        patch={undefined}
+        onChangePatch={noop}
+      />,
+    );
+
+    expect(html).toContain("SELECTED MONITOR");
+    expect(html).toContain("not editable here");
+    expect(html).not.toMatch(/<select/);
+  });
+
+  it("shows a no-slot hint when the owner has no lineup slot", () => {
+    const html = renderToStaticMarkup(
+      <MonitorRowInspector
+        row={{ ...bassRow, slotKey: "" }}
+        ownerName="Matěj Novák"
+        monitors={monitors}
+        effectiveMonitoring={effectiveMonitoring}
+        diffMeta={diffMeta}
+        patch={undefined}
+        onChangePatch={noop}
+      />,
+    );
+
+    expect(html).toContain("Not editable");
+    expect(html).not.toMatch(/<select/);
   });
 });
