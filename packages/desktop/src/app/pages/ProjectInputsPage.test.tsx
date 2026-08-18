@@ -80,6 +80,7 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
     ownerMusicianId: "m1",
     slotKey: "bass:0",
     state: "active",
+    labelIsCanonical: false,
   };
   const noop = () => undefined;
 
@@ -237,6 +238,7 @@ describe("InputTable (the INPUT LIST section's channel table)", () => {
         ownerMusicianId: "m1",
         slotKey: "bass:0",
         state: "active",
+        labelIsCanonical: false,
       },
       {
         key: "el_bass_mic",
@@ -249,6 +251,7 @@ describe("InputTable (the INPUT LIST section's channel table)", () => {
         ownerMusicianId: "m1",
         slotKey: "bass:0",
         state: "removed",
+        labelIsCanonical: false,
       },
     ];
 

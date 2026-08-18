@@ -491,8 +491,8 @@ export interface DocumentViewModel {
     note?: string;
     ownerRole?: Group;
     ownerMusicianId?: string;
-    /** True when the label is computed by a formatter that ignores any rename (drum kick/snare/tom/floor families, every lead/back vocal row) — see `buildDocument.ts`'s `finalizedInputs` (task 12c). */
-    labelIsCanonical: boolean;
+    /** True when the label is computed by a formatter that ignores any rename (drum kick/snare/tom/floor families, every lead/back vocal row) — see `buildDocument.ts`'s `finalizedInputs` (task 12c). Optional like the other pipeline-only fields on this type: a synthetic filler channel inserted downstream in `assignPdfChannels` never carries it. */
+    labelIsCanonical?: boolean;
   createdAt?: string;
   updatedAt?: string;
   }>;

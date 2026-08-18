@@ -138,7 +138,7 @@ export function buildInputEditorRows(args: {
         ? ""
         : (slotKeysByOwner.get(`${ownerRole}:${ownerMusicianId}`) ?? ""),
       state: isFiller ? "filler" : "active",
-      labelIsCanonical: input.labelIsCanonical,
+      labelIsCanonical: input.labelIsCanonical ?? false,
     };
   });
 
