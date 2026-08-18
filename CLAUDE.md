@@ -117,3 +117,16 @@ Never write user data outside the APPDATA root. Never modify `data/assets/` at r
 - Renderer: `src/infra/pdf/pdf.ts` via Puppeteer
 - Throws if content overflows A4 — this is intentional
 - Chrome resolution order: system Chrome → bundled Chromium → `PUPPETEER_EXECUTABLE_PATH`
+
+## Development Workflow
+
+Artifacts carry a feature between phases — not conversation history:
+
+1. **Brainstorm** — dialogue in the main session → spec in `docs/superpowers/specs/YYYY-MM-DD-<feature>-design.md`
+2. **Plan** — delegate to `Agent(plan-writer)` with the spec path → plan in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`
+3. **Implement** — once execution is green-lit, delegate to `Agent(implementer)` per task; the main session only coordinates and checks deltas
+4. **Hand off** — `.claude/state/handoff.md` (gitignored) points the next session at spec, plan and remaining tasks
+
+Plans run 2000–3500 lines by design. Never load a whole plan into the main session — read only the task section, or let the agent read it. Details: `context-handoff` skill.
+
+**Baselines, not zeros.** `npm test`, `npm run lint` and `npx tsc --noEmit` each have known pre-existing failures. Every plan records the current numbers in its Global Constraints; measure the delta against those. Never report success from an absolute zero, and do not fix unrelated pre-existing failures.
