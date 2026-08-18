@@ -1234,4 +1234,162 @@ describe("buildDocument vocal overlay composition", () => {
         .map((i) => ({ key: i.key, label: i.label, note: i.note }));
     expect(pick(vmOn)).toEqual(pick(vmOff));
   });
+
+  it("does not inject a phantom channel into the back-vocal block for a bassist whose bass-connection replace patch also sings back vocals (fix round 1, Critical 2)", () => {
+    // The bassist's slot carries the ordinary bass-connection `replace`
+    // (the same shape the existing, working bass-setup-override test uses)
+    // — nothing to do with their vocal row. Handing that whole patch to the
+    // back-vocal row slice made `applyInputReplacements` `unshift` the
+    // replacement into the vocal block because its `targetKey` isn't found
+    // there.
+    const band: Band = {
+      id: "band-bass-replace-and-sing",
+      name: "Band",
+      bandLeader: "bass-1",
+      defaultLineup: { bass: ["bass-1"] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
+    };
+    const musicians: Record<string, Musician> = {
+      "bass-1": {
+        id: "bass-1",
+        firstName: "Ben",
+        lastName: "Bass",
+        group: "bass",
+        presets: [
+          { kind: "preset", ref: "el_bass_xlr_pedalboard" },
+          { kind: "monitor", ref: "wedge_foh" },
+        ],
+      },
+    };
+    const presets: Record<string, PresetEntity> = {
+      el_bass_xlr_pedalboard: {
+        type: "preset",
+        id: "el_bass_xlr_pedalboard",
+        label: "Electric bass guitar",
+        group: "bass",
+        setupGroup: "electric_bass",
+        inputs: [
+          { key: "el_bass_xlr_pedalboard", label: "Electric bass guitar", group: "bass" },
+        ],
+      },
+      wedge_foh: { type: "monitor", id: "wedge_foh", label: "Wedge", kind: "wedge", supplier: "foh" },
+      talkback: {
+        type: "talkback_type",
+        id: "talkback",
+        label: "Talkback",
+        group: "talkback",
+        input: { key: "tb_{ownerKey}", label: "Talkback - {ownerLabel}" },
+      },
+    };
+    const project: Project = {
+      id: "p-bass-replace-and-sing",
+      bandRef: band.id,
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: {
+        bass: [
+          {
+            musicianId: "bass-1",
+            presetOverride: {
+              inputs: {
+                replace: [
+                  {
+                    targetKey: "el_bass_xlr_pedalboard",
+                    with: {
+                      key: "el_bass_xlr_amp",
+                      label: "Electric bass guitar",
+                      note: "XLR out from amp",
+                      group: "bass",
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+      overlays: { backVocals: ["bass-1"] },
+    };
+
+    const vm = buildDocument(
+      project,
+      createRepo({ band, musicians, presets, project }),
+    );
+
+    // The replace lands exactly once on the bass channel...
+    expect(vm.inputs.filter((i) => i.key === "el_bass_xlr_amp")).toHaveLength(1);
+    expect(vm.inputs.some((i) => i.key === "el_bass_xlr_pedalboard")).toBe(false);
+    // ...and the back-vocal block gets exactly its own one row, nothing
+    // unshifted in from the bass patch.
+    expect(vm.inputs.filter((i) => i.group === "vocs")).toHaveLength(1);
+    expect(vm.inputs.some((i) => i.key === "voc_back_bass_1")).toBe(true);
+    // Baseline channel count: one bass channel, one back-vocal channel.
+    expect(vm.inputs).toHaveLength(2);
+  });
+
+  it("does not duplicate a channel a guitarist's inputs.add already added, when the same guitarist sings a vocal row (fix round 1, Critical 2)", () => {
+    const band: Band = {
+      id: "band-guitar-add-and-sing",
+      name: "Band",
+      bandLeader: "gtr-1",
+      defaultLineup: { guitar: ["gtr-1"] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
+    };
+    const musicians: Record<string, Musician> = {
+      "gtr-1": {
+        id: "gtr-1",
+        firstName: "Gina",
+        lastName: "Guitar",
+        group: "guitar",
+        presets: [
+          { kind: "preset", ref: "el_guitar" },
+          { kind: "monitor", ref: "wedge_foh" },
+        ],
+      },
+    };
+    const presets: Record<string, PresetEntity> = {
+      el_guitar: {
+        type: "preset",
+        id: "el_guitar",
+        label: "Electric guitar",
+        group: "guitar",
+        inputs: [{ key: "el_guitar", label: "Electric guitar", group: "guitar" }],
+      },
+      wedge_foh: { type: "monitor", id: "wedge_foh", label: "Wedge", kind: "wedge", supplier: "foh" },
+      talkback: {
+        type: "talkback_type",
+        id: "talkback",
+        label: "Talkback",
+        group: "talkback",
+        input: { key: "tb_{ownerKey}", label: "Talkback - {ownerLabel}" },
+      },
+    };
+    const project: Project = {
+      id: "p-guitar-add-and-sing",
+      bandRef: band.id,
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: {
+        guitar: [
+          {
+            musicianId: "gtr-1",
+            presetOverride: {
+              inputs: {
+                add: [{ key: "el_guitar_mic", label: "Guitar mic", group: "guitar" }],
+              },
+            },
+          },
+        ],
+      },
+      overlays: { leadVocals: ["gtr-1"] },
+    };
+
+    const vm = buildDocument(
+      project,
+      createRepo({ band, musicians, presets, project }),
+    );
+
+    expect(vm.inputs.filter((i) => i.key.startsWith("el_guitar_mic"))).toHaveLength(1);
+    expect(vm.inputs.filter((i) => i.group === "vocs")).toHaveLength(1);
+  });
 });

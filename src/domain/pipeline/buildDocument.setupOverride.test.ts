@@ -1776,4 +1776,94 @@ describe("buildDocument setup overrides", () => {
         .map((i) => ({ key: i.key, label: i.label, note: i.note }));
     expect(pick(vmPatched)).toEqual(pick(vmBase));
   });
+
+  it("carries a lineup presetOverride.inputs.update patch onto the talkback row's label and note (fix round 1, Important 4)", () => {
+    // The talkback row is built entirely outside the per-musician loop
+    // (`buildPdfTalkbackInputs`) and never consulted the patch at all — the
+    // same original bug as drums/vocals, on a row whose label isn't
+    // canonical, so both fields are expected to actually print once fixed.
+    const band: Band = {
+      id: "band-talkback-update",
+      name: "Band",
+      bandLeader: "bass-1",
+      defaultLineup: { bass: ["bass-1"] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
+    };
+    const bassist: Musician = {
+      id: "bass-1",
+      firstName: "Ben",
+      lastName: "Bass",
+      group: "bass",
+      presets: [
+        { kind: "preset", ref: "el_bass_xlr_pedalboard" },
+        { kind: "monitor", ref: "wedge_foh" },
+      ],
+    };
+    const notes: NotesTemplate = { id: "notes_default_cs", lang: "cs", inputs: [], monitors: [] };
+    const repoFor = (project: Project): DataRepository => ({
+      getBand: () => band,
+      getMusician: () => bassist,
+      getProject: () => project,
+      getPreset: (id: string) => {
+        if (id === "el_bass_xlr_pedalboard")
+          return {
+            type: "preset",
+            id,
+            label: "Electric bass guitar",
+            group: "bass",
+            inputs: [{ key: "el_bass_xlr_pedalboard", label: "Electric bass guitar", group: "bass" }],
+          };
+        if (id === "wedge_foh") return { type: "monitor", id, label: "Wedge", kind: "wedge", supplier: "foh" };
+        if (id === "talkback")
+          return {
+            type: "talkback_type",
+            id,
+            label: "Talkback",
+            group: "talkback",
+            input: { key: "tb_{ownerKey}", label: "Talkback ({ownerLabel})" },
+          };
+        throw new Error(`unknown preset ${id}`);
+      },
+      getNotesTemplate: () => notes,
+    });
+
+    const baseProject: Project = {
+      id: "p-talkback-update-off",
+      bandRef: band.id,
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: { bass: ["bass-1"] },
+      overlays: { talkback: { mode: "assigned", ownerId: "bass-1" } },
+    };
+    const patchedProject: Project = {
+      ...baseProject,
+      id: "p-talkback-update-on",
+      lineup: {
+        bass: [
+          {
+            musicianId: "bass-1",
+            presetOverride: {
+              inputs: {
+                update: [{ key: "tb_bass", label: "Talkback EDITED", note: "Custom talkback note" }],
+              },
+            },
+          },
+        ],
+      },
+    };
+
+    const vmBase = buildDocument(baseProject, repoFor(baseProject));
+    const vmPatched = buildDocument(patchedProject, repoFor(patchedProject));
+
+    expect(vmBase.inputs.find((i) => i.key === "tb_bass")?.label).toBe("Talkback (bass)");
+    expect(vmPatched.inputs.find((i) => i.key === "tb_bass")?.label).toBe("Talkback EDITED");
+    expect(vmPatched.inputs.find((i) => i.key === "tb_bass")?.note).toBe(
+      "Custom talkback note",
+    );
+    // The patch must not leak onto the bassist's own instrument channel.
+    expect(vmPatched.inputs.find((i) => i.key === "el_bass_xlr_pedalboard")).toEqual(
+      vmBase.inputs.find((i) => i.key === "el_bass_xlr_pedalboard"),
+    );
+    expect(vmPatched.inputs).toHaveLength(vmBase.inputs.length);
+  });
 });

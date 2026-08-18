@@ -196,8 +196,32 @@ function applyInputOverridePatch(
 }
 
 /**
- * Same idea as `applyInputOverridePatch`, but for the lead/back vocal rows
- * `resolveOverlayDrivenVocalRows` builds. Those rows carry fields
+ * Keeps only the `inputs.update` entries whose `key` names a channel already
+ * present in `rows` (task 12c fix round 1, Critical 2 / Important 4). The
+ * rows this is used for — lead/back vocal overlay rows, the talkback row —
+ * are never the base a project's `add`/`remove`/`replace` was diffed
+ * against; those entries belong to the owner's *instrument* channel list.
+ * Replaying them here duplicated a channel instead: an `add` whose key
+ * doesn't collide with this narrow slice just gets appended (a phantom
+ * extra row printed in the vocal/talkback block); a `replace` whose
+ * `targetKey` isn't in this slice gets `unshift`ed in for the same reason
+ * (`presetOverride.ts`'s `applyInputReplacements`). Only `update` can never
+ * change how many rows come out, so it's the only thing safe to forward.
+ */
+function narrowPatchToUpdatesFor(
+  patch: PresetOverridePatch,
+  rows: BuiltInput[],
+): PresetOverridePatch | undefined {
+  const rowKeys = new Set(rows.map((row) => row.key));
+  const update = (patch.inputs?.update ?? []).filter((entry) => rowKeys.has(entry.key));
+  return update.length > 0 ? { inputs: { update } } : undefined;
+}
+
+/**
+ * Same idea as `applyInputOverridePatch`, but for rows built outside the
+ * per-musician preset loop — lead/back vocal overlay rows
+ * (`resolveOverlayDrivenVocalRows`) and the talkback row
+ * (`buildPdfTalkbackInputs`). Those rows carry fields
  * (`vocalRole`/`vocalSlot`/`vocalOrderRank`/`ownerGender`) the instrument
  * helper above doesn't need to preserve, so it can't be reused as-is: it
  * would silently drop them (defaulting `vocalOrderRank` to 999 downstream)
@@ -206,9 +230,11 @@ function applyInputOverridePatch(
  * from two different owners are patched together (task 12c: a bassist and a
  * keyboardist can both sing back vocals in the same document). This
  * reattaches the original row's own fields by key instead of borrowing
- * `source[0]`'s.
+ * `source[0]`'s. Callers must pass an already-narrowed patch (see
+ * `narrowPatchToUpdatesFor`) — this function trusts it and applies whatever
+ * it's given.
  */
-function applyVocalOverlayOverridePatch(
+function applyRowScopedUpdatePatch(
   source: BuiltInput[],
   patch: PresetOverridePatch,
 ): BuiltInput[] {
@@ -249,13 +275,14 @@ function applyVocalOverlayOverridePatch(
 }
 
 /**
- * Applies each owner's `inputs.update`/`add`/`remove`/`replace` patch to
- * their own lead/back vocal overlay row(s) — keyed by the row's key as
- * `resolveOverlayDrivenVocalRows` built it, i.e. before
- * `disambiguateInputKeys` ever runs (task 12c). Grouped by owner so a patch
- * belonging to one singer can never touch another singer's row.
+ * Applies each owner's `inputs.update` — and only `update`, narrowed to keys
+ * that already exist in `rows` — to their own row(s) among `rows`. Used for
+ * lead/back vocal overlay rows and the talkback row, keyed by the row's key
+ * as it was built, i.e. before `disambiguateInputKeys` ever runs (task 12c).
+ * Grouped by owner so a patch belonging to one musician can never touch
+ * another's row.
  */
-function applyVocalOverlayOverrides(
+function applyOwnerScopedUpdateOverrides(
   rows: BuiltInput[],
   presetOverrideByMusicianId: Map<string, PresetOverridePatch>,
 ): BuiltInput[] {
@@ -273,7 +300,8 @@ function applyVocalOverlayOverrides(
   return ownerOrder.flatMap((ownerId) => {
     const ownerRows = rowsByOwner.get(ownerId) ?? [];
     const patch = ownerId ? presetOverrideByMusicianId.get(ownerId) : undefined;
-    return patch ? applyVocalOverlayOverridePatch(ownerRows, patch) : ownerRows;
+    const narrowedPatch = patch ? narrowPatchToUpdatesFor(patch, ownerRows) : undefined;
+    return narrowedPatch ? applyRowScopedUpdatePatch(ownerRows, narrowedPatch) : ownerRows;
   });
 }
 
@@ -613,17 +641,23 @@ export function buildDocument(
   // R6 / task 12c: lead/back vocal rows never went through
   // `ctx.presetOverrideByMusicianId` — a rename or note change on a
   // `voc_lead_*`/`voc_back_*` row was silently discarded. Apply each owner's
-  // patch here, before disambiguation, matching the row's own key.
+  // (narrowed, `update`-only — see `narrowPatchToUpdatesFor`) patch here,
+  // before disambiguation, matching the row's own key.
   inputs.push(
-    ...applyVocalOverlayOverrides(vocalRows, ctx.presetOverrideByMusicianId),
+    ...applyOwnerScopedUpdateOverrides(vocalRows, ctx.presetOverrideByMusicianId),
   );
+  // Same gap, same fix: the talkback row never went through the patch
+  // either (task 12c fix round 1, Important 4).
   inputs.push(
-    ...buildPdfTalkbackInputs({
-      talkbackOwnerId: ctx.talkbackOwnerId,
-      membersById: ctx.membersById,
-      ownerGroupByMusicianId,
-      repo,
-    }),
+    ...applyOwnerScopedUpdateOverrides(
+      buildPdfTalkbackInputs({
+        talkbackOwnerId: ctx.talkbackOwnerId,
+        membersById: ctx.membersById,
+        ownerGroupByMusicianId,
+        repo,
+      }),
+      ctx.presetOverrideByMusicianId,
+    ),
   );
   const leadVocsSlotByMusicianId = new Map(
     leadResolved.map(({ musician, slot }) => [musician.id, slot]),
