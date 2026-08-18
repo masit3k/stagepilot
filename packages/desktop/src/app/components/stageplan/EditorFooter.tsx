@@ -21,7 +21,7 @@ export function EditorFooter({
   return (
     <div className="stage-footer">
       <button type="button" className="stage-footer__ghost" onClick={onBack}>
-        Back to Lineup
+        Back to Inputs
       </button>
       <button
         type="button"

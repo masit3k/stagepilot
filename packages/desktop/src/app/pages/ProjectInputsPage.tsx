@@ -31,6 +31,7 @@ import {
   saveProjectPayload,
   updateMusicianDefaults,
 } from "../services/projectsApi";
+import { nextStepPath, previousStepPath } from "../shell/chrome/processSteps";
 import { CANONICAL_LINEUP_ROLE_ORDER } from "../shell/lineupSerialize";
 import type { BandSetupData, NewProjectPayload } from "../shell/types";
 import type { ProjectRouteProps } from "./shared/pageTypes";
@@ -648,6 +649,16 @@ export function ProjectInputsPage({
       <div className="setup-action-bar setup-action-bar--equal">
         <button
           type="button"
+          className="button-secondary"
+          onClick={() => {
+            const target = previousStepPath("inputs", id);
+            if (target) navigate(target);
+          }}
+        >
+          Back to Lineup
+        </button>
+        <button
+          type="button"
           className="button-primary"
           disabled={isSaving || state.kind !== "ready"}
           onClick={async () => {
@@ -665,7 +676,8 @@ export function ProjectInputsPage({
               }
               notify("success", "Inputs saved.");
             }
-            navigate(`/projects/${encodeURIComponent(id)}/stageplan`);
+            const target = nextStepPath("inputs", id);
+            if (target) navigate(target);
           }}
         >
           {state.kind === "loading"

@@ -8,6 +8,7 @@ import {
   type ExportModalState,
   ExportResultModal,
 } from "../modals/ExportResultModal";
+import { previousStepPath } from "../shell/chrome/processSteps";
 import { withFrom } from "../shell/routes";
 import type { NewProjectPayload } from "../shell/types";
 import type { ProjectRouteProps } from "./shared/pageTypes";
@@ -297,6 +298,16 @@ export function ProjectPreviewPage({
         </div>
       </div>
       <div className="setup-action-bar setup-action-bar--equal">
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={() => {
+            const target = previousStepPath("export", id);
+            if (target) navigate(target);
+          }}
+        >
+          Back to Stage Plan
+        </button>
         <button
           type="button"
           className="button-secondary"

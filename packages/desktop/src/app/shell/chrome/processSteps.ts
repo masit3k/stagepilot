@@ -89,3 +89,44 @@ export function buildProcessSteps(
     };
   });
 }
+
+/**
+ * The step next to `from` in direction `offset`; null at either end of the
+ * process, or when that neighbour has no screen yet.
+ */
+function neighbourStepPath(
+  from: StepId,
+  projectId: string,
+  offset: 1 | -1,
+): string | null {
+  const index = STEPS.findIndex((step) => step.id === from);
+  if (index < 0) return null;
+
+  const target = index + offset;
+  if (target < 0 || target >= STEPS.length) return null;
+
+  const neighbour = STEPS[target];
+  if (neighbour.segment === null) return null;
+
+  return `/projects/${encodeURIComponent(projectId)}/${neighbour.segment}`;
+}
+
+/**
+ * Where `Continue` leads from a step; null on the last one.
+ *
+ * Screens do not decide their own `Continue`/`Back` targets — they read them
+ * here, so the flow `01 → 02 → 03 → 04` and the process trail are both derived
+ * from the same `STEPS` array and cannot drift apart. Inserting a step moves
+ * the two together.
+ */
+export function nextStepPath(from: StepId, projectId: string): string | null {
+  return neighbourStepPath(from, projectId, 1);
+}
+
+/** Mirror of `nextStepPath` for the way back; null on the first step. */
+export function previousStepPath(
+  from: StepId,
+  projectId: string,
+): string | null {
+  return neighbourStepPath(from, projectId, -1);
+}

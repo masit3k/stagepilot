@@ -84,6 +84,7 @@ import { resolveMusicianDisplayName } from "../domain/ui/musicianDisplayName";
 import { composeSetupModalTitle } from "../domain/ui/setupModalTitle";
 import * as projectsApi from "../services/projectsApi";
 import { buildCanonicalProjectFromSetupState } from "../shell/canonicalProject";
+import { nextStepPath } from "../shell/chrome/processSteps";
 import { serializeLineupForProject } from "../shell/lineupSerialize";
 import { withFrom } from "../shell/routes";
 import type {
@@ -1759,8 +1760,10 @@ export function ProjectSetupPage({
                 setIsCommitting(false);
               }
             }
-            // Editor rozmístění je krok 03, tedy přirozený krok po lineupu (R1).
-            navigate(`/projects/${id}/stageplan`);
+            // Po lineupu jde krok 02 INPUTS, ne editor rozmístění. Cíl se bere
+            // z modelu kroků, aby se tok a proces trail nemohly rozejít (R1).
+            const target = nextStepPath("lineup", id);
+            if (target) navigate(target);
           }}
           disabled={errors.length > 0 || overrideValidationErrors.length > 0}
         >

@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { buildProcessSteps } from "./processSteps";
+import {
+  type StepId,
+  buildProcessSteps,
+  nextStepPath,
+  previousStepPath,
+} from "./processSteps";
+
+const ALL_STEPS: readonly StepId[] = [
+  "lineup",
+  "inputs",
+  "stageplan",
+  "export",
+];
 
 /** The trail only exists inside a project, so every other route returns null. */
 const OUTSIDE_PROJECT = [
@@ -133,5 +145,56 @@ describe("buildProcessSteps", () => {
         pathname,
       ).toBe(true);
     }
+  });
+});
+
+describe("step flow targets", () => {
+  it("leads forward through every step in order", () => {
+    expect(nextStepPath("lineup", "p1")).toBe("/projects/p1/inputs");
+    expect(nextStepPath("inputs", "p1")).toBe("/projects/p1/stageplan");
+    expect(nextStepPath("stageplan", "p1")).toBe("/projects/p1/preview");
+  });
+
+  it("leads back through every step in order", () => {
+    expect(previousStepPath("export", "p1")).toBe("/projects/p1/stageplan");
+    expect(previousStepPath("stageplan", "p1")).toBe("/projects/p1/inputs");
+    expect(previousStepPath("inputs", "p1")).toBe("/projects/p1/setup");
+  });
+
+  it("ends the process at both ends", () => {
+    expect(nextStepPath("export", "p1")).toBeNull();
+    expect(previousStepPath("lineup", "p1")).toBeNull();
+  });
+
+  it("never skips the inputs step in either direction", () => {
+    // The regression this guards: `01` continued straight to `03` and `03`
+    // went back straight to `01`, so `02` was unreachable from the flow.
+    expect(nextStepPath("lineup", "p1")).not.toBe("/projects/p1/stageplan");
+    expect(previousStepPath("stageplan", "p1")).not.toBe("/projects/p1/setup");
+  });
+
+  it("only leads to steps the trail also knows", () => {
+    // Flow and trail read the same STEPS array; this pins them to each other.
+    const trailPaths = new Set(
+      ["/projects/p1/setup", "/projects/p1/inputs"].flatMap(
+        (pathname) =>
+          buildProcessSteps(pathname)
+            ?.map((step) => step.path)
+            .filter((path): path is string => path !== null) ?? [],
+      ),
+    );
+
+    for (const step of ALL_STEPS) {
+      for (const target of [
+        nextStepPath(step, "p1"),
+        previousStepPath(step, "p1"),
+      ]) {
+        if (target !== null) expect(trailPaths.has(target), target).toBe(true);
+      }
+    }
+  });
+
+  it("encodes the project id into the step paths", () => {
+    expect(nextStepPath("lineup", "a b/c")).toBe("/projects/a%20b%2Fc/inputs");
   });
 });

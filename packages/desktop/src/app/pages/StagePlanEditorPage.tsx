@@ -41,6 +41,7 @@ import {
   saveProjectPayload,
 } from "../services/projectsApi";
 import { fetchStageplanPrintGeometry } from "../services/stageplanMetrics";
+import { previousStepPath } from "../shell/chrome/processSteps";
 import type { NewProjectPayload } from "../shell/types";
 import type { ProjectRouteProps } from "./shared/pageTypes";
 
@@ -344,7 +345,10 @@ export function StagePlanEditorPage({
       <EditorFooter
         isSaving={isSaving}
         isDirty={isStageplanLayoutDirty(initialLayoutRef.current, state.layout)}
-        onBack={() => navigate(`/projects/${encodeURIComponent(id)}/setup`)}
+        onBack={() => {
+          const target = previousStepPath("stageplan", id);
+          if (target) navigate(target);
+        }}
         onBackToHub={() => navigate("/")}
         onContinue={async () => {
           if (state.kind !== "ready") return;
