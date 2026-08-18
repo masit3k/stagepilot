@@ -17,6 +17,10 @@ import type { InputEditorRow } from "../../domain/inputs/buildInputEditorRows";
  * `Save as musician default` (R5) jen volá callback z propsů — potvrzení a
  * samotné volání Tauri příkazu žijí ve stránce, protože mění trvalá data
  * muzikanta napříč projekty, ne jen tenhle slot.
+ *
+ * `Remove channel` / `Restore channel` (R3) jsou navzájem výlučné podle
+ * `row.state` — vypnutí a vrácení kanálu, patch zapisuje `toggleInputRow`
+ * (Task 13) ve stránce.
  */
 export function InputRowInspector({
   row,
@@ -28,6 +32,8 @@ export function InputRowInspector({
   onNoteChange,
   onResetToDefault,
   onSaveAsMusicianDefault,
+  onRemoveChannel,
+  onRestoreChannel,
 }: {
   row: InputEditorRow | null;
   ownerName: string;
@@ -39,6 +45,8 @@ export function InputRowInspector({
   onNoteChange: (note: string) => void;
   onResetToDefault: () => void;
   onSaveAsMusicianDefault: () => void;
+  onRemoveChannel: () => void;
+  onRestoreChannel: () => void;
 }) {
   if (!row) {
     return (
@@ -122,6 +130,24 @@ export function InputRowInspector({
                   title="Coming soon"
                 >
                   Edit kit
+                </button>
+              ) : null}
+              {row.state === "active" ? (
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={onRemoveChannel}
+                >
+                  Remove channel
+                </button>
+              ) : null}
+              {row.state === "removed" ? (
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={onRestoreChannel}
+                >
+                  Restore channel
                 </button>
               ) : null}
               <button

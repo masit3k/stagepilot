@@ -42,6 +42,8 @@ describe("InputRowInspector", () => {
         onNoteChange={noop}
         onResetToDefault={noop}
         onSaveAsMusicianDefault={noop}
+        onRemoveChannel={noop}
+        onRestoreChannel={noop}
       />,
     );
 
@@ -63,6 +65,8 @@ describe("InputRowInspector", () => {
         onNoteChange={noop}
         onResetToDefault={noop}
         onSaveAsMusicianDefault={noop}
+        onRemoveChannel={noop}
+        onRestoreChannel={noop}
       />,
     );
 
@@ -90,9 +94,53 @@ describe("InputRowInspector", () => {
         onNoteChange={noop}
         onResetToDefault={noop}
         onSaveAsMusicianDefault={noop}
+        onRemoveChannel={noop}
+        onRestoreChannel={noop}
       />,
     );
 
     expect(html).toContain('<input type="text" value="Beta 52A"/>');
+  });
+
+  it("offers Remove channel, not Restore channel, for an active row (R3)", () => {
+    const html = renderToStaticMarkup(
+      <InputRowInspector
+        row={makeRow({ state: "active" })}
+        ownerName="Ben Bass"
+        channelCount={1}
+        deviationCount={0}
+        canSaveAsMusicianDefault={false}
+        onLabelChange={noop}
+        onNoteChange={noop}
+        onResetToDefault={noop}
+        onSaveAsMusicianDefault={noop}
+        onRemoveChannel={noop}
+        onRestoreChannel={noop}
+      />,
+    );
+
+    expect(html).toContain("Remove channel");
+    expect(html).not.toContain("Restore channel");
+  });
+
+  it("offers Restore channel, not Remove channel, for a removed row (R3)", () => {
+    const html = renderToStaticMarkup(
+      <InputRowInspector
+        row={makeRow({ state: "removed", ch: null })}
+        ownerName="Ben Bass"
+        channelCount={1}
+        deviationCount={0}
+        canSaveAsMusicianDefault={false}
+        onLabelChange={noop}
+        onNoteChange={noop}
+        onResetToDefault={noop}
+        onSaveAsMusicianDefault={noop}
+        onRemoveChannel={noop}
+        onRestoreChannel={noop}
+      />,
+    );
+
+    expect(html).toContain("Restore channel");
+    expect(html).not.toContain("Remove channel");
   });
 });

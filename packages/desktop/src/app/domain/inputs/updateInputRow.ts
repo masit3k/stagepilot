@@ -2,6 +2,7 @@ import type {
   PartialInputUpdate,
   PresetOverridePatch,
 } from "../../../../../../src/domain/model/types";
+import { finalizePatchInputs } from "./finalizePatchInputs";
 
 /**
  * Co? Zapíše přejmenování nebo změnu poznámky jednoho kanálu do patche slotu.
@@ -36,10 +37,5 @@ export function updateInputRow(
   const { update: _previousUpdate, ...restInputs } = patch?.inputs ?? {};
   const inputs = update.length > 0 ? { ...restInputs, update } : restInputs;
 
-  const hasInputs = Object.keys(inputs).length > 0;
-  return {
-    ...patch,
-    ...(hasInputs ? { inputs } : {}),
-    ...(hasInputs ? {} : { inputs: undefined }),
-  };
+  return finalizePatchInputs(patch, inputs);
 }

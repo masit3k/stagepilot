@@ -96,6 +96,8 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         onNoteChange={noop}
         onResetToDefault={noop}
         onSaveAsMusicianDefault={noop}
+        onRemoveChannel={noop}
+        onRestoreChannel={noop}
       />,
     );
 
@@ -114,6 +116,8 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         onNoteChange={noop}
         onResetToDefault={noop}
         onSaveAsMusicianDefault={noop}
+        onRemoveChannel={noop}
+        onRestoreChannel={noop}
       />,
     );
 
@@ -139,6 +143,8 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         onNoteChange={noop}
         onResetToDefault={noop}
         onSaveAsMusicianDefault={noop}
+        onRemoveChannel={noop}
+        onRestoreChannel={noop}
       />,
     );
 
@@ -164,6 +170,8 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         onNoteChange={noop}
         onResetToDefault={noop}
         onSaveAsMusicianDefault={noop}
+        onRemoveChannel={noop}
+        onRestoreChannel={noop}
       />,
     );
 
@@ -186,6 +194,8 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         onNoteChange={noop}
         onResetToDefault={noop}
         onSaveAsMusicianDefault={noop}
+        onRemoveChannel={noop}
+        onRestoreChannel={noop}
       />,
     );
 
@@ -215,6 +225,8 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         onNoteChange={noop}
         onResetToDefault={noop}
         onSaveAsMusicianDefault={noop}
+        onRemoveChannel={noop}
+        onRestoreChannel={noop}
       />,
     );
 
