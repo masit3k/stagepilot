@@ -354,4 +354,137 @@ describe("resolveEffectiveProjectSetup", () => {
     );
   });
 
+  it("does not replay a drum slot's inputs.add/removeKeys onto channels already built from drumDefinition (fix round 1, Critical 1)", () => {
+    // Screen 01's kit editor persists `drumDefinition` and `{add, removeKeys}`
+    // on the same slot — `drumDefinition` already reflects the edited kit
+    // (here: a third tom), so replaying `add` for that same channel against
+    // the list `resolveDrumDefinitionInputs` already built from it collided
+    // and threw. Only `inputs.update` may reach that list; `add`/`remove`/
+    // `replace` on a drums slot are redundant by construction and must be
+    // dropped before `applyPresetOverride` ever sees them.
+    const band: Band = {
+      id: "band",
+      name: "Band",
+      bandLeader: "dr-1",
+      defaultLineup: { drums: ["dr-1"] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
+    };
+    const drummer: Musician = {
+      id: "dr-1",
+      firstName: "Dr",
+      lastName: "One",
+      group: "drums",
+      presets: [],
+    };
+    const drumDefinition = {
+      kickCount: 1 as const,
+      kicks: [{ in: true, out: true }] as [{ in: boolean; out: boolean }],
+      snareCount: 1 as const,
+      snares: [{ top: true, bottom: true }] as [{ top: boolean; bottom: boolean }],
+      hasHiHat: false,
+      tomCount: 3 as const,
+      floorCount: 0 as const,
+      hasOverheads: false,
+      pad: { enabled: false as const },
+      tracks: { enabled: false },
+    };
+    const project: Project = {
+      id: "p-drum-add-collision",
+      bandRef: "band",
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: {
+        drums: {
+          musicianId: "dr-1",
+          drumDefinition,
+          presetOverride: {
+            inputs: {
+              // The kit editor's own bookkeeping for the 3rd tom it added —
+              // already present in `drumDefinition.tomCount`, so this must
+              // not be replayed.
+              add: [{ key: "dr_tom_3", label: "Tom 3", group: "drums" }],
+              removeKeys: ["dr_hihat"],
+              update: [{ key: "dr_tom_1", label: "Tom 1 EDITED" }],
+            },
+          },
+        },
+      },
+    };
+
+    expect(() =>
+      resolveEffectiveProjectSetup({
+        project,
+        band,
+        bandLeaderId: "dr-1",
+        getMusicianById: () => drummer,
+        getPresetByRef: () => undefined,
+      }),
+    ).not.toThrow();
+
+    const resolved = resolveEffectiveProjectSetup({
+      project,
+      band,
+      bandLeaderId: "dr-1",
+      getMusicianById: () => drummer,
+      getPresetByRef: () => undefined,
+    });
+    const inputs = resolved.byMusicianId.get("dr-1")?.inputs ?? [];
+    // `update` still applies...
+    expect(inputs.find((input) => input.key === "dr_tom_1")?.label).toBe("Tom 1 EDITED");
+    // ...but `add`/`removeKeys` are ignored here: exactly one dr_tom_3 (from
+    // drumDefinition, not duplicated by the redundant `add`), and hihat is
+    // absent because drumDefinition says so, not because of `removeKeys`.
+    expect(inputs.filter((input) => input.key === "dr_tom_3")).toHaveLength(1);
+    expect(inputs.some((input) => input.key === "dr_hihat")).toBe(false);
+  });
+
+  it("does not apply a drum slot's monitoring override (fix round 1, Important 3)", () => {
+    // Reverted: symmetry with bass/guitar/keys wasn't asked for and the
+    // reviewer found it avoidable. A drums slot's monitoring stays exactly
+    // what it was before task 12c — only `inputs.update` is honored here.
+    const band: Band = {
+      id: "band",
+      name: "Band",
+      bandLeader: "dr-1",
+      defaultLineup: { drums: ["dr-1"] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
+    };
+    const drummer: Musician = {
+      id: "dr-1",
+      firstName: "Dr",
+      lastName: "One",
+      group: "drums",
+      presets: [{ kind: "monitor", ref: "wedge_foh" }],
+    };
+    const project: Project = {
+      id: "p-drum-monitoring-override",
+      bandRef: "band",
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: {
+        drums: {
+          musicianId: "dr-1",
+          presetOverride: {
+            monitoring: { monitorRef: "does_not_exist_and_must_not_be_checked" },
+          },
+        },
+      },
+    };
+
+    const resolved = resolveEffectiveProjectSetup({
+      project,
+      band,
+      bandLeaderId: "dr-1",
+      getMusicianById: () => drummer,
+      // If the drums branch ever consulted `patch.monitoring`, resolving the
+      // bogus ref above would throw instead of the call returning cleanly.
+      getPresetByRef: (ref) =>
+        ref === "wedge_foh"
+          ? { type: "monitor", id: "wedge_foh", label: "Wedge", kind: "wedge", supplier: "foh" }
+          : undefined,
+    });
+
+    expect(resolved.byMusicianId.get("dr-1")?.monitoring.monitorRef).toBe("wedge_foh");
+  });
+
 });

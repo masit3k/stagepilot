@@ -56,23 +56,38 @@ export function resolveEffectiveProjectSetup(args: {
           inputs: resolveDrumDefinitionInputs(drumDefinition),
           monitoring: defaultPreset.monitoring,
         };
-        // Bicí kanály nevznikají z presetu, takže sem `inputs.update`/`add`/
-        // `remove` z R6 dřív nedosáhly (task 12c) — patch se aplikuje až tady,
-        // po sestavení kanálů ze `drumDefinition`, stejně jako o pár řádků níž
-        // pro ostatní role. `buildDocument.ts` bicí (i basu) z fallbackové
-        // patch cesty schválně vylučuje, protože obě role už mají patch
-        // zapečený tady — dvojí aplikace by patch uplatnila dvakrát.
-        const drumPatch: PresetOverridePatch | undefined = state.presetOverrideByMusicianId.get(musicianId);
-        const effectiveDrumPreset = applyPresetOverride(drumPreset, drumPatch);
-        if (drumPatch?.monitoring?.monitorRef) {
-          assertMonitorPresetRef({
-            ref: drumPatch.monitoring.monitorRef,
-            role,
-            musicianId,
-            getPresetByRef: args.getPresetByRef,
-          });
-        }
-        byMusicianId.set(musicianId, effectiveDrumPreset);
+        // Bicí kanály nevznikají z presetu, takže sem `inputs.update` z R6
+        // dřív nedosáhlo (task 12c) — patch se aplikuje až tady, po sestavení
+        // kanálů ze `drumDefinition`. `buildDocument.ts` bicí (i basu) z
+        // fallbackové patch cesty schválně vylučuje, protože obě role už mají
+        // patch zapečený tady — dvojí aplikace by patch uplatnila dvakrát.
+        //
+        // Jen `update` — ne `add`/`removeKeys`/`replace` (fix round 1,
+        // Critical 1). `drumDefinition` je jediný zdroj pravdy o tom, jaké
+        // kanály bicí soupravy existují; editor kitu na obrazovce `01` do
+        // stejného slotu spolu s `drumDefinition` ukládá i `{add,
+        // removeKeys}` jako vlastní bookkeeping. Ten je vůči kanálům, které
+        // `resolveDrumDefinitionInputs(drumDefinition)` už postavil,
+        // redundantní z definice — přehrát ho by buď narazilo na kolizi klíče
+        // (`applyPresetOverride` hází, když `add` cílí na klíč, co už v
+        // seznamu je), nebo by tiše smazalo kanál, který `drumDefinition`
+        // schválně chce mít aktivní. Obrazovka `02` navíc žádný takový zásah
+        // nikdy nezapisuje — jen `update` (rename/note).
+        const drumPatch = state.presetOverrideByMusicianId.get(musicianId);
+        const narrowedDrumPatch: PresetOverridePatch | undefined = drumPatch?.inputs?.update?.length
+          ? { inputs: { update: drumPatch.inputs.update } }
+          : undefined;
+        const effectiveDrumInputs = applyPresetOverride(drumPreset, narrowedDrumPatch).inputs;
+        // Monitoring override reverted (fix round 1, Important 3): symmetry
+        // with bass/guitar/keys wasn't asked for: no existing screen writes
+        // a monitoring override on a drums slot, and `assertMonitorPresetRef`
+        // added a throw path that didn't exist before task 12c. A drums
+        // slot's monitoring stays exactly what it was: the musician's own
+        // default.
+        byMusicianId.set(musicianId, {
+          inputs: effectiveDrumInputs,
+          monitoring: defaultPreset.monitoring,
+        });
         continue;
       }
       const patch: PresetOverridePatch | undefined = state.presetOverrideByMusicianId.get(musicianId);
