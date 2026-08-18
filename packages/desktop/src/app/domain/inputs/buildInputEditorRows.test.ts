@@ -683,6 +683,41 @@ describe("buildInputEditorRows", () => {
     expect(rows.find((r) => r.rawKey === "dr_kick_1_out")?.labelIsCanonical).toBe(true);
     expect(rows.find((r) => r.rawKey === "bass_mic")?.labelIsCanonical).toBe(false);
   });
+
+  it("marks a disabled vocs-capability row canonical, since re-enabling it prints as a recomputed voc_lead_N/voc_back_N row (fix round 1, Minor 6)", () => {
+    // `collectDisabledInputRows` carries the disabled channel's own group
+    // (see that describe block below) — a vocal capability disabled off a
+    // guitarist's slot reports `group: "vocs"` even though the owner's role
+    // is "guitar". Re-enabling it doesn't print under its own raw key: it
+    // feeds `vocalCapabilityByMusicianId` and comes back out as a
+    // `voc_lead_N`/`voc_back_N` overlay row, whose label
+    // `formatLeadVocalPdfLabel`/`formatBackVocalPdfLabel` always recomputes.
+    // A rename offered on the still-disabled row could never print once it's
+    // turned back on, so it must already read as canonical.
+    const document = makeDocument([
+      row({ ch: 1, key: "el_guitar", label: "Electric guitar", group: "guitar", ownerRole: "guitar", ownerMusicianId: "gtr1" }),
+    ]);
+    const disabledRows: DisabledInputRow[] = [
+      {
+        rawKey: "voc_cap_no_mic",
+        label: "Back vocal capability",
+        note: "",
+        group: "vocs",
+        ownerRole: "guitar",
+        ownerMusicianId: "gtr1",
+        slotKey: "guitar:0",
+        neighborKey: null,
+      },
+    ];
+
+    const rows = buildInputEditorRows({
+      document,
+      disabledRows,
+      slotKeysByOwner: ownerSlotKeys({ "guitar:gtr1": "guitar:0" }),
+    });
+
+    expect(rows.find((r) => r.rawKey === "voc_cap_no_mic")?.labelIsCanonical).toBe(true);
+  });
 });
 
 type InputDefLike = {

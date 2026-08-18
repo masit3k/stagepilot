@@ -157,8 +157,13 @@ export function buildInputEditorRows(args: {
       // A removed row never passed through `buildDocument`'s recompute, so
       // there is no stored flag to copy — fall back to the same pure
       // predicate the document itself is built from, keyed by the row's own
-      // (pre-disambiguation) raw key.
-      labelIsCanonical: isDrumLabelCanonical(disabled.rawKey),
+      // (pre-disambiguation) raw key. A vocs-capability row is a special
+      // case of that (fix round 1, Minor 6): re-enabling it doesn't print
+      // under `disabled.rawKey` at all — it feeds `vocalCapabilityByMusicianId`
+      // and comes back out as a `voc_lead_N`/`voc_back_N` overlay row, whose
+      // label is always recomputed once its owner resolves a slot.
+      labelIsCanonical:
+        disabled.group === "vocs" ? true : isDrumLabelCanonical(disabled.rawKey),
     });
   }
 
