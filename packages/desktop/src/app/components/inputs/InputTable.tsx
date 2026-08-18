@@ -1,4 +1,7 @@
-import type { KeyboardEvent as ReactKeyboardEvent } from "react";
+import type {
+  DragEvent as ReactDragEvent,
+  KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import type { InputEditorRow } from "../../domain/inputs/buildInputEditorRows";
 
 /**
@@ -10,15 +13,23 @@ import type { InputEditorRow } from "../../domain/inputs/buildInputEditorRows";
  * `——` místo čísla dává vizuálně najevo, že se do tisku nepočítá. Výplňový
  * řádek (`filler`) naopak číslo má — je to jediný typ řádku, který nejde
  * vybrat ani přesunout, protože nemá vlastníka.
+ *
+ * Ruční přeřazení (R8, Task 14) je HTML5 drag and drop nad `row.rawKey` —
+ * `draggable` je jen aktivní řádek (tažení vypnutého nebo výplňového řádku
+ * by tiše nezapsalo nic, viz `resolveActiveDropIndex`), ale drop cílem je
+ * libovolný řádek: stránka přeloží klíč řádku, na který uživatel pustí, na
+ * nejbližší aktivní pozici.
  */
 export function InputTable({
   rows,
   selectedKey,
   onSelect,
+  onReorder,
 }: {
   rows: readonly InputEditorRow[];
   selectedKey: string | null;
   onSelect: (key: string) => void;
+  onReorder: (fromRawKey: string, toRowKey: string) => void;
 }) {
   return (
     <div className="inputTable">
@@ -29,6 +40,7 @@ export function InputTable({
       </div>
       {rows.map((row) => {
         const isSelectable = row.state !== "filler";
+        const isDraggable = row.state === "active";
         const classNames = [
           "inputRow",
           row.state === "removed" ? "inputRow--removed" : "",
@@ -43,6 +55,20 @@ export function InputTable({
           event.preventDefault();
           select();
         };
+        const onDragStart = (event: ReactDragEvent<HTMLDivElement>) => {
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", row.rawKey);
+        };
+        const onDragOver = (event: ReactDragEvent<HTMLDivElement>) => {
+          // Bez preventDefault() by prohlížeč onDrop na tenhle prvek vůbec
+          // nezavolal — výchozí chování elementu je tažení odmítnout.
+          event.preventDefault();
+        };
+        const onDrop = (event: ReactDragEvent<HTMLDivElement>) => {
+          event.preventDefault();
+          const fromRawKey = event.dataTransfer.getData("text/plain");
+          if (fromRawKey) onReorder(fromRawKey, row.key);
+        };
 
         return (
           <div
@@ -52,6 +78,10 @@ export function InputTable({
             tabIndex={isSelectable ? 0 : undefined}
             onClick={isSelectable ? select : undefined}
             onKeyDown={isSelectable ? onKeyDown : undefined}
+            draggable={isDraggable}
+            onDragStart={isDraggable ? onDragStart : undefined}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
           >
             <span className="inputRow__no">
               {row.ch === null ? "——" : row.ch}

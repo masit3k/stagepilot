@@ -268,7 +268,12 @@ describe("InputTable (the INPUT LIST section's channel table)", () => {
     ];
 
     const html = renderToStaticMarkup(
-      <InputTable rows={rows} selectedKey={null} onSelect={() => undefined} />,
+      <InputTable
+        rows={rows}
+        selectedKey={null}
+        onSelect={() => undefined}
+        onReorder={() => undefined}
+      />,
     );
 
     const removedRowHtml = html
@@ -283,5 +288,72 @@ describe("InputTable (the INPUT LIST section's channel table)", () => {
       .find((chunk) => chunk.includes("Bass DI"));
     expect(activeRowHtml).not.toContain("inputRow--removed");
     expect(activeRowHtml).toContain('inputRow__no">1<');
+  });
+
+  it("only makes active rows draggable (R8, Task 14)", () => {
+    const rows: InputEditorRow[] = [
+      {
+        key: "el_bass_di",
+        rawKey: "el_bass_di",
+        ch: 1,
+        label: "Bass DI",
+        note: "",
+        group: "bass",
+        ownerRole: "bass",
+        ownerMusicianId: "m1",
+        slotKey: "bass:0",
+        state: "active",
+        labelIsCanonical: false,
+      },
+      {
+        key: "el_bass_mic",
+        rawKey: "el_bass_mic",
+        ch: null,
+        label: "Bass mic",
+        note: "",
+        group: "bass",
+        ownerRole: "bass",
+        ownerMusicianId: "m1",
+        slotKey: "bass:0",
+        state: "removed",
+        labelIsCanonical: false,
+      },
+      {
+        key: "spare_ch_1",
+        rawKey: "spare_ch_1",
+        ch: 3,
+        label: "Spare",
+        note: "",
+        group: "bass",
+        ownerRole: "bass",
+        ownerMusicianId: "",
+        slotKey: "",
+        state: "filler",
+        labelIsCanonical: false,
+      },
+    ];
+
+    const html = renderToStaticMarkup(
+      <InputTable
+        rows={rows}
+        selectedKey={null}
+        onSelect={() => undefined}
+        onReorder={() => undefined}
+      />,
+    );
+
+    const activeRowHtml = html
+      .split("<div")
+      .find((chunk) => chunk.includes("Bass DI"));
+    const removedRowHtml = html
+      .split("<div")
+      .find((chunk) => chunk.includes("Bass mic"));
+    const fillerRowHtml = html
+      .split("<div")
+      .find((chunk) => chunk.includes("Spare"));
+
+    expect(activeRowHtml).toContain('draggable="true"');
+    expect(removedRowHtml).toContain('draggable="false"');
+    expect(fillerRowHtml).toContain('draggable="false"');
   });
 });

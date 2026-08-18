@@ -26,6 +26,10 @@ import {
 } from "../domain/inputs/buildInputEditorRows";
 import { createDocumentRepository } from "../domain/inputs/createDocumentRepository";
 import {
+  moveInputRow,
+  resolveActiveDropIndex,
+} from "../domain/inputs/moveInputRow";
+import {
   addInputRow,
   removeInputRow,
   restoreInputRow,
@@ -371,6 +375,37 @@ export function ProjectInputsPage({
 
   const selectedRow =
     inputRows.find((row) => row.key === selectedInputKey) ?? null;
+
+  /**
+   * Ruční přeřazení řádku tažením (R8) — zapisuje `snapshot.inputOrder`.
+   * Nové pořadí se skládá jen z **aktivních** řádků (Task 14, Ruling 1):
+   * vypnutý řádek má klíč jmenného prostoru vlastníka, který doména nezná, a
+   * výplňový řádek `assignPdfChannels` generuje znovu při každém sestavení
+   * dokumentu — ani jeden do `project.inputOrder` nepatří.
+   *
+   * Drop cíl (`toRowKey`) může být i vypnutý nebo výplňový řádek (nejsou
+   * `draggable` jako zdroj, ale `InputTable` je pořád nechává jako cíl) —
+   * `resolveActiveDropIndex` ho přeloží na nejbližší následující aktivní
+   * pozici. Dokud tahle funkce nikdy neproběhne, `inputOrder` zůstává tím,
+   * čím byl načten (typicky `undefined`) — nikdo jinde ho nepočítá znovu.
+   */
+  const reorderInputRow = useCallback(
+    (fromRawKey: string, toRowKey: string) => {
+      const activeKeys = inputRows
+        .filter((row) => row.state === "active")
+        .map((row) => row.rawKey);
+      const toIndex = resolveActiveDropIndex(inputRows, toRowKey);
+      const nextOrder = moveInputRow(activeKeys, fromRawKey, toIndex);
+      setState((current) => {
+        if (current.kind !== "ready") return current;
+        return {
+          ...current,
+          snapshot: { ...current.snapshot, inputOrder: nextOrder },
+        };
+      });
+    },
+    [inputRows],
+  );
 
   /** Jméno muzikanta pro panel (R2) — `setupData.members` je jediné místo, které už drží zobrazitelné jméno pro dané id. */
   const musicianNameById = useMemo(() => {
@@ -762,6 +797,7 @@ export function ProjectInputsPage({
               rows={inputRows}
               selectedKey={selectedInputKey}
               onSelect={setSelectedInputKey}
+              onReorder={reorderInputRow}
             />
             <button
               type="button"
