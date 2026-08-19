@@ -400,10 +400,10 @@ Protože Task 19 nedoběhl, zbytek stavu popsaný výše (`setupDraftBySlot` a
 spol.) zůstává v modálu i nadále — až spec pro přesun sekce Inputs (bod 3)
 vznikne, bude muset počítat s tím, že tahle trojice ještě NENÍ extrahovaná.
 
-Tři rozhodnutí zůstala otevřená, všechna vědomě a všechna rozhodnutím člověka
-(2026-08-19), ne opomenutím. Fáze se jimi uzavírá — nejsou to nálezy pro finální
-review, jsou to hranice rozsahu, které je potřeba znát dřív, než se s kódem
-dál pracuje.
+Čtyři rozhodnutí zůstala otevřená, všechna vědomě a všechna rozhodnutím člověka
+(2026-08-19, bod 4 doplněn opravnou vlnou po finální review), ne opomenutím.
+Fáze se jimi uzavírá — nejsou to nálezy pro finální review, jsou to hranice
+rozsahu, které je potřeba znát dřív, než se s kódem dál pracuje.
 
 ### 1. R3/R4/R7 platí jen pro nástrojové kanály
 
@@ -465,6 +465,38 @@ Task 19 došla řada.
 
 Rozhodnutí člověka: Task 19 se **odkládá celý**. Přesun sekce Inputs na `02`
 dostane vlastní spec a vlastní fázi.
+
+### 4. Bicí sada má dvojí editor s neslučitelným zápisem
+
+Přímý důsledek bodu 3 (Task 19 odložen celý, starý modál na `01` zůstává živý
+vedle nové obrazovky `02`): bicí soupravu teď edituje **dvojí editor, který do
+`lineup.drums[i]` zapisuje jinak.** `01` (`ProjectSetupPage.tsx`, `Edit kit`
+v modálu) zapisuje `drumDefinition` **a zároveň** `presetOverride.inputs.add`/
+`removeKeys` jako vlastní bookkeeping. `02` (`Edit kit` v panelu,
+`replaceSlotDrumDefinition`, Task 16 Ruling 1) zapisuje **jen** `drumDefinition`
+— záměrně, protože `resolveEffectiveProjectSetup.ts:76-80` u bicích `add`/
+`removeKeys`/`replace` vůbec nečte a dvojí zápis by byl jen balast, který by se
+s dokumentem rozešel.
+
+Dokud obě cesty existují vedle sebe, `add`/`removeKeys` z `01`u zůstává na
+slotu jako **zastaralý stav**, který dokument ignoruje, ale UI ho může číst
+jinde a předstírat, že platí. Přesně tohle byl Nález 3 opravné vlny po finální
+review F5c (`.superpowers/sdd/2026-08-17-inputs-screen/final-fix-wave-brief.md`):
+`collectDisabledInputRows` aplikovalo zastaralé `removeKeys` naplno a vyrobilo
+přeškrtnutý řádek pro kanál, který dokument dál tiskl aktivní. Nález 3 (a s ním
+sdílený Nález 4, `ownerDeviationCount`/`Reset to default`) se opravil v UI —
+`collectDisabledInputRows` teď roli `drums` přeskakuje a `Reset to default`
+maže `drumDefinition` i `presetOverride` spolu — ale to je záplata nad
+příznakem, ne nad příčinou.
+
+**Kořen zmizí až smazáním modálu na `01`** (dokončení Tasku 19): jakmile jediná
+cesta k editaci kitu zůstane `02`u a jeho `replaceSlotDrumDefinition`, zastaralé
+`add`/`removeKeys` se přestanou vůbec zapisovat. **Povinný úklid pro brief
+následné fáze, která Task 19 provede:** při mazání modálu zkontrolovat, jestli
+existující uložené projekty nenesou z `01`u pozůstatkové `presetOverride.inputs
+.add`/`removeKeys` na bicím slotu vedle `drumDefinition` — a rozhodnout, jestli
+je při té příležitosti vyčistit (nejsou to `resetInputsScreen.ts`'s `reset`
+prošlé projekty, takže je „Reset to defaults" sám od sebe nesmaže).
 
 **Věcná otázka pro ten budoucí spec:** schéma projektu a katalog `+ Add input`
 používají pro tytéž kanály **různé klíče** — schéma/presety znají
