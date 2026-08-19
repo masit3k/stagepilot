@@ -247,7 +247,11 @@ function normalizeProjectNotes(
         .filter(
           (
             entry,
-          ): entry is { id: string; section: "inputs" | "monitors"; text: string } =>
+          ): entry is {
+            id: string;
+            section: "inputs" | "monitors";
+            text: string;
+          } =>
             Boolean(entry) &&
             typeof entry === "object" &&
             typeof (entry as { id?: unknown }).id === "string" &&
@@ -264,7 +268,9 @@ function normalizeProjectNotes(
     : [];
 
   const hasAnything =
-    disabled.length > 0 || Object.keys(overrides).length > 0 || custom.length > 0;
+    disabled.length > 0 ||
+    Object.keys(overrides).length > 0 ||
+    custom.length > 0;
   if (!hasAnything) return undefined;
 
   return {

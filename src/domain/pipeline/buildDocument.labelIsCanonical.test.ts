@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { DataRepository } from "../../infra/fs/repo.js";
 import { createDefaultDrumDefinition } from "../drums/drumDefinition.js";
-import type { Band, Musician, NotesTemplate, PresetEntity, Project } from "../model/types.js";
+import type {
+  Band,
+  Musician,
+  NotesTemplate,
+  PresetEntity,
+  Project,
+} from "../model/types.js";
 import { buildDocument } from "./buildDocument.js";
 
 /**
@@ -44,16 +50,33 @@ describe("buildDocument labelIsCanonical flag", () => {
       group: "bass",
       presets: [{ kind: "preset", ref: "el_bass_xlr_pedalboard" }],
     };
-    const notes: NotesTemplate = { id: "notes_default_cs", lang: "cs", inputs: [], monitors: [] };
+    const notes: NotesTemplate = {
+      id: "notes_default_cs",
+      lang: "cs",
+      inputs: [],
+      monitors: [],
+    };
     const presets: Record<string, PresetEntity> = {
       el_bass_xlr_pedalboard: {
         type: "preset",
         id: "el_bass_xlr_pedalboard",
         label: "Electric bass guitar",
         group: "bass",
-        inputs: [{ key: "el_bass_xlr_pedalboard", label: "Electric bass guitar", group: "bass" }],
+        inputs: [
+          {
+            key: "el_bass_xlr_pedalboard",
+            label: "Electric bass guitar",
+            group: "bass",
+          },
+        ],
       },
-      wedge_foh: { type: "monitor", id: "wedge_foh", label: "Wedge", kind: "wedge", supplier: "foh" },
+      wedge_foh: {
+        type: "monitor",
+        id: "wedge_foh",
+        label: "Wedge",
+        kind: "wedge",
+        supplier: "foh",
+      },
       talkback: {
         type: "talkback_type",
         id: "talkback",
@@ -118,7 +141,12 @@ describe("buildDocument labelIsCanonical flag", () => {
       group: "vocs",
       presets: [],
     };
-    const notes: NotesTemplate = { id: "notes_default_cs", lang: "cs", inputs: [], monitors: [] };
+    const notes: NotesTemplate = {
+      id: "notes_default_cs",
+      lang: "cs",
+      inputs: [],
+      monitors: [],
+    };
     const presets: Record<string, PresetEntity> = {
       keys_mono: {
         type: "preset",
@@ -127,7 +155,13 @@ describe("buildDocument labelIsCanonical flag", () => {
         group: "keys",
         inputs: [{ key: "keys_mono", label: "Keys", group: "keys" }],
       },
-      wedge_foh: { type: "monitor", id: "wedge_foh", label: "Wedge", kind: "wedge", supplier: "foh" },
+      wedge_foh: {
+        type: "monitor",
+        id: "wedge_foh",
+        label: "Wedge",
+        kind: "wedge",
+        supplier: "foh",
+      },
       talkback: {
         type: "talkback_type",
         id: "talkback",
@@ -187,7 +221,12 @@ describe("buildDocument labelIsCanonical flag", () => {
       group: "vocs",
       presets: [{ kind: "preset", ref: "vocal_lead_no_mic" }],
     };
-    const notes: NotesTemplate = { id: "notes_default_cs", lang: "cs", inputs: [], monitors: [] };
+    const notes: NotesTemplate = {
+      id: "notes_default_cs",
+      lang: "cs",
+      inputs: [],
+      monitors: [],
+    };
     const project: Project = {
       id: "p-lead-no-owner",
       bandRef: band.id,
@@ -201,7 +240,12 @@ describe("buildDocument labelIsCanonical flag", () => {
               replace: [
                 {
                   targetKey: "voc_lead",
-                  with: { key: "voc_lead", label: "Lead vocal", note: "Custom note", group: "vocs" },
+                  with: {
+                    key: "voc_lead",
+                    label: "Lead vocal",
+                    note: "Custom note",
+                    group: "vocs",
+                  },
                 },
               ],
             },
@@ -222,7 +266,14 @@ describe("buildDocument labelIsCanonical flag", () => {
             group: "vocs",
             inputs: [{ key: "voc_lead", label: "Lead vocal", group: "vocs" }],
           };
-        if (id === "wedge_foh") return { type: "monitor", id, label: "Wedge", kind: "wedge", supplier: "foh" };
+        if (id === "wedge_foh")
+          return {
+            type: "monitor",
+            id,
+            label: "Wedge",
+            kind: "wedge",
+            supplier: "foh",
+          };
         if (id === "talkback")
           return {
             type: "talkback_type",

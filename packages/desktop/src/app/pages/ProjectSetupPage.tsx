@@ -28,11 +28,11 @@ import {
   validateEffectivePresets,
 } from "../../../../../src/domain/rules/presetOverride";
 import { DrumsPartsEditor } from "../../components/setup/DrumsPartsEditor";
-import { SetupMonitoringEditor } from "../../components/setup/SetupMonitoringEditor";
 import {
   MusicianSelector,
   type SetupMusicianItem,
 } from "../../components/setup/MusicianSelector";
+import { SetupMonitoringEditor } from "../../components/setup/SetupMonitoringEditor";
 import { ModalOverlay, useModalBehavior } from "../../components/ui/Modal";
 import {
   ArrowDown,

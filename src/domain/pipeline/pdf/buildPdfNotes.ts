@@ -101,11 +101,7 @@ export function buildPdfNotes(args: {
   const { template, monitors, overrides } = args;
 
   return {
-    inputs: applySectionDeviations(
-      template.inputs ?? [],
-      "inputs",
-      overrides,
-    ),
+    inputs: applySectionDeviations(template.inputs ?? [], "inputs", overrides),
     monitors: applySectionDeviations(
       (template.monitors ?? []).filter((note) =>
         matchesCondition(note, monitors),
