@@ -208,12 +208,24 @@ export function revertNoteToTemplate(
  * původní vada. Voláním jen na `blur` zůstává psaní plynulé a návrat
  * (`revertNoteToTemplate`) nastane jen tehdy, když uživatel pole opustí
  * s prázdným/bílým textem.
+ *
+ * Beze změny, pokud pro tohle `id` ještě žádný přepis neexistuje (Important A,
+ * review): `onBlur` visí na KAŽDÉM šablonovém řádku, i needitovaném — pouhé
+ * kliknutí do pole nebo průchod Tabem bez jediné změny by jinak zavolalo
+ * `setTemplateNoteText` s neprázdným textem šablony a založilo přepis, který
+ * nikdo nechtěl. Řádek by dostal `edited: true`, projekt by zešpinatěl z
+ * pouhého fokusu, a po uložení by aktuální znění šablony zůstalo v
+ * `notes.overrides` zabetonované navždy — poznámková obdoba přesně té škody,
+ * které `isReorderNoop` brání u `inputOrder` (R8). Skutečná editace přepis
+ * založí hned při prvním `onChange`, takže v okamžiku `blur` už existuje —
+ * tahle podmínka nikdy nezablokuje opravdovou změnu.
  */
 export function commitTemplateNoteText(
   overrides: ProjectNotesOverride | undefined,
   id: string,
   text: string,
 ): ProjectNotesOverride | undefined {
+  if (overrides?.overrides?.[id] === undefined) return overrides;
   if (text.trim().length === 0) return revertNoteToTemplate(overrides, id);
   return setTemplateNoteText(overrides, id, text);
 }

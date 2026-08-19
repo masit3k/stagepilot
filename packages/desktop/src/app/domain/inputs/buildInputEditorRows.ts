@@ -1,4 +1,3 @@
-import { isDrumLabelCanonical } from "../../../../../../src/domain/formatters/inputLabels";
 import type { Group } from "../../../../../../src/domain/model/groups";
 import type {
   DocumentViewModel,
@@ -155,17 +154,17 @@ export function buildInputEditorRows(args: {
       slotKey: disabled.slotKey,
       state: "removed",
       // A removed row never passed through `buildDocument`'s recompute, so
-      // there is no stored flag to copy — fall back to the same pure
-      // predicate the document itself is built from, keyed by the row's own
-      // (pre-disambiguation) raw key. A vocs-capability row is a special
-      // case of that (fix round 1, Minor 6): re-enabling it doesn't print
-      // under `disabled.rawKey` at all — it feeds `vocalCapabilityByMusicianId`
-      // and comes back out as a `voc_lead_N`/`voc_back_N` overlay row, whose
-      // label is always recomputed once its owner resolves a slot.
-      labelIsCanonical:
-        disabled.group === "vocs"
-          ? true
-          : isDrumLabelCanonical(disabled.rawKey),
+      // there is no stored flag to copy for it. A vocs-capability row is the
+      // one case that still needs one (fix round 1, Minor 6): re-enabling it
+      // doesn't print under `disabled.rawKey` at all — it feeds
+      // `vocalCapabilityByMusicianId` and comes back out as a
+      // `voc_lead_N`/`voc_back_N` overlay row, whose label is always
+      // recomputed once its owner resolves a slot. Every other disabled row
+      // reports `false` (Minor C, re-review): a drums raw-key fallback used
+      // to live here, but `collectDisabledInputRows` skipping role `drums`
+      // entirely (Important 3) means no disabled row can carry a drum key
+      // anymore — the branch had gone dead the moment that fix landed.
+      labelIsCanonical: disabled.group === "vocs",
     });
   }
 

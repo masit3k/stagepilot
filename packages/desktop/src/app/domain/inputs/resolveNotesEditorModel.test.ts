@@ -367,8 +367,30 @@ describe("revertNoteToTemplate", () => {
 // override" result the domain applies on save, and the last test below
 // proves the two agree rather than assuming it.
 describe("commitTemplateNoteText", () => {
-  it("writes the override when the finished text is non-empty", () => {
-    expect(commitTemplateNoteText(undefined, "always", "Jiné znění.")).toEqual({
+  // --- Important A (re-review): `onBlur` fires on EVERY template row, not
+  // just an edited one — merely clicking into an untouched field and
+  // leaving it (no `onChange` ever fired) must not create an override. The
+  // guard below is what makes that true: without it, `commitTemplateNoteText`
+  // would happily write the template's own current text back as a "real"
+  // override, flagging the row `edited: true` and concreting today's
+  // template wording into `notes.overrides` forever — the notes equivalent
+  // of the `inputOrder` no-op-write damage `isReorderNoop` prevents (R8).
+  it("leaves the override untouched when the id was never edited (Important A, re-review)", () => {
+    expect(commitTemplateNoteText(undefined, "always", "Vždy")).toBeUndefined();
+  });
+
+  it("leaves other overrides untouched when the blurred id was never edited", () => {
+    const withOther = setTemplateNoteText(undefined, "plain", "B");
+
+    expect(commitTemplateNoteText(withOther, "always", "Vždy")).toEqual(
+      withOther,
+    );
+  });
+
+  it("writes the override when an existing edit's finished text is non-empty", () => {
+    const started = setTemplateNoteText(undefined, "always", "J");
+
+    expect(commitTemplateNoteText(started, "always", "Jiné znění.")).toEqual({
       overrides: { always: "Jiné znění." },
     });
   });

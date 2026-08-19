@@ -647,21 +647,17 @@ describe("buildInputEditorRows", () => {
     expect(rows.find((r) => r.key === "bass_di")?.labelIsCanonical).toBe(false);
   });
 
-  it("computes labelIsCanonical for a disabled row from its raw key, since disabled rows never went through the document's own recompute (task 12c)", () => {
+  // Minor C (re-review): this used to also assert `dr_kick_1_out` ->
+  // `true` via a drums raw-key fallback (task 12c). That fallback is gone —
+  // `collectDisabledInputRows` skipping role `drums` entirely (Important 3)
+  // means a disabled row can never carry a drum key anymore, so the only
+  // case left worth pinning is that a non-vocs disabled row is never
+  // canonical.
+  it("is never canonical for a disabled row outside the vocs-capability case", () => {
     const document = makeDocument([
-      row({ ch: 1, key: "dr_hihat", label: "Hi-hat", group: "drums", ownerRole: "drums", ownerMusicianId: "dr1" }),
+      row({ ch: 1, key: "bass_di", label: "Bass DI", ownerMusicianId: "m1" }),
     ]);
     const disabledRows: DisabledInputRow[] = [
-      {
-        rawKey: "dr_kick_1_out",
-        label: "Kick OUT",
-        note: "",
-        group: "drums",
-        ownerRole: "drums",
-        ownerMusicianId: "dr1",
-        slotKey: "drums:0",
-        neighborKey: null,
-      },
       {
         rawKey: "bass_mic",
         label: "Bass mic",
@@ -677,11 +673,12 @@ describe("buildInputEditorRows", () => {
     const rows = buildInputEditorRows({
       document,
       disabledRows,
-      slotKeysByOwner: ownerSlotKeys({ "drums:dr1": "drums:0", "bass:m1": "bass:0" }),
+      slotKeysByOwner: ownerSlotKeys({ "bass:m1": "bass:0" }),
     });
 
-    expect(rows.find((r) => r.rawKey === "dr_kick_1_out")?.labelIsCanonical).toBe(true);
-    expect(rows.find((r) => r.rawKey === "bass_mic")?.labelIsCanonical).toBe(false);
+    expect(rows.find((r) => r.rawKey === "bass_mic")?.labelIsCanonical).toBe(
+      false,
+    );
   });
 
   it("marks a disabled vocs-capability row canonical, since re-enabling it prints as a recomputed voc_lead_N/voc_back_N row (fix round 1, Minor 6)", () => {
