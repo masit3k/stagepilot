@@ -103,8 +103,9 @@ jsou v sekci „Stav implementace" specu:**
    `+ Add input` na `02` používají pro tytéž kanály různé klíče
    (`el_guitar_mic`/`el_guitar_xlr_mono`/`el_guitar_xlr_stereo`/`ac_guitar` vs. `gtr_mic`/`gtr_di`).
 
-**Mimo plán vznikly čtyři tasky** (12b, 12c, 13b, 19a) — 12b dokončilo přesun `DrumsPartsEditor`,
-12c zúžilo doménu po Critical nálezech, 13b postavilo bránu, kterou 12c vyžádalo, 19a zavřelo
+**Mimo plán vznikly čtyři tasky** (12b, 12c, 13b, 19a) — 12b přesunulo tlačítko `Save as musician
+default` do panelu (druhá polovina R5; přesun `DrumsPartsEditor` samotného je Task 16), 12c
+zúžilo doménu po Critical nálezech, 13b postavilo bránu, kterou 12c vyžádalo, 19a zavřelo
 monitoring bicích na `01` stejným vzorem jako Task 15 na `02`.
 
 **Protože Task 19 nikdy neproběhl, `ProjectSetupPage.tsx` nespadl o „zhruba třetinu"** — klesl

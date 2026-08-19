@@ -377,12 +377,28 @@ samotnou, patří to do knihovny ke kapele, ne na krok `02`.
 
 **Fáze je hotová v rozsahu, ne beze zbytku.** 44 commitů `71299b7`…`4c38ff5`
 (10056 vložených / 141 smazaných řádků v 75 souborech). R1–R15 platí beze změny.
-R16 (extrakce sdíleného stavu do hooku bez Reactu) je splněná — Task 9 vytáhl
-`setupDraftBySlot`, `resolveDraftOverride`, `getExistingSlotOverride` a
-`resolveSlotSetup`/`resolveEffectiveProjectSetup` do `app/domain/setup/` a
-`src/domain/setup/`. Plán ale pod stejnou nálepku „R16" schoval i **odstranění
-starého setup modálu** (Task 19, titulek briefu doslova „Odebrání setup modálu
-z `ProjectSetupPage` (R16)") — a tahle část **splněná není**, viz bod 3 níže.
+R16 (extrakce sdíleného stavu do hooku bez Reactu) je splněná **jen částečně**
+a jinak, než tahle sekce dřív tvrdila. Task 9 vytáhl výhradně dvě funkce —
+`resolveMusicianDefaultPreset` (přejmenováno na `defaultPresetFor`) a
+`resolveSlotSetup` (přejmenováno na `setupForSlot`) — do nového
+`app/domain/setup/resolveSetupForSlot.ts`, obalené tenkým hookem
+`useSetupOverrides.ts`. Ruling 1 Tasku 9 explicitně vyloučil zbytek:
+`setupDraftBySlot`, `resolveDraftOverride` a `getExistingSlotOverride`
+se **neextrahovaly** a dodnes žijí jako lokální stav a funkce uvnitř
+`ProjectSetupPage.tsx` (`useState` na řádku 444, `resolveDraftOverride` na
+řádku 1184, `getExistingSlotOverride` na řádku 1210) — je to stav modálu,
+který měl podle plánu smazat až Task 19, a refaktorovat kód, který se vzápětí
+smaže, by byla práce vniveč. (`resolveEffectiveProjectSetup.ts` v
+`src/domain/setup/` je mimochodem starší než tahle fáze a Task 9 se ho
+netýká; funkce, kterou `resolveSetupForSlot.ts` importuje, je
+`resolveEffectiveMusicianSetup`.)
+
+Plán navíc pod stejnou nálepku „R16" schoval i **odstranění starého setup
+modálu** (Task 19, titulek briefu doslova „Odebrání setup modálu z
+`ProjectSetupPage` (R16)") — a tahle část **splněná není**, viz bod 3 níže.
+Protože Task 19 nedoběhl, zbytek stavu popsaný výše (`setupDraftBySlot` a
+spol.) zůstává v modálu i nadále — až spec pro přesun sekce Inputs (bod 3)
+vznikne, bude muset počítat s tím, že tahle trojice ještě NENÍ extrahovaná.
 
 Tři rozhodnutí zůstala otevřená, všechna vědomě a všechna rozhodnutím člověka
 (2026-08-19), ne opomenutím. Fáze se jimi uzavírá — nejsou to nálezy pro finální
@@ -427,11 +443,12 @@ brief mu předepisoval z kódu vypsat, co modál umí, ke každé akci najít do
 na `02`, a když některá domov nemá, nemazat nic.
 
 Osm z devíti akcí modálu domov má (výběr muzikanta, reset patche, `Save as
-musician default`, validace lineupu, `MonitoringEditor`, `Edit kit`). Devátá
-(reset `drumDefinition` per muzikant) má na `02` jen hrubší ekvivalent
-(globální „Reset to defaults") — to samo bránu nezastavuje.
+musician default`, validace lineupu, `MonitoringEditor`, `Edit kit`). Jedna
+(řádek 3 tabulky v `task-19-report.md` — reset `drumDefinition` per muzikant)
+má na `02` jen hrubší ekvivalent (globální „Reset to defaults") — to samo
+bránu nezastavuje.
 
-**Skutečná zábrana je sekce Inputs**, kterou modál nese
+**Skutečná zábrana je devátý řádek téže tabulky — sekce Inputs**, kterou modál nese
 (`ProjectSetupPage.tsx:2144–2172` a `2262–2303`): dropdown typu zapojení pro
 basu/kytaru/klávesy a doplňkové toggly (mic on cabinet, bass synth, acoustic
 guitar, varianty kláves, typ mikrofonu lead vocs). Obrazovka `02` tuhle sekci
@@ -466,8 +483,9 @@ Task 19 provede.
 
 **12b, 12c, 13b a 19a** nejsou v plánu — vznikly za běhu fáze:
 
-- **12b** dokončilo přesun `DrumsPartsEditor` (R5) tak, aby Task 19 mohl modál
-  smazat bez ztráty funkce.
+- **12b** přesunulo tlačítko `Save as musician default` do panelu (druhá
+  polovina R5) — přesun samotného `DrumsPartsEditor` na `02` je Task 16, ne
+  12b.
 - **12c** zúžilo doménu (viz bod 1) po dvou Critical nálezech review — zápis
   z UI mířil tam, kam dokument nekouká.
 - **13b** postavilo bránu `resolveInputRowEditability`/
