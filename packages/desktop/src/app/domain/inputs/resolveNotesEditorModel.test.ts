@@ -1,8 +1,17 @@
 import { describe, expect, it } from "vitest";
-import type { NotesTemplate } from "../../../../../../src/domain/model/types";
+import type {
+  NotesTemplate,
+  ProjectNotesOverride,
+} from "../../../../../../src/domain/model/types";
 import {
+  addCustomNote,
   nextCustomNoteId,
+  removeCustomNote,
   resolveNotesEditorModel,
+  revertNoteToTemplate,
+  setCustomNoteText,
+  setNoteEnabled,
+  setTemplateNoteText,
 } from "./resolveNotesEditorModel";
 
 // Explicit `NotesTemplate` annotation gives the `when.monitors.*` literals a
@@ -162,6 +171,67 @@ describe("resolveNotesEditorModel", () => {
 
     expect(model.monitors[0].hiddenReason).toBe("Hidden: band brings no IEM");
   });
+
+  // Minor (review): the earlier "first failing flag" test only pins
+  // hasWedge before hasFohSuppliedIem — the two outer keys. Swapping the
+  // two MIDDLE keys in `HIDDEN_REASON` (hasBandSuppliedIem <-> would-be
+  // wedge/foh order) would still pass that test unchanged. This test
+  // requires hasBandSuppliedIem and hasFohSuppliedIem together — it only
+  // stays green if hasBandSuppliedIem is genuinely checked before
+  // hasFohSuppliedIem, so a swap of the middle two keys flips it.
+  it("checks hasBandSuppliedIem before hasFohSuppliedIem (Minor, review)", () => {
+    const bothIemTemplate: NotesTemplate = {
+      id: "t5",
+      lang: "cs",
+      inputs: [],
+      monitors: [
+        {
+          id: "both_iem",
+          text: "Vyžaduje obě IEM",
+          when: {
+            monitors: { hasBandSuppliedIem: true, hasFohSuppliedIem: true },
+          },
+        },
+      ],
+    };
+
+    const model = resolveNotesEditorModel({
+      template: bothIemTemplate,
+      monitors: NOTHING,
+      overrides: undefined,
+    });
+
+    expect(model.monitors[0].hiddenReason).toBe("Hidden: band brings no IEM");
+  });
+
+  // --- Important 1 (review): the brief's Krok 3 called `hiddenReasonFor`
+  // for both sections, but `buildPdfNotes.ts` only ever runs
+  // `matchesCondition` over `template.monitors` — `template.inputs` prints
+  // unfiltered regardless of `when`. Marking an inputs line "hidden" would
+  // tell the user it won't print when the document prints it anyway.
+  it("never marks an inputs-section line as hidden, even with a when clause (Important 1, review)", () => {
+    const conditionalInputTemplate: NotesTemplate = {
+      id: "t6",
+      lang: "cs",
+      inputs: [
+        {
+          id: "conditional_input",
+          text: "Podmíněný řádek v sekci inputs",
+          when: { monitors: { hasWedge: true } },
+        },
+      ],
+      monitors: [],
+    };
+
+    const model = resolveNotesEditorModel({
+      template: conditionalInputTemplate,
+      monitors: NOTHING,
+      overrides: undefined,
+    });
+
+    expect(model.inputs[0].hidden).toBe(false);
+    expect(model.inputs[0].hiddenReason).toBeNull();
+  });
 });
 
 describe("nextCustomNoteId", () => {
@@ -214,5 +284,132 @@ describe("nextCustomNoteId", () => {
 
     // Adding to "inputs" must still avoid "custom_1", taken in "monitors".
     expect(nextCustomNoteId(model)).toBe("custom_2");
+  });
+});
+
+// --- Important 3 (review): the five override-mutation helpers were made
+// testable pure functions specifically so they wouldn't have to be
+// exercised only through the UI — this suite pins that promise, including
+// `withOverrideFields`'s "empty collection collapses to `undefined`" rule,
+// which decides whether a saved project carries noise or a clean absence.
+describe("setNoteEnabled", () => {
+  it("disables a line that has no prior overrides", () => {
+    expect(setNoteEnabled(undefined, "always", false)).toEqual({
+      disabled: ["always"],
+    });
+  });
+
+  it("returns undefined once the last disabled line is enabled again (named case, review)", () => {
+    const withDisabled = setNoteEnabled(undefined, "always", false);
+    const reenabled = setNoteEnabled(withDisabled, "always", true);
+
+    expect(reenabled).toBeUndefined();
+  });
+
+  it("re-enabling one id leaves other disabled ids untouched", () => {
+    const bothDisabled = setNoteEnabled(
+      setNoteEnabled(undefined, "always", false),
+      "plain",
+      false,
+    );
+
+    expect(setNoteEnabled(bothDisabled, "always", true)).toEqual({
+      disabled: ["plain"],
+    });
+  });
+});
+
+describe("setTemplateNoteText", () => {
+  it("writes the override text for the given id", () => {
+    expect(setTemplateNoteText(undefined, "always", "Jiné.")).toEqual({
+      overrides: { always: "Jiné." },
+    });
+  });
+
+  it("keeps an existing override for another id", () => {
+    const withOne = setTemplateNoteText(undefined, "always", "A");
+    expect(setTemplateNoteText(withOne, "plain", "B")).toEqual({
+      overrides: { always: "A", plain: "B" },
+    });
+  });
+});
+
+describe("revertNoteToTemplate", () => {
+  it("returns undefined once the only overridden line is reverted (named case, review)", () => {
+    const withOverride = setTemplateNoteText(undefined, "always", "Jiné.");
+
+    expect(revertNoteToTemplate(withOverride, "always")).toBeUndefined();
+  });
+
+  it("reverts only the given id, keeping other overrides", () => {
+    const both = setTemplateNoteText(
+      setTemplateNoteText(undefined, "always", "A"),
+      "plain",
+      "B",
+    );
+
+    expect(revertNoteToTemplate(both, "always")).toEqual({
+      overrides: { plain: "B" },
+    });
+  });
+});
+
+describe("setCustomNoteText", () => {
+  it("updates only the matching custom entry's text", () => {
+    const overrides: ProjectNotesOverride = {
+      custom: [
+        { id: "custom_1", section: "inputs", text: "První." },
+        { id: "custom_2", section: "inputs", text: "Druhá." },
+      ],
+    };
+
+    expect(
+      setCustomNoteText(overrides, "custom_2", "Přepsaná.")?.custom,
+    ).toEqual([
+      { id: "custom_1", section: "inputs", text: "První." },
+      { id: "custom_2", section: "inputs", text: "Přepsaná." },
+    ]);
+  });
+});
+
+describe("addCustomNote", () => {
+  it("adds a new custom line with the next free id in the given section", () => {
+    const model = resolveNotesEditorModel({
+      template,
+      monitors: NOTHING,
+      overrides: undefined,
+    });
+
+    expect(addCustomNote(undefined, model, "inputs")).toEqual({
+      custom: [{ id: "custom_1", section: "inputs", text: "" }],
+    });
+  });
+});
+
+// --- Critical 1 (review): a custom line has no "disabled" path in
+// `buildPdfNotes.ts` — `applySectionDeviations` never filters
+// `overrides.custom` through `disabled`, so unchecking one would leave the
+// document unchanged. Deleting the entry is the only real removal, and the
+// only way to get rid of the empty line `addCustomNote` creates.
+describe("removeCustomNote", () => {
+  it("removes the entry from custom[], keeping the rest", () => {
+    const overrides: ProjectNotesOverride = {
+      custom: [
+        { id: "custom_1", section: "inputs", text: "První." },
+        { id: "custom_2", section: "inputs", text: "Druhá." },
+      ],
+    };
+
+    expect(removeCustomNote(overrides, "custom_1")).toEqual({
+      custom: [{ id: "custom_2", section: "inputs", text: "Druhá." }],
+    });
+  });
+
+  it("returns undefined once the last custom line is removed", () => {
+    const overrides: ProjectNotesOverride = {
+      custom: [{ id: "custom_1", section: "inputs", text: "Jediná." }],
+    };
+
+    expect(removeCustomNote(overrides, "custom_1")).toBeUndefined();
   });
 });

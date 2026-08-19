@@ -37,7 +37,10 @@ import {
   GROUP_MONITOR_ORDER,
   buildPdfMonitorRows,
 } from "./pdf/buildPdfMonitorRows.js";
-import { buildPdfNotes } from "./pdf/buildPdfNotes.js";
+import {
+  buildPdfNotes,
+  deriveMonitorNoteContext,
+} from "./pdf/buildPdfNotes.js";
 import { buildPdfStageplanModel } from "./pdf/buildPdfStageplan.js";
 import { buildPdfTalkbackInputs } from "./pdf/buildPdfTalkback.js";
 import {
@@ -775,15 +778,7 @@ export function buildDocument(
   const notes = buildPdfNotes({
     template: repo.getNotesTemplate(notesTemplateId),
     overrides: project.notes,
-    monitors: {
-      hasWedge: monitors.some((m) => m.kind === "wedge"),
-      hasBandSuppliedIem: monitors.some(
-        (m) => m.kind === "iem" && m.supplier === "band",
-      ),
-      hasFohSuppliedIem: monitors.some(
-        (m) => m.kind === "iem" && m.supplier === "foh",
-      ),
-    },
+    monitors: deriveMonitorNoteContext(monitors),
   });
 
   return {

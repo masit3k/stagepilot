@@ -9,7 +9,10 @@ import type {
   ProjectNotesOverride,
 } from "../../../../../src/domain/model/types";
 import { buildDocument } from "../../../../../src/domain/pipeline/buildDocument";
-import type { MonitorNoteContext } from "../../../../../src/domain/pipeline/pdf/buildPdfNotes";
+import {
+  type MonitorNoteContext,
+  deriveMonitorNoteContext,
+} from "../../../../../src/domain/pipeline/pdf/buildPdfNotes";
 import { summarizeEffectivePresetValidation } from "../../../../../src/domain/rules/presetOverride";
 import { DrumsPartsEditor } from "../../components/setup/DrumsPartsEditor";
 import { ModalOverlay, useModalBehavior } from "../../components/ui/Modal";
@@ -44,6 +47,7 @@ import { resolveInputRowEditability } from "../domain/inputs/resolveInputRowEdit
 import {
   type NotesEditorLine,
   addCustomNote,
+  removeCustomNote,
   resolveNotesEditorModel,
   revertNoteToTemplate,
   setCustomNoteText,
@@ -504,24 +508,19 @@ export function ProjectInputsPage({
   }, [documentResult, slotKeysByOwner]);
 
   /**
-   * Stejný výpočet jako `buildDocument.ts` dělá pro `buildPdfNotes` —
-   * `document.monitors` je přesně to pole, ze kterého `buildDocument` tuhle
-   * hodnotu odvozuje, takže editor a dokument nikdy nemůžou vidět jiný stav
-   * odposlechů. Zdroj pravdy pro poznámky (sekce NOTES, R11-R13), ne pro
-   * tabulku MONITORS výše — ta čte `document.monitorTableRows` přímo.
+   * `deriveMonitorNoteContext` je ta samá funkce, kterou volá
+   * `buildDocument.ts` (review, Important 2) — dřív tenhle blok opakoval
+   * její tělo natvrdo, past #3 („nic v UI nepřepočítává, co může přečíst
+   * z domény"). `document.monitors` je přesně to pole, ze kterého
+   * `buildDocument` odvození dělá, takže editor a dokument teď navíc sdílí
+   * i samotnou implementaci a nemůžou se tiše rozejít, až se jednou změní.
+   * Zdroj pravdy pro poznámky (sekce NOTES, R11-R13), ne pro tabulku
+   * MONITORS výše — ta čte `document.monitorTableRows` přímo.
    */
   const monitorNoteContext = useMemo<MonitorNoteContext>(() => {
     const monitors =
       documentResult.kind === "ready" ? documentResult.document.monitors : [];
-    return {
-      hasWedge: monitors.some((m) => m.kind === "wedge"),
-      hasBandSuppliedIem: monitors.some(
-        (m) => m.kind === "iem" && m.supplier === "band",
-      ),
-      hasFohSuppliedIem: monitors.some(
-        (m) => m.kind === "iem" && m.supplier === "foh",
-      ),
-    };
+    return deriveMonitorNoteContext(monitors);
   }, [documentResult]);
 
   /**
@@ -1006,6 +1005,26 @@ export function ProjectInputsPage({
   }, []);
 
   /**
+   * Smaže vlastní řádek poznámky (review, Critical 1) — na rozdíl od
+   * šablonového řádku (`toggleNoteEnabled`) se vlastní řádek nedá jen
+   * vypnout: `buildPdfNotes.ts` `disabled` na `overrides.custom` neaplikuje,
+   * takže by vypnutí v dokumentu zůstalo beze změny. Smazání je jediná
+   * cesta, jak se zbavit i prázdného řádku, který `addNote` založí.
+   */
+  const deleteCustomNote = useCallback((line: NotesEditorLine) => {
+    setState((current) => {
+      if (current.kind !== "ready") return current;
+      return {
+        ...current,
+        snapshot: {
+          ...current.snapshot,
+          notes: removeCustomNote(current.snapshot.notes, line.id),
+        },
+      };
+    });
+  }, []);
+
+  /**
    * Přidá vlastní řádek poznámky (R11) do dané sekce. Volné id se počítá
    * z čerstvého modelu nad `current.snapshot.notes`, ne z `notesModel`
    * v uzávěru renderu — jinak by dvě rychlé kliknutí za sebou mohly
@@ -1228,6 +1247,7 @@ export function ProjectInputsPage({
               onToggleEnabled={toggleNoteEnabled}
               onTextChange={changeNoteText}
               onRevertToTemplate={revertNoteText}
+              onRemoveCustom={deleteCustomNote}
               onAddNote={addNote}
             />
           </section>

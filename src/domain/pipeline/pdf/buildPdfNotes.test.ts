@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { NotesTemplate } from "../../model/types.js";
-import { buildPdfNotes } from "./buildPdfNotes.js";
+import type { DocumentViewModel, NotesTemplate } from "../../model/types.js";
+import { buildPdfNotes, deriveMonitorNoteContext } from "./buildPdfNotes.js";
 
 const template: NotesTemplate = {
   id: "t",
@@ -215,5 +215,66 @@ describe("buildPdfNotes project deviations", () => {
     expect(buildPdfNotes({ template, monitors: NOTHING })).toEqual(
       buildPdfNotes({ template, monitors: NOTHING, overrides: {} }),
     );
+  });
+});
+
+// Task 17, Important 2 (review): extracted so `buildDocument.ts` and the
+// `02 INPUTS` notes editor call the same derivation instead of each keeping
+// their own copy of this logic.
+describe("deriveMonitorNoteContext", () => {
+  const monitor = (
+    overrides: Partial<DocumentViewModel["monitors"][number]>,
+  ): DocumentViewModel["monitors"][number] => ({
+    id: "m1",
+    label: "Monitor",
+    kind: "wedge",
+    supplier: "band",
+    ...overrides,
+  });
+
+  it("reports every flag false for an empty monitor list", () => {
+    expect(deriveMonitorNoteContext([])).toEqual(NOTHING);
+  });
+
+  it("sets hasWedge when any monitor is a wedge", () => {
+    expect(deriveMonitorNoteContext([monitor({ kind: "wedge" })])).toEqual({
+      ...NOTHING,
+      hasWedge: true,
+    });
+  });
+
+  it("sets hasBandSuppliedIem only for a band-supplied iem", () => {
+    expect(
+      deriveMonitorNoteContext([monitor({ kind: "iem", supplier: "band" })]),
+    ).toEqual({ ...NOTHING, hasBandSuppliedIem: true });
+  });
+
+  it("sets hasFohSuppliedIem only for a foh-supplied iem", () => {
+    expect(
+      deriveMonitorNoteContext([monitor({ kind: "iem", supplier: "foh" })]),
+    ).toEqual({ ...NOTHING, hasFohSuppliedIem: true });
+  });
+
+  it("does not set hasBandSuppliedIem for a foh-supplied iem, or vice versa", () => {
+    expect(
+      deriveMonitorNoteContext([monitor({ kind: "iem", supplier: "foh" })]),
+    ).toEqual({
+      ...NOTHING,
+      hasFohSuppliedIem: true,
+      hasBandSuppliedIem: false,
+    });
+  });
+
+  it("combines flags across a mixed monitor lineup", () => {
+    expect(
+      deriveMonitorNoteContext([
+        monitor({ kind: "wedge" }),
+        monitor({ kind: "iem", supplier: "foh" }),
+      ]),
+    ).toEqual({
+      hasWedge: true,
+      hasBandSuppliedIem: false,
+      hasFohSuppliedIem: true,
+    });
   });
 });

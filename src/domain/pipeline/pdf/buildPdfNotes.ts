@@ -71,6 +71,28 @@ function applySectionDeviations(
   return [...kept, ...custom];
 }
 
+/**
+ * Odvodí `MonitorNoteContext` ze seznamu monitorů dokumentu (task 17,
+ * Important 2 review). Dřív tenhle výpočet žil natvrdo v `buildDocument.ts`
+ * a `ProjectInputsPage.tsx` (editor obrazovky `02`) ho doslova opakoval —
+ * past #3 („nic v UI nepřepočítává, co může přečíst z domény"). Obě strany
+ * teď volají tuhle jedinou funkci, takže se nemůžou tiše rozejít, až se
+ * odvození jednou změní.
+ */
+export function deriveMonitorNoteContext(
+  monitors: DocumentViewModel["monitors"],
+): MonitorNoteContext {
+  return {
+    hasWedge: monitors.some((m) => m.kind === "wedge"),
+    hasBandSuppliedIem: monitors.some(
+      (m) => m.kind === "iem" && m.supplier === "band",
+    ),
+    hasFohSuppliedIem: monitors.some(
+      (m) => m.kind === "iem" && m.supplier === "foh",
+    ),
+  };
+}
+
 export function buildPdfNotes(args: {
   template: NotesTemplate;
   monitors: MonitorNoteContext;

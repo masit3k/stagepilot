@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { NotesEditorLine } from "../../domain/inputs/resolveNotesEditorModel";
 import { NotesEditor } from "./NotesEditor";
 
@@ -16,7 +16,10 @@ function makeLine(overrides: Partial<NotesEditorLine>): NotesEditorLine {
   };
 }
 
-const noop = vi.fn();
+// No assertions are ever made on these calls (renderToStaticMarkup never
+// fires event handlers) — a plain no-op says that honestly, unlike
+// `vi.fn()`, which implies a call gets checked somewhere.
+const noop = () => {};
 
 describe("NotesEditor", () => {
   it("renders both subsections with an Add note button each", () => {
@@ -26,6 +29,7 @@ describe("NotesEditor", () => {
         onToggleEnabled={noop}
         onTextChange={noop}
         onRevertToTemplate={noop}
+        onRemoveCustom={noop}
         onAddNote={noop}
       />,
     );
@@ -52,6 +56,7 @@ describe("NotesEditor", () => {
         onToggleEnabled={noop}
         onTextChange={noop}
         onRevertToTemplate={noop}
+        onRemoveCustom={noop}
         onAddNote={noop}
       />,
     );
@@ -70,16 +75,19 @@ describe("NotesEditor", () => {
         onToggleEnabled={noop}
         onTextChange={noop}
         onRevertToTemplate={noop}
+        onRemoveCustom={noop}
         onAddNote={noop}
       />,
     );
 
-    expect(html).toContain("edited");
-    expect(html).toContain("Revert to template");
+    // Precise markup, not a loose substring match — "edited" alone would
+    // also match if it showed up anywhere else in the row by coincidence.
+    expect(html).toContain('<span class="notesEditorRow__badge">edited</span>');
+    expect(html).toContain(">Revert to template<");
     expect(html).toContain("Jiné znění.");
   });
 
-  it("does not show an edited badge or revert button for a custom line", () => {
+  it("shows a Remove button instead of a checkbox for a custom line, and never a Revert button (Critical 1, review)", () => {
     const html = renderToStaticMarkup(
       <NotesEditor
         model={{
@@ -91,20 +99,40 @@ describe("NotesEditor", () => {
         onToggleEnabled={noop}
         onTextChange={noop}
         onRevertToTemplate={noop}
+        onRemoveCustom={noop}
         onAddNote={noop}
       />,
     );
 
+    expect(html).not.toContain('type="checkbox"');
+    expect(html).toContain(">Remove<");
     expect(html).not.toContain("Revert to template");
   });
 
-  it("renders a disabled line's checkbox unchecked", () => {
+  it("renders an enabled template line's checkbox checked", () => {
+    const html = renderToStaticMarkup(
+      <NotesEditor
+        model={{ inputs: [makeLine({ enabled: true })], monitors: [] }}
+        onToggleEnabled={noop}
+        onTextChange={noop}
+        onRevertToTemplate={noop}
+        onRemoveCustom={noop}
+        onAddNote={noop}
+      />,
+    );
+
+    expect(html).toContain('type="checkbox"');
+    expect(html).toContain('checked=""');
+  });
+
+  it("renders a disabled template line's checkbox unchecked", () => {
     const html = renderToStaticMarkup(
       <NotesEditor
         model={{ inputs: [makeLine({ enabled: false })], monitors: [] }}
         onToggleEnabled={noop}
         onTextChange={noop}
         onRevertToTemplate={noop}
+        onRemoveCustom={noop}
         onAddNote={noop}
       />,
     );

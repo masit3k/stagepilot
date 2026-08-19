@@ -29,11 +29,13 @@ export type NotesEditorModel = {
  * skrytý", zatímco `buildPdfNotes` by řádek zahodil — přesně ta divergence
  * editor↔dokument, kvůli které se tenhle task měřil.
  *
- * Pořadí klíčů odpovídá pořadí, v jakém `matchesCondition` testuje příznaky
- * (`hasWedge`, pak `hasBandSuppliedIem`, pak `hasFohSuppliedIem`) — nečíselné
- * string klíče drží v JS pořadí deklarace, takže `Object.keys` níž vrátí
- * totéž pořadí a `hiddenReasonFor` ohlásí tu podmínku, na které by řádek
- * doopravdy padl jako první.
+ * Pozor, `Record` vynucuje jen PŘÍTOMNOST hlášky pro každý flag, ne jejich
+ * POŘADÍ (review, Minor). Pořadí klíčů níž je ruční opis pořadí, v jakém
+ * `matchesCondition` testuje příznaky (`hasWedge`, pak `hasBandSuppliedIem`,
+ * pak `hasFohSuppliedIem`) — nečíselné string klíče drží v JS pořadí
+ * deklarace, takže `Object.keys` níž vrátí přesně tohle pořadí, ale nic
+ * `tsc` ani runtime nehlídá, že se rozejde s `matchesCondition`, kdyby ho
+ * někdo tam přeskládal. Drž ho synchronně ručně; testy níž pořadí pinují.
  */
 const HIDDEN_REASON: Record<keyof MonitorNoteContext, string> = {
   hasWedge: "Hidden: band uses no wedges",
@@ -68,7 +70,14 @@ function resolveSection(
   const texts = overrides?.overrides ?? {};
 
   const fromTemplate = lines.map((note) => {
-    const reason = hiddenReasonFor(note, monitors);
+    // Important 1 (review): brief's Krok 3 volalo `hiddenReasonFor` pro obě
+    // sekce, ale `buildPdfNotes.ts` aplikuje `matchesCondition` jen na
+    // `template.monitors` — `template.inputs` jde do dokumentu bez filtru,
+    // ať `when` nese cokoli. Kdyby editor hlásil "hidden" i v sekci inputs,
+    // řekl by uživateli, že se řádek nevytiskne, zatímco PDF by ho stejně
+    // vytisklo. Ruling: hidden se počítá jen pro monitors.
+    const reason =
+      section === "monitors" ? hiddenReasonFor(note, monitors) : null;
     const override = texts[note.id];
 
     return {
@@ -204,6 +213,23 @@ export function addCustomNote(
 ): ProjectNotesOverride | undefined {
   const id = nextCustomNoteId(model);
   const custom = [...(overrides?.custom ?? []), { id, section, text: "" }];
+  return withOverrideFields(overrides, { custom });
+}
+
+/**
+ * Odstraní vlastní řádek z `custom[]` (review, Critical 1). Vlastní řádek
+ * na rozdíl od šablonového nemá „vypnutí" — `buildPdfNotes.ts`'s
+ * `applySectionDeviations` filtruje přes `disabled` jen šablonové `lines`
+ * a `overrides.custom` připojuje bez filtru (`buildPdfNotes.ts:59-71`), takže
+ * odškrtnutí vlastního řádku by v dokumentu zůstalo beze změny. Smazání je
+ * navíc jediná cesta, jak se zbavit prázdného řádku, který `addCustomNote`
+ * založí — na obrazovce žádné „vypnuto" nejde poznat od „ještě nenapsáno".
+ */
+export function removeCustomNote(
+  overrides: ProjectNotesOverride | undefined,
+  id: string,
+): ProjectNotesOverride | undefined {
+  const custom = (overrides?.custom ?? []).filter((entry) => entry.id !== id);
   return withOverrideFields(overrides, { custom });
 }
 

@@ -14,15 +14,23 @@ type NotesSection = "inputs" | "monitors";
  * `02`.
  *
  * Adresuje se přes `line.id` (šablonové id, nebo `custom_<n>`), ne přes
- * pozici v poli — `onToggleEnabled`/`onTextChange`/`onRevertToTemplate`
- * dostávají celou `line`, aby volající poznal `line.source` bez druhého
- * hledání.
+ * pozici v poli — `onToggleEnabled`/`onTextChange`/`onRevertToTemplate`/
+ * `onRemoveCustom` dostávají celou `line`, aby volající poznal `line.source`
+ * bez druhého hledání.
+ *
+ * Šablonový řádek se dá jen vypnout a vrátit (`onToggleEnabled`) — vrací se
+ * totiž sám, jakmile se v šabloně objeví. Vlastní řádek se dá jen smazat
+ * (`onRemoveCustom`), ne vypnout (review, Critical 1): `buildPdfNotes.ts`
+ * `disabled` na `overrides.custom` vůbec neaplikuje, takže by odškrtnutí
+ * v dokumentu tiše nic nezměnilo, a smazaný prázdný řádek jinak nejde
+ * z obrazovky odstranit.
  */
 export function NotesEditor({
   model,
   onToggleEnabled,
   onTextChange,
   onRevertToTemplate,
+  onRemoveCustom,
   onAddNote,
 }: {
   model: {
@@ -32,6 +40,7 @@ export function NotesEditor({
   onToggleEnabled: (line: NotesEditorLine, enabled: boolean) => void;
   onTextChange: (line: NotesEditorLine, text: string) => void;
   onRevertToTemplate: (line: NotesEditorLine) => void;
+  onRemoveCustom: (line: NotesEditorLine) => void;
   onAddNote: (section: NotesSection) => void;
 }) {
   return (
@@ -43,6 +52,7 @@ export function NotesEditor({
         onToggleEnabled={onToggleEnabled}
         onTextChange={onTextChange}
         onRevertToTemplate={onRevertToTemplate}
+        onRemoveCustom={onRemoveCustom}
         onAddNote={onAddNote}
       />
       <NotesEditorSection
@@ -52,6 +62,7 @@ export function NotesEditor({
         onToggleEnabled={onToggleEnabled}
         onTextChange={onTextChange}
         onRevertToTemplate={onRevertToTemplate}
+        onRemoveCustom={onRemoveCustom}
         onAddNote={onAddNote}
       />
     </div>
@@ -65,6 +76,7 @@ function NotesEditorSection({
   onToggleEnabled,
   onTextChange,
   onRevertToTemplate,
+  onRemoveCustom,
   onAddNote,
 }: {
   title: string;
@@ -73,6 +85,7 @@ function NotesEditorSection({
   onToggleEnabled: (line: NotesEditorLine, enabled: boolean) => void;
   onTextChange: (line: NotesEditorLine, text: string) => void;
   onRevertToTemplate: (line: NotesEditorLine) => void;
+  onRemoveCustom: (line: NotesEditorLine) => void;
   onAddNote: (section: NotesSection) => void;
 }) {
   return (
@@ -86,6 +99,7 @@ function NotesEditorSection({
             onToggleEnabled={onToggleEnabled}
             onTextChange={onTextChange}
             onRevertToTemplate={onRevertToTemplate}
+            onRemoveCustom={onRemoveCustom}
           />
         ))}
       </div>
@@ -105,30 +119,44 @@ function NotesEditorRow({
   onToggleEnabled,
   onTextChange,
   onRevertToTemplate,
+  onRemoveCustom,
 }: {
   line: NotesEditorLine;
   onToggleEnabled: (line: NotesEditorLine, enabled: boolean) => void;
   onTextChange: (line: NotesEditorLine, text: string) => void;
   onRevertToTemplate: (line: NotesEditorLine) => void;
+  onRemoveCustom: (line: NotesEditorLine) => void;
 }) {
+  const isTemplate = line.source === "template";
+
   return (
     <div
       className={`notesEditorRow ${line.hidden ? "notesEditorRow--hidden" : ""}`}
     >
       <div className="notesEditorRow__main">
-        <input
-          type="checkbox"
-          className="setup-checkbox"
-          checked={line.enabled}
-          onChange={(event) => onToggleEnabled(line, event.target.checked)}
-        />
+        {isTemplate ? (
+          <input
+            type="checkbox"
+            className="setup-checkbox"
+            checked={line.enabled}
+            onChange={(event) => onToggleEnabled(line, event.target.checked)}
+          />
+        ) : (
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={() => onRemoveCustom(line)}
+          >
+            Remove
+          </button>
+        )}
         <input
           type="text"
           className="notesEditorRow__text"
           value={line.text}
           onChange={(event) => onTextChange(line, event.target.value)}
         />
-        {line.source === "template" && line.edited ? (
+        {isTemplate && line.edited ? (
           <>
             <span className="notesEditorRow__badge">edited</span>
             <button
