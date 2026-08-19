@@ -24,11 +24,19 @@ type NotesSection = "inputs" | "monitors";
  * `disabled` na `overrides.custom` vůbec neaplikuje, takže by odškrtnutí
  * v dokumentu tiše nic nezměnilo, a smazaný prázdný řádek jinak nejde
  * z obrazovky odstranit.
+ *
+ * `onTextBlur` (Critical 1, review) dopadá jen na šablonový řádek, jen při
+ * opuštění pole — smazání textu na prázdno/bílé znaky se tam převede zpátky
+ * na šablonu (`commitTemplateNoteText`), aby editor po dokončení editace
+ * nikdy neukazoval stav, který `normalizeProjectNotes` na uložení tiše
+ * zahodí. Vlastní řádek nemá čemu se „vracet", takže na custom vstup se
+ * nevěší vůbec.
  */
 export function NotesEditor({
   model,
   onToggleEnabled,
   onTextChange,
+  onTextBlur,
   onRevertToTemplate,
   onRemoveCustom,
   onAddNote,
@@ -39,6 +47,7 @@ export function NotesEditor({
   };
   onToggleEnabled: (line: NotesEditorLine, enabled: boolean) => void;
   onTextChange: (line: NotesEditorLine, text: string) => void;
+  onTextBlur: (line: NotesEditorLine) => void;
   onRevertToTemplate: (line: NotesEditorLine) => void;
   onRemoveCustom: (line: NotesEditorLine) => void;
   onAddNote: (section: NotesSection) => void;
@@ -51,6 +60,7 @@ export function NotesEditor({
         lines={model.inputs}
         onToggleEnabled={onToggleEnabled}
         onTextChange={onTextChange}
+        onTextBlur={onTextBlur}
         onRevertToTemplate={onRevertToTemplate}
         onRemoveCustom={onRemoveCustom}
         onAddNote={onAddNote}
@@ -61,6 +71,7 @@ export function NotesEditor({
         lines={model.monitors}
         onToggleEnabled={onToggleEnabled}
         onTextChange={onTextChange}
+        onTextBlur={onTextBlur}
         onRevertToTemplate={onRevertToTemplate}
         onRemoveCustom={onRemoveCustom}
         onAddNote={onAddNote}
@@ -75,6 +86,7 @@ function NotesEditorSection({
   lines,
   onToggleEnabled,
   onTextChange,
+  onTextBlur,
   onRevertToTemplate,
   onRemoveCustom,
   onAddNote,
@@ -84,6 +96,7 @@ function NotesEditorSection({
   lines: readonly NotesEditorLine[];
   onToggleEnabled: (line: NotesEditorLine, enabled: boolean) => void;
   onTextChange: (line: NotesEditorLine, text: string) => void;
+  onTextBlur: (line: NotesEditorLine) => void;
   onRevertToTemplate: (line: NotesEditorLine) => void;
   onRemoveCustom: (line: NotesEditorLine) => void;
   onAddNote: (section: NotesSection) => void;
@@ -98,6 +111,7 @@ function NotesEditorSection({
             line={line}
             onToggleEnabled={onToggleEnabled}
             onTextChange={onTextChange}
+            onTextBlur={onTextBlur}
             onRevertToTemplate={onRevertToTemplate}
             onRemoveCustom={onRemoveCustom}
           />
@@ -118,12 +132,14 @@ function NotesEditorRow({
   line,
   onToggleEnabled,
   onTextChange,
+  onTextBlur,
   onRevertToTemplate,
   onRemoveCustom,
 }: {
   line: NotesEditorLine;
   onToggleEnabled: (line: NotesEditorLine, enabled: boolean) => void;
   onTextChange: (line: NotesEditorLine, text: string) => void;
+  onTextBlur: (line: NotesEditorLine) => void;
   onRevertToTemplate: (line: NotesEditorLine) => void;
   onRemoveCustom: (line: NotesEditorLine) => void;
 }) {
@@ -155,6 +171,7 @@ function NotesEditorRow({
           className="notesEditorRow__text"
           value={line.text}
           onChange={(event) => onTextChange(line, event.target.value)}
+          onBlur={isTemplate ? () => onTextBlur(line) : undefined}
         />
         {isTemplate && line.edited ? (
           <>

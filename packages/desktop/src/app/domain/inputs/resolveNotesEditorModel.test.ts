@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { normalizeProject } from "../../../../../../src/app/usecases/normalizeProject";
 import type {
   NotesTemplate,
+  ProjectJson,
   ProjectNotesOverride,
 } from "../../../../../../src/domain/model/types";
 import {
   addCustomNote,
+  commitTemplateNoteText,
   nextCustomNoteId,
   removeCustomNote,
   resolveNotesEditorModel,
@@ -351,6 +354,78 @@ describe("revertNoteToTemplate", () => {
     expect(revertNoteToTemplate(both, "always")).toEqual({
       overrides: { plain: "B" },
     });
+  });
+});
+
+// --- Critical 1 (final fix wave): `normalizeProjectNotes`
+// (`src/app/usecases/normalizeProject.ts`) drops an `overrides[id]` entry
+// once its text trims to nothing — a user who selects a template note's
+// text and deletes it gets an editor showing `text: "", edited: true` while
+// the saved/rebuilt document keeps printing the template sentence. This is
+// the sixth time this shape of bug closed the phase (12c, 13b, 15, 17, 16),
+// so `commitTemplateNoteText` composes the SAME "empty text means no
+// override" result the domain applies on save, and the last test below
+// proves the two agree rather than assuming it.
+describe("commitTemplateNoteText", () => {
+  it("writes the override when the finished text is non-empty", () => {
+    expect(commitTemplateNoteText(undefined, "always", "Jiné znění.")).toEqual({
+      overrides: { always: "Jiné znění." },
+    });
+  });
+
+  it("reverts to the template instead of writing a blank override", () => {
+    const withOverride = setTemplateNoteText(undefined, "always", "Něco.");
+
+    expect(commitTemplateNoteText(withOverride, "always", "")).toBeUndefined();
+  });
+
+  it("reverts on whitespace-only text too", () => {
+    const withOverride = setTemplateNoteText(undefined, "always", "Něco.");
+
+    expect(
+      commitTemplateNoteText(withOverride, "always", "   "),
+    ).toBeUndefined();
+  });
+
+  it("leaves other overrides untouched when reverting one id", () => {
+    const both = setTemplateNoteText(
+      setTemplateNoteText(undefined, "always", "A"),
+      "plain",
+      "B",
+    );
+
+    expect(commitTemplateNoteText(both, "always", "")).toEqual({
+      overrides: { plain: "B" },
+    });
+  });
+
+  it("matches what normalizeProject leaves behind on save, so the editor never shows text the document won't print (Critical 1)", () => {
+    const emptiedOverride = setTemplateNoteText(undefined, "always", "Něco.");
+    const committed = commitTemplateNoteText(emptiedOverride, "always", "");
+
+    // The editor, rendered over the post-commit state, must show the
+    // template line as untouched...
+    const model = resolveNotesEditorModel({
+      template,
+      monitors: NOTHING,
+      overrides: committed,
+    });
+    expect(model.inputs[0]).toMatchObject({
+      text: "Vždy",
+      edited: false,
+    });
+
+    // ...and that has to be exactly what a saved project normalizes to when
+    // the very same emptied override reaches disk — not merely a similar
+    // shape, the same `undefined`.
+    const projectJson: ProjectJson = {
+      id: "p1",
+      bandRef: "b1",
+      purpose: "generic",
+      documentDate: "2026-01-01",
+      notes: { overrides: { always: "" } },
+    };
+    expect(normalizeProject(projectJson).notes).toEqual(committed);
   });
 });
 

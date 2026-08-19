@@ -193,6 +193,31 @@ export function revertNoteToTemplate(
   return withOverrideFields(overrides, { overrides: texts });
 }
 
+/**
+ * Text šablonového řádku po DOKONČENÍ editace — voláno z `onBlur`, ne z
+ * každého úhozu (Critical 1, review). `normalizeProjectNotes`
+ * (`src/app/usecases/normalizeProject.ts`) zahazuje přepis, jehož text je
+ * prázdný nebo jen bílé znaky, takže uložený projekt takový přepis nikdy
+ * neponese a dokument vytiskne text šablony. Bez týhle funkce ale `snapshot`
+ * (a tedy i editor) prázdný přepis dál nesl — `edited: true` a prázdné pole
+ * navždy, dokud se stránka nenačetla znovu.
+ *
+ * Volat tohle při KAŽDÉM `onChange` by byla past popsaná v briefu: uživatel,
+ * který označí celý řádek a maže ho, aby napsal novou větu, by po prvním
+ * smazání znaku uviděl okamžitý skok zpátky na šablonový text — hůř než
+ * původní vada. Voláním jen na `blur` zůstává psaní plynulé a návrat
+ * (`revertNoteToTemplate`) nastane jen tehdy, když uživatel pole opustí
+ * s prázdným/bílým textem.
+ */
+export function commitTemplateNoteText(
+  overrides: ProjectNotesOverride | undefined,
+  id: string,
+  text: string,
+): ProjectNotesOverride | undefined {
+  if (text.trim().length === 0) return revertNoteToTemplate(overrides, id);
+  return setTemplateNoteText(overrides, id, text);
+}
+
 /** Přepíše text vlastního řádku projektu. */
 export function setCustomNoteText(
   overrides: ProjectNotesOverride | undefined,
