@@ -122,6 +122,7 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         onSaveAsMusicianDefault={noop}
         onRemoveChannel={noop}
         onRestoreChannel={noop}
+        onEditKit={noop}
       />,
     );
 
@@ -142,6 +143,7 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         onSaveAsMusicianDefault={noop}
         onRemoveChannel={noop}
         onRestoreChannel={noop}
+        onEditKit={noop}
       />,
     );
 
@@ -169,6 +171,7 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         onSaveAsMusicianDefault={noop}
         onRemoveChannel={noop}
         onRestoreChannel={noop}
+        onEditKit={noop}
       />,
     );
 
@@ -196,6 +199,7 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         onSaveAsMusicianDefault={noop}
         onRemoveChannel={noop}
         onRestoreChannel={noop}
+        onEditKit={noop}
       />,
     );
 
@@ -220,6 +224,7 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         onSaveAsMusicianDefault={noop}
         onRemoveChannel={noop}
         onRestoreChannel={noop}
+        onEditKit={noop}
       />,
     );
 
@@ -251,12 +256,59 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         onSaveAsMusicianDefault={noop}
         onRemoveChannel={noop}
         onRestoreChannel={noop}
+        onEditKit={noop}
       />,
     );
 
     expect(html).not.toContain("CHANNELS");
     expect(html).not.toContain("DEVIATIONS");
     expect(html).not.toContain("Save as musician default");
+  });
+
+  // Task 16: `Edit kit` writes `lineup.drums[i].drumDefinition`, which the
+  // document does read (unlike Remove/Restore, task 13b) — so it stays
+  // enabled even on a drums row, and its hint replaces the old two-message
+  // pairing ("Edit kit [Coming soon]" + a separate Remove/Restore notice)
+  // with a single sentence.
+  it("offers an enabled Edit kit action for a drums row, with one unified hint instead of Remove/Restore", () => {
+    const drumsRow: InputEditorRow = {
+      ...editableRow,
+      key: "kick_in",
+      rawKey: "kick_in",
+      label: "Kick in",
+      group: "drums",
+      ownerRole: "drums",
+      ownerMusicianId: "m2",
+      slotKey: "drums:0",
+    };
+    const html = renderToStaticMarkup(
+      <InputRowInspector
+        row={drumsRow}
+        ownerName="Filip Arnold"
+        channelCount={4}
+        deviationCount={0}
+        canSaveAsMusicianDefault={false}
+        onLabelChange={noop}
+        onNoteChange={noop}
+        onResetToDefault={noop}
+        onSaveAsMusicianDefault={noop}
+        onRemoveChannel={noop}
+        onRestoreChannel={noop}
+        onEditKit={noop}
+      />,
+    );
+
+    const editKitButtonHtml = html
+      .split("<button")
+      .find((chunk) => chunk.includes("Edit kit"));
+    expect(editKitButtonHtml).toBeDefined();
+    expect(editKitButtonHtml).not.toContain("disabled");
+    expect(editKitButtonHtml).not.toContain("Coming soon");
+
+    expect(html).not.toContain("Remove channel");
+    expect(html).not.toContain("Restore channel");
+    expect(html).toContain("Drum kit channels change through Edit kit");
+    expect(html).not.toContain("isn't picked up by the printed document yet");
   });
 });
 

@@ -44,6 +44,7 @@ describe("InputRowInspector", () => {
         onSaveAsMusicianDefault={noop}
         onRemoveChannel={noop}
         onRestoreChannel={noop}
+        onEditKit={noop}
       />,
     );
 
@@ -67,6 +68,7 @@ describe("InputRowInspector", () => {
         onSaveAsMusicianDefault={noop}
         onRemoveChannel={noop}
         onRestoreChannel={noop}
+        onEditKit={noop}
       />,
     );
 
@@ -96,6 +98,7 @@ describe("InputRowInspector", () => {
         onSaveAsMusicianDefault={noop}
         onRemoveChannel={noop}
         onRestoreChannel={noop}
+        onEditKit={noop}
       />,
     );
 
@@ -116,6 +119,7 @@ describe("InputRowInspector", () => {
         onSaveAsMusicianDefault={noop}
         onRemoveChannel={noop}
         onRestoreChannel={noop}
+        onEditKit={noop}
       />,
     );
 
@@ -137,6 +141,7 @@ describe("InputRowInspector", () => {
         onSaveAsMusicianDefault={noop}
         onRemoveChannel={noop}
         onRestoreChannel={noop}
+        onEditKit={noop}
       />,
     );
 
@@ -150,7 +155,12 @@ describe("InputRowInspector", () => {
   // gate, clicking `Remove channel` strikes the row through while the
   // document keeps printing it unchanged — an active false confirmation of
   // success, not just silence.
-  it("hides Remove channel for a drums-owned row and explains why, instead of offering a silently-dropped action", () => {
+  //
+  // Task 16 gives the row a real action instead: `Edit kit` writes
+  // `lineup.drums[i].drumDefinition`, which the document does read, so it
+  // stays enabled and its hint replaces the old "Edit kit [Coming soon]" +
+  // separate Remove/Restore notice with one sentence.
+  it("hides Remove channel for a drums-owned row, offering an enabled Edit kit and one unified hint instead", () => {
     const html = renderToStaticMarkup(
       <InputRowInspector
         row={makeRow({
@@ -171,15 +181,21 @@ describe("InputRowInspector", () => {
         onSaveAsMusicianDefault={noop}
         onRemoveChannel={noop}
         onRestoreChannel={noop}
+        onEditKit={noop}
       />,
     );
 
     expect(html).not.toContain("Remove channel");
-    expect(html).toMatch(/not editable here/i);
-    expect(html).toMatch(/drum channel/i);
+    const editKitButtonHtml = html
+      .split("<button")
+      .find((chunk) => chunk.includes("Edit kit"));
+    expect(editKitButtonHtml).toBeDefined();
+    expect(editKitButtonHtml).not.toContain("disabled");
+    expect(html).toMatch(/not remove or restore/i);
+    expect(html).not.toMatch(/not editable here/i);
   });
 
-  it("hides Restore channel for a removed drums-owned row and explains why", () => {
+  it("hides Restore channel for a removed drums-owned row, with the same unified hint", () => {
     const html = renderToStaticMarkup(
       <InputRowInspector
         row={makeRow({
@@ -201,11 +217,13 @@ describe("InputRowInspector", () => {
         onSaveAsMusicianDefault={noop}
         onRemoveChannel={noop}
         onRestoreChannel={noop}
+        onEditKit={noop}
       />,
     );
 
     expect(html).not.toContain("Restore channel");
-    expect(html).toMatch(/not editable here/i);
+    expect(html).toMatch(/not remove or restore/i);
+    expect(html).not.toMatch(/not editable here/i);
   });
 
   // Ruling (task 13b): the criterion is `row.group`, not `row.ownerRole` — a
@@ -234,6 +252,7 @@ describe("InputRowInspector", () => {
         onSaveAsMusicianDefault={noop}
         onRemoveChannel={noop}
         onRestoreChannel={noop}
+        onEditKit={noop}
       />,
     );
 
@@ -263,6 +282,7 @@ describe("InputRowInspector", () => {
         onSaveAsMusicianDefault={noop}
         onRemoveChannel={noop}
         onRestoreChannel={noop}
+        onEditKit={noop}
       />,
     );
 
@@ -284,6 +304,7 @@ describe("InputRowInspector", () => {
         onSaveAsMusicianDefault={noop}
         onRemoveChannel={noop}
         onRestoreChannel={noop}
+        onEditKit={noop}
       />,
     );
 

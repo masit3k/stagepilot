@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { normalizeProject } from "../../../../../src/app/usecases/normalizeProject";
+import type { DrumDefinition } from "../../../../../src/domain/drums/drumDefinition";
 import type {
   DocumentViewModel,
   InputChannel,
@@ -9,6 +10,7 @@ import type {
 } from "../../../../../src/domain/model/types";
 import { buildDocument } from "../../../../../src/domain/pipeline/buildDocument";
 import { summarizeEffectivePresetValidation } from "../../../../../src/domain/rules/presetOverride";
+import { DrumsPartsEditor } from "../../components/setup/DrumsPartsEditor";
 import { ModalOverlay, useModalBehavior } from "../../components/ui/Modal";
 import { useToast } from "../../components/ui/toast/useToast";
 import { getRoleSlotLimit, normalizeLineupSlots } from "../../projectRules";
@@ -56,6 +58,7 @@ import {
 import { nextStepPath, previousStepPath } from "../shell/chrome/processSteps";
 import { CANONICAL_LINEUP_ROLE_ORDER } from "../shell/lineupSerialize";
 import type { BandSetupData, NewProjectPayload } from "../shell/types";
+import { resolveDrumsSetupDefinition } from "./domain/ui/resolveDrumsSetupDefinition";
 import type { ProjectRouteProps } from "./shared/pageTypes";
 import { GROUP_INPUT_LIBRARY } from "./shared/setupConstants";
 
@@ -194,6 +197,38 @@ function replaceSlotOverride(
   return { ...lineup, [role]: value as LineupMap[string] };
 }
 
+/**
+ * Zapíše `drumDefinition` jednoho slotu bicích, beze změny `presetOverride`
+ * (Task 16, Ruling 1). `Edit kit` na obrazovce `02` NEreplikuje bookkeeping
+ * `ProjectSetupPage.tsx` (~ř. 2235-2258): tam editace kitu zapisuje
+ * `drumDefinition` A ZÁROVEŇ `inputs.add`/`removeKeys` do
+ * `presetOverride.inputs` přes `buildInputsPatchFromTarget` — patch, který
+ * `resolveEffectiveProjectSetup.ts:75-79` u bicích schválně zužuje jen na
+ * `inputs.update`, takže `add`/`removeKeys` do dokumentu nikdy nedojede.
+ * `drumDefinition` je jediný zdroj pravdy o bicích kanálech (komentář fixu
+ * 12c tamtéž) — zápis navíc by tu byl jen balast a rozešel by se s
+ * dokumentem, přesně jako gate z Tasku 13b existuje proto, aby zabránil.
+ */
+function replaceSlotDrumDefinition(
+  lineup: LineupMap,
+  role: string,
+  slotIndex: number,
+  nextDrumDefinition: DrumDefinition,
+): LineupMap {
+  const roleSlotLimit = getRoleSlotLimit(role);
+  const slots = normalizeLineupSlots(lineup[role], roleSlotLimit);
+  if (!slots[slotIndex]) return lineup;
+
+  const nextSlots = slots.map((slot, index) =>
+    index === slotIndex
+      ? { ...slot, drumDefinition: nextDrumDefinition }
+      : slot,
+  );
+
+  const value = roleSlotLimit <= 1 ? nextSlots[0] : nextSlots;
+  return { ...lineup, [role]: value as LineupMap[string] };
+}
+
 export function ProjectInputsPage({
   id,
   navigate,
@@ -212,6 +247,7 @@ export function ProjectInputsPage({
   ] = useState(false);
   const [isSavingMusicianDefault, setIsSavingMusicianDefault] = useState(false);
   const [showAddInputPicker, setShowAddInputPicker] = useState(false);
+  const [showEditKitModal, setShowEditKitModal] = useState(false);
   const { notify } = useToast();
   /** Stav, proti kterému se poznává dirty — po každém uložení se posune. */
   const initialSnapshotRef = useRef<InputsEditorSnapshot | undefined>(
@@ -636,6 +672,33 @@ export function ProjectInputsPage({
   }, [selectedRow, lineup, setupForSlot, defaultPresetFor]);
 
   /**
+   * Skladba bicí soupravy vybraného řádku (R5, task 16) — vstup pro
+   * `DrumsPartsEditor` v modálu `Edit kit`. Zrcadlí `ProjectSetupPage.tsx`'s
+   * `drumSetup` (~ř. 1980-1989): slotový `drumDefinition`, jinak muzikantův
+   * `drum_setup` preset item, jinak deterministický default —
+   * `resolveDrumsSetupDefinition` řeší přesně tuhle prioritu. `null`, dokud
+   * vybraný řádek nepatří bicímu vlastníkovi se slotem, takže modál nemá co
+   * ukázat.
+   */
+  const selectedDrumSetup = useMemo(() => {
+    if (
+      !selectedRow ||
+      selectedRow.ownerRole !== "drums" ||
+      !selectedRow.slotKey
+    ) {
+      return null;
+    }
+    const role = selectedRow.ownerRole;
+    const slots = normalizeLineupSlots(lineup[role], getRoleSlotLimit(role));
+    const slot = slots[parseSlotIndex(selectedRow.slotKey)];
+    return resolveDrumsSetupDefinition({
+      slotDrumDefinition: slot?.drumDefinition,
+      musicianPresetItems:
+        setupData?.musicianPresetsById?.[selectedRow.ownerMusicianId],
+    });
+  }, [selectedRow, lineup, setupData]);
+
+  /**
    * Zapíše přejmenování/poznámku vybraného řádku do patche jeho slotu (R6).
    * Adresuje se přes `row.rawKey` (skutečný klíč kanálu), nikdy přes
    * `row.key` (opaque identita, u vypnutého řádku jmenný prostor vlastníka —
@@ -779,6 +842,35 @@ export function ProjectInputsPage({
       };
     });
   }, []);
+
+  /**
+   * Zapíše skladbu bicí soupravy z modálu `Edit kit` (R5, task 16) — jen
+   * `lineup.drums[i].drumDefinition`, žádný doprovodný `presetOverride`
+   * patch (Ruling 1, viz doc komentář `replaceSlotDrumDefinition`). Prázdný
+   * `slotKey` znamená totéž, co všude jinde na téhle stránce: vlastník bez
+   * slotu v lineupu, není kam zapsat.
+   */
+  const applyDrumKitChange = useCallback(
+    (row: InputEditorRow, nextSetup: DrumDefinition) => {
+      if (!row.slotKey) return;
+      const role = row.ownerRole;
+      const slotIndex = parseSlotIndex(row.slotKey);
+      setState((current) => {
+        if (current.kind !== "ready") return current;
+        const nextLineup = replaceSlotDrumDefinition(
+          current.snapshot.lineup,
+          role,
+          slotIndex,
+          nextSetup,
+        );
+        return {
+          ...current,
+          snapshot: { ...current.snapshot, lineup: nextLineup },
+        };
+      });
+    },
+    [],
+  );
 
   /**
    * Přidá kanál z pickeru (R4) do slotu zvoleného vlastníka a picker zavře.
@@ -940,6 +1032,11 @@ export function ProjectInputsPage({
     () => setShowSaveMusicianDefaultConfirmation(false),
   );
 
+  const isEditKitModalOpen = showEditKitModal && Boolean(selectedDrumSetup);
+  const editKitModalRef = useModalBehavior(isEditKitModalOpen, () =>
+    setShowEditKitModal(false),
+  );
+
   return (
     <section className="panel panel--inputs">
       <div className="panel__header">
@@ -1040,6 +1137,7 @@ export function ProjectInputsPage({
             onRestoreChannel={() =>
               selectedRow && restoreSelectedRow(selectedRow)
             }
+            onEditKit={() => setShowEditKitModal(true)}
           />
         )}
       </div>
@@ -1142,6 +1240,43 @@ export function ProjectInputsPage({
         onCancel={() => setShowAddInputPicker(false)}
         onAdd={addChannelToOwner}
       />
+
+      <ModalOverlay
+        open={isEditKitModalOpen}
+        onClose={() => setShowEditKitModal(false)}
+      >
+        <div
+          className="selector-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-kit-title"
+          ref={editKitModalRef}
+        >
+          <div className="panel__header panel__header--stack selector-dialog__title">
+            <h3 id="edit-kit-title">Edit kit</h3>
+          </div>
+          <div className="selector-dialog__divider section-divider" />
+          <div className="selector-dialog__body">
+            {selectedRow && selectedDrumSetup ? (
+              <DrumsPartsEditor
+                setup={selectedDrumSetup}
+                onChange={(nextSetup) =>
+                  applyDrumKitChange(selectedRow, nextSetup)
+                }
+              />
+            ) : null}
+          </div>
+          <div className="modal-actions">
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={() => setShowEditKitModal(false)}
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      </ModalOverlay>
     </section>
   );
 }

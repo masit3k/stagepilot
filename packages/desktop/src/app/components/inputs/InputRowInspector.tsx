@@ -28,6 +28,13 @@ import { resolveInputRowEditability } from "../../domain/inputs/resolveInputRowE
  * Bez tohohle gatu by `Remove channel` na bicím kanálu řádek přeškrtl,
  * zatímco dokument by ho dál tiskl beze změny — aktivní falešné potvrzení
  * úspěchu.
+ *
+ * `Edit kit` (R5, task 16) je nezávislá cesta, ne vedlejší produkt téhož
+ * gatu: mění `lineup.drums[i].drumDefinition`, kterou `resolveEffectiveProjectSetup`
+ * skutečně čte, takže zůstává povolená i tam, kde `resolveInputRowEditability`
+ * zavírá `Remove channel`/`Restore channel`. Nabízí se jen bicímu vlastníkovi
+ * (`row.ownerRole === "drums"`) a nahrazuje jejich hint jedinou větou, která
+ * říká, kudy se kanály bicí soupravy skutečně mění.
  */
 export function InputRowInspector({
   row,
@@ -41,6 +48,7 @@ export function InputRowInspector({
   onSaveAsMusicianDefault,
   onRemoveChannel,
   onRestoreChannel,
+  onEditKit,
 }: {
   row: InputEditorRow | null;
   ownerName: string;
@@ -54,6 +62,7 @@ export function InputRowInspector({
   onSaveAsMusicianDefault: () => void;
   onRemoveChannel: () => void;
   onRestoreChannel: () => void;
+  onEditKit: () => void;
 }) {
   if (!row) {
     return (
@@ -137,8 +146,7 @@ export function InputRowInspector({
                 <button
                   type="button"
                   className="button-secondary"
-                  disabled
-                  title="Coming soon"
+                  onClick={onEditKit}
                 >
                   Edit kit
                 </button>
@@ -165,7 +173,7 @@ export function InputRowInspector({
               (row.state === "active" || row.state === "removed") ? (
                 <p className="inputInspector__hint">
                   {toggleEditability.reason === "drums-not-supported"
-                    ? "Removing or restoring a drum channel isn't picked up by the printed document yet — not editable here."
+                    ? "Drum kit channels change through Edit kit above — not Remove or Restore."
                     : "Removing or restoring a vocal or talkback channel isn't picked up by the printed document yet — not editable here."}
                 </p>
               ) : null}
