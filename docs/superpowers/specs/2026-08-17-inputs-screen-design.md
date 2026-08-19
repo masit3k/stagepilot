@@ -362,12 +362,215 @@ a běží v okně Tauri, takže je nutné projít je ručně — stejně jako u 
 
 ## Navazuje
 
-**Rozdělení `ProjectSetupPage.tsx`.** Po této fázi ze stránky odejde modál kanálů,
-monitoringu a bicích, takže spadne o zhruba třetinu. Zbylé rozdělení na komponenty je
-samostatná úloha bez změny chování (R16).
+**Rozdělení `ProjectSetupPage.tsx`.** Předpoklad byl, že po této fázi ze stránky odejde modál
+kanálů, monitoringu a bicích a spadne o zhruba třetinu — neplatí, viz sekce „Stav implementace"
+níže: modál zůstává (R16 nesplněno), soubor klesl jen o 28 řádků. Zbylé rozdělení na komponenty
+čeká na fázi, která modál skutečně odstraní.
 
 **Editace šablony poznámek kapely.** Tato fáze šablonu jen čte. Až bude potřeba měnit ji
 samotnou, patří to do knihovny ke kapele, ne na krok `02`.
 
 **Stabilní identita kanálu.** Kdyby se degradace z R10 ukázala v praxi jako obtěžující,
 řešení je vlastník plus klíč před disambiguací protažený pipeline.
+
+## Stav implementace
+
+**Fáze je hotová v rozsahu, ne beze zbytku.** 44 commitů `71299b7`…`4c38ff5`
+(10056 vložených / 141 smazaných řádků v 75 souborech). R1–R15 platí beze změny.
+R16 (extrakce sdíleného stavu do hooku bez Reactu) je splněná — Task 9 vytáhl
+`setupDraftBySlot`, `resolveDraftOverride`, `getExistingSlotOverride` a
+`resolveSlotSetup`/`resolveEffectiveProjectSetup` do `app/domain/setup/` a
+`src/domain/setup/`. Plán ale pod stejnou nálepku „R16" schoval i **odstranění
+starého setup modálu** (Task 19, titulek briefu doslova „Odebrání setup modálu
+z `ProjectSetupPage` (R16)") — a tahle část **splněná není**, viz bod 3 níže.
+
+Tři rozhodnutí zůstala otevřená, všechna vědomě a všechna rozhodnutím člověka
+(2026-08-19), ne opomenutím. Fáze se jimi uzavírá — nejsou to nálezy pro finální
+review, jsou to hranice rozsahu, které je potřeba znát dřív, než se s kódem
+dál pracuje.
+
+### 1. R3/R4/R7 platí jen pro nástrojové kanály
+
+Vypnutí, vrácení, přidání kanálu (R3/R4) i editace monitoringu (R7) fungují
+na `02` u basy, kytary a kláves. U bicích, vokálních a talkback kanálů
+obrazovka tyhle akce **vědomě nenabízí** — `resolveInputRowEditability` a
+`resolveMonitorRowEditability` (Task 13b) vrací `canEdit: false` s důvodem
+`drums-not-supported`/obdobným, protože dokument čte jen `inputs.update` u
+těchto řezů, ne `inputs.add`/`removeKeys`. Domain byla na tenhle rozsah zúžena
+teprve fixem **Tasku 12c**, po dvou Critical vadách nalezených review (zápis
+mimo to, co dokument skutečně čte).
+
+Rozhodnutí člověka: nechat fázi takhle omezenou. Rozšíření domény (aby bicí,
+vokální a talkback řez četly `inputs.add`/`removeKeys` proti klíčům, které v
+nich reálně existují) se otevírá jako **samostatná fáze s vlastním specem a
+PDF regresí**, ne dovnitř F5c — je to změna chování dokumentu, ne úklid UI, a
+brána je navržená tak, aby šla později zrušit jedním podmíněným renderem.
+
+### 2. Monitoring bicích není editovatelný nikde
+
+Na `02` je zakázaný se zdůvodněním (Task 15, `drums-not-supported`). Na `01`
+je od **Tasku 19a** zakázaný stejně — nová komponenta
+`components/setup/SetupMonitoringEditor.tsx` obaluje `MonitoringEditor` za
+tutéž bránu (`resolveMonitorRowEditability`), takže obě volací místa
+`setSetupDraftBySlot(..., "monitoring:...")` v `ProjectSetupPage.tsx` vedou
+přes gate. Stav je **konzistentní a záměrný** — needitovatelný nikde, se
+zdůvodněním viditelným v UI, ne tichá mezera.
+
+Rozhodnutí člověka: bubeník vlastní odchylku monitoringu mít má, ale až
+v té následné fázi, co rozšíří doménu (bod 1), ne v F5c.
+
+### 3. R16 (odstranění setup modálu) NENÍ splněno
+
+Modál na `01` zůstává. **Task 19 se zastavil na vlastní bráně** dřív, než cokoli
+smazal (`status: NEEDS_CONTEXT`, žádný commit, `git status --porcelain` čistý) —
+brief mu předepisoval z kódu vypsat, co modál umí, ke každé akci najít domov
+na `02`, a když některá domov nemá, nemazat nic.
+
+Osm z devíti akcí modálu domov má (výběr muzikanta, reset patche, `Save as
+musician default`, validace lineupu, `MonitoringEditor`, `Edit kit`). Devátá
+(reset `drumDefinition` per muzikant) má na `02` jen hrubší ekvivalent
+(globální „Reset to defaults") — to samo bránu nezastavuje.
+
+**Skutečná zábrana je sekce Inputs**, kterou modál nese
+(`ProjectSetupPage.tsx:2144–2172` a `2262–2303`): dropdown typu zapojení pro
+basu/kytaru/klávesy a doplňkové toggly (mic on cabinet, bass synth, acoustic
+guitar, varianty kláves, typ mikrofonu lead vocs). Obrazovka `02` tuhle sekci
+**nikde neimportuje ani nereplikuje** — jediná editace vstupu na `02` je
+přejmenování/poznámka + `Remove`/`Restore`/`+ Add input` z `GROUP_INPUT_LIBRARY`,
+což je jinak klíčovaný a chudší katalog. Smazat modál by uživateli sebralo
+možnost přepnout např. kytaristu z mikrofonu na DI.
+
+**Tohle není důsledek zúžení z bodu 1.** Sekce Inputs není v žádném z Tasků
+10–18 spec ani plánu — je to mezera v plánu, ne rozšíření domény, které si
+člověk vědomě odmítl. R16 stálo na premise „teprve teď, když nová obrazovka
+umí všechno, se stará cesta zavře" — ta premisa přestala platit dřív, než na
+Task 19 došla řada.
+
+Rozhodnutí člověka: Task 19 se **odkládá celý**. Přesun sekce Inputs na `02`
+dostane vlastní spec a vlastní fázi.
+
+**Věcná otázka pro ten budoucí spec:** schéma projektu a katalog `+ Add input`
+používají pro tytéž kanály **různé klíče** — schéma/presety znají
+`el_guitar_mic`, `el_guitar_xlr_mono`, `el_guitar_xlr_stereo`, `ac_guitar`,
+zatímco `GROUP_INPUT_LIBRARY` (na `02`) zná jen `gtr_mic`/`gtr_di`. Bez
+sjednocení klíčů nebo výslovného mapování mezi nimi se sekce Inputs na `02`
+přesunout nedá.
+
+**Vedlejší efekt:** protože Task 19 nikdy neproběhl, `ProjectSetupPage.tsx`
+nespadl o „zhruba třetinu", jak předpokládala sekce Navazuje výše. Klesl jen
+o 28 řádků (2756 → 2728), z drobných úprav ostatních tasků (především 19a).
+Rozdělení souboru na komponenty (mimo rozsah i podle R16) čeká na fázi, která
+Task 19 provede.
+
+### Mimo plán vznikly čtyři tasky
+
+**12b, 12c, 13b a 19a** nejsou v plánu — vznikly za běhu fáze:
+
+- **12b** dokončilo přesun `DrumsPartsEditor` (R5) tak, aby Task 19 mohl modál
+  smazat bez ztráty funkce.
+- **12c** zúžilo doménu (viz bod 1) po dvou Critical nálezech review — zápis
+  z UI mířil tam, kam dokument nekouká.
+- **13b** postavilo bránu `resolveInputRowEditability`/
+  `resolveMonitorRowEditability`, kterou 12c vyžádalo a kterou od té doby
+  používají Tasky 15, 16 i 19a.
+- **19a** zakázalo editaci monitoringu bicích na `01` stejným vzorem jako
+  Task 15 na `02` — jediná živá vada, kterou by jinak odložení Tasku 19
+  nechalo viset (viz bod 2).
+
+### Rulingy a odchylky, které stojí za přečtení
+
+Podrobný záznam každého rozhodnutí je v `progress.md` tohoto adresáře
+(řádky s `Ruling`); tady jen to, co má dopad mimo vlastní task.
+
+- **Task 12c narazilo na produkční Critical dřív, než ho odhalilo review** —
+  UI zapisovalo `inputs.add`/`removeKeys` u bicích, vokálních a talkback
+  kanálů, které dokument nikdy nečetl (zápis do prázdna). Oprava zúžila
+  doménu na `inputs.update`, což je rozhodnutí 1 výše zpětně zdůvodňuje.
+- **Task 16 (Edit kit) zůstává vlastnickou akcí i na vokálním řádku bubeníka**,
+  záměrně nezúženo na `row.group === "drums"` — kdyby kit mohl skončit bez
+  kanálů, zúžená podmínka by tlačítko schovala a k soupravě by se pak nedalo
+  dostat, obzvlášť když měl Task 19 (odloženě) zavřít modál jako jedinou
+  zbývající cestu.
+- **Task 17 našlo Critical, který review nevidělo dřív, protože ho
+  neošetřovalo doménové ověření: vypnutí vlastní poznámky se v editoru
+  odškrtlo, ale `buildPdfNotes.ts` mazání nefiltrovalo `overrides.custom`.**
+  Oprava je v UI, ne v doméně: vlastní řádek dostal `Remove` místo
+  zaškrtávátka; šablonové řádky si zaškrtávátko podržely.
+- **Task 18 našlo skutečnou vadu v kódu, který plán předepisoval doslova** —
+  naivní `Array.isArray` mapování slotů lineupu by na reálných datech
+  (role uložené jako holé stringy) smazalo přiřazení muzikanta při resetu.
+  Oprava je destrukturace se zachováním neznámých polí, ověřená na reálném
+  projektu z `%APPDATA%/StagePilot`. Je to třetí místo v této fázi (po
+  Tasku 14 a Tasku 17), kde plán psal kód proti typům, ne proti uloženým datům.
+- **Task 19a**: implementer umístil novou komponentu do `components/setup/`
+  místo `app/domain/inputs/` bez sesterské čisté funkce — review posoudilo
+  jako v pořádku, protože přímo použila `resolveMonitorRowEditability`
+  z Tasku 15 (brief to výslovně připouštěl), takže rozhodnutí v testovatelné
+  čisté funkci leží, jen se nezdvojilo.
+
+### Co je automaticky ověřeno (Task 20)
+
+- `npm test`: **1089 testů, 1087 procházejících, stejná 2 trvale padající**
+  (`assetsPaths`, `repoAssets`) jako baseline fáze — delta 0.
+- `npx tsc -p packages/desktop/tsconfig.json --noEmit`: **10 chyb ve 4
+  testovacích souborech** (`BassFieldRendering.test.tsx`,
+  `buildBassFields.test.ts`, `buildKeysFields.test.ts`,
+  `projectMaintenance.test.ts`) — shodné s baseline, delta 0.
+- `src/domain/pipeline/buildDocument.pdfRegression.test.ts`: zelený,
+  neupravovaný.
+- `npm run smoke:stageplan-print`: glyph tabulka sedí s Chromiem (53 řetězců
+  ve 4 řezech). Ze tří reálných projektů **1 staví a bez přetečení**
+  (`FNB_Inputlist_Stageplan_22-08-2026_Zamek-Bon-Repos`), **2 jsou
+  přeskočené na kolizní pojistce** (`guitar × lead_voc_1`, `keys × lead_voc_2`,
+  `lead_voc_1 × lead_voc_2`) — stejná trojice kolizí, jakou už zdokumentovala
+  F7 (viz roadmapa, sekce F7) **před** začátkem F5c. Není to vada této fáze:
+  pojistka funguje podle návrhu, bloky čekají na přerovnání v editoru
+  člověkem, přejmenování/přeřazení z F5c ji jen nezhoršilo ani nezlepšilo.
+- **Lint — baseline z briefů (~1368) je zastaralá, nahrazena.** Agregát
+  `npx biome check .` je nedeterministický (tři po sobě jdoucí běhy v tomto
+  ověření: 1543/1543/1543; dřívější měření během fáze: 1540/1541/1543) a jako
+  signál se dál nepoužívá. Platná metoda je kontrola dotčených souborů na
+  LF-normalizované kopii (`core.autocrlf=true` jinak u každého souboru
+  s CRLF ukáže „celý soubor jiný" a maskuje skutečné nálezy). Na všech 72
+  netriviálních souborech dotčených fází (LF-normalizovaně) je **44 nálezů**:
+  20 kategorie `format` (zalomení řádku nad 80 znaků — kontrolní vzorek na
+  souboru, kterého se fáze vůbec nedotkla, potvrdil, že jde o repozitářový
+  dluh odjinud, ne o něco, co přinesla F5c), 7× `lint/a11y/useSemanticElements`
+  (návrh vlastního `<dialog>` místo `div role="dialog"` — stejný vzorec
+  používá `ModalOverlay` v sedmi souborech napříč aplikací včetně modálů,
+  které F5c nezaložila; 2 z nich na `ProjectInputsPage.tsx:1416,1470` už
+  zaznamenal Task 18 jako zděděné), 6× `lint/correctness/useExhaustiveDependencies`
+  a 5× `lint/complexity/noForEach` (ověřeno bod za bodem proti verzi souboru
+  z báze fáze `8982767` — identické pravidlo, identický počet, jen posunuté
+  řádky), 1× `lint/style/noNonNullAssertion` (`buildDocument.setupOverride.test.ts:1159`,
+  shodné s bází). **Jediný skutečně nový nález** je jeden `organizeImports`
+  v `ProjectSetupPage.tsx` (báze ho nemá) — pravděpodobně z importu
+  `SetupMonitoringEditor` v Tasku 19a, nezachycený tehdy kvůli CRLF masce.
+  Je to kosmetický dluh o jednom souboru, Task 20 produkční kód neopravuje;
+  patří do triáže při finální review. **Nové číslo pro příští fázi:**
+  agregát ~1543 (nespoléhat na něj), 44 nálezů na LF-normalizovaných
+  souborech dotčených F5c (z toho 43 zděděných, 1 nový a kosmetický).
+
+### Co ověřeno není
+
+Patnáct bodů „Verifikace" výše vyžaduje `npm run dev` a okno Tauri — stejné
+omezení jako u F5a, F5b, F6 a F7 (editor/obrazovka běží v desktopové appce,
+CLAUDE.md drží testy bez jsdom, tenhle běh nemá přístup k desktopovému oknu).
+**Žádný z patnácti bodů nebyl ručně prověřen v rámci Tasku 20** — zůstávají
+na člověku, včetně bodu 15 (starý projekt ze skutečného `%APPDATA%/StagePilot`,
+ne z fixtury), přesně jak „Co plán vědomě nedodává" v briefu předjímá.
+
+### Co se předává dál
+
+- **R16 (odstranění setup modálu) a přesun sekce Inputs** — vlastní spec,
+  viz bod 3.
+- **Rozšíření domény na bicí/vokální/talkback řezy** (`inputs.add`/
+  `removeKeys` + monitoring bicích) — vlastní spec a PDF regrese, viz body
+  1 a 2.
+- **Rozdělení zbytku `ProjectSetupPage.tsx`** čeká na Task 19 — beze změny
+  z F5b/F6/F7 precedentu, jen teď víme, že se nestane, dokud nedostane
+  vlastní fázi.
+- **Klíčový nesoulad schéma vs. katalog** (`el_guitar_*`/`ac_guitar` vs.
+  `gtr_mic`/`gtr_di`) — věcná otázka pro spec z bodu 3, jinak se sekce
+  Inputs přesunout nedá.
+- Patnáct bodů ruční verifikace, viz výše.

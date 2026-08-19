@@ -17,7 +17,7 @@ designový board, implementuje se **kolo 3** (`3a`–`3d` varianty značky, vybr
 | F4 | Typografie a hlavička PDF | hotovo, čeká na vizuální kontrolu | [2026-08-12-pdf-typography-and-header-design.md](../superpowers/specs/2026-08-12-pdf-typography-and-header-design.md) | `785377d`…`b8c9e40` |
 | F5a | Model rozmístění + Stage Plan Editor | hotovo, čeká na ruční kontrolu editoru | [2026-08-13-stageplan-editor-and-layout-model-design.md](../superpowers/specs/2026-08-13-stageplan-editor-and-layout-model-design.md) | `fdee3b8`…`67b3895` |
 | **F5b** | **PDF čte rozmístění z projektu (pozice, rotace, nová kresba bloků)** | **hotovo, čeká na ruční kontrolu** | [2026-08-13-pdf-reads-stageplan-layout-design.md](../superpowers/specs/2026-08-13-pdf-reads-stageplan-layout-design.md) | `7ec42a9`…`b6fbf96` |
-| F5c | Obrazovka `02 INPUTS` | spec schválený, bez implementace | [2026-08-17-inputs-screen-design.md](../superpowers/specs/2026-08-17-inputs-screen-design.md) | — |
+| F5c | Obrazovka `02 INPUTS` | **hotovo v rozsahu — tři body vědomě otevřené, čeká na ruční kontrolu** | [2026-08-17-inputs-screen-design.md](../superpowers/specs/2026-08-17-inputs-screen-design.md) | `71299b7`…`4c38ff5` |
 | **F6** | **Tok na editor, obsah bloků, úchyty velikosti, tisk bez zvýraznění, kapelník, angličtina** | **hotovo, čeká na ruční kontrolu** | [2026-08-13-editor-flow-block-content-and-ui-language-design.md](../superpowers/specs/2026-08-13-editor-flow-block-content-and-ui-language-design.md) | `9b27385`…`b1e18f4` |
 | **F7** | **Tištěný box podle textu, kapelník v boxu, kontakt v hlavičce** | **hotovo, čeká na ruční kontrolu** | [2026-08-15-print-box-sized-by-text-and-header-contact-design.md](../superpowers/specs/2026-08-15-print-box-sized-by-text-and-header-contact-design.md) | `16f05ef`…`8d8c9d3` |
 
@@ -78,24 +78,47 @@ v modálu uvnitř setupu, takže krok `02` v procesní stopě má stav `unavaila
 `app/shell/chrome/processSteps.ts` stačí u kroku přepsat `segment` z `null` na routu — krok `03`
 takhle odemkne už F5a.
 
-**Spec je schválený (2026-08-17), implementace zatím není.** Obrazovka je editovatelné
-zrcadlo strany 1 dokumentu: tabulka kanálů, tabulka monitorů a poznámky pod sebou v tiskovém
-pořadí. Editace inputů, monitoringu a skladby bicí soupravy se přestěhuje
-z `ProjectSetupPage.tsx` (2756 řádků) sem a krok `01` zůstane o lidech a presetech. Poznámky
-se editují jako **odchylky projektu nad šablonou kapely** — šablona (`notesTemplateRef`, dnes
-`notes_default_cs`) dál určuje, co se nabídne, projekt si drží jen to, které řádky vypnout,
-které přepsat a jaké vlastní přidat, takže úprava kvůli jednomu koncertu neovlivní ostatní
-dokumenty té kapely. Zamítnuto: editovat rovnou šablonu kapely a zrušit krok `02`.
+**F5c je hotová v rozsahu, ne beze zbytku** (44 commitů `71299b7`…`4c38ff5`). Obrazovka je
+editovatelné zrcadlo strany 1 dokumentu: tabulka kanálů, tabulka monitorů a poznámky pod sebou
+v tiskovém pořadí, s přeřazením, přejmenováním a poznámkami jako odchylkami projektu nad
+šablonou kapely. Krok `02` je odemčený v procesní stopě, `01 → 02 → 03 → 04` prochází v obou
+směrech.
 
-**Tři věci ze specu, které stojí za přečtení, i když se do F5c nepustíš hned:**
+**Tři body zůstaly vědomě otevřené rozhodnutím člověka (2026-08-19) — detaily a zdůvodnění
+jsou v sekci „Stav implementace" specu:**
 
-- **Přejmenování kanálu a jeho poznámka už mají doménu i persistenci.** `PresetOverridePatch`
-  nese `update?: PartialInputUpdate[]` a `applyPresetOverride` to aplikuje — chybí jen UI.
-  Nové datové vrstvy potřebují jen ruční pořadí a poznámky.
-- **`toPersistableProject` je whitelist.** Nová pole na projektu do něj musí přijít výslovně,
-  jinak je uložení z kroku `01` nebo `03` tiše smaže. Přesně to už jednou hrozilo u `stageplan`.
-- **`ProjectSetupPage.tsx` nemá vlastní test.** Extrakce sdíleného stavu do hooku je proto
-  nejrizikovější část fáze; spec ji řeší tím, že logika hooku má být testovatelná bez Reactu.
+1. **R3/R4/R7 platí jen pro nástrojové kanály** (bass/guitar/keys). U bicích, vokálních
+   a talkback kanálů obrazovka `02` vědomě nenabízí vypnutí/vrácení/přidání ani editaci
+   monitoringu, protože dokument u těchto řezů čte jen `inputs.update` — doménu tam zúžil fix
+   Tasku 12c po dvou Critical vadách. Rozšíření domény (aby dokument četl `add`/`removeKeys`
+   i tam) je samostatná budoucí fáze s vlastním specem a PDF regresí.
+2. **Monitoring bicích není editovatelný nikde** — na `02` od Tasku 15, na `01` od Tasku 19a
+   (mimo plán). Stav je konzistentní a záměrný; bubeník dostane vlastní odchylku až v té
+   budoucí fázi z bodu 1.
+3. **Setup modál na `01` zůstává — R16 (jeho odstranění) není splněno.** Task 19 se zastavil
+   na vlastní bráně: modál nese sekci Inputs (typ zapojení basy/kytary/kláves, typ mikrofonu
+   lead vocs), pro kterou `02` nemá domov a jejíž smazání by uživateli sebralo funkci. Není to
+   důsledek zúžení z bodu 1 — sekce Inputs není v žádném z Tasků 10–18, je to mezera v plánu.
+   Přesun dostane vlastní spec; ten bude muset vyřešit i to, že schéma projektu a katalog
+   `+ Add input` na `02` používají pro tytéž kanály různé klíče
+   (`el_guitar_mic`/`el_guitar_xlr_mono`/`el_guitar_xlr_stereo`/`ac_guitar` vs. `gtr_mic`/`gtr_di`).
+
+**Mimo plán vznikly čtyři tasky** (12b, 12c, 13b, 19a) — 12b dokončilo přesun `DrumsPartsEditor`,
+12c zúžilo doménu po Critical nálezech, 13b postavilo bránu, kterou 12c vyžádalo, 19a zavřelo
+monitoring bicích na `01` stejným vzorem jako Task 15 na `02`.
+
+**Protože Task 19 nikdy neproběhl, `ProjectSetupPage.tsx` nespadl o „zhruba třetinu"** — klesl
+jen o 28 řádků (2756 → 2728). Rozdělení souboru na komponenty čeká na fázi z bodu 3.
+
+**Ověřeno (Task 20):** `npm test` 1089 testů, stejná 2 trvale padající jako baseline fáze,
+delta 0. `tsc` desktop 10 chyb ve 4 test. souborech, delta 0. `smoke:stageplan-print`: 1 ze 3
+reálných projektů staví bez přetečení, 2 zůstávají na stejné kolizní pojistce, kterou
+zdokumentovala už F7 — není to vada F5c. **Baseline lintu ~1368 z briefů je zastaralá** — reálná
+je ~1543 (agregát je nedeterministický, nepoužívat jako signál); na 72 souborech dotčených fází
+(LF-normalizovaně, kvůli `core.autocrlf=true`) je 44 nálezů, z toho 43 zděděných odjinud
+(ověřeno proti bázi fáze) a 1 nový kosmetický (`organizeImports` v `ProjectSetupPage.tsx`,
+z Tasku 19a). Patnáct bodů ruční verifikace ze specu **neprovedeno** — vyžadují okno Tauri,
+stejné omezení jako u F5a, F5b, F6 a F7.
 
 ## F6 — tok, obsah bloků, úchyty a jazyk
 
