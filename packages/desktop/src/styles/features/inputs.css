@@ -210,3 +210,68 @@
   font: var(--sp-body-sm);
   color: var(--color-text-secondary);
 }
+
+/* --------------------------------------------------------------------------
+   Notes editor (R11, R12, R13) — deviations over the notes template
+   -------------------------------------------------------------------------- */
+
+.notesEditor {
+  display: grid;
+  gap: var(--sp-6);
+}
+
+.notesEditorSection {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.notesEditorSection__title {
+  margin: 0;
+  font: var(--sp-mono-xs);
+  letter-spacing: var(--sp-track-mono-label);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.notesEditorSection__lines {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.notesEditorRow {
+  display: grid;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--sp-r-card);
+}
+
+.notesEditorRow__main {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.notesEditorRow__text {
+  flex: 1;
+  min-width: 0;
+  font: var(--sp-body-sm);
+  color: var(--color-text);
+}
+
+.notesEditorRow--hidden .notesEditorRow__text {
+  color: var(--color-text-secondary);
+}
+
+.notesEditorRow__badge {
+  font: var(--sp-mono-xs);
+  letter-spacing: var(--sp-track-mono-label);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.notesEditorRow__hint {
+  margin: 0;
+  padding-left: calc(var(--sp-5) + var(--sp-3));
+  font: var(--sp-body-sm);
+  color: var(--color-text-secondary);
+}

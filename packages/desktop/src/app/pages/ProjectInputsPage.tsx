@@ -9,6 +9,7 @@ import type {
   ProjectNotesOverride,
 } from "../../../../../src/domain/model/types";
 import { buildDocument } from "../../../../../src/domain/pipeline/buildDocument";
+import type { MonitorNoteContext } from "../../../../../src/domain/pipeline/pdf/buildPdfNotes";
 import { summarizeEffectivePresetValidation } from "../../../../../src/domain/rules/presetOverride";
 import { DrumsPartsEditor } from "../../components/setup/DrumsPartsEditor";
 import { ModalOverlay, useModalBehavior } from "../../components/ui/Modal";
@@ -26,6 +27,7 @@ import {
   type MonitorEditorRow,
   MonitorTable,
 } from "../components/inputs/MonitorTable";
+import { NotesEditor } from "../components/inputs/NotesEditor";
 import { areSetupsEqual } from "../components/setup/adapters/eventSetupAdapter";
 import {
   type InputEditorRow,
@@ -39,6 +41,15 @@ import {
   resolveActiveDropIndex,
 } from "../domain/inputs/moveInputRow";
 import { resolveInputRowEditability } from "../domain/inputs/resolveInputRowEditability";
+import {
+  type NotesEditorLine,
+  addCustomNote,
+  resolveNotesEditorModel,
+  revertNoteToTemplate,
+  setCustomNoteText,
+  setNoteEnabled,
+  setTemplateNoteText,
+} from "../domain/inputs/resolveNotesEditorModel";
 import {
   addInputRow,
   removeInputRow,
@@ -492,6 +503,44 @@ export function ProjectInputsPage({
     }));
   }, [documentResult, slotKeysByOwner]);
 
+  /**
+   * Stejný výpočet jako `buildDocument.ts` dělá pro `buildPdfNotes` —
+   * `document.monitors` je přesně to pole, ze kterého `buildDocument` tuhle
+   * hodnotu odvozuje, takže editor a dokument nikdy nemůžou vidět jiný stav
+   * odposlechů. Zdroj pravdy pro poznámky (sekce NOTES, R11-R13), ne pro
+   * tabulku MONITORS výše — ta čte `document.monitorTableRows` přímo.
+   */
+  const monitorNoteContext = useMemo<MonitorNoteContext>(() => {
+    const monitors =
+      documentResult.kind === "ready" ? documentResult.document.monitors : [];
+    return {
+      hasWedge: monitors.some((m) => m.kind === "wedge"),
+      hasBandSuppliedIem: monitors.some(
+        (m) => m.kind === "iem" && m.supplier === "band",
+      ),
+      hasFohSuppliedIem: monitors.some(
+        (m) => m.kind === "iem" && m.supplier === "foh",
+      ),
+    };
+  }, [documentResult]);
+
+  /**
+   * Model sekce NOTES (R11-R13) — na rozdíl od `document.notes` ukazuje
+   * i řádky, které podmínka skrývá, a proč (R13); `document.notes` je zdroj
+   * pro tisk, tenhle model je zdroj pro editor. Beze šablony (`setupData`
+   * ještě nedotažené, nebo kapela žádnou nemá) je prázdný — sekce se
+   * vykreslí bez řádků, ne s pádem.
+   */
+  const notesModel = useMemo(() => {
+    const template = setupData?.notesTemplate;
+    if (!template) return { inputs: [], monitors: [] };
+    return resolveNotesEditorModel({
+      template,
+      monitors: monitorNoteContext,
+      overrides: snapshot?.notes,
+    });
+  }, [setupData, monitorNoteContext, snapshot]);
+
   const selectedMonitorRow =
     monitorRows.find(
       (row) => row.slotKey !== "" && row.slotKey === selectedMonitorSlotKey,
@@ -906,6 +955,85 @@ export function ProjectInputsPage({
     [slotKeysByOwner],
   );
 
+  /** Zapne/vypne řádek poznámky (šablonový i vlastní) — checkbox v `NotesEditor`. */
+  const toggleNoteEnabled = useCallback(
+    (line: NotesEditorLine, enabled: boolean) => {
+      setState((current) => {
+        if (current.kind !== "ready") return current;
+        return {
+          ...current,
+          snapshot: {
+            ...current.snapshot,
+            notes: setNoteEnabled(current.snapshot.notes, line.id, enabled),
+          },
+        };
+      });
+    },
+    [],
+  );
+
+  /**
+   * Přepíše text řádku poznámky (R12) — šablonový řádek jde do
+   * `overrides.overrides[id]`, vlastní řádek přepisuje přímo svůj
+   * `custom[].text`; `line.source` říká, který ze dvou to je.
+   */
+  const changeNoteText = useCallback((line: NotesEditorLine, text: string) => {
+    setState((current) => {
+      if (current.kind !== "ready") return current;
+      const nextNotes =
+        line.source === "template"
+          ? setTemplateNoteText(current.snapshot.notes, line.id, text)
+          : setCustomNoteText(current.snapshot.notes, line.id, text);
+      return {
+        ...current,
+        snapshot: { ...current.snapshot, notes: nextNotes },
+      };
+    });
+  }, []);
+
+  /** Zahodí přepis textu šablonového řádku poznámky, vrátí ho na znění ze šablony. */
+  const revertNoteText = useCallback((line: NotesEditorLine) => {
+    setState((current) => {
+      if (current.kind !== "ready") return current;
+      return {
+        ...current,
+        snapshot: {
+          ...current.snapshot,
+          notes: revertNoteToTemplate(current.snapshot.notes, line.id),
+        },
+      };
+    });
+  }, []);
+
+  /**
+   * Přidá vlastní řádek poznámky (R11) do dané sekce. Volné id se počítá
+   * z čerstvého modelu nad `current.snapshot.notes`, ne z `notesModel`
+   * v uzávěru renderu — jinak by dvě rychlé kliknutí za sebou mohly
+   * spočítat totéž `custom_<n>` a druhé přidání by ho přepsalo (Ruling 2).
+   */
+  const addNote = useCallback(
+    (section: "inputs" | "monitors") => {
+      const template = setupData?.notesTemplate;
+      if (!template) return;
+      setState((current) => {
+        if (current.kind !== "ready") return current;
+        const freshModel = resolveNotesEditorModel({
+          template,
+          monitors: monitorNoteContext,
+          overrides: current.snapshot.notes,
+        });
+        return {
+          ...current,
+          snapshot: {
+            ...current.snapshot,
+            notes: addCustomNote(current.snapshot.notes, freshModel, section),
+          },
+        };
+      });
+    },
+    [setupData, monitorNoteContext],
+  );
+
   /**
    * Povýší efektivní preset vybraného vlastníka na jeho trvalý default (R5,
    * Task 12b) — kanály z tohoto slotu tak nastartují každý příští projekt,
@@ -1095,6 +1223,13 @@ export function ProjectInputsPage({
           </section>
           <section className="inputsSection" aria-label="Notes">
             <h2 className="inputsSectionTitle">NOTES</h2>
+            <NotesEditor
+              model={notesModel}
+              onToggleEnabled={toggleNoteEnabled}
+              onTextChange={changeNoteText}
+              onRevertToTemplate={revertNoteText}
+              onAddNote={addNote}
+            />
           </section>
         </div>
         {selectedMonitorSlotKey ? (
