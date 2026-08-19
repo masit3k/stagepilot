@@ -28,7 +28,7 @@ import {
   validateEffectivePresets,
 } from "../../../../../src/domain/rules/presetOverride";
 import { DrumsPartsEditor } from "../../components/setup/DrumsPartsEditor";
-import { MonitoringEditor } from "../../components/setup/MonitoringEditor";
+import { SetupMonitoringEditor } from "../../components/setup/SetupMonitoringEditor";
 import {
   MusicianSelector,
   type SetupMusicianItem,
@@ -2182,7 +2182,9 @@ export function ProjectSetupPage({
                               )
                             }
                           >
-                            <MonitoringEditor
+                            <SetupMonitoringEditor
+                              slotKey={selectedSetupMusician.slotKey}
+                              ownerRole={selectedSetupMusician.role}
                               monitors={monitorEntities}
                               effectiveMonitoring={effective.monitoring}
                               patch={currentPatch}
@@ -2316,7 +2318,9 @@ export function ProjectSetupPage({
                                 )
                               }
                             >
-                              <MonitoringEditor
+                              <SetupMonitoringEditor
+                                slotKey={selectedSetupMusician.slotKey}
+                                ownerRole={selectedSetupMusician.role}
                                 monitors={monitorEntities}
                                 effectiveMonitoring={effective.monitoring}
                                 patch={currentPatch}
