@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { createDefaultDrumDefinition } from "../../../../../src/domain/drums/drumDefinition";
 import type {
   Monitor,
   MusicianSetupPreset,
@@ -14,7 +15,11 @@ import {
   MonitorTable,
 } from "../components/inputs/MonitorTable";
 import type { InputEditorRow } from "../domain/inputs/buildInputEditorRows";
-import { ProjectInputsPage, isInputsDirty } from "./ProjectInputsPage";
+import {
+  ProjectInputsPage,
+  isInputsDirty,
+  replaceSlotDrumDefinition,
+} from "./ProjectInputsPage";
 
 describe("isInputsDirty", () => {
   const empty = { inputOrder: undefined, notes: undefined, lineup: {} };
@@ -55,6 +60,35 @@ describe("isInputsDirty", () => {
         { ...empty, notes: { disabled: ["a", "b"] } },
       ),
     ).toBe(false);
+  });
+});
+
+// Fix round 2, Minor 2: locks Ruling 1 (task 16) in a test, not just a
+// scratchpad script that never lived in the repo. `Edit kit` must write
+// *only* `drumDefinition` — a slot's `presetOverride` (rename/note patches
+// from R6) has to survive the kit edit completely untouched, or the next
+// task to touch this slot inherits a silent regression.
+describe("replaceSlotDrumDefinition (Task 16, Ruling 1)", () => {
+  it("changes only drumDefinition, leaving an existing presetOverride untouched", () => {
+    const nextKit = { ...createDefaultDrumDefinition(), tomCount: 3 as const };
+    const lineup = {
+      drums: [
+        {
+          musicianId: "m2",
+          presetOverride: {
+            inputs: { update: [{ key: "dr_kick_1_out", note: "Beta 52A" }] },
+          },
+          drumDefinition: createDefaultDrumDefinition(),
+        },
+      ],
+    };
+
+    const next = replaceSlotDrumDefinition(lineup, "drums", 0, nextKit);
+    const nextSlot = (next.drums as Array<Record<string, unknown>>)[0];
+
+    expect(nextSlot.drumDefinition).toEqual(nextKit);
+    expect(nextSlot.presetOverride).toEqual(lineup.drums[0].presetOverride);
+    expect(nextSlot.musicianId).toBe("m2");
   });
 });
 

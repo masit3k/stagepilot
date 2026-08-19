@@ -49,11 +49,18 @@ export function resolveInputRowEditability(args: {
   ownerRole: Group;
   group: Group;
 }): InputRowEditability {
-  if (args.ownerRole === "drums") {
-    return { canEdit: false, reason: "drums-not-supported" };
-  }
+  // `group` must win over `ownerRole` (fix round 2, Important 1): a
+  // drummer's own back-vocal overlay row carries `ownerRole: "drums"` but
+  // `group: "vocs"` — it is not a drum-kit channel, so it must not get
+  // `drums-not-supported` (which now feeds the `Edit kit` hint). Checking
+  // `ownerRole === "drums"` first used to steal that row from the
+  // `overlay-not-supported` branch below, telling the user their vocal
+  // channel changes through `Edit kit` — an active false steer.
   if (args.group === "vocs" || args.group === "talkback") {
     return { canEdit: false, reason: "overlay-not-supported" };
+  }
+  if (args.ownerRole === "drums") {
+    return { canEdit: false, reason: "drums-not-supported" };
   }
   return { canEdit: true };
 }

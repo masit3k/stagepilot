@@ -35,6 +35,18 @@ describe("resolveInputRowEditability", () => {
     ).toEqual({ canEdit: false, reason: "overlay-not-supported" });
   });
 
+  // Fix round 2, Important 1: a drummer's own back-vocal overlay row
+  // (`voc_back_drums_1`) carries `ownerRole: "drums"` AND `group: "vocs"` —
+  // it is not a drum-kit channel. `group` must win, or this row gets
+  // `drums-not-supported`, which (since task 16) feeds an enabled `Edit kit`
+  // action and a hint claiming "Drum kit channels change through Edit kit" —
+  // an active false steer, since editing the kit never touches this row.
+  it("refuses a drummer's own back-vocal overlay row as an overlay row, not a drums row", () => {
+    expect(
+      resolveInputRowEditability({ ownerRole: "drums", group: "vocs" }),
+    ).toEqual({ canEdit: false, reason: "overlay-not-supported" });
+  });
+
   it("refuses a lead/back vocal row owned by a pure vocs slot", () => {
     expect(
       resolveInputRowEditability({ ownerRole: "vocs", group: "vocs" }),

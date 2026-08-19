@@ -209,7 +209,7 @@ function replaceSlotOverride(
  * 12c tamtéž) — zápis navíc by tu byl jen balast a rozešel by se s
  * dokumentem, přesně jako gate z Tasku 13b existuje proto, aby zabránil.
  */
-function replaceSlotDrumDefinition(
+export function replaceSlotDrumDefinition(
   lineup: LineupMap,
   role: string,
   slotIndex: number,

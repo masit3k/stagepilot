@@ -261,6 +261,48 @@ describe("InputRowInspector", () => {
     expect(html).toMatch(/vocal or talkback channel/i);
   });
 
+  // Fix round 2, Important 1: a drummer's own back-vocal overlay row
+  // (`ownerRole: "drums"`, `group: "vocs"`) is not a drum-kit channel.
+  // `resolveInputRowEditability` now checks `group` before `ownerRole`, so
+  // this row gets `overlay-not-supported`, not `drums-not-supported` — the
+  // hint must talk about the vocal channel, not claim `Edit kit` covers it.
+  // `Edit kit` itself still renders (it is ownership-based, `row.ownerRole
+  // === "drums"`, a deliberate choice — see fix round 2 report — since the
+  // drummer genuinely owns a kit to edit even while this particular row is
+  // his vocal channel), but the hint next to Remove/Restore must not lie
+  // about what that button does for this row.
+  it("gives a drummer's own back-vocal overlay row the vocal hint, not the drum-kit one, even though Edit kit still renders", () => {
+    const html = renderToStaticMarkup(
+      <InputRowInspector
+        row={makeRow({
+          key: "voc_back_drums_1",
+          rawKey: "voc_back_drums_1",
+          label: "Back Vocal",
+          group: "vocs",
+          ownerRole: "drums",
+          state: "active",
+        })}
+        ownerName="Dana Drummer"
+        channelCount={6}
+        deviationCount={0}
+        canSaveAsMusicianDefault={false}
+        onLabelChange={noop}
+        onNoteChange={noop}
+        onResetToDefault={noop}
+        onSaveAsMusicianDefault={noop}
+        onRemoveChannel={noop}
+        onRestoreChannel={noop}
+        onEditKit={noop}
+      />,
+    );
+
+    expect(html).toContain("Edit kit");
+    expect(html).not.toContain("Remove channel");
+    expect(html).not.toContain("Restore channel");
+    expect(html).toMatch(/vocal or talkback channel/i);
+    expect(html).not.toMatch(/drum kit channels/i);
+  });
+
   it("hides Remove channel for the talkback row regardless of the owner's instrument role", () => {
     const html = renderToStaticMarkup(
       <InputRowInspector
