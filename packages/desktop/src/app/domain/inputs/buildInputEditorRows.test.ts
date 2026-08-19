@@ -838,4 +838,53 @@ describe("collectDisabledInputRows", () => {
 
     expect(rows[0].group).toBe("vocs");
   });
+
+  // Important 3 (review): `resolveEffectiveProjectSetup.ts:76-80` ignores
+  // `presetOverride.inputs.remove`/`removeKeys` for a drums slot entirely —
+  // `buildDocument` builds drum channels only from `drumDefinition`. A stale
+  // `removeKeys` left on the slot (a leftover of the `01` kit editor, while
+  // Task 19 stays parked) must not produce a struck-through "disabled" row
+  // for a channel the document keeps printing active.
+  it("never reports a drums slot's channel as disabled, even with a removeKeys patch the document ignores", () => {
+    let calls = 0;
+    const setupForSlot: SetupForSlot = () => {
+      calls++;
+      return {
+        resolved: {
+          defaultPreset: {
+            inputs: [
+              { key: "dr_tom_1", label: "Tom 1" },
+              { key: "dr_tom_2", label: "Tom 2" },
+            ],
+            monitoring: {},
+          },
+        },
+        // Mirrors what the document actually builds: `removeKeys` never
+        // reaches the drums branch, so `dr_tom_2` stays in `effective` too.
+        effective: {
+          inputs: [
+            { key: "dr_tom_1", label: "Tom 1" },
+            { key: "dr_tom_2", label: "Tom 2" },
+          ],
+          monitoring: {},
+        },
+      } as never;
+    };
+
+    const rows = collectDisabledInputRows({
+      lineup: {
+        drums: [
+          {
+            musicianId: "dr1",
+            presetOverride: { inputs: { removeKeys: ["dr_tom_2"] } },
+          },
+        ],
+      },
+      roleOrder: ["drums"],
+      setupForSlot,
+    });
+
+    expect(rows).toEqual([]);
+    expect(calls).toBe(0);
+  });
 });

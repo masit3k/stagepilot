@@ -163,7 +163,9 @@ export function buildInputEditorRows(args: {
       // and comes back out as a `voc_lead_N`/`voc_back_N` overlay row, whose
       // label is always recomputed once its owner resolves a slot.
       labelIsCanonical:
-        disabled.group === "vocs" ? true : isDrumLabelCanonical(disabled.rawKey),
+        disabled.group === "vocs"
+          ? true
+          : isDrumLabelCanonical(disabled.rawKey),
     });
   }
 
@@ -224,6 +226,14 @@ function insertionIndexFor(
  * musicianId stringů (to zahodil původní Task 11). `slotKey` sdílí s
  * aktivními řádky tutéž `buildSlotKeyIndex`, aby oba typy řádků téhož
  * vlastníka nikdy nedostaly různý `slotKey`.
+ *
+ * Role `drums` se přeskakuje (Important 3, review): `buildDocument` staví
+ * bicí kanály výhradně z `drumDefinition` a `presetOverride.inputs.remove`/
+ * `removeKeys` u nich vědomě zahazuje (`resolveEffectiveProjectSetup.ts:76-80`,
+ * test `resolveEffectiveProjectSetup.test.ts:357`). Zastaralé `removeKeys` —
+ * pozůstatek editace kitu na obrazovce `01`, dokud čeká odložený Task 19 —
+ * by tu jinak vyrobilo přeškrtnutý řádek pro kanál, který dokument dál
+ * tiskne aktivní: tentýž kanál dvakrát, jednou lživě.
  */
 export function collectDisabledInputRows(args: {
   lineup: LineupMap;
@@ -235,6 +245,7 @@ export function collectDisabledInputRows(args: {
   const rows: DisabledInputRow[] = [];
 
   for (const role of roleOrder) {
+    if (role === "drums") continue;
     const slots = normalizeLineupSlots(lineup[role], getRoleSlotLimit(role));
 
     for (const slot of slots) {
