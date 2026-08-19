@@ -8,10 +8,13 @@ import type { NewProjectPayload } from "../../shell/types";
  * ukládá `serializeLineupForProject`, když slot žádnou odchylku nenese) — ten
  * se vrací beze změny, protože nic z toho, co reset maže, nést nemůže.
  *
- * Objektový záznam se nekopíruje přes výčet `musicianId`: `LineupSlotValue`
- * dnes žádné jiné pole nemá, ale kdyby ho jednou dostalo (ruční úprava JSONu
- * na disku, budoucí pole), tenhle reset by ho tiše smazal. Proto se maže jen
- * to, co reset slibuje smazat, a všechno ostatní na záznamu přežívá.
+ * Objektový záznam se nekopíruje přes výčet `musicianId`: kdyby jednou dostal
+ * další pole (ruční úprava JSONu na disku, budoucí pole), tenhle reset by ho
+ * tiše smazal, kdyby maskoval jen to, co slibuje smazat. To ale nic negarantuje
+ * navíc, co by `normalizeLineupSlots`/`serializeLineupForProject` (`projectRules.ts`)
+ * neudělaly samy — obě už dnes na první uložení/normalizaci whitelistují slot
+ * jen na `musicianId`, `presetOverride` a `drumDefinition`, takže neznámé pole
+ * na disku nepřežije stejně, ani bez téhle funkce.
  */
 function stripSlotDeviations(entry: LineupEntry): LineupEntry {
   if (typeof entry !== "object" || entry === null) return entry;
