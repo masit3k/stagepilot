@@ -16,6 +16,7 @@ import {
 import { summarizeEffectivePresetValidation } from "../../../../../src/domain/rules/presetOverride";
 import { DrumsPartsEditor } from "../../components/setup/DrumsPartsEditor";
 import { ModalOverlay, useModalBehavior } from "../../components/ui/Modal";
+import { Close } from "../../components/ui/icons";
 import { useToast } from "../../components/ui/toast/useToast";
 import { getRoleSlotLimit, normalizeLineupSlots } from "../../projectRules";
 import type { LineupMap } from "../../projectRules";
@@ -43,6 +44,7 @@ import {
   moveInputRow,
   resolveActiveDropIndex,
 } from "../domain/inputs/moveInputRow";
+import { resetInputsScreen } from "../domain/inputs/resetInputsScreen";
 import { resolveInputRowEditability } from "../domain/inputs/resolveInputRowEditability";
 import {
   type NotesEditorLine,
@@ -263,6 +265,7 @@ export function ProjectInputsPage({
   const [isSavingMusicianDefault, setIsSavingMusicianDefault] = useState(false);
   const [showAddInputPicker, setShowAddInputPicker] = useState(false);
   const [showEditKitModal, setShowEditKitModal] = useState(false);
+  const [showResetConfirmation, setShowResetConfirmation] = useState(false);
   const { notify } = useToast();
   /** Stav, proti kterému se poznává dirty — po každém uložení se posune. */
   const initialSnapshotRef = useRef<InputsEditorSnapshot | undefined>(
@@ -439,6 +442,22 @@ export function ProjectInputsPage({
       };
     }
   }, [editedProject, setupData, id]);
+
+  /**
+   * Počty pro hlavičkový čip `N INPUTS · M IEM` — čtou se přímo z
+   * `documentResult.document` (past #3, nic v UI nepřepočítává čísla, která
+   * umí spočítat doména). `inputs` je kanonický seznam FOH kanálů, stejný,
+   * podle kterého se kanály číslují; `monitors` nese `kind` pro každého
+   * muzikanta, takže IEM se jen filtruje.
+   */
+  const inputChannelCount =
+    documentResult.kind === "ready" ? documentResult.document.inputs.length : 0;
+  const iemMonitorCount =
+    documentResult.kind === "ready"
+      ? documentResult.document.monitors.filter(
+          (monitor) => monitor.kind === "iem",
+        ).length
+      : 0;
 
   /**
    * Vypnuté kanály obsazených slotů a `slotKey` podle vlastníka — obojí se
@@ -1130,6 +1149,36 @@ export function ProjectInputsPage({
     [],
   );
 
+  /**
+   * `Reset to defaults` v hlavičce karty (R15) — zahodí všech pět vrstev,
+   * které obrazovka `02` edituje: patche kanálů, ruční pořadí, monitoring,
+   * skladbu bicí soupravy a poznámky. Staví se nad `project` + editovaný
+   * `snapshot`, stejnou kombinací jako `editedProject` výše, aby reset viděl
+   * přesně to, co je právě na obrazovce, ne poslední uložený stav na disku.
+   * Nic se tu neukládá — reset jen mění editovaný snapshot, uložení pak jde
+   * přes obvyklé `Save & Continue`.
+   */
+  const resetToDefaults = useCallback(() => {
+    setState((current) => {
+      if (current.kind !== "ready") return current;
+      const reset = resetInputsScreen({
+        ...current.project,
+        inputOrder: current.snapshot.inputOrder,
+        notes: current.snapshot.notes,
+        lineup: current.snapshot.lineup,
+      });
+      return {
+        ...current,
+        snapshot: {
+          inputOrder: reset.inputOrder,
+          notes: reset.notes,
+          lineup: reset.lineup ?? {},
+        },
+      };
+    });
+    setShowResetConfirmation(false);
+  }, []);
+
   useEffect(() => {
     if (state.kind !== "ready") return;
     const { project, snapshot } = state;
@@ -1183,11 +1232,28 @@ export function ProjectInputsPage({
   const editKitModalRef = useModalBehavior(isEditKitModalOpen, () =>
     setShowEditKitModal(false),
   );
+  const resetConfirmationModalRef = useModalBehavior(
+    showResetConfirmation,
+    () => setShowResetConfirmation(false),
+  );
 
   return (
     <section className="panel panel--inputs">
       <div className="panel__header">
         <h2>Inputs</h2>
+        <div className="inputsHeaderActions">
+          <span className="inputsHeaderChip">
+            {inputChannelCount} INPUTS · {iemMonitorCount} IEM
+          </span>
+          <button
+            type="button"
+            className="button-secondary"
+            disabled={state.kind !== "ready"}
+            onClick={() => setShowResetConfirmation(true)}
+          >
+            Reset to defaults
+          </button>
+        </div>
       </div>
       {state.kind === "error" ? (
         <div className="status status--error" role="alert">
@@ -1428,6 +1494,54 @@ export function ProjectInputsPage({
               onClick={() => setShowEditKitModal(false)}
             >
               Done
+            </button>
+          </div>
+        </div>
+      </ModalOverlay>
+
+      <ModalOverlay
+        open={showResetConfirmation}
+        onClose={() => setShowResetConfirmation(false)}
+      >
+        <div
+          className="selector-dialog"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="reset-inputs-title"
+          aria-describedby="reset-inputs-body"
+          ref={resetConfirmationModalRef}
+        >
+          <button
+            type="button"
+            className="modal-close"
+            onClick={() => setShowResetConfirmation(false)}
+            aria-label="Close"
+          >
+            <Close />
+          </button>
+          <div className="panel__header panel__header--stack selector-dialog__title">
+            <h3 id="reset-inputs-title">Reset to defaults?</h3>
+            <p id="reset-inputs-body" className="subtle">
+              This discards every input, monitoring, drum kit and notes
+              deviation on this project — the input list and monitors rebuild
+              from band and musician defaults. Lineup and stage plan are not
+              affected.
+            </p>
+          </div>
+          <div className="modal-actions">
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={() => setShowResetConfirmation(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="button-danger"
+              onClick={resetToDefaults}
+            >
+              Reset
             </button>
           </div>
         </div>
