@@ -17,8 +17,11 @@ import {
 import type { InputEditorRow } from "../domain/inputs/buildInputEditorRows";
 import {
   ProjectInputsPage,
+  countOwnerDeviations,
   isInputsDirty,
+  isReorderNoop,
   replaceSlotDrumDefinition,
+  resetSlotToDefault,
 } from "./ProjectInputsPage";
 
 describe("isInputsDirty", () => {
@@ -63,6 +66,23 @@ describe("isInputsDirty", () => {
   });
 });
 
+// Important 2 (review): `onDrop` calls `onReorder` unconditionally
+// (`InputTable.tsx:67-71`), even for a drop that lands back on the same
+// spot — a row dragged onto itself, or onto a filler/removed neighbor that
+// resolves back to the source's own position. R8 forbids writing
+// `inputOrder` in that case: a written-but-unchanged order would concrete
+// over today's computed order for every project saved from then on, so a
+// later change to the domain's ordering rules would never reach it again.
+describe("isReorderNoop", () => {
+  it("is a noop when the order after the move equals the order before it", () => {
+    expect(isReorderNoop(["a", "b", "c"], ["a", "b", "c"])).toBe(true);
+  });
+
+  it("is not a noop once the order actually changes", () => {
+    expect(isReorderNoop(["b", "a", "c"], ["a", "b", "c"])).toBe(false);
+  });
+});
+
 // Fix round 2, Minor 2: locks Ruling 1 (task 16) in a test, not just a
 // scratchpad script that never lived in the repo. `Edit kit` must write
 // *only* `drumDefinition` — a slot's `presetOverride` (rename/note patches
@@ -89,6 +109,83 @@ describe("replaceSlotDrumDefinition (Task 16, Ruling 1)", () => {
     expect(nextSlot.drumDefinition).toEqual(nextKit);
     expect(nextSlot.presetOverride).toEqual(lineup.drums[0].presetOverride);
     expect(nextSlot.musicianId).toBe("m2");
+  });
+});
+
+// Important 3+4 (review): shares its root with Important 3 — a drums slot's
+// "deviation" must mean the same thing everywhere it's evaluated.
+// `countPatchDeviations` alone never sees `drumDefinition`, since `Edit kit`
+// on `02` writes only that field (Task 16, Ruling 1). Without
+// `countOwnerDeviations`, the panel reported `DEVIATIONS 0` and disabled
+// `Reset to default` for a slot that provably deviated and whose kit change
+// the document prints.
+describe("countOwnerDeviations (Important 3+4, review)", () => {
+  it("counts a kit-only change even with no presetOverride at all", () => {
+    expect(countOwnerDeviations(undefined, createDefaultDrumDefinition())).toBe(
+      1,
+    );
+  });
+
+  it("adds the kit deviation on top of the patch's own count", () => {
+    const patch = { inputs: { update: [{ key: "dr_kick_1_out", note: "X" }] } };
+
+    expect(countOwnerDeviations(patch, createDefaultDrumDefinition())).toBe(2);
+  });
+
+  it("stays at the patch-only count when the slot has no drumDefinition", () => {
+    const patch = { inputs: { update: [{ key: "dr_kick_1_out", note: "X" }] } };
+
+    expect(countOwnerDeviations(patch, undefined)).toBe(1);
+  });
+
+  it("is zero for an untouched slot", () => {
+    expect(countOwnerDeviations(undefined, undefined)).toBe(0);
+  });
+});
+
+// `resetSlotToDefault` is what `Reset to default` calls on the panel
+// (Important 3+4, review) — it must clear `drumDefinition` alongside
+// `presetOverride`, or "vrátit kit na default" leaves the kit exactly as
+// edited: `resolveEffectiveProjectSetup.ts:50-54` falls back to the
+// musician's own preset kit only once `drumDefinition` is gone entirely,
+// the same pair of fields `resetInputsScreen.ts` strips for the whole
+// lineup at once.
+describe("resetSlotToDefault (Important 3+4, review)", () => {
+  it("clears both presetOverride and drumDefinition, keeping musicianId", () => {
+    const lineup = {
+      drums: [
+        {
+          musicianId: "m2",
+          presetOverride: {
+            inputs: { update: [{ key: "dr_kick_1_out", note: "Beta 52A" }] },
+          },
+          drumDefinition: {
+            ...createDefaultDrumDefinition(),
+            tomCount: 3 as const,
+          },
+        },
+      ],
+    };
+
+    const next = resetSlotToDefault(lineup, "drums", 0);
+
+    expect(next.drums).toEqual([{ musicianId: "m2" }]);
+  });
+
+  it("leaves other slots of the same role untouched", () => {
+    const lineup = {
+      bass: [
+        { musicianId: "m1", presetOverride: { inputs: { remove: ["x"] } } },
+        { musicianId: "m2", presetOverride: { inputs: { remove: ["y"] } } },
+      ],
+    };
+
+    const next = resetSlotToDefault(lineup, "bass", 1);
+
+    expect(next.bass).toEqual([
+      { musicianId: "m1", presetOverride: { inputs: { remove: ["x"] } } },
+      { musicianId: "m2" },
+    ]);
   });
 });
 

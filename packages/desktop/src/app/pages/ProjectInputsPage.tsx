@@ -49,6 +49,7 @@ import { resolveInputRowEditability } from "../domain/inputs/resolveInputRowEdit
 import {
   type NotesEditorLine,
   addCustomNote,
+  commitTemplateNoteText,
   removeCustomNote,
   resolveNotesEditorModel,
   revertNoteToTemplate,
@@ -119,6 +120,19 @@ export function isInputsDirty(
   return JSON.stringify(initial) !== JSON.stringify(current);
 }
 
+/**
+ * Jestli by přeřazení řádku reálně něco změnilo (R8, Important 2, review) —
+ * stejná `JSON.stringify` konvence jako `isInputsDirty`, ze stejného důvodu:
+ * obě pole jsou plochý seznam klíčů, hlubší srovnání by jen opakovalo, co
+ * `JSON.stringify` dělá samo.
+ */
+export function isReorderNoop(
+  nextOrder: readonly string[],
+  activeKeys: readonly string[],
+): boolean {
+  return JSON.stringify(nextOrder) === JSON.stringify(activeKeys);
+}
+
 function snapshotFromProject(project: NewProjectPayload): InputsEditorSnapshot {
   return {
     inputOrder: project.inputOrder,
@@ -174,6 +188,23 @@ function countPatchDeviations(patch: PresetOverridePatch | undefined): number {
 }
 
 /**
+ * Celkový počet odchylek vlastníkova slotu — patch i `drumDefinition`
+ * dohromady (Important 3+4, review). `countPatchDeviations` sama o sobě
+ * `drumDefinition` nevidí: `Edit kit` na `02` zapisuje jen tohle pole
+ * (Task 16, Ruling 1), žádný doprovodný `presetOverride`, takže bez týhle
+ * funkce panel po editaci kitu hlásil `DEVIATIONS 0` o slotu, který
+ * prokazatelně deviuje a jehož změnu dokument tiskne. Počítá se jako jedna
+ * odchylka — stejná granularita „jedno pole patche", jakou `countPatchDeviations`
+ * používá pro zbytek patche.
+ */
+export function countOwnerDeviations(
+  patch: PresetOverridePatch | undefined,
+  drumDefinition: DrumDefinition | undefined,
+): number {
+  return countPatchDeviations(patch) + (drumDefinition ? 1 : 0);
+}
+
+/**
  * Aktuální `presetOverride` jednoho slotu, čtený přímo z editovaného
  * snapshotu — sdílí ho výpočet `deviationCount` pro panel (R2) a payload pro
  * `Save as musician default` (R5): obě potřebují ten samý patch, jaký na
@@ -186,6 +217,22 @@ function getSlotOverride(
 ): PresetOverridePatch | undefined {
   const slots = normalizeLineupSlots(lineup[role], getRoleSlotLimit(role));
   return slots[slotIndex]?.presetOverride;
+}
+
+/**
+ * `drumDefinition` jednoho slotu, čtený stejnou cestou jako `getSlotOverride`
+ * (Important 3+4, review). `Edit kit` na obrazovce `02` zapisuje jen tohle
+ * pole (`replaceSlotDrumDefinition`, Task 16 Ruling 1), žádný doprovodný
+ * `presetOverride` — `ownerDeviationCount` počítaný jen z patche by tak
+ * editaci kitu nikdy nezachytil jako odchylku.
+ */
+function getSlotDrumDefinition(
+  lineup: LineupMap,
+  role: string,
+  slotIndex: number,
+): DrumDefinition | undefined {
+  const slots = normalizeLineupSlots(lineup[role], getRoleSlotLimit(role));
+  return slots[slotIndex]?.drumDefinition;
 }
 
 /** Zapíše (nebo smaže) `presetOverride` jednoho slotu v `lineup`, beze změny tvaru pole/objektu, jaký `role` používá. */
@@ -240,6 +287,34 @@ export function replaceSlotDrumDefinition(
     index === slotIndex
       ? { ...slot, drumDefinition: nextDrumDefinition }
       : slot,
+  );
+
+  const value = roleSlotLimit <= 1 ? nextSlots[0] : nextSlots;
+  return { ...lineup, [role]: value as LineupMap[string] };
+}
+
+/**
+ * Zahodí `presetOverride` I `drumDefinition` jednoho slotu (Important 3+4,
+ * review — sdílí kořen s Important 3: obojí je „odchylka od výchozí výbavy
+ * muzikanta" ve stejném smyslu). Na rozdíl od `replaceSlotOverride`, který
+ * `drumDefinition` schválně nechává beze změny (rename/add/remove kanálu se
+ * ho netýká), musí `Reset to default` smazat obojí — jinak kit editovaný
+ * přes `Edit kit` reset nevidí a `resolveEffectiveProjectSetup.ts:50-54` dál
+ * staví bicí kanály z téhle „výchozí" hodnoty místo z presetu muzikanta.
+ * Stejná dvojice polí, jakou pro celý lineup najednou maže
+ * `resetInputsScreen.ts`'s `stripSlotDeviations`.
+ */
+export function resetSlotToDefault(
+  lineup: LineupMap,
+  role: string,
+  slotIndex: number,
+): LineupMap {
+  const roleSlotLimit = getRoleSlotLimit(role);
+  const slots = normalizeLineupSlots(lineup[role], roleSlotLimit);
+  if (!slots[slotIndex]) return lineup;
+
+  const nextSlots = slots.map((slot, index) =>
+    index === slotIndex ? { musicianId: slot.musicianId } : slot,
   );
 
   const value = roleSlotLimit <= 1 ? nextSlots[0] : nextSlots;
@@ -619,6 +694,12 @@ export function ProjectInputsPage({
         .map((row) => row.rawKey);
       const toIndex = resolveActiveDropIndex(inputRows, toRowKey);
       const nextOrder = moveInputRow(activeKeys, fromRawKey, toIndex);
+      // Important 2 (review): a drop that lands back on the same position
+      // (a row dragged onto itself, or onto a filler/removed neighbor that
+      // resolves back to it) must not write `inputOrder` at all — R8 forbids
+      // it explicitly, since a written-but-unchanged order would concrete
+      // over today's computed order for every saved project from then on.
+      if (isReorderNoop(nextOrder, activeKeys)) return;
       setState((current) => {
         if (current.kind !== "ready") return current;
         return {
@@ -703,12 +784,14 @@ export function ProjectInputsPage({
 
   const ownerDeviationCount = useMemo(() => {
     if (!selectedRow || !selectedRow.slotKey) return 0;
-    const patch = getSlotOverride(
+    const slotIndex = parseSlotIndex(selectedRow.slotKey);
+    const patch = getSlotOverride(lineup, selectedRow.ownerRole, slotIndex);
+    const drumDefinition = getSlotDrumDefinition(
       lineup,
       selectedRow.ownerRole,
-      parseSlotIndex(selectedRow.slotKey),
+      slotIndex,
     );
-    return countPatchDeviations(patch);
+    return countOwnerDeviations(patch, drumDefinition);
   }, [selectedRow, lineup]);
 
   /**
@@ -890,18 +973,23 @@ export function ProjectInputsPage({
     });
   }, []);
 
-  /** Zahodí celý `presetOverride` vlastníkova slotu (owner action v panelu, R2) — ne jen jednu vlastnost. */
+  /**
+   * Zahodí celý `presetOverride` I `drumDefinition` vlastníkova slotu (owner
+   * action v panelu, R2) — ne jen jednu vlastnost. Bicí kit patří do resetu
+   * stejně jako patch (Important 3+4, review): `resetSlotToDefault` maže
+   * obojí, jinak by kit editovaný přes `Edit kit` reset nevidí a panel by
+   * dál hlásil odchylku, kterou `Reset to default` právě slíbil smazat.
+   */
   const resetOwnerToDefault = useCallback((row: InputEditorRow) => {
     if (!row.slotKey) return;
     const role = row.ownerRole;
     const slotIndex = parseSlotIndex(row.slotKey);
     setState((current) => {
       if (current.kind !== "ready") return current;
-      const nextLineup = replaceSlotOverride(
+      const nextLineup = resetSlotToDefault(
         current.snapshot.lineup,
         role,
         slotIndex,
-        undefined,
       );
       return {
         ...current,
@@ -973,7 +1061,12 @@ export function ProjectInputsPage({
     [slotKeysByOwner],
   );
 
-  /** Zapne/vypne řádek poznámky (šablonový i vlastní) — checkbox v `NotesEditor`. */
+  /**
+   * Zapne/vypne řádek poznámky — checkbox v `NotesEditor`. Jen šablonový
+   * řádek (po fixu Tasku 17): vlastní řádek checkbox nedostává vůbec, jen
+   * tlačítko `Remove` (`buildPdfNotes.ts`'s `disabled` na `overrides.custom`
+   * neaplikuje, takže by odškrtnutí v dokumentu tiše nic nezměnilo).
+   */
   const toggleNoteEnabled = useCallback(
     (line: NotesEditorLine, enabled: boolean) => {
       setState((current) => {
@@ -1002,6 +1095,30 @@ export function ProjectInputsPage({
         line.source === "template"
           ? setTemplateNoteText(current.snapshot.notes, line.id, text)
           : setCustomNoteText(current.snapshot.notes, line.id, text);
+      return {
+        ...current,
+        snapshot: { ...current.snapshot, notes: nextNotes },
+      };
+    });
+  }, []);
+
+  /**
+   * Dokončení editace textu šablonového řádku poznámky — `onBlur` v
+   * `NotesEditor` (Critical 1, review). `changeNoteText` výše zapisuje syrový
+   * text za psaní beze změny (psaní zůstává plynulé); tahle funkce běží až
+   * při opuštění pole a prázdný/bílý text převede zpátky na šablonu
+   * (`commitTemplateNoteText`), aby snapshot nikdy neuchoval přepis, který
+   * `normalizeProjectNotes` na uložení tiše zahodí.
+   */
+  const commitNoteText = useCallback((line: NotesEditorLine) => {
+    if (line.source !== "template") return;
+    setState((current) => {
+      if (current.kind !== "ready") return current;
+      const nextNotes = commitTemplateNoteText(
+        current.snapshot.notes,
+        line.id,
+        line.text,
+      );
       return {
         ...current,
         snapshot: { ...current.snapshot, notes: nextNotes },
@@ -1312,6 +1429,7 @@ export function ProjectInputsPage({
               model={notesModel}
               onToggleEnabled={toggleNoteEnabled}
               onTextChange={changeNoteText}
+              onTextBlur={commitNoteText}
               onRevertToTemplate={revertNoteText}
               onRemoveCustom={deleteCustomNote}
               onAddNote={addNote}
