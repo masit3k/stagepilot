@@ -25,20 +25,30 @@ u jednotlivých řezů skutečně čte, a dokončení Tasku 19.
 
 | Krok | Co |
 |---|---|
-| **A** | Katalog vstupů se derivuje z presetů (R1) |
+| **A** | Fallback bez presetů se bere z presetů a obě prefixové kopie se srovnají (R1) |
 | **B** | Srovnání doménových řezů — vlna 1 (R2, R3) |
-| **C** | Sekce Inputs jako modál z inspektoru na `02`, `+ Add input` se ruší (R4, R5) |
+| **C** | Sekce Inputs jako modál z inspektoru na `02`, `+ Add input` **i `GROUP_INPUT_LIBRARY`** se ruší (R4, R5) |
 | **D** | Dokončení Tasku 19 — smazání modálu z `01` (R6) |
 | **vlna 2** | Overlays z `02`, oprava osiřelého monitor mixu (R7) — oddělitelný poslední krok |
 
-Bez kroku A mluví sekce Inputs (klíče z presetů) a `+ Add input` (klíče z `GROUP_INPUT_LIBRARY`)
-o týchž kanálech dvěma jazyky, a `getGroupDefaultPreset` — na kterém nový modál z kroku C staví
-`defaultPreset`, tedy i `DEVIATIONS`, odznak `• Modified` a `Reset to default` — vydává klíče,
-které v datech neexistují. Krok D potřebuje krok C, protože sekce Inputs je jediná akce starého
-modálu, která na `02` domov nemá; dokud ho nedostane, nedá se modál smazat. Krok B na A, C ani D
-nezávisí — je v pořadí druhý proto, aby obě doménové změny (A i B) ležely v repu dřív než UI,
-které se o ně opírá, a aby se kontraktní testy z R8 psaly proti hotové doméně. Vlna 2 je
-uříznutelná: kdyby se fáze musela zkrátit, řízne se právě tam a F5d zůstane celá.
+Bez kroku A staví modál z kroku C na dvou vadných podkladech. První je
+`getGroupDefaultPreset` — z něj se bere `defaultPreset`, tedy i `DEVIATIONS`, odznak `• Modified`
+a `Reset to default` — a ten dnes vydává klíče, které v datech neexistují (`gtr_mic`, `voc_lead`).
+Druhý je prefixové rozpoznávání kanálů, které modálu určuje, který řez a který katalog polí dostane;
+existuje ve dvou kopiích a **na obě se modál opírá** (M2, M4). Krok D potřebuje krok C, protože
+sekce Inputs je jediná akce starého modálu, která na `02` domov nemá; dokud ho nedostane, nedá se
+modál smazat. Krok B na A, C ani D nezávisí — je v pořadí druhý proto, aby obě doménové změny
+(A i B) ležely v repu dřív než UI, které se o ně opírá, a aby se kontraktní testy z R8 psaly proti
+hotové doméně. Vlna 2 je uříznutelná: kdyby se fáze musela zkrátit, řízne se právě tam a F5d
+zůstane celá.
+
+**Zrušení `GROUP_INPUT_LIBRARY` patří do kroku C, ne do A.** Katalog má po kroku A jediného
+konzumenta — picker `+ Add input` (`ProjectInputsPage.tsx:769`) — a ten umírá v kroku C (R5).
+Kdyby se katalog mazal v A, picker by v intervalu A→C neměl z čeho brát; kdyby se picker rušil
+v A, přesunul by se do A kus UI práce, která patří k modálu. Katalog a jeho poslední konzument
+proto padají **jedním commitem v kroku C**, aby fáze nestála na půl cesty ani jedním směrem.
+V intervalu A→C picker dál nabízí `gtr_mic` a `gtr_di` — přesně jako dnes, protože ho krok A
+nechává být. Není to nová regrese, je to dnešní vada s ohraničenou životností (kroky A a B).
 
 ### Doklady z měření
 
@@ -77,6 +87,20 @@ a `gtr_di` tam nejsou. `voc_lead`/`voc_back` z `GROUP_INPUT_LIBRARY.vocs`
 vyloučené. Mono keys preset má klíč `keys`, který dnešní katalog vůbec nenabízí (nabízí jen
 `keys_l`/`keys_r`).
 
+**Ta mezera v katalogu se ale nezalepuje, mizí.** Mono zapojení kláves se volí dropdownem
+`Connection` v sekci Inputs (`keys_mono_xlr`, `keys_mono_jack`), ne výběrem z katalogu, a katalog
+krok C ruší celý (R5). Chybějící mono klíč `keys` tedy přestane být otázkou. Co po katalogu
+zůstane, je prefixová past na tomtéž klíči: `keys` nezačíná na `keys_`, takže ho **obě** kopie
+rozpoznávání dnes zahodí — to řeší R1, ne katalog.
+
+**Pole `group` v presetech neexistuje na kanálech, jen na presetu.** Ověřeno na všech 16 souborech
+v `data/assets/presets/groups/` — `"group"` je vždy atribut presetu, žádný prvek `inputs[]` ho
+nenese. `resolveDefaultMusicianSetup` kopíruje kanály z presetu verbatim
+(`src/domain/setup/resolveDefaultMusicianSetup.ts:93` a `:101`), takže kanál odvozený z presetu
+přijde do UI **bez `group`**. Fallback `|| group === "…"` na něj proto nesahá; jediné kanály, které
+`group` nesou, jsou ty z `getGroupDefaultPreset` a z ručního `inputs.add`. Důsledek pro R1 je
+zapsaný tam.
+
 **Sekce Inputs pokrývá celý prostor klíčů pro tři role** (doklad pro R5):
 
 | Role | Pole sekce Inputs | Klíče, které umí vyrobit |
@@ -91,14 +115,18 @@ se objeví s `group: "guitar"`, `ownerRole: "guitar"`, ve stageplanu pod kytarov
 `resolveLineupInstrumentMembership(["gtr_mic"])` vrátí `hasElectricGuitarCapability: false`
 a kytarista přestane být kytaristou — se samotným `gtr_mic` sekce guitar na `01` zmizí celá.
 Kořen je rozpoznávání kanálů čistě podle prefixu klíče, které v repu existuje ve **dvou kopiích**:
-`isGroupInputKey` a `detectPresetInstrumentCapabilities`
-(`src/domain/lineup/resolveLineupInstrumentMembership.ts:27-36` a `:49-67`), kde `group` fallback
-není u žádné role, a `resolveGroupKey` (`effectiveInstrumentGroups.ts:32-42`), kde je u všech rolí
-kromě kytary. R1 srovnává druhou kopii — tu, na které stojí nový modál z kroku C. **První kopie
-zůstává mimo rozsah F5d a je to vědomá mezera:** mono klíč `keys` z presetů `keys_mono_*`
-na ní uklouzne už dnes (`supportsCapabilitySection` takového hudebníka nenabídne do sekce keys
-na `01`), viz Navazuje. V `effectiveInstrumentGroups` mono `keys` prochází jen díky fallbacku
-`group === "keys"`.
+
+| Kopie | Kde | Fallback `group` |
+|---|---|---|
+| **kopie 1** | `isGroupInputKey` (`src/domain/lineup/resolveLineupInstrumentMembership.ts:27-37`) a `detectPresetInstrumentCapabilities` (`:50-67`) | u žádné role |
+| **kopie 2** | `resolveGroupKey` (`src/domain/lineup/effectiveInstrumentGroups.ts:32-44`) | u všech rolí kromě kytary a vokálních řezů |
+
+**R1 srovnává obě.** Opravit jen jednu je horší než nechat past celou, protože pak není poznat,
+která z nich platí — a M4 navíc ukazuje, že by to ani nefungovalo: kopie 1 stojí v modálu z kroku C
+jako brána **před** kopií 2. Mono klíč `keys`
+z presetů `keys_mono_*` uklouzne dnes na **obou** — `supportsCapabilitySection` takového hudebníka
+nenabídne do sekce keys na `01` a `resolveGroupKey` mu nepřiřadí řez, protože kanál z presetu
+nenese `group` (viz měření o poli `group` výše), takže na fallback `group === "keys"` nedosáhne.
 
 **M3 — pozůstatkový bookkeeping v uložených datech prakticky neexistuje.** Ve všech 51 JSON
 souborech v `%APPDATA%/StagePilot` je **jediný** slot nesoucí `drumDefinition` i neprázdný
@@ -109,6 +137,21 @@ souborech v `%APPDATA%/StagePilot` je **jediný** slot nesoucí `drumDefinition`
 (`catalog/bands/*.json`) mají `defaultLineup` jako holá pole ID stringů, žádné sloty a žádné
 patche; musician defaults nenesou `presetOverride` ani `drumDefinition`. **Migrace uložených dat
 tedy není potřeba, stačí zastavit zdroj zápisu.**
+
+**M4 — kopie 1 je v cestě kroku C brána před kopií 2.** Modál na `01` (a po kroku C tedy modál
+na `02`) volá `resolveInputsForCapabilitySection`
+(`src/domain/lineup/resolveLineupInstrumentMembership.ts:159-170`, staví na `isGroupInputKey`)
+a **jeho výsledek** pak předává `resolveEffectiveInstrumentGroups` — `ProjectSetupPage.tsx:1948-1954`.
+Jde tedy o sériové zapojení: co odfiltruje kopie 1, kopie 2 už nikdy neuvidí. `resolveGroupKey` má
+v celém repu jediného produkčního konzumenta, a je to právě tenhle modál.
+
+Konkrétně na klávesistovi s presetem `keys_mono_xlr`: `isGroupInputKey("keys", "keys")` spadne na
+`normalized.startsWith("keys_")` = `false`, takže `effectiveSectionInputs` je prázdné,
+`resolveEffectiveInstrumentGroups([])` je prázdné, uplatní se shim `{ key: "vocs", label: "" }`
+(`ProjectSetupPage.tsx:1955-1964`) a mapa řez → katalog (`:2280-2287`) mu podá **`LEAD_VOCS_FIELDS`**
+místo `KEYS_FIELDS`. Klávesista s mono presetem dnes v setup modálu dostane vokální pole. To je
+druhý doklad pro rozšíření R1 na obě kopie — a zároveň doklad, že fallback `group` sám nestačí:
+kanál `keys` z presetu `group` nenese.
 
 **O1 — vokální a talkback řádky vznikají výhradně z `project.overlays` + lineupu.**
 `src/domain/pipeline/buildDocument.ts:625-626` → `resolveOverlaySlots` (`:104-121`) →
@@ -155,12 +198,13 @@ dokument skutečně čte.
 
 ## Rozsah
 
-- **Krok A** — `GROUP_INPUT_LIBRARY` se derivuje z `presetCatalog` (R1) a srovná se asymetrie
-  fallbacků v `effectiveInstrumentGroups.ts` (R1).
+- **Krok A** — `getGroupDefaultPreset` přestane stavět na ručně psaném `GROUP_INPUT_LIBRARY`
+  a bere fallback z `PRESET_REFS` + `BandSetupData.presetCatalog`; srovná se prefixové rozpoznávání
+  v **obou** kopiích — `effectiveInstrumentGroups.ts` i `resolveLineupInstrumentMembership.ts` (R1).
 - **Krok B, vlna 1** — potvrzení zúžení `add`/`removeKeys` u bicích (R2) a odemčení monitoringu
   bicích (R3). Jediné skutečné rozšíření domény v této vlně.
 - **Krok C** — sekce Inputs jako modál `Edit inputs` z inspektoru na `02` (R4) a zrušení
-  `+ Add input` (R5).
+  `+ Add input` **spolu s `GROUP_INPUT_LIBRARY`** (R5).
 - **Krok D** — dokončení Tasku 19: smazání setup modálu z `01`, navigace karty muzikanta na
   `/inputs`, zánik dvojího bookkeepingu bicí soupravy (R6).
 - **Vlna 2** — přidání a odebrání lead/back vokálu a talkbacku z `02` (bez doménové změny) a
@@ -175,10 +219,9 @@ dokument skutečně čte.
   jeden muzikant = jeden řádek a klíč se generuje ze slotu (O1); zůstává zavřený.
 - **Nová reprezentace pro vypnutý vokální řádek.** Stav „zpěvák je v sestavě, ale nemá mikrofon"
   nikdo nepožadoval a v modelu pro něj reprezentace není (O2, O3).
-- **Prefixová kopie rozpoznávání v `resolveLineupInstrumentMembership.ts`** (`isGroupInputKey`,
-  `detectPresetInstrumentCapabilities`). R1 srovnává jen `effectiveInstrumentGroups.ts`, protože
-  na něm stojí modál z kroku C. Druhá kopie se dotýká rozpoznávání členů sestavy na `01`, ne
-  editoru vstupů (M2).
+- **Sloučení obou prefixových kopií do jedné funkce.** R1 je srovná, aby platilo totéž pravidlo,
+  ale nesloučí — obě odpovídají na jinou otázku a slučovat je zároveň s přesunem sekce Inputs
+  by zamlžilo, čí je padlý test. Viz Navazuje.
 - **Nálezy 2–5** ze sekce „Nálezy nad rámec rozsahu".
 - **Přejmenování „Friday Night Band" na „Big Night Band"** ve všech datech včetně id — samostatné
   zadání.
@@ -188,44 +231,63 @@ dokument skutečně čte.
 
 ## Rozhodnutí
 
-### R1 — Katalog vstupů se derivuje z presetů, ne z ručně psaného seznamu
+### R1 — Fallback bez presetů se bere z presetů a prefixové rozpoznávání se srovná v obou kopiích
 
-`GROUP_INPUT_LIBRARY` (`packages/desktop/src/app/pages/shared/setupConstants.ts:47-70`) přestane
-být ručně psaný seznam a odvodí se z `BandSetupData.presetCatalog` pro role `guitar`, `bass`,
-`keys` a `vocs`. Zdrojem referencí je **už existující `PRESET_REFS`**
-(`setupConstants.ts:72-92`) — táž konstanta, kterou dnes používá `buildSetupFieldCatalog`
-(`:94-121`), takže katalog vstupů a katalogy polí sekce Inputs čtou z jednoho seznamu.
-Rozlišení ref → preset jde přes `resolvePresetIdAlias`, jak to `buildSetupFieldCatalog` dělá dnes.
+**`GROUP_INPUT_LIBRARY` (`packages/desktop/src/app/pages/shared/setupConstants.ts:47-70`) se ruší
+a nic ho nenahrazuje.** Žádná funkce `buildGroupInputLibrary` nevzniká. Derivovat katalog
+z presetů by znamenalo postavit strukturu, kterou tatáž fáze o dva kroky dál maže: po zrušení
+`+ Add input` (R5) nemá katalog žádného konzumenta — picker byl poslední. To je mrtvý kód, který
+`CLAUDE.md` zakazuje, a nezachrání ho, že by pár kroků žil.
 
-- **Drums zůstávají na `resolveDrumInputs(createDefaultDrumDefinition())`** (`setupConstants.ts:48`).
-  Je to dnešní stav a jediný řádek katalogu, který si klíče nevymýšlí — vzor pro ostatní.
-- **Talkback zůstává po svém.** Jeho preset (`data/assets/presets/groups/talkback/talkback.json`)
-  má `type: "talkback_type"` a místo `inputs[]` singulární šablonu s klíčem `tb_{ownerKey}`.
-  Derivovat z něj statický kanál nejde a nemá to smysl — řádek staví `buildPdfTalkback` (O1).
-- **Pole `group` se u odvozených položek doplní z `preset.group`**, protože `inputs[]` v presetech
-  ho nenesou (viz `keys_stereo_xlr.json`, `vocal_wireless.json`). Bez toho by odvozený kanál
-  přišel o `group` a spadl do pasti z M2.
+Zbývá tedy jedna otázka, ne dvě. „Které kanály role vůbec existují?" byla otázka pickeru a mizí
+s ním. Otevřená zůstává jen ta druhá — **co dostane hudebník bez jediného presetu?**
+`getGroupDefaultPreset` (`setupConstants.ts:248-253`) dostane katalog parametrem
+(`getGroupDefaultPreset(group, presetCatalog)`) a fallback si postaví sám, přímo z `PRESET_REFS`
+(`setupConstants.ts:72-92`) a `BandSetupData.presetCatalog`:
 
-Z konstanty se stane funkce `buildGroupInputLibrary(presetCatalog)`. Navázaný
-`getGroupDefaultPreset` (`setupConstants.ts:248-252`) dostane katalog parametrem; oba volající
-(`packages/desktop/src/app/domain/setup/resolveSetupForSlot.ts:39` a `:59`) ho už mají v args.
+| Role | Zdroj `inputs` | Klíče |
+|---|---|---|
+| `bass`, `guitar`, `keys`, `vocs` | **první** ref role z `PRESET_REFS`, rozlišený přes `resolvePresetIdAlias`, jeho `inputs[]` z katalogu | `el_bass_xlr_amp`; `el_guitar_mic`; `keys_l` + `keys_r`; `voc_input` |
+| `drums` | `resolveDrumInputs(createDefaultDrumDefinition())` — beze změny, jen se to přestěhuje z konstanty do funkce | výchozí kit |
+| `talkback` | prázdné pole | — |
 
-**Dvě různé otázky, dvě různé odpovědi.** Dnešní konstanta odpovídá na obě zároveň a je to vada:
+- **První ref, ne union.** Union by kytaristovi bez presetu dal mikrofon, DI, stereo pár i akustiku
+  současně. `PRESET_REFS` je táž konstanta, kterou dnes používá `buildSetupFieldCatalog`
+  (`:94-121`), takže fallback a katalogy polí sekce Inputs čtou z jednoho seznamu — pořadí refů
+  je tím pádem už dnes rozhodnutí, ne náhoda.
+- **Pole `group` se doplní z `preset.group`.** Kanály v presetech ho nenesou vůbec (měření výše),
+  takže bez toho by odvozený kanál přišel o `group` a spadl do pasti z M2.
+- **Drums jsou jediný řádek dnešní konstanty, který si klíče nevymýšlí** (`setupConstants.ts:48`) —
+  proto se zachovává přesně jak je. Bicí kanály staví `drumDefinition` (R2), fallback slouží jen
+  bubeníkovi bez presetu a bez kitu.
+- **Talkback nemá co vrátit.** Jeho preset (`data/assets/presets/groups/talkback/talkback.json`)
+  má `type: "talkback_type"` a místo `inputs[]` singulární šablonu s klíčem `tb_{ownerKey}`;
+  v `PRESET_REFS` ref nemá a řádek staví `buildPdfTalkback` z overlays (O1). Dnešní hodnota
+  `{ key: "talkback" }` je fantomový klíč stejného druhu jako `gtr_mic` — v `data/assets/` není.
+  Talkback navíc nemá slot v lineupu, takže `getGroupDefaultPreset("talkback")` se v produkci
+  nevolá; prázdné pole je poctivá odpověď, ne degradace.
+- **Prázdný katalog dá prázdné `inputs`.** Když se `presetCatalog` nenačte, první ref se nerozliší
+  a fallback je prázdný. Je to táž hodnota, na kterou dnes padá poslední záchyt
+  `createDefaultMusicianPreset` (`src/domain/rules/presetOverride.ts:278-285`), takže se tím
+  nezavádí nový režim selhání.
 
-1. *Které kanály role vůbec existují?* → union `inputs[]` přes všechny presety role
-   z `PRESET_REFS`, deduplikovaný podle `key`, v pořadí referencí. Tohle je „library".
-2. *Co dostane hudebník bez jediného presetu?* → `getGroupDefaultPreset` vrátí `inputs[]`
-   **prvního** refu role (`el_bass_xlr_amp`, `el_guitar_mic`, `keys_stereo_xlr`,
-   `vocal_wireless`), ne union. Union by kytaristovi bez presetu dal mikrofon, DI, stereo pár
-   i akustiku současně.
+Oba volající (`packages/desktop/src/app/domain/setup/resolveSetupForSlot.ts:39` a `:59`) mají
+`presetCatalog` už dnes v args, takže parametr se jen prodrátuje.
 
-Změna chování `getGroupDefaultPreset`, kterou to přinese, je oprava: bass zůstává na
-`el_bass_xlr_amp` (nula změny), keys zůstává na `keys_l` + `keys_r`, guitar se posune
-z neexistujících `gtr_mic` + `gtr_di` na `el_guitar_mic`, vocs z neexistujících
-`voc_lead` + `voc_back` na `voc_input`. Staré klíče v datech nejsou (M1) a `gtr_mic` navíc rozbíjí
+Změna hodnot, kterou to přinese, je oprava: bass zůstává na `el_bass_xlr_amp` (nula změny), keys
+zůstává na `keys_l` + `keys_r`, guitar se posune z neexistujících `gtr_mic` + `gtr_di` na
+`el_guitar_mic`, vocs z neexistujících `voc_lead` + `voc_back` na `voc_input`, talkback
+z fantomového `talkback` na prázdno. Staré klíče v datech nejsou (M1) a `gtr_mic` navíc rozbíjí
 rozpoznání kytaristy (M2), takže dnešní hodnoty nejsou baseline, kterou by šlo chtít zachovat.
 
-**Součástí R1 je srovnání asymetrie v `src/domain/lineup/effectiveInstrumentGroups.ts:32-42`.**
+#### Srovnání prefixového rozpoznávání — obě kopie
+
+**Opravit jednu ze dvou kopií je horší než nechat past celou**, protože pak není z kódu poznat,
+která z nich platí. M4 to navíc ukazuje na konkrétním zapojení: kopie 1 filtruje kanály, které
+kopie 2 vůbec dostane, takže fallback doplněný jen do kopie 2 by se u odfiltrovaného kanálu nikdy
+neuplatnil. Proto R1 srovnává obě.
+
+**Kopie 2 — `src/domain/lineup/effectiveInstrumentGroups.ts:32-44`.**
 `drums`, `bass`, `keys` i `vocs` mají v `resolveGroupKey` fallback `|| group === "…"`, řádky pro
 `electric_guitar` a `acoustic_guitar` ho nemají a jedou čistě na `key.startsWith`. Bez doplnění
 zůstane past nachystaná pro každý budoucí klíč mimo prefix — přesně ta, na které M2 uklouzlo.
@@ -238,8 +300,35 @@ pevným klíčem, zatímco elektrická kytara je to, na čem stojí rozpoznání
 prefixy `voc_lead`/`voc_back` propadne na řádek `vocs`, a to je správná odpověď — o slotu
 vokálního řádku rozhoduje overlay, ne klíč (O1).
 
-Druhá, prefixová kopie téhož rozpoznávání v `resolveLineupInstrumentMembership.ts` (M2) se
-**nemění** — je mimo rozsah F5d, viz Mimo rozsah a Navazuje.
+**Kopie 1 — `src/domain/lineup/resolveLineupInstrumentMembership.ts:27-37` a `:50-67`.**
+Rozhodnutí z kopie 2 se sem přenáší **se stejnou logikou, ale jiným švem**, protože kopie 1
+`group` dnes vůbec nevidí: `isGroupInputKey` dostává jen `key: string` a
+`detectPresetInstrumentCapabilities` celý kanál sice má, ale čte z něj jen `.key`.
+
+- `isGroupInputKey` (`:27-37`) přijme celý kanál místo klíče a dostane fallback na `input.group`
+  pro všech pět řezů, se kterými pracuje (`drums`, `bass`, `guitar`, `keys`, `vocs`). Oba volající
+  — `supportsCapabilitySection` (`:39-48`) a `resolveInputsForCapabilitySection` (`:159-170`) —
+  celý `input` už mají, takže změna signatury nikam dál neteče.
+- Řez `acoustic_guitar` řeší oba volající **mimo** `isGroupInputKey`, prefixem `ac_guitar`
+  (`:44-46` a `:164-168`); typ parametru ho ani nepřipouští
+  (`Exclude<SetupCapabilitySection, "acoustic_guitar">`). Asymetrie „elektrika dostane fallback,
+  akustika ne" je tím na kopii 1 vynucená strukturou a nemusí se zavádět ručně — sedí přesně
+  na rozhodnutí z kopie 2.
+- `detectPresetInstrumentCapabilities` (`:50-67`) fallback `group === "guitar"` dostane **jen pro
+  `hasElectricGuitarCapability`**; `hasAcousticGuitarCapability` zůstává na prefixu `ac_guitar`.
+  Kdyby fallback dostaly obě, kanál `ac_guitar` — kterému `group: "guitar"` doplní právě nový
+  `getGroupDefaultPreset` — by kytaristu prohlásil za elektrického i akustického zároveň,
+  `isAcousticOnlyMember` (`:87-94`) by přestal fungovat a sekce `acoustic_guitar` na `01` by
+  zmizela. **Tady je asymetrie z kopie 2 nejen převoditelná, ale povinná.**
+
+**Fallback `group` sám mono klíč `keys` neopraví.** Kanál z presetu `group` nenese (měření výše),
+takže na obou kopiích je potřeba **ještě jedna věc: řez `keys` musí uznat i holý klíč `keys`**,
+ne jen prefix `keys_`. Bez toho zůstane klávesista s `keys_mono_xlr` neviditelný pro sekci keys
+na `01` (kopie 1) a v modálu dostane vokální katalog polí (M4). Krok C tu past zpřístupní víc
+uživatelům, protože dropdown `Connection` pro klávesy se stěhuje na `02`, kam dojde každý — proto
+se opravuje teď, ne „až se bude řešit sestava".
+
+`inputs.add` u talkbacku ani u vokálů R1 nezpřístupňuje — ty řádky staví overlays (O1, R7).
 
 ### R2 — Bicí řez `add`/`removeKeys` číst nezačne
 
@@ -312,6 +401,11 @@ inline v modálu na `01`: `resolveInputsForCapabilitySection` + `resolveEffectiv
 bass jede zvlášť na `BASS_FIELDS`, `:2153`). R6 proto maže jen import z `ProjectSetupPage.tsx`,
 ne samotné doménové pomocníky.
 
+**Tohle je přesně to sériové zapojení obou prefixových kopií z M4** — `resolveInputsForCapabilitySection`
+(kopie 1) filtruje, `resolveEffectiveInstrumentGroups` (kopie 2) přiřazuje řez. Krok C je tedy
+smí přestěhovat teprve poté, co je krok A srovnal (R1); jinak by se past přestěhovala s nimi
+a na `02` by na ni narazilo víc lidí než dnes na `01`.
+
 Katalogy polí se **importují beze změny**: `buildBassFields`, `buildGuitarFields`,
 `buildKeysFields`, `buildLeadVocsFields`
 (`packages/desktop/src/app/components/setup/instruments/`, 443 řádků implementace + 336 řádků
@@ -330,7 +424,8 @@ polí existuje. U bicích zůstává `Edit kit`.
 Sekce Inputs pokrývá **celý** prostor klíčů pro bass, guitar i keys (tabulka v Dokladech z měření)
 a picker obsluhuje **právě a jenom tyhle tři role**: `drums` a `vocs` jsou z něj vyloučené branou
 a talkback nemá slot (`ProjectInputsPage.tsx:725-753`). Picker nenabízí nic vlastního, jen pevný
-seznam. Po kroku A je ten seznam navíc týž jako v presetech, takže dvě cesty ke stejnému výsledku.
+seznam — a ten seznam z poloviny lže: `gtr_mic` a `gtr_di` v datech nejsou (M1) a `gtr_mic` rozbíjí
+rozpoznání kytaristy (M2). Dvě cesty k témuž kanálu, z nichž jedna vede do pasti.
 
 Zaniká `packages/desktop/src/app/components/inputs/AddInputPicker.tsx` (144 řádků) a `addInputRow`.
 **R4 z F5c se přeformuluje** z „přidání kanálu je dvoukrokový výběr z katalogu" na **„přidání
@@ -350,12 +445,18 @@ z nich. Když tentýž kanál umí vzniknout dvěma cestami, přestává být z 
 A přesně na to se ptá půl obrazovky `02`: `DEVIATIONS N`, `Reset to default`, odznak `• Modified`,
 přeškrtnutý řádek.
 
-`buildGroupInputLibrary` tím **přichází o posledního konzumenta a maže se v kroku C spolu
-s pickerem**. Po kroku A na něm `getGroupDefaultPreset` nestojí — ten čte první ref z `PRESET_REFS`
-(R1, otázka 2) — a jiné volací místo v repu není; dnes jediné je `ProjectInputsPage.tsx:769`.
-Ponechat ho by byl mrtvý kód, který `CLAUDE.md` zakazuje. Krok A ho přesto derivuje: mezi A a C
-picker ještě žije a nesmí nabízet klíče, které v datech nejsou — odpověď na otázku 1 tedy existuje
-právě po dobu, kdy má konzumenta.
+**`GROUP_INPUT_LIBRARY` tím přichází o posledního konzumenta a maže se týmž commitem jako picker,
+v kroku C.** Po kroku A na něm `getGroupDefaultPreset` nestojí — ten čte první ref z `PRESET_REFS`
+(R1) — a jiné volací místo v repu není; dnes jsou dvě, `setupConstants.ts:250` (mizí v A)
+a `ProjectInputsPage.tsx:769` (mizí v C). Ponechat konstantu by byl mrtvý kód, který `CLAUDE.md`
+zakazuje. Mazat ji dřív než picker nelze — picker by neměl z čeho brát. Proto jeden commit
+na obojí; zdůvodnění pořadí je v „Pořadí kroků je vynucené, ne libovolné".
+
+Na konstantu se odvolávají i **komentáře**, a ty musí přepsat ten krok, který mění věc, kterou
+popisují: `resolveSetupForSlot.test.ts:41` (band default pro `bass`) v kroku A,
+`resolveInputRowEditability.ts:41` a `resolveInputRowEditability.test.ts:65` v kroku C.
+`AddInputPicker.tsx:21` mizí s pickerem. Brána `resolveInputRowEditability` sama zůstává (R2, R7),
+jen ji nelze dál vysvětlovat neexistující konstantou.
 
 **Nedestruktivní `rebuild()` byl zvážen a zamítnut.** Pravidlo „zachovej kanály, které nepocházejí
 z presetu" zavádí do modelu třetí kategorii kanálů, kterou by musela znát doména, `Reset to
@@ -480,13 +581,18 @@ Vrstvy podle `CLAUDE.md`; přesun nesmí žádnou překročit.
 
 | Soubor | Co | Krok |
 |---|---|---|
-| `lineup/effectiveInstrumentGroups.ts` | doplnit fallback `group === "guitar"` u `electric_guitar`; `acoustic_guitar` zůstává na prefixu (R1) | A |
+| `lineup/effectiveInstrumentGroups.ts` (kopie 2) | fallback `group === "guitar"` u `electric_guitar`; `acoustic_guitar` zůstává na prefixu; řez `keys` uzná i holý klíč `keys` (R1) | A |
+| `lineup/resolveLineupInstrumentMembership.ts` (kopie 1) | `isGroupInputKey` bere celý `InputChannel` a fallback na `input.group`; `detectPresetInstrumentCapabilities` má fallback jen pro elektriku; řez `keys` uzná i holý klíč `keys` (R1) | A |
 | `setup/resolveEffectiveProjectSetup.ts` | bicí větev přestane zahazovat `patch.monitoring`; `assertMonitorPresetRef` platí i pro drums (R3) | B |
 | `pipeline/pdf/buildPdfMonitorRows.ts` | monitorový řádek nesmí přežít odebrání vokalisty z overlay (R7, Nález 1) | vlna 2 |
 
-Nic jiného v `src/domain/` se nemění — jmenovitě ani `lineup/resolveLineupInstrumentMembership.ts`
-(prefixová kopie rozpoznávání z M2, mimo rozsah). `add`/`removeKeys` u bicích, vokálů a talkbacku
-zůstávají nečtené (R2, R7).
+Nic jiného v `src/domain/` se nemění. `add`/`removeKeys` u bicích, vokálů a talkbacku zůstávají
+nečtené (R2, R7).
+
+Změna signatury `isGroupInputKey` je interní (funkce není exportovaná), ale sahá na **dva**
+volající: `resolveInputsForCapabilitySection`, který se v kroku C stěhuje do modálu na `02`,
+a `supportsCapabilitySection`, který po R6 zůstává na `01` v `resolveEligibleMembersForSection`
+(`ProjectSetupPage.tsx:1375-1387`). Krok A se tedy dotýká i `01`, ne jen cesty ke kroku C.
 
 **Desktop — čistá logika** (`packages/desktop/src/app/domain/`):
 
@@ -498,17 +604,18 @@ zůstávají nečtené (R2, R7).
 | `inputs/resolveInputRowEditability.ts` | `drums-not-supported` i `overlay-not-supported` **zůstávají** (R2, R7) | — |
 
 **Desktop — sdílené konstanty** (`packages/desktop/src/app/pages/shared/setupConstants.ts`):
-`buildGroupInputLibrary(presetCatalog)` místo konstanty, `getGroupDefaultPreset(group,
-presetCatalog)` s parametrem, derivace přes `PRESET_REFS` a `resolvePresetIdAlias` (R1, krok A).
-Volající `resolveSetupForSlot.ts:39,59` katalog už má. V kroku C se `buildGroupInputLibrary` maže
-spolu s pickerem — je to jeho poslední konzument (R5).
+v kroku A dostane `getGroupDefaultPreset(group, presetCatalog)` parametr a fallback si staví sám
+z `PRESET_REFS` + `resolvePresetIdAlias`; drums si nechává `resolveDrumInputs(...)`, talkback
+vrací prázdno (R1). Volající `resolveSetupForSlot.ts:39,59` katalog už mají. **Žádná funkce
+`buildGroupInputLibrary` nevzniká.** `GROUP_INPUT_LIBRARY` po kroku A drží už jen picker a maže se
+s ním v kroku C, jedním commitem (R5).
 
 **Desktop — komponenty:**
 
 | Soubor | Co | Krok |
 |---|---|---|
 | `components/inputs/InputsSetupSection.tsx` (nový) | modál `Edit inputs`, `SchemaRenderer` + katalogy polí + potvrzení z R5 | C |
-| `components/inputs/AddInputPicker.tsx` | **smazat** (144 ř.), s ním `addInputRow` a `buildGroupInputLibrary` | C |
+| `components/inputs/AddInputPicker.tsx` | **smazat** (144 ř.), týmž commitem s ním `addInputRow` a `GROUP_INPUT_LIBRARY` | C |
 | `pages/ProjectInputsPage.tsx` | 60–100 řádků: stav modálu, tlačítko v inspektoru, render; odstranit picker | C |
 | `pages/ProjectSetupPage.tsx` | smazat setup modál a jeho stav, karta naviguje na `/inputs` (R6) | D |
 | `pages/ProjectInputsPage.tsx` | overlays: Add/Remove lead, back, talkback (R7) | vlna 2 |
@@ -519,22 +626,31 @@ importují se, kde jsou.
 ## Testování
 
 **Doména.**
-`effectiveInstrumentGroups`: klíč mimo prefix s `group: "guitar"` dá `electric_guitar`, nikdy
-`acoustic_guitar` (R1); `ac_guitar` dál dá `acoustic_guitar`; mono `keys` klíč dál prochází.
+`effectiveInstrumentGroups` (kopie 2): klíč mimo prefix s `group: "guitar"` dá `electric_guitar`,
+nikdy `acoustic_guitar` (R1); `ac_guitar` dál dá `acoustic_guitar`; **holý klíč `keys` bez `group`
+dá `keys`** — dnes dá `null`.
+`resolveLineupInstrumentMembership` (kopie 1, R1): kanál s `group: "guitar"` mimo prefix
+`el_guitar` projde `supportsCapabilitySection({section: "guitar"})` i
+`resolveInputsForCapabilitySection`; `ac_guitar` s `group: "guitar"` **nesmí** nastavit
+`hasElectricGuitarCapability` a `isAcousticOnlyMember` u něj dál platí; **holý klíč `keys` projde
+do sekce keys**; `voc_input` dál projde do sekce `vocs`.
 `resolveEffectiveProjectSetup`: bicí slot s `patch.monitoring.monitorRef` dostane ten ref;
 nevalidní ref na bicím slotu **hodí** stejnou chybu jako na basovém (R3); bicí `add` na klíč
 z `drumDefinition` se dál ignoruje a **nehodí** collision (R2).
 
 **Desktop — čistá logika.**
-`buildGroupInputLibrary`: derivuje z `PRESET_REFS`, dedupuje podle `key`, doplní `group`
-z `preset.group`, drums a talkback nechává být, prázdný katalog dá prázdné pole — testy zanikají
-v kroku C spolu s funkcí (R5).
-`getGroupDefaultPreset`: první ref role, ne union.
+`getGroupDefaultPreset` (R1, krok A): pro `bass`, `guitar`, `keys` a `vocs` vrátí `inputs[]`
+**prvního** refu role z `PRESET_REFS`, ne union, s `group` doplněným z `preset.group`; pro `drums`
+výchozí kit; pro `talkback` prázdné pole; s prázdným katalogem prázdné pole. Konkrétní očekávané
+klíče: `el_bass_xlr_amp`, `el_guitar_mic`, `keys_l` + `keys_r`, `voc_input`.
 `resolveInputsEditState`: pro každou ze čtyř rolí dá `EventSetupEditState`, jehož
 `effectivePreset` odpovídá `setupForSlot`.
 `resolveDroppedUserEdits`: přepnutí, které zahodí kanál s `update.label`, ho ohlásí; přepnutí bez
 dotčené odchylky vrátí prázdno; přejmenování bez přepnutí zapojení vrátí prázdno.
 `resolveMonitorRowEditability`: bicí slot je editovatelný.
+
+**Grep místo testu, součást verifikace kroku C:** po commitu kroku C nesmí v repu zbýt výskyt
+`GROUP_INPUT_LIBRARY` ani `buildGroupInputLibrary` — v kódu, v testech ani v komentářích (R5).
 
 **Kontraktní testy UI ↔ dokument (R8)** — jeden na každou bránu, kterou fáze otevírá nebo zavírá.
 Vzor `buildInputEditorRows.test.ts:845`. Minimálně:
@@ -548,10 +664,22 @@ Vzor `buildInputEditorRows.test.ts:845`. Minimálně:
 5. Odebrání vokalisty: v dokumentu nezůstane osiřelý monitor mix (Nález 1).
 6. Přepnutí `Connection`, které zahodí kanál s poznámkou: `resolveDroppedUserEdits` ho ohlásí **a**
    dokument ten kanál po aplikaci netiskne (R5).
+7. Klávesista s presetem `keys_mono_xlr`: obě kopie rozpoznávání mu přiřadí řez `keys`, modál
+   dostane `KEYS_FIELDS` (ne `LEAD_VOCS_FIELDS`) **a** `buildDocument` nad týmiž daty vytiskne
+   kanál `keys` pod klávesovým blokem (R1, M4).
 
 **Regrese.** `src/domain/pipeline/buildDocument.pdfRegression.test.ts` musí zůstat zelený
 s **nedotčenými očekáváními**. Měření potvrdilo, že rozšíření domény na jeho fixtury nesahá —
 jediný `presetOverride` v nich je `monitoring` na basovém slotu, žádné `inputs.*`.
+
+**Existující testy, které krok A přepíše.** Rozšíření R1 na obě kopie a nový zdroj fallbacku se
+dotknou očekávání ve třech souborech; plán s tím musí počítat a **měnit očekávání jen tam, kde je
+nová hodnota správná odpověď**, ne aby test prošel:
+`src/domain/lineup/resolveLineupInstrumentMembership.test.ts` (`:178-223` — sekce a řezy),
+`src/domain/lineup/effectiveInstrumentGroups.test.ts`
+a `packages/desktop/src/app/pages/shared/setupConstants.test.ts:79,126,132`, kde je `gtr_mic`
+libovolný fixture předávaný literálem přes `bandDefaults` — na `GROUP_INPUT_LIBRARY` nezávisí,
+takže krok A mu nesahá, ale při čtení diffu se to snadno zamění.
 
 **Smoke.** `npm run smoke:stageplan-print` po kroku C i D — přepnutí zapojení mění text v boxech,
 takže i jejich šířku (R6 z F5c).
@@ -581,15 +709,25 @@ Seřazená podle toho, co by bolelo nejvíc.
 2. **Odemčení monitoringu bicích vrací throw path do pipeline** (R3). Projekt s nevalidním
    `monitorRef` na bicím slotu se přestane exportovat. Je to vědomé a hlášené, ne tiché; krytý
    doménovým testem a kontraktním testem 1.
-3. **`getGroupDefaultPreset` mění hodnoty pro guitar a vocs** (R1). Dotýká se hudebníků s nula
-   presety. Zmírnění: staré klíče v datech nejsou (M1) a `gtr_mic` navíc rozbíjí rozpoznání
-   kytaristy (M2), takže jde o opravu; krytý testem na první ref.
-4. **Destruktivní `rebuild` zahodí uživatelskou odchylku** (R5). Zmírnění: potvrzení dopředu
+3. **Krok A sahá i na obrazovku `01`** (R1). `isGroupInputKey` mění signaturu a jeden ze dvou
+   volajících — `supportsCapabilitySection` — rozhoduje o tom, koho `01` nabídne do které sekce
+   sestavy (`ProjectSetupPage.tsx:1375-1387`). Chybný fallback u akustiky by sekci
+   `acoustic_guitar` z `01` odstranil. Zmírnění: `hasAcousticGuitarCapability` fallback vědomě
+   **nedostane** (R1) a je to krytý doménový test; `ProjectSetupPage.tsx` vlastní test nemá, takže
+   ověření visí na doménové vrstvě a na ručním bodě 17.
+4. **`getGroupDefaultPreset` mění hodnoty pro guitar, vocs a talkback** (R1). Dotýká se hudebníků
+   s nula presety. Zmírnění: staré klíče v datech nejsou (M1) a `gtr_mic` navíc rozbíjí rozpoznání
+   kytaristy (M2), takže jde o opravu; krytý testem na první ref, na výchozí kit u drums a na
+   prázdno u talkbacku.
+5. **Destruktivní `rebuild` zahodí uživatelskou odchylku** (R5). Zmírnění: potvrzení dopředu
    s výpisem, čistou funkcí a testem.
-5. **`ProjectInputsPage.tsx` naroste** (1669 řádků). Zmírnění: limit 60–100 řádků v R4, logika
+6. **`ProjectInputsPage.tsx` naroste** (1669 řádků). Zmírnění: limit 60–100 řádků v R4, logika
    v `app/domain/inputs/`, ne v komponentě.
-6. **Přepnutí zapojení mění šířky tištěných boxů.** Kolizní pojistka z F7 to zachytí při exportu.
+7. **Přepnutí zapojení mění šířky tištěných boxů.** Kolizní pojistka z F7 to zachytí při exportu.
    Hlášená chyba, ne tichá vada.
+8. **Interval A→C nechává picker s klíči `gtr_mic`/`gtr_di`.** Je to dnešní stav, ne regrese, a trvá
+   dva kroky (A a B). Zmírnění: katalog a picker padají jedním commitem v C, takže se ten stav nemůže
+   zafixovat jako „hotovo".
 
 ## Nálezy nad rámec rozsahu
 
@@ -657,6 +795,13 @@ F5d se dotýká týchž obrazovek a projít je po F5d je smysluplnější než d
 15. Přidání a odebrání back vokalisty a talkbacku z `02` s exportem PDF (R7).
 16. Starý projekt z reálného `%APPDATA%/StagePilot` (ne z fixtury) se načte, uloží a vyexportuje
     bez ztráty dat.
+17. **Sestava na `01` po kroku A**: sekce `acoustic_guitar` je pořád vidět u kytaristy, který má
+    jen `ac_guitar`, a kytarista s elektrikou v ní **není** (R1, kopie 1).
+18. **Klávesista s mono presetem** (`keys_mono_xlr` nebo `keys_mono_jack`): na `01` je nabízený
+    do sekce keys, na `02` mu `Edit inputs` ukáže dropdown `Connection` pro klávesy, ne vokální
+    pole, a kanál `keys` je v exportovaném PDF (R1, M4).
+19. **Hudebník bez jediného presetu** u kytary a u vokálů: fallback dá `el_guitar_mic`, resp.
+    `voc_input`, ne `gtr_mic`/`voc_lead`, a projekt se vyexportuje (R1).
 
 ## Navazuje
 
@@ -671,9 +816,11 @@ vznikne — nebo cestu uzavřít bez ohledu na to, jestli existuje.
 **`band.defaultOverlays` a legacy `talkbackOverride`** (Nálezy 3 a 4). Obojí je otázka pro fázi,
 která se bude zabývat zakládáním projektu a čtením legacy dat, ne pro editor vstupů.
 
-**Prefixové rozpoznávání v `resolveLineupInstrumentMembership.ts`** (M2). `isGroupInputKey` nemá
-`group` fallback u žádné role, takže hudebník s presetem `keys_mono_*` (klíč `keys`) se dnes
-nenabídne do sekce keys na `01`. Patří k rozpoznávání členů sestavy, ne k editoru vstupů.
+**Sloučení obou kopií prefixového rozpoznávání do jedné.** F5d je srovná (R1), ale nesloučí —
+zůstanou dvě funkce se stejným pravidlem. Sloučit je znamená rozhodnout, kdo je vlastník: kopie 1
+odpovídá na „patří tenhle kanál do téhle sekce", kopie 2 na „do kterého řezu kanál spadá", a to
+nejsou tytéž otázky (kopie 2 zná `lead_voc`/`back_voc`, kopie 1 ne). Míchat to s přesunem sekce
+Inputs znamená, že u padlého testu nepoznáš, která změna za to může.
 
 **Stereo lead vocal a druhý mikrofon pro zpěváka** (R4 z F5c u vokálů). Vyžaduje jinou reprezentaci
 overlay než „jeden muzikant = jeden řádek" (O1).
