@@ -4,10 +4,12 @@ import type {
   Musician,
   NotesTemplate,
   PresetEntity,
+  PresetOverridePatch,
   Project,
 } from "../../../../../../src/domain/model/types";
 import { buildDocument } from "../../../../../../src/domain/pipeline/buildDocument";
 import type { DataRepository } from "../../../../../../src/infra/fs/repo";
+import { resolveInputRowEditability } from "./resolveInputRowEditability";
 import { resolveMonitorRowEditability } from "./resolveMonitorRowEditability";
 
 /**
@@ -129,5 +131,187 @@ describe("contract: drums monitoring (F5d R3)", () => {
       (row) => row.ownerMusicianId === "dr-1",
     );
     expect(drumsMonitorRow?.note).toContain("IEM STEREO wired");
+  });
+});
+
+describe("contract: drums channels stay patch-proof (F5d R2)", () => {
+  it("UI refuses remove/restore and the document ignores add and removeKeys", () => {
+    const band: Band = {
+      id: "band",
+      name: "Band",
+      bandLeader: "dr-1",
+      defaultLineup: { drums: ["dr-1"] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
+    };
+    const drummer: Musician = {
+      id: "dr-1",
+      firstName: "Dr",
+      lastName: "One",
+      group: "drums",
+      presets: [{ kind: "monitor", ref: "wedge_foh" }],
+    };
+
+    const clean: Project = {
+      id: "p-drums-clean",
+      bandRef: "band",
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: { drums: { musicianId: "dr-1" } },
+    };
+    // Both halves of this patch are deliberately *reachable*: `dr_kick_1_out`
+    // is a real channel of the default kit and `dr_tom_3` is not, so an
+    // un-narrowed application changes the printed list in both directions.
+    // Measured un-narrowed (`applyPresetOverride` over the drum preset):
+    // `dr_kick_1_out` drops out and `dr_tom_3` is appended. A patch keyed on
+    // a channel the kit never had would make this test vacuous.
+    const patched: Project = {
+      ...clean,
+      id: "p-drums-patched",
+      lineup: {
+        drums: {
+          musicianId: "dr-1",
+          presetOverride: {
+            inputs: {
+              add: [{ key: "dr_tom_3", label: "Tom 3", group: "drums" }],
+              removeKeys: ["dr_kick_1_out"],
+            },
+          },
+        },
+      },
+    };
+
+    // What the UI claims: the buttons that would write this patch are closed.
+    expect(
+      resolveInputRowEditability({ ownerRole: "drums", group: "drums" }),
+    ).toEqual({ canEdit: false, reason: "drums-not-supported" });
+
+    // What the document does: nothing. Not a collision error either — the
+    // narrowing in `resolveEffectiveProjectSetup` drops add/removeKeys before
+    // `applyPresetOverride` can hit its collision guard (Critical 1, task 12c).
+    const cleanVm = buildDocument(
+      clean,
+      makeRepo({ band, musicians: { "dr-1": drummer }, project: clean }),
+    );
+    const patchedVm = buildDocument(
+      patched,
+      makeRepo({ band, musicians: { "dr-1": drummer }, project: patched }),
+    );
+
+    expect(patchedVm.inputs.map((row) => row.key)).toEqual(
+      cleanVm.inputs.map((row) => row.key),
+    );
+    expect(patchedVm.inputs.some((row) => row.key === "dr_tom_3")).toBe(false);
+    expect(patchedVm.inputs.some((row) => row.key === "dr_kick_1_out")).toBe(
+      true,
+    );
+  });
+});
+
+describe("contract: overlay rows stay patch-proof (F5d R7, O2)", () => {
+  const band: Band = {
+    id: "band",
+    name: "Band",
+    bandLeader: "voc-1",
+    defaultLineup: { vocs: ["voc-1"] },
+    defaultOverlays: { leadVocals: ["voc-1"], backVocals: [] },
+  };
+  const singer: Musician = {
+    id: "voc-1",
+    firstName: "Voc",
+    lastName: "One",
+    group: "vocs",
+    gender: "m",
+    presets: [
+      { kind: "preset", ref: "vocal_wireless" },
+      { kind: "monitor", ref: "wedge_foh" },
+    ],
+  };
+  const presets: Record<string, PresetEntity> = {
+    vocal_wireless: {
+      type: "preset",
+      id: "vocal_wireless",
+      label: "Vocal (wireless)",
+      group: "vocs",
+      capabilities: ["vocal"],
+      inputs: [{ key: "voc_input", label: "Vocal", note: "Own wireless mic" }],
+    },
+  };
+
+  const clean: Project = {
+    id: "p-voc-clean",
+    bandRef: "band",
+    purpose: "event",
+    documentDate: "2026-01-01",
+    lineup: { vocs: [{ musicianId: "voc-1" }] },
+    overlays: { leadVocals: ["voc-1"], backVocals: [] },
+  };
+  const withInputsPatch = (
+    id: string,
+    inputs: NonNullable<PresetOverridePatch["inputs"]>,
+  ): Project => ({
+    ...clean,
+    id,
+    lineup: { vocs: [{ musicianId: "voc-1", presetOverride: { inputs } }] },
+  });
+  const vmOf = (project: Project) =>
+    buildDocument(
+      project,
+      makeRepo({ band, musicians: { "voc-1": singer }, project, presets }),
+    );
+
+  it("UI reports overlay-not-supported for every vocal and talkback row", () => {
+    // The criterion is `group`, not `ownerRole` — a bass player's back-vocal
+    // row carries `ownerRole: "bass"` but `group: "vocs"`.
+    expect(
+      resolveInputRowEditability({ ownerRole: "vocs", group: "vocs" }),
+    ).toEqual({ canEdit: false, reason: "overlay-not-supported" });
+    expect(
+      resolveInputRowEditability({ ownerRole: "bass", group: "vocs" }),
+    ).toEqual({ canEdit: false, reason: "overlay-not-supported" });
+    expect(
+      resolveInputRowEditability({ ownerRole: "drums", group: "talkback" }),
+    ).toEqual({ canEdit: false, reason: "overlay-not-supported" });
+  });
+
+  it("the document treats remove and removeKeys on an overlay row as a no-op", () => {
+    // O2. Both keys are reachable on purpose: `voc_input` is the vocal
+    // preset's own key and `voc_lead_1` is the key the document actually
+    // prints. Measured un-narrowed (`applyPresetOverride` over the printed
+    // row), `removeKeys: ["voc_lead_1"]` empties the list — so this asserts a
+    // gate that really holds something back, not an absent target.
+    const patched = withInputsPatch("p-voc-removed", {
+      remove: ["voc_input"],
+      removeKeys: ["voc_lead_1"],
+    });
+
+    expect(
+      vmOf(patched).inputs.map((row) => [row.ch, row.key, row.label]),
+    ).toEqual(vmOf(clean).inputs.map((row) => [row.ch, row.key, row.label]));
+  });
+
+  it("the document still prints an ownerless row for add on an overlay slot", () => {
+    // NOT a no-op, and the plan's fixture expected it to be. Measured: `add`
+    // on a `vocs` slot lands in the `eventOverride` branch
+    // (`buildDocument.ts:610-622`), which does not exclude `vocs` and runs
+    // *before* `resolveOverlayDrivenVocalRows` builds any vocal row — so
+    // `affected` is empty, nothing collides, and the channel is appended as a
+    // permanent orphan: `ownerMusicianId: undefined`, hence no owner, no
+    // inspector action, no way back out of the document. That is exactly why
+    // R1 keeps `inputs.add` closed for vocals and talkback and why the UI gate
+    // above must not be widened. Locked as measured, not as wished.
+    const patched = withInputsPatch("p-voc-added", {
+      add: [{ key: "voc_extra", label: "Second mic", group: "vocs" }],
+    });
+    const orphans = vmOf(patched).inputs.filter(
+      (row) => row.key === "voc_extra",
+    );
+
+    expect(orphans).toHaveLength(1);
+    expect(orphans[0]?.ownerMusicianId).toBeUndefined();
+    // It even steals channel 1 from the real lead vocal row.
+    expect(vmOf(patched).inputs.map((row) => [row.ch, row.key])).toEqual([
+      [1, "voc_extra"],
+      [2, "voc_lead_1"],
+    ]);
   });
 });
