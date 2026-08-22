@@ -22,6 +22,31 @@ function makeRow(overrides: Partial<InputEditorRow>): InputEditorRow {
 
 const noop = vi.fn();
 
+/**
+ * Zkratka pro testy, které se zajímají jen o tvar řádku. Ostatní testy v tomhle
+ * souboru si props vypisují celé, protože si mění i `ownerName`, `channelCount`
+ * nebo `deviationCount`.
+ */
+function renderInspector(rowOverrides: Partial<InputEditorRow>): string {
+  return renderToStaticMarkup(
+    <InputRowInspector
+      row={makeRow(rowOverrides)}
+      ownerName="Gita Guitar"
+      channelCount={2}
+      deviationCount={0}
+      canSaveAsMusicianDefault={false}
+      onLabelChange={noop}
+      onNoteChange={noop}
+      onResetToDefault={noop}
+      onSaveAsMusicianDefault={noop}
+      onRemoveChannel={noop}
+      onRestoreChannel={noop}
+      onEditKit={noop}
+      onEditInputs={noop}
+    />,
+  );
+}
+
 describe("InputRowInspector", () => {
   it("disables the rename field and shows a hint for a row with a canonical label", () => {
     const html = renderToStaticMarkup(
@@ -45,6 +70,7 @@ describe("InputRowInspector", () => {
         onRemoveChannel={noop}
         onRestoreChannel={noop}
         onEditKit={noop}
+        onEditInputs={noop}
       />,
     );
 
@@ -69,6 +95,7 @@ describe("InputRowInspector", () => {
         onRemoveChannel={noop}
         onRestoreChannel={noop}
         onEditKit={noop}
+        onEditInputs={noop}
       />,
     );
 
@@ -99,6 +126,7 @@ describe("InputRowInspector", () => {
         onRemoveChannel={noop}
         onRestoreChannel={noop}
         onEditKit={noop}
+        onEditInputs={noop}
       />,
     );
 
@@ -120,6 +148,7 @@ describe("InputRowInspector", () => {
         onRemoveChannel={noop}
         onRestoreChannel={noop}
         onEditKit={noop}
+        onEditInputs={noop}
       />,
     );
 
@@ -142,6 +171,7 @@ describe("InputRowInspector", () => {
         onRemoveChannel={noop}
         onRestoreChannel={noop}
         onEditKit={noop}
+        onEditInputs={noop}
       />,
     );
 
@@ -182,6 +212,7 @@ describe("InputRowInspector", () => {
         onRemoveChannel={noop}
         onRestoreChannel={noop}
         onEditKit={noop}
+        onEditInputs={noop}
       />,
     );
 
@@ -218,6 +249,7 @@ describe("InputRowInspector", () => {
         onRemoveChannel={noop}
         onRestoreChannel={noop}
         onEditKit={noop}
+        onEditInputs={noop}
       />,
     );
 
@@ -253,6 +285,7 @@ describe("InputRowInspector", () => {
         onRemoveChannel={noop}
         onRestoreChannel={noop}
         onEditKit={noop}
+        onEditInputs={noop}
       />,
     );
 
@@ -293,6 +326,7 @@ describe("InputRowInspector", () => {
         onRemoveChannel={noop}
         onRestoreChannel={noop}
         onEditKit={noop}
+        onEditInputs={noop}
       />,
     );
 
@@ -325,6 +359,7 @@ describe("InputRowInspector", () => {
         onRemoveChannel={noop}
         onRestoreChannel={noop}
         onEditKit={noop}
+        onEditInputs={noop}
       />,
     );
 
@@ -347,10 +382,76 @@ describe("InputRowInspector", () => {
         onRemoveChannel={noop}
         onRestoreChannel={noop}
         onEditKit={noop}
+        onEditInputs={noop}
       />,
     );
 
     expect(html).toContain("Remove channel");
     expect(html).not.toMatch(/not editable here/i);
+  });
+
+  it("offers Edit inputs on a guitar row", () => {
+    const html = renderInspector({
+      key: "el_guitar_mic",
+      rawKey: "el_guitar_mic",
+      label: "El. Guitar MIC",
+      group: "guitar",
+      ownerRole: "guitar",
+    });
+
+    expect(html).toContain(">Edit inputs</button>");
+  });
+
+  it("does not offer Edit inputs on a drums row — the kit has its own editor", () => {
+    const html = renderInspector({
+      key: "dr_kick_1_out",
+      rawKey: "dr_kick_1_out",
+      label: "Kick OUT",
+      group: "drums",
+      ownerRole: "drums",
+    });
+
+    expect(html).not.toContain("Edit inputs");
+    expect(html).toContain(">Edit kit</button>");
+  });
+
+  // OQ-1 (2026-08-21): the vocal slot never gets the modal. This is the UI half
+  // of the gate whose document half is locked in `uiDocumentContract.test.ts`
+  // ("the document still prints an ownerless row for add on an overlay slot"):
+  // `buildDocument.ts:610-612` excludes only `bass` and `drums` from the
+  // `eventOverride` branch, so an `inputs.add` written on a `vocs` slot becomes
+  // a permanent orphan row with `ownerMusicianId: undefined` that steals
+  // channel 1 from the real lead vocal. The domain does not duplicate this
+  // gate — this button is the only door to it, so it must stay shut.
+  it("does not offer Edit inputs on a lead-vocal row (OQ-1)", () => {
+    const html = renderInspector({
+      key: "voc_lead_1",
+      rawKey: "voc_lead_1",
+      label: "Lead vocal 1 (female)",
+      group: "vocs",
+      ownerRole: "vocs",
+      labelIsCanonical: true,
+    });
+
+    expect(html).not.toContain("Edit inputs");
+    // Not vacuous: the actions block itself renders — only the button is gone.
+    expect(html).toContain(">Reset to default</button>");
+  });
+
+  // Owner action over his instrument, not over the overlay row — same shape
+  // as `Edit kit` on a drummer's back-vocal row: keyed on `ownerRole`, not on
+  // `group`, so a guitarist who lost every instrument channel can still get
+  // back to his own connection.
+  it("offers Edit inputs on a guitarist's back-vocal overlay row", () => {
+    const html = renderInspector({
+      key: "voc_back_guitar_2",
+      rawKey: "voc_back_guitar_2",
+      label: "Back Vocal",
+      group: "vocs",
+      ownerRole: "guitar",
+      labelIsCanonical: true,
+    });
+
+    expect(html).toContain(">Edit inputs</button>");
   });
 });

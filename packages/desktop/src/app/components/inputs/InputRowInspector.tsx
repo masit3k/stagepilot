@@ -1,6 +1,7 @@
 import { getRoleDisplayName } from "../../../projectRules";
 import type { InputEditorRow } from "../../domain/inputs/buildInputEditorRows";
 import { resolveInputRowEditability } from "../../domain/inputs/resolveInputRowEditability";
+import { supportsInputsModal } from "../../domain/inputs/resolveInputsFieldSections";
 
 /**
  * Panel vybraného řádku obrazovky `02` (R2). Vlastník kanálu, který tabulka
@@ -35,6 +36,15 @@ import { resolveInputRowEditability } from "../../domain/inputs/resolveInputRowE
  * zavírá `Remove channel`/`Restore channel`. Nabízí se jen bicímu vlastníkovi
  * (`row.ownerRole === "drums"`) a nahrazuje jejich hint jedinou větou, která
  * říká, kudy se kanály bicí soupravy skutečně mění.
+ *
+ * `Edit inputs` (F5d R4) je totéž pro nástrojové role, co `Edit kit` pro
+ * bicí: mění celou sadu kanálů slotu volbou zapojení a doplňků, ne jeden
+ * řádek. Nabízí se podle `row.ownerRole` (`supportsInputsModal`), ne podle
+ * `row.group` — kytaristův back-vokální řádek nese `group: "vocs"`, ale
+ * `Edit inputs` u něj otevře kytarové zapojení, protože je to vlastnická
+ * akce nad jeho nástrojem. Za bránu `resolveInputRowEditability` se
+ * neschovává ze stejného důvodu jako `Edit kit`: ta brána zavírá cesty, které
+ * dokument nečte, a tahle je čte.
  */
 export function InputRowInspector({
   row,
@@ -49,6 +59,7 @@ export function InputRowInspector({
   onRemoveChannel,
   onRestoreChannel,
   onEditKit,
+  onEditInputs,
 }: {
   row: InputEditorRow | null;
   ownerName: string;
@@ -63,6 +74,7 @@ export function InputRowInspector({
   onRemoveChannel: () => void;
   onRestoreChannel: () => void;
   onEditKit: () => void;
+  onEditInputs: () => void;
 }) {
   if (!row) {
     return (
@@ -142,6 +154,15 @@ export function InputRowInspector({
 
           {canEditSlot ? (
             <div className="inputInspector__actions">
+              {supportsInputsModal(row.ownerRole) ? (
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={onEditInputs}
+                >
+                  Edit inputs
+                </button>
+              ) : null}
               {row.ownerRole === "drums" ? (
                 <button
                   type="button"

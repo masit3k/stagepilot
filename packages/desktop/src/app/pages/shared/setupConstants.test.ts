@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildSetupFieldCatalog,
   buildVisibleLineupSections,
   getGroupDefaultPreset,
+  pickGroupPresets,
   resolveMusicianDefaultInputsFromPresets,
   resolveMusicianDefaultSetupForRole,
 } from "./setupConstants";
@@ -475,5 +477,54 @@ describe("getGroupDefaultPreset (F5d R1)", () => {
         "wedge_foh",
       );
     }
+  });
+});
+
+describe("pickGroupPresets (F5d R4)", () => {
+  const catalog: Record<string, PresetEntity> = {
+    keys_mono_xlr: {
+      type: "preset",
+      id: "keys_mono_xlr",
+      label: "XLR mono",
+      group: "keys",
+      inputs: [{ key: "keys", label: "Keys" }],
+    },
+    wedge_foh: {
+      type: "monitor",
+      id: "wedge_foh",
+      label: "Wedge (FOH)",
+      kind: "wedge",
+      supplier: "foh",
+    },
+    tb_default: {
+      type: "talkback_type",
+      id: "tb_default",
+      label: "Talkback",
+      group: "talkback",
+      input: { key: "tb_{ownerKey}", label: "Talkback ({ownerLabel})" },
+    },
+  };
+
+  it("keeps group presets and drops monitors and talkback types", () => {
+    expect(Object.keys(pickGroupPresets(catalog))).toEqual(["keys_mono_xlr"]);
+  });
+
+  it("hands buildSetupFieldCatalog the same keys catalog as an already-narrowed record", () => {
+    // Runtime-equivalence guard for the narrowing: the four field builders
+    // re-check `type === "preset"` themselves, so the field catalog must come
+    // out identical whether or not the monitor and talkback entries were
+    // filtered out first. Not vacuous — `keysFields` really does carry the
+    // `keys_mono_xlr` option below.
+    const narrowed = buildSetupFieldCatalog(pickGroupPresets(catalog));
+    const direct = buildSetupFieldCatalog({
+      keys_mono_xlr: catalog.keys_mono_xlr as never,
+    });
+
+    expect(JSON.stringify(narrowed)).toBe(JSON.stringify(direct));
+    // Not vacuous: the keys preset really does change what comes out, so the
+    // equality above is not two empty catalogs matching each other.
+    expect(JSON.stringify(narrowed)).not.toBe(
+      JSON.stringify(buildSetupFieldCatalog({})),
+    );
   });
 });

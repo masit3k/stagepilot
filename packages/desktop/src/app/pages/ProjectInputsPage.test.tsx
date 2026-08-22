@@ -254,6 +254,7 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         onRemoveChannel={noop}
         onRestoreChannel={noop}
         onEditKit={noop}
+        onEditInputs={noop}
       />,
     );
 
@@ -275,6 +276,7 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         onRemoveChannel={noop}
         onRestoreChannel={noop}
         onEditKit={noop}
+        onEditInputs={noop}
       />,
     );
 
@@ -303,6 +305,7 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         onRemoveChannel={noop}
         onRestoreChannel={noop}
         onEditKit={noop}
+        onEditInputs={noop}
       />,
     );
 
@@ -331,6 +334,7 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         onRemoveChannel={noop}
         onRestoreChannel={noop}
         onEditKit={noop}
+        onEditInputs={noop}
       />,
     );
 
@@ -356,6 +360,7 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         onRemoveChannel={noop}
         onRestoreChannel={noop}
         onEditKit={noop}
+        onEditInputs={noop}
       />,
     );
 
@@ -388,6 +393,7 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         onRemoveChannel={noop}
         onRestoreChannel={noop}
         onEditKit={noop}
+        onEditInputs={noop}
       />,
     );
 
@@ -426,6 +432,7 @@ describe("InputRowInspector (the panel for the selected row, R2)", () => {
         onRemoveChannel={noop}
         onRestoreChannel={noop}
         onEditKit={noop}
+        onEditInputs={noop}
       />,
     );
 

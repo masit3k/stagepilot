@@ -91,6 +91,27 @@ const PRESET_REFS = {
   vocs: ["vocal_wireless", "vocal_wired", "vocal_no_mic"],
 } as const;
 
+/**
+ * Skupinové presety z katalogu kapely (F5d R4). `BandSetupData.presetCatalog`
+ * drží `PresetEntity`, tedy i monitory a talkback typy, kdežto
+ * `buildSetupFieldCatalog` bere jen `Preset`. Zúžení je čistě typové: všechny
+ * čtyři stavitele polí si `type === "preset"` kontrolují znovu i samy
+ * (`toBassPresets`, `buildGuitarFields`, `buildKeysFields`,
+ * `buildLeadVocsFields`), takže se běhové chování nemění.
+ *
+ * Žije tady, ne ve stránce: obrazovka `02` ho potřebuje pro modál `Edit inputs`
+ * a obrazovka `01` má dnes týž výraz inline (`ProjectSetupPage.tsx` ~ř. 409).
+ */
+export function pickGroupPresets(
+  presetCatalog: Record<string, PresetEntity>,
+): Record<string, Preset> {
+  return Object.fromEntries(
+    Object.entries(presetCatalog).filter(
+      (entry): entry is [string, Preset] => entry[1].type === "preset",
+    ),
+  );
+}
+
 export function buildSetupFieldCatalog(
   presetCatalog: Record<string, Preset> = {},
 ) {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { normalizeProject } from "../../../../../src/app/usecases/normalizeProject";
 import type { DrumDefinition } from "../../../../../src/domain/drums/drumDefinition";
+import { resolveDistinctInstrumentLabels } from "../../../../../src/domain/lineup/effectiveInstrumentGroups";
 import type {
   DocumentViewModel,
   InputChannel,
@@ -26,6 +27,7 @@ import {
 } from "../components/inputs/AddInputPicker";
 import { InputRowInspector } from "../components/inputs/InputRowInspector";
 import { InputTable } from "../components/inputs/InputTable";
+import { InputsSetupSection } from "../components/inputs/InputsSetupSection";
 import { MonitorRowInspector } from "../components/inputs/MonitorRowInspector";
 import {
   type MonitorEditorRow,
@@ -46,6 +48,8 @@ import {
 } from "../domain/inputs/moveInputRow";
 import { resetInputsScreen } from "../domain/inputs/resetInputsScreen";
 import { resolveInputRowEditability } from "../domain/inputs/resolveInputRowEditability";
+import { resolveInputsEditState } from "../domain/inputs/resolveInputsEditState";
+import { supportsInputsModal } from "../domain/inputs/resolveInputsFieldSections";
 import {
   type NotesEditorLine,
   addCustomNote,
@@ -66,6 +70,7 @@ import { updateInputRow } from "../domain/inputs/updateInputRow";
 import { buildMusicianDefaultPayload } from "../domain/setup/buildMusicianDefaultPayload";
 import { musicianDefaultsKey } from "../domain/setup/musicianDefaultsKey";
 import { useSetupOverrides } from "../domain/setup/useSetupOverrides";
+import { composeSetupModalTitle } from "../domain/ui/setupModalTitle";
 import {
   getBandSetupData,
   parseProjectPayload,
@@ -78,7 +83,11 @@ import { CANONICAL_LINEUP_ROLE_ORDER } from "../shell/lineupSerialize";
 import type { BandSetupData, NewProjectPayload } from "../shell/types";
 import { resolveDrumsSetupDefinition } from "./domain/ui/resolveDrumsSetupDefinition";
 import type { ProjectRouteProps } from "./shared/pageTypes";
-import { GROUP_INPUT_LIBRARY } from "./shared/setupConstants";
+import {
+  GROUP_INPUT_LIBRARY,
+  buildSetupFieldCatalog,
+  pickGroupPresets,
+} from "./shared/setupConstants";
 
 /**
  * Výsledek přepočtu dokumentu pro obrazovku `02`. `normalizeProject` i
@@ -340,6 +349,7 @@ export function ProjectInputsPage({
   const [isSavingMusicianDefault, setIsSavingMusicianDefault] = useState(false);
   const [showAddInputPicker, setShowAddInputPicker] = useState(false);
   const [showEditKitModal, setShowEditKitModal] = useState(false);
+  const [showEditInputsModal, setShowEditInputsModal] = useState(false);
   const [showResetConfirmation, setShowResetConfirmation] = useState(false);
   const { notify } = useToast();
   /** Stav, proti kterému se poznává dirty — po každém uložení se posune. */
@@ -427,6 +437,12 @@ export function ProjectInputsPage({
     () =>
       Object.fromEntries(monitorEntities.map((preset) => [preset.id, preset])),
     [monitorEntities],
+  );
+
+  /** Katalogy polí modálu `Edit inputs` (F5d R4) — tytéž, ze kterých čte modál na `01`. */
+  const setupFieldCatalog = useMemo(
+    () => buildSetupFieldCatalog(pickGroupPresets(presetCatalog)),
+    [presetCatalog],
   );
 
   const lineup = state.kind === "ready" ? state.snapshot.lineup : {};
@@ -667,11 +683,16 @@ export function ProjectInputsPage({
   const selectChannelRow = useCallback((key: string) => {
     setSelectedInputKey(key);
     setSelectedMonitorSlotKey(null);
+    // `Edit inputs` visí na příznaku, ne na vybraném řádku (na rozdíl od
+    // `isEditKitModalOpen`, který drží `selectedDrumSetup`) — bez tohohle by
+    // se po změně výběru otevřel znovu, ale už nad jiným vlastníkem.
+    setShowEditInputsModal(false);
   }, []);
 
   const selectMonitorRow = useCallback((slotKey: string) => {
     setSelectedMonitorSlotKey(slotKey);
     setSelectedInputKey(null);
+    setShowEditInputsModal(false);
   }, []);
 
   /**
@@ -849,6 +870,29 @@ export function ProjectInputsPage({
   }, [selectedRow, lineup, setupData]);
 
   /**
+   * Vstup pro modál `Edit inputs` (F5d R4) — jen pro vybraný řádek a jen pro
+   * roli, které se modál nabízí (`supportsInputsModal`, OQ-1); `null` znamená
+   * „tlačítko není". Patch se čte ze slotu, ne z draftu: obrazovka `02` žádný
+   * draft nemá, každá změna jde rovnou do `snapshot.lineup`, stejně jako u
+   * `Edit kit`.
+   */
+  const selectedInputsEditState = useMemo(() => {
+    if (!selectedRow?.slotKey) return null;
+    if (!supportsInputsModal(selectedRow.ownerRole)) return null;
+    return resolveInputsEditState({
+      role: selectedRow.ownerRole,
+      musicianId: selectedRow.ownerMusicianId,
+      patch: getSlotOverride(
+        lineup,
+        selectedRow.ownerRole,
+        parseSlotIndex(selectedRow.slotKey),
+      ),
+      setupData,
+      presetCatalog,
+    });
+  }, [selectedRow, lineup, setupData, presetCatalog]);
+
+  /**
    * Zapíše přejmenování/poznámku vybraného řádku do patche jeho slotu (R6).
    * Adresuje se přes `row.rawKey` (skutečný klíč kanálu), nikdy přes
    * `row.key` (opaque identita, u vypnutého řádku jmenný prostor vlastníka —
@@ -1021,6 +1065,36 @@ export function ProjectInputsPage({
         return {
           ...current,
           snapshot: { ...current.snapshot, lineup: nextLineup },
+        };
+      });
+    },
+    [],
+  );
+
+  /**
+   * Zapíše patch z modálu `Edit inputs` (F5d R4) do slotu vlastníka. Stejná
+   * cesta jako `applyRowChange` a `applyDrumKitChange`: do `snapshot.lineup`,
+   * ne do `project`, jinak by se změna v tabulce projevila až po uložení.
+   * `replaceSlotOverride` prázdný patch vypustí a `drumDefinition` nechá být.
+   */
+  const applyInputsSetupPatch = useCallback(
+    (row: InputEditorRow, nextPatch: PresetOverridePatch | undefined) => {
+      if (!row.slotKey) return;
+      const role = row.ownerRole;
+      const slotIndex = parseSlotIndex(row.slotKey);
+      setState((current) => {
+        if (current.kind !== "ready") return current;
+        return {
+          ...current,
+          snapshot: {
+            ...current.snapshot,
+            lineup: replaceSlotOverride(
+              current.snapshot.lineup,
+              role,
+              slotIndex,
+              nextPatch,
+            ),
+          },
         };
       });
     },
@@ -1477,6 +1551,7 @@ export function ProjectInputsPage({
               selectedRow && restoreSelectedRow(selectedRow)
             }
             onEditKit={() => setShowEditKitModal(true)}
+            onEditInputs={() => setShowEditInputsModal(true)}
           />
         )}
       </div>
@@ -1616,6 +1691,24 @@ export function ProjectInputsPage({
           </div>
         </div>
       </ModalOverlay>
+
+      {selectedRow && selectedInputsEditState ? (
+        <InputsSetupSection
+          open={showEditInputsModal}
+          title={composeSetupModalTitle({
+            templateType: project?.purpose === "generic" ? "generic" : "event",
+            musicianName: ownerName,
+            instrumentLabels: resolveDistinctInstrumentLabels(
+              selectedInputsEditState.effectivePreset.inputs,
+            ),
+          })}
+          role={selectedRow.ownerRole}
+          state={selectedInputsEditState}
+          fieldCatalog={setupFieldCatalog}
+          onPatch={(nextPatch) => applyInputsSetupPatch(selectedRow, nextPatch)}
+          onClose={() => setShowEditInputsModal(false)}
+        />
+      ) : null}
 
       <ModalOverlay
         open={showResetConfirmation}
