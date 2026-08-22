@@ -187,47 +187,6 @@
 }
 
 /* --------------------------------------------------------------------------
-   Add input picker (R4) — two-step owner-then-channel dialog
-   -------------------------------------------------------------------------- */
-
-.inputPicker__list {
-  display: grid;
-  gap: var(--sp-2);
-}
-
-.inputPicker__option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-4);
-  padding: var(--sp-3) var(--sp-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--sp-r-card);
-  background: var(--color-surface);
-  text-align: left;
-  cursor: pointer;
-  font: var(--sp-body-sm);
-  color: var(--color-text);
-}
-
-.inputPicker__option:hover {
-  background: var(--color-row-highlight);
-}
-
-.inputPicker__optionMeta {
-  font: var(--sp-mono-xs);
-  letter-spacing: var(--sp-track-mono-label);
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
-}
-
-.inputPicker__empty {
-  margin: 0;
-  font: var(--sp-body-sm);
-  color: var(--color-text-secondary);
-}
-
-/* --------------------------------------------------------------------------
    Notes editor (R11, R12, R13) — deviations over the notes template
    -------------------------------------------------------------------------- */
 

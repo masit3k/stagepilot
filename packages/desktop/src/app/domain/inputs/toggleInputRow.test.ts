@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addInputRow, removeInputRow, restoreInputRow } from "./toggleInputRow";
+import { removeInputRow, restoreInputRow } from "./toggleInputRow";
 
 describe("removeInputRow", () => {
   it("adds the key to the remove list", () => {
@@ -12,7 +12,7 @@ describe("removeInputRow", () => {
   });
 
   it("drops a channel that was added by the project instead of removing it", () => {
-    const added = addInputRow(undefined, { key: "extra", label: "Extra" });
+    const added = { inputs: { add: [{ key: "extra", label: "Extra" }] } };
     const removed = removeInputRow(added, "extra");
 
     expect(removed.inputs?.add ?? []).toEqual([]);
@@ -42,27 +42,5 @@ describe("restoreInputRow", () => {
 
     expect(restored.inputs?.remove ?? []).not.toContain("x");
     expect(restored.inputs?.removeKeys ?? []).not.toContain("x");
-  });
-});
-
-describe("addInputRow", () => {
-  it("adds the channel to the add list", () => {
-    const patch = addInputRow(undefined, { key: "extra", label: "Extra" });
-    expect(patch.inputs?.add).toEqual([{ key: "extra", label: "Extra" }]);
-  });
-
-  it("refuses a duplicate key", () => {
-    const once = addInputRow(undefined, { key: "extra", label: "Extra" });
-    expect(
-      addInputRow(once, { key: "extra", label: "Extra" }).inputs?.add,
-    ).toHaveLength(1);
-  });
-
-  it("keeps the rest of the patch", () => {
-    const patch = addInputRow(
-      { inputs: { remove: ["gone"] } },
-      { key: "extra", label: "Extra" },
-    );
-    expect(patch.inputs?.remove).toEqual(["gone"]);
   });
 });

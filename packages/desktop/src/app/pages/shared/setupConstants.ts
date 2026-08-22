@@ -44,31 +44,6 @@ export type VisibleLineupSection =
       }>;
     };
 
-export const GROUP_INPUT_LIBRARY: Record<Group, InputChannel[]> = {
-  drums: resolveDrumInputs(createDefaultDrumDefinition()),
-  bass: [
-    {
-      key: "el_bass_xlr_amp",
-      label: "Electric bass guitar",
-      note: "XLR out from amp",
-      group: "bass",
-    },
-  ],
-  guitar: [
-    { key: "gtr_mic", label: "Guitar Mic", group: "guitar" },
-    { key: "gtr_di", label: "Guitar DI", group: "guitar" },
-  ],
-  keys: [
-    { key: "keys_l", label: "Keys L", group: "keys" },
-    { key: "keys_r", label: "Keys R", group: "keys" },
-  ],
-  vocs: [
-    { key: "voc_lead", label: "Lead Vocal", group: "vocs" },
-    { key: "voc_back", label: "Back Vocal", group: "vocs" },
-  ],
-  talkback: [{ key: "talkback", label: "Talkback", group: "talkback" }],
-};
-
 const PRESET_REFS = {
   bass: [
     "el_bass_xlr_amp",

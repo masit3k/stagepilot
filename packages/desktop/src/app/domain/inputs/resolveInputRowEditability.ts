@@ -2,13 +2,13 @@ import type { Group } from "../../../../../../src/domain/model/groups";
 
 /**
  * Co? Jestli lze z obrazovky `02` vypnout/vrátit kanál (`Remove channel`,
- * `Restore channel`, R3), a jestli smí `+ Add input` (R4) vůbec nabídnout
- * daného vlastníka — a pokud ne, proč. Zrcadlí `resolveMonitorRowEditability`
- * (Task 15) pro sekci MONITORS: needitovatelný stav se nesmí schovat beze
- * slova, panel/picker ho musí umět vysvětlit.
+ * `Restore channel`, R3) — a pokud ne, proč. Zrcadlí
+ * `resolveMonitorRowEditability` (Task 15) pro sekci MONITORS:
+ * needitovatelný stav se nesmí schovat beze slova, inspektor ho musí umět
+ * vysvětlit.
  *
  * Dva navzájem nezávislé důvody vedou ke stejnému závěru — patch, který by
- * tahle tři tlačítka zapsala, se do dokumentu nikdy nedostane (ověřeno
+ * tahle tlačítka zapsala, se do dokumentu nikdy nedostane (ověřeno
  * `.superpowers/sdd/2026-08-17-inputs-screen/drums-vocals-patch-reach-verification.md`,
  * task 13b):
  *
@@ -35,11 +35,11 @@ import type { Group } from "../../../../../../src/domain/model/groups";
  *   `ownerRole` toho, čí je to nástroj.
  *
  * Použití: `InputRowInspector` volá s (`row.ownerRole`, `row.group`) vybraného
- * řádku, aby zavřel `Remove channel`/`Restore channel`. `+ Add input`'s krok
- * 1 (`AddInputPicker`'s `ownerOptions`) volá s (`owner.role`, `owner.role`) —
- * kanál z pickeru vždy nese `group` shodnou s vlastníkovou lineup rolí
- * (`GROUP_INPUT_LIBRARY[owner.role]`), takže "šla by nová řada tohohle
- * vlastníka do dokumentu?" je tatáž otázka jako u existující řady.
+ * řádku, aby zavřel `Remove channel`/`Restore channel`. Druhý volající —
+ * dvoukrokový picker `+ Add input` — zanikl s F5d R5: kanál se přidává volbou
+ * zapojení nebo doplňku u jeho vlastníka (`Edit inputs`, `Edit kit`), ne
+ * výběrem z paralelního katalogu, takže brána už jen zavírá řádky, ne cestu
+ * ke vzniku nových.
  */
 export type InputRowEditability =
   | { canEdit: true }

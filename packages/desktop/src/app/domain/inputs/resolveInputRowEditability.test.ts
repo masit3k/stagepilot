@@ -59,12 +59,11 @@ describe("resolveInputRowEditability", () => {
     ).toEqual({ canEdit: false, reason: "overlay-not-supported" });
   });
 
-  // `+ Add input`'s owner picker asks the same question about a not-yet-
-  // existing row: would a new channel of this owner's own group reach the
-  // document? A new channel always carries `group === owner.role`
-  // (`GROUP_INPUT_LIBRARY[owner.role]`), so calling with `group` equal to
-  // `ownerRole` is the intended shape for that call site.
-  it("refuses drums and vocs as +Add input owners, allows bass/guitar/keys", () => {
+  // The two-step `+ Add input` picker used to ask this same question about a
+  // not-yet-existing row and died with F5d R5. The shape it asked in — `group`
+  // equal to `ownerRole` — is still the shape of every plain instrument-owned
+  // row, so this case stays as the gate's summary over all five lineup roles.
+  it("refuses drums and vocs, allows bass/guitar/keys, keyed by role", () => {
     expect(
       resolveInputRowEditability({ ownerRole: "drums", group: "drums" })
         .canEdit,

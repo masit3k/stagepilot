@@ -83,12 +83,3 @@ export function restoreInputRow(
     ),
   });
 }
-
-export function addInputRow(
-  patch: PresetOverridePatch | undefined,
-  input: InputChannel,
-): PresetOverridePatch {
-  const add = patch?.inputs?.add ?? [];
-  if (add.some((entry) => entry.key === input.key)) return patch ?? {};
-  return withInputs(patch, { add: [...add, input] });
-}

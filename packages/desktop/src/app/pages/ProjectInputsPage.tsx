@@ -4,7 +4,6 @@ import type { DrumDefinition } from "../../../../../src/domain/drums/drumDefinit
 import { resolveDistinctInstrumentLabels } from "../../../../../src/domain/lineup/effectiveInstrumentGroups";
 import type {
   DocumentViewModel,
-  InputChannel,
   PresetEntity,
   PresetOverridePatch,
   ProjectNotesOverride,
@@ -21,10 +20,6 @@ import { Close } from "../../components/ui/icons";
 import { useToast } from "../../components/ui/toast/useToast";
 import { getRoleSlotLimit, normalizeLineupSlots } from "../../projectRules";
 import type { LineupMap } from "../../projectRules";
-import {
-  type AddInputOwnerOption,
-  AddInputPicker,
-} from "../components/inputs/AddInputPicker";
 import { InputRowInspector } from "../components/inputs/InputRowInspector";
 import { InputTable } from "../components/inputs/InputTable";
 import { InputsSetupSection } from "../components/inputs/InputsSetupSection";
@@ -47,7 +42,6 @@ import {
   resolveActiveDropIndex,
 } from "../domain/inputs/moveInputRow";
 import { resetInputsScreen } from "../domain/inputs/resetInputsScreen";
-import { resolveInputRowEditability } from "../domain/inputs/resolveInputRowEditability";
 import { resolveInputsEditState } from "../domain/inputs/resolveInputsEditState";
 import { supportsInputsModal } from "../domain/inputs/resolveInputsFieldSections";
 import {
@@ -62,7 +56,6 @@ import {
   setTemplateNoteText,
 } from "../domain/inputs/resolveNotesEditorModel";
 import {
-  addInputRow,
   removeInputRow,
   restoreInputRow,
 } from "../domain/inputs/toggleInputRow";
@@ -84,7 +77,6 @@ import type { BandSetupData, NewProjectPayload } from "../shell/types";
 import { resolveDrumsSetupDefinition } from "./domain/ui/resolveDrumsSetupDefinition";
 import type { ProjectRouteProps } from "./shared/pageTypes";
 import {
-  GROUP_INPUT_LIBRARY,
   buildSetupFieldCatalog,
   pickGroupPresets,
 } from "./shared/setupConstants";
@@ -347,7 +339,6 @@ export function ProjectInputsPage({
     setShowSaveMusicianDefaultConfirmation,
   ] = useState(false);
   const [isSavingMusicianDefault, setIsSavingMusicianDefault] = useState(false);
-  const [showAddInputPicker, setShowAddInputPicker] = useState(false);
   const [showEditKitModal, setShowEditKitModal] = useState(false);
   const [showEditInputsModal, setShowEditInputsModal] = useState(false);
   const [showResetConfirmation, setShowResetConfirmation] = useState(false);
@@ -741,59 +732,6 @@ export function ProjectInputsPage({
     return byId;
   }, [setupData]);
 
-  /**
-   * Obsazené sloty lineupu, nabízené jako vlastník v kroku 1 pickeru (R4).
-   * Talkback záměrně chybí — nemá vlastní slot v lineupu, přes který by šlo
-   * zapsat patch. Stejný zdroj (`normalizeLineupSlots` nad `roleOrder`) jako
-   * `buildSlotKeyIndex`, takže vlastník tady a `slotKeysByOwner` se nikdy
-   * nerozejdou v tom, kdo je „obsazený".
-   *
-   * Role `drums` a `vocs` taky chybí (task 13b) — kanál z pickeru vždy nese
-   * `group` shodnou s vlastníkovou lineup rolí (`GROUP_INPUT_LIBRARY[role]`),
-   * takže `resolveInputRowEditability({ownerRole: role, group: role})`
-   * odpovídá na stejnou otázku jako u existujícího řádku: `drums` `add`
-   * zahodí `resolveEffectiveProjectSetup` beze stopy, `vocs` `add` vyrobí
-   * trvalý needitovatelný osiřelý řádek, který se přesto vytiskne
-   * (ověřeno `.superpowers/sdd/2026-08-17-inputs-screen/drums-vocals-patch-reach-verification.md`).
-   */
-  const ownerOptions = useMemo<AddInputOwnerOption[]>(() => {
-    const options: AddInputOwnerOption[] = [];
-    for (const role of CANONICAL_LINEUP_ROLE_ORDER) {
-      if (!resolveInputRowEditability({ ownerRole: role, group: role }).canEdit)
-        continue;
-      const slots = normalizeLineupSlots(lineup[role], getRoleSlotLimit(role));
-      for (const slot of slots) {
-        options.push({
-          role,
-          musicianId: slot.musicianId,
-          name: musicianNameById.get(slot.musicianId) ?? "Unknown musician",
-        });
-      }
-    }
-    return options;
-  }, [lineup, musicianNameById]);
-
-  /**
-   * Kanály `GROUP_INPUT_LIBRARY[role]`, které vybraný vlastník ještě nemá
-   * (krok 2 pickeru, R4) — porovnává se s **efektivním** presetem slotu
-   * (patch + default), ne se statickým katalogem, jinak by se nabízel kanál,
-   * který vlastník má z výchozích presetů nebo z dřívějšího přidání.
-   */
-  const getAvailableChannelsForOwner = useCallback(
-    (owner: AddInputOwnerOption): InputChannel[] => {
-      const slotKey = slotKeysByOwner.get(`${owner.role}:${owner.musicianId}`);
-      const patch = slotKey
-        ? getSlotOverride(lineup, owner.role, parseSlotIndex(slotKey))
-        : undefined;
-      const { effective } = setupForSlot(owner.role, owner.musicianId, patch);
-      const activeKeys = new Set(effective.inputs.map((input) => input.key));
-      return (GROUP_INPUT_LIBRARY[owner.role] ?? []).filter(
-        (input) => !activeKeys.has(input.key),
-      );
-    },
-    [lineup, setupForSlot, slotKeysByOwner],
-  );
-
   const ownerChannelCount = selectedRow
     ? inputRows.filter(
         (row) =>
@@ -1099,40 +1037,6 @@ export function ProjectInputsPage({
       });
     },
     [],
-  );
-
-  /**
-   * Přidá kanál z pickeru (R4) do slotu zvoleného vlastníka a picker zavře.
-   * Vlastník je vybraný z `ownerOptions`, takže má vždy `role` i `musicianId`
-   * — jen jeho `slotKey` může chybět, pokud mezitím zmizel z lineupu.
-   */
-  const addChannelToOwner = useCallback(
-    (owner: AddInputOwnerOption, input: InputChannel) => {
-      const slotKey = slotKeysByOwner.get(`${owner.role}:${owner.musicianId}`);
-      if (!slotKey) return;
-      const slotIndex = parseSlotIndex(slotKey);
-      setState((current) => {
-        if (current.kind !== "ready") return current;
-        const slots = normalizeLineupSlots(
-          current.snapshot.lineup[owner.role],
-          getRoleSlotLimit(owner.role),
-        );
-        const currentPatch = slots[slotIndex]?.presetOverride;
-        const nextPatch = addInputRow(currentPatch, input);
-        const nextLineup = replaceSlotOverride(
-          current.snapshot.lineup,
-          owner.role,
-          slotIndex,
-          nextPatch,
-        );
-        return {
-          ...current,
-          snapshot: { ...current.snapshot, lineup: nextLineup },
-        };
-      });
-      setShowAddInputPicker(false);
-    },
-    [slotKeysByOwner],
   );
 
   /**
@@ -1466,14 +1370,6 @@ export function ProjectInputsPage({
               onSelect={selectChannelRow}
               onReorder={reorderInputRow}
             />
-            <button
-              type="button"
-              className="button-secondary"
-              disabled={state.kind !== "ready"}
-              onClick={() => setShowAddInputPicker(true)}
-            >
-              + Add input
-            </button>
           </section>
           <section className="inputsSection" aria-label="Monitors">
             <h2 className="inputsSectionTitle">MONITORS</h2>
@@ -1646,14 +1542,6 @@ export function ProjectInputsPage({
           </div>
         </div>
       </ModalOverlay>
-
-      <AddInputPicker
-        open={showAddInputPicker}
-        owners={ownerOptions}
-        getAvailableChannels={getAvailableChannelsForOwner}
-        onCancel={() => setShowAddInputPicker(false)}
-        onAdd={addChannelToOwner}
-      />
 
       <ModalOverlay
         open={isEditKitModalOpen}
