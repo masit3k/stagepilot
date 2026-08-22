@@ -27,11 +27,10 @@ const diffMeta: SetupDiffMeta = {
 const noop = () => undefined;
 
 describe("SetupMonitoringEditor (setup modal, screen 01)", () => {
-  // Ruling (task 19a): mirrors task 15's `MonitorRowInspector` gate for the
-  // R7 panel on screen 02 — `resolveEffectiveProjectSetup.ts:81-90` ignores a
-  // drums slot's monitoring override, so the setup modal must not offer an
-  // edit that silently never reaches the printed document.
-  it("does not render the editor for a drums slot, and explains why", () => {
+  // F5d R3: `resolveEffectiveProjectSetup` u role `drums` `presetOverride.monitoring`
+  // nově čte a nevalidní `monitorRef` odmítne stejně jako u basy, takže gate na
+  // bicí padla — modál editaci nabízí jako u každé jiné role.
+  it("renders the editor for a drums slot (F5d R3)", () => {
     const html = renderToStaticMarkup(
       <SetupMonitoringEditor
         slotKey="drums:0"
@@ -44,8 +43,8 @@ describe("SetupMonitoringEditor (setup modal, screen 01)", () => {
       />,
     );
 
-    expect(html).not.toMatch(/<select/);
-    expect(html).toContain("not editable here");
+    expect(html).toMatch(/<select/);
+    expect(html).not.toContain("not editable");
   });
 
   it("renders the editor for a guitar slot", () => {

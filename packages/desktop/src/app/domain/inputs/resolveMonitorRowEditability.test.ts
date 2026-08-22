@@ -2,18 +2,24 @@ import { describe, expect, it } from "vitest";
 import { resolveMonitorRowEditability } from "./resolveMonitorRowEditability";
 
 describe("resolveMonitorRowEditability", () => {
-  it("allows editing a bass/guitar/keys/vocs slot", () => {
-    for (const ownerRole of ["bass", "guitar", "keys", "vocs"] as const) {
+  it("allows editing any slot that exists in the lineup", () => {
+    for (const ownerRole of [
+      "drums",
+      "bass",
+      "guitar",
+      "keys",
+      "vocs",
+    ] as const) {
       expect(
         resolveMonitorRowEditability({ slotKey: `${ownerRole}:0`, ownerRole }),
       ).toEqual({ canEdit: true });
     }
   });
 
-  it("refuses drums even with a valid slot — the document ignores the patch (task 12c fix round 1)", () => {
+  it("allows a drums slot now that the document reads its monitoring override (F5d R3)", () => {
     expect(
       resolveMonitorRowEditability({ slotKey: "drums:0", ownerRole: "drums" }),
-    ).toEqual({ canEdit: false, reason: "drums-not-supported" });
+    ).toEqual({ canEdit: true });
   });
 
   it("refuses an owner with no lineup slot regardless of role", () => {
@@ -22,7 +28,7 @@ describe("resolveMonitorRowEditability", () => {
     ).toEqual({ canEdit: false, reason: "no-slot" });
   });
 
-  it("reports no-slot when both conditions hold", () => {
+  it("refuses a drums owner with no lineup slot", () => {
     expect(
       resolveMonitorRowEditability({ slotKey: "", ownerRole: "drums" }),
     ).toEqual({ canEdit: false, reason: "no-slot" });

@@ -12,11 +12,12 @@ import type { MonitorEditorRow } from "./MonitorTable";
 /**
  * Panel vybraného řádku sekce MONITORS (R7) — zrcadlí `InputRowInspector`.
  * Needitovatelný stav se neschovává, ale zůstává vidět se zdůvodněním (task
- * 12c precedens pro `labelIsCanonical`): bicí jsou needitovatelní vždy, viz
- * `resolveMonitorRowEditability`, protože dokument jejich monitoring patch
- * vědomě ignoruje (task 12c fix round 1). Bez tohohle by úprava bubeníkova
- * monitoringu vypadala uloženě a v tichosti se nikdy neprojevila v PDF —
- * přesně vada, kvůli které vznikl 12c.
+ * 12c precedens pro `labelIsCanonical`).
+ *
+ * Zbývá jediný takový stav: slot chybí v lineupu, takže není kam patch zapsat.
+ * Bicí se s F5d R3 srovnali s ostatními rolemi — `resolveEffectiveProjectSetup`
+ * jejich `presetOverride.monitoring` nově čte, takže editace bubeníkova
+ * monitoringu dojede až do PDF a panel ji nemá proč zavírat.
  */
 export function MonitorRowInspector({
   row,
@@ -66,10 +67,7 @@ export function MonitorRowInspector({
           />
         ) : (
           <p className="inputInspector__hint">
-            {!editability.canEdit &&
-            editability.reason === "drums-not-supported"
-              ? "Drum monitoring isn't picked up by the printed document yet — not editable here."
-              : "Not editable — this monitor has no assigned lineup slot."}
+            Not editable — this monitor has no assigned lineup slot.
           </p>
         )}
       </div>

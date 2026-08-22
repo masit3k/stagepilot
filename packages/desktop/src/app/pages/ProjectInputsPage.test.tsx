@@ -733,10 +733,12 @@ describe("MonitorRowInspector (the panel for the selected monitor, R7)", () => {
     expect(html).not.toContain("not editable");
   });
 
-  // Ruling (task 15): the document ignores a drums slot's monitoring patch
-  // (`resolveEffectiveProjectSetup.ts:81-90`, task 12c fix round 1) — the
-  // panel must not offer an edit that silently gets discarded.
-  it("disables editing for a drums slot and explains why, instead of offering a silently-dropped edit", () => {
+  // F5d R3: the document now reads a drums slot's monitoring override
+  // (`resolveEffectiveProjectSetup`) and rejects an invalid `monitorRef` just
+  // like it does on bass, so the gate fell and the panel offers the edit. The
+  // contract against the document itself lives in
+  // `domain/inputs/uiDocumentContract.test.ts`.
+  it("offers the monitoring editor for a drums slot too (F5d R3)", () => {
     const html = renderToStaticMarkup(
       <MonitorRowInspector
         row={drumsRow}
@@ -750,8 +752,8 @@ describe("MonitorRowInspector (the panel for the selected monitor, R7)", () => {
     );
 
     expect(html).toContain("SELECTED MONITOR");
-    expect(html).toContain("not editable here");
-    expect(html).not.toMatch(/<select/);
+    expect(html).toMatch(/<select/);
+    expect(html).not.toContain("not editable");
   });
 
   it("shows a no-slot hint when the owner has no lineup slot", () => {

@@ -19,10 +19,10 @@ export type MonitorEditorRow = {
  * `InputTable`).
  *
  * Klik na řádek vybere jeho slot; panel vpravo pak přepne na editaci
- * monitoringu daného slotu. Řádek bicích je vybratelný stejně jako každý
- * jiný — needitovatelnost bicích řeší až panel
- * (`resolveMonitorRowEditability`, Ruling task 15), tabulka ji nijak
- * nevyznačuje, aby zůstala prostým zrcadlem tisku.
+ * monitoringu daného slotu. Řádek bicích je vybratelný a od F5d R3 i
+ * editovatelný stejně jako každý jiný — needitovatelnost (chybějící slot v
+ * lineupu) řeší až panel (`resolveMonitorRowEditability`, Ruling task 15),
+ * tabulka ji nijak nevyznačuje, aby zůstala prostým zrcadlem tisku.
  */
 export function MonitorTable({
   rows,
