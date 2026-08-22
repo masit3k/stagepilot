@@ -10,6 +10,7 @@ import type {
 } from "../../../../../../src/domain/model/types";
 import { buildDocument } from "../../../../../../src/domain/pipeline/buildDocument";
 import type { DataRepository } from "../../../../../../src/infra/fs/repo";
+import { resolveDroppedUserEdits } from "./resolveDroppedUserEdits";
 import { resolveInputRowEditability } from "./resolveInputRowEditability";
 import { resolveInputsFieldSections } from "./resolveInputsFieldSections";
 import { resolveMonitorRowEditability } from "./resolveMonitorRowEditability";
@@ -388,5 +389,109 @@ describe("contract: mono keys player (F5d R1, M4)", () => {
     ).toEqual([
       [1, channel?.key, channel?.label, channel?.note, "keys", "k-1"],
     ]);
+  });
+});
+describe("contract: destructive connection switch (F5d R5)", () => {
+  it("the helper reports the annotated channel and the document stops printing it", () => {
+    const band: Band = {
+      id: "band",
+      name: "Band",
+      bandLeader: "g-1",
+      defaultLineup: { guitar: ["g-1"] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
+    };
+    const guitarist: Musician = {
+      id: "g-1",
+      firstName: "Gtr",
+      lastName: "One",
+      group: "guitar",
+      presets: [
+        { kind: "preset", ref: "el_guitar_mic" },
+        { kind: "monitor", ref: "wedge_foh" },
+      ],
+    };
+    const presets: Record<string, PresetEntity> = {
+      el_guitar_mic: {
+        type: "preset",
+        id: "el_guitar_mic",
+        label: "Electric guitar (mic)",
+        group: "guitar",
+        inputs: [
+          {
+            key: "el_guitar_mic",
+            label: "Electric guitar",
+            note: "Mic on cabinet",
+          },
+        ],
+      },
+    };
+
+    const defaultPreset = {
+      inputs: [
+        {
+          key: "el_guitar_mic",
+          label: "Electric guitar",
+          note: "Mic on cabinet",
+          group: "guitar" as const,
+        },
+      ],
+      monitoring: { monitorRef: "wedge_foh" },
+    };
+    const currentPatch = {
+      inputs: {
+        update: [
+          { key: "el_guitar_mic", note: "Vintage 57, handle with care" },
+        ],
+      },
+    };
+    // Změřeno nad reálným polem, ne vymyšleno: `withInputsTarget` emituje právě
+    // tenhle patch, když kytarista přepne `Connection` na XLR (mikrofon zůstane
+    // jako doplněk) a pak vypne přepínač `Mic on cabinet` —
+    // `{ add: [el_guitar_xlr], remove: [el_guitar_mic] }` nad presety
+    // z `data/assets/presets/groups/guitar/`. Jednokrokové přepnutí XLR mono →
+    // XLR stereo dává tvarově totéž (`remove: ["el_guitar_xlr"]`).
+    const nextPatch = {
+      inputs: {
+        remove: ["el_guitar_mic"],
+        add: [
+          {
+            key: "el_guitar_xlr",
+            label: "Electric guitar",
+            group: "guitar" as const,
+          },
+        ],
+      },
+    };
+
+    // What the UI claims: the note is about to be lost.
+    expect(
+      resolveDroppedUserEdits({ defaultPreset, currentPatch, nextPatch }),
+    ).toEqual([
+      {
+        key: "el_guitar_mic",
+        label: "Electric guitar",
+        note: "Vintage 57, handle with care",
+      },
+    ]);
+
+    // What the document does once the switch is applied.
+    const project: Project = {
+      id: "p-guitar-switched",
+      bandRef: "band",
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: { guitar: { musicianId: "g-1", presetOverride: nextPatch } },
+    };
+    const vm = buildDocument(
+      project,
+      makeRepo({ band, musicians: { "g-1": guitarist }, project, presets }),
+    );
+
+    // Sada řádků, ne dvě nezávislá `some()`: kdyby dokument vytiskl oba
+    // kanály nebo si přehodil pořadí, dvě `toBe` by to pustily.
+    expect(vm.inputs.map((row) => [row.ch, row.key])).toEqual([
+      [1, "el_guitar_xlr"],
+    ]);
+    expect(vm.inputs.some((row) => row.key === "el_guitar_mic")).toBe(false);
   });
 });
