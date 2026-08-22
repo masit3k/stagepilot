@@ -36,7 +36,7 @@ export function resolveMusicianDefaultPreset(args: {
     roleScopedDefaults,
     presetItems: setupData?.musicianPresetsById?.[musicianId],
     presetCatalog,
-    bandDefaults: getGroupDefaultPreset(role),
+    bandDefaults: getGroupDefaultPreset(role, presetCatalog),
   });
 }
 
@@ -56,7 +56,7 @@ export function resolveSetupForSlot(args: {
   });
   const resolved = resolveEffectiveMusicianSetup({
     musicianDefaults,
-    bandDefaults: getGroupDefaultPreset(role),
+    bandDefaults: getGroupDefaultPreset(role, presetCatalog),
     eventOverride: patch,
     group: role,
   });

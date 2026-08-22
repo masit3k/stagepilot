@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildVisibleLineupSections,
+  getGroupDefaultPreset,
   resolveMusicianDefaultInputsFromPresets,
   resolveMusicianDefaultSetupForRole,
 } from "./setupConstants";
@@ -365,5 +366,114 @@ describe("buildVisibleLineupSections", () => {
     expect(
       defaultSections.some((section) => section.kind === "acoustic_guitar"),
     ).toBe(true);
+  });
+});
+
+describe("getGroupDefaultPreset (F5d R1)", () => {
+  const catalog: Record<string, PresetEntity> = {
+    el_bass_xlr_amp: {
+      type: "preset",
+      id: "el_bass_xlr_amp",
+      label: "Electric bass guitar",
+      group: "bass",
+      inputs: [
+        {
+          key: "el_bass_xlr_amp",
+          label: "Electric bass guitar",
+          note: "XLR out from amp",
+        },
+      ],
+    },
+    el_guitar_mic: {
+      type: "preset",
+      id: "el_guitar_mic",
+      label: "Electric guitar (mic)",
+      group: "guitar",
+      inputs: [{ key: "el_guitar_mic", label: "Electric guitar" }],
+    },
+    keys_stereo_xlr: {
+      type: "preset",
+      id: "keys_stereo_xlr",
+      label: "Keys stereo XLR",
+      group: "keys",
+      inputs: [
+        { key: "keys_l", label: "Keys L", channel: "L" },
+        { key: "keys_r", label: "Keys R", channel: "R" },
+      ],
+    },
+    vocal_wireless: {
+      type: "preset",
+      id: "vocal_wireless",
+      label: "Vocal (wireless)",
+      group: "vocs",
+      inputs: [{ key: "voc_input", label: "Vocal" }],
+    },
+  };
+
+  it("takes the first ref of the role, not the union of all of them", () => {
+    // Union would hand a guitarist with no preset a mic, a DI, a stereo pair
+    // and an acoustic all at once, and would merge mutually exclusive bass
+    // presets that `selectBassMainPreset` exists to keep apart.
+    expect(
+      getGroupDefaultPreset("bass", catalog).inputs.map((i) => i.key),
+    ).toEqual(["el_bass_xlr_amp"]);
+    expect(
+      getGroupDefaultPreset("guitar", catalog).inputs.map((i) => i.key),
+    ).toEqual(["el_guitar_mic"]);
+    expect(
+      getGroupDefaultPreset("keys", catalog).inputs.map((i) => i.key),
+    ).toEqual(["keys_l", "keys_r"]);
+    expect(
+      getGroupDefaultPreset("vocs", catalog).inputs.map((i) => i.key),
+    ).toEqual(["voc_input"]);
+  });
+
+  it("stamps the preset's group onto every derived channel", () => {
+    // Preset channels never carry `group` themselves; without this the
+    // derived channel falls into the M2 trap on both prefix copies.
+    expect(
+      getGroupDefaultPreset("guitar", catalog).inputs.every(
+        (i) => i.group === "guitar",
+      ),
+    ).toBe(true);
+    expect(
+      getGroupDefaultPreset("keys", catalog).inputs.every(
+        (i) => i.group === "keys",
+      ),
+    ).toBe(true);
+  });
+
+  it("keeps the default drum kit for drums", () => {
+    const inputs = getGroupDefaultPreset("drums", catalog).inputs;
+
+    expect(inputs.length).toBeGreaterThan(0);
+    expect(inputs.every((input) => input.key.startsWith("dr_"))).toBe(true);
+  });
+
+  it("returns no inputs for talkback", () => {
+    // The talkback preset is a `talkback_type` template keyed
+    // `tb_{ownerKey}`, has no `PRESET_REFS` entry and no lineup slot; the row
+    // is built by `buildPdfTalkback` from overlays.
+    expect(getGroupDefaultPreset("talkback", catalog).inputs).toEqual([]);
+  });
+
+  it("returns no inputs when the catalog is empty", () => {
+    expect(getGroupDefaultPreset("guitar", {}).inputs).toEqual([]);
+    expect(getGroupDefaultPreset("bass").inputs).toEqual([]);
+  });
+
+  it("keeps wedge_foh as the fallback monitor for every role", () => {
+    for (const role of [
+      "drums",
+      "bass",
+      "guitar",
+      "keys",
+      "vocs",
+      "talkback",
+    ] as const) {
+      expect(getGroupDefaultPreset(role, catalog).monitoring.monitorRef).toBe(
+        "wedge_foh",
+      );
+    }
   });
 });

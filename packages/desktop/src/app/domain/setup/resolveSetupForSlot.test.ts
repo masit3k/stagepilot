@@ -11,6 +11,23 @@ import {
 
 const EMPTY_CATALOG: Record<string, PresetEntity> = {};
 
+/** The single ref `PRESET_REFS.bass[0]` points at — the band default for bass (F5d R1). */
+const BASS_DEFAULT_CATALOG: Record<string, PresetEntity> = {
+  el_bass_xlr_amp: {
+    type: "preset",
+    id: "el_bass_xlr_amp",
+    label: "Electric bass guitar",
+    group: "bass",
+    inputs: [
+      {
+        key: "el_bass_xlr_amp",
+        label: "Electric bass guitar",
+        note: "XLR out from amp",
+      },
+    ],
+  },
+};
+
 /**
  * Fixtura drží skutečný tvar `BandSetupData` — `id`, `name` a `members` jsou
  * povinné, i když je tenhle test nepoužívá. Nesmí se obcházet přetypováním,
@@ -33,18 +50,32 @@ describe("resolveMusicianDefaultPreset", () => {
       role: "bass",
       musicianId: "m1",
       setupData: null,
-      presetCatalog: EMPTY_CATALOG,
+      presetCatalog: BASS_DEFAULT_CATALOG,
     });
 
     expect(preset.inputs).toBeInstanceOf(Array);
     expect(preset.monitoring).toBeDefined();
-    // Band default pro `bass` je jediný kanál z `GROUP_INPUT_LIBRARY`. Kdyby
-    // fallback spadl jinam (na prázdný preset nebo na jinou roli), tohle to
-    // odhalí — samotné `toBeInstanceOf(Array)` ne.
+    // Band default pro `bass` je `inputs` prvního refu role z `PRESET_REFS`
+    // (`el_bass_xlr_amp`). Kdyby fallback spadl jinam (na prázdný preset nebo
+    // na jinou roli), tohle to odhalí — samotné `toBeInstanceOf(Array)` ne.
     expect(preset.inputs.map((input) => input.key)).toEqual([
       "el_bass_xlr_amp",
     ]);
     expect(preset.inputs[0]?.label).toBe("Electric bass guitar");
+    expect(preset.monitoring.monitorRef).toBe("wedge_foh");
+  });
+
+  it("returns no inputs when the preset catalog has not loaded", () => {
+    // Same value `createDefaultMusicianPreset` already falls back to — not a
+    // new failure mode (F5d R1).
+    const preset = resolveMusicianDefaultPreset({
+      role: "bass",
+      musicianId: "m1",
+      setupData: null,
+      presetCatalog: EMPTY_CATALOG,
+    });
+
+    expect(preset.inputs).toEqual([]);
     expect(preset.monitoring.monitorRef).toBe("wedge_foh");
   });
 
@@ -72,7 +103,7 @@ describe("resolveSetupForSlot", () => {
       role: "bass",
       musicianId: "m1",
       setupData: null,
-      presetCatalog: EMPTY_CATALOG,
+      presetCatalog: BASS_DEFAULT_CATALOG,
     });
 
     expect(effective.inputs).toBeInstanceOf(Array);

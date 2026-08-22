@@ -245,10 +245,50 @@ export function buildVisibleLineupSections(args: {
   ];
 }
 
-export function getGroupDefaultPreset(group: Group): MusicianSetupPreset {
+/**
+ * Výchozí výbava hudebníka, který nemá jediný preset (F5d R1). Bere `inputs`
+ * **prvního** refu role z `PRESET_REFS`, ne union: union by kytaristovi dal
+ * mikrofon, DI, stereo pár i akustiku současně a u basy by slil dva presety
+ * s `presetRole: "primary"`, které `selectBassMainPreset` schválně rozlišuje.
+ * `PRESET_REFS` je táž konstanta, ze které čte `buildSetupFieldCatalog`, takže
+ * pořadí refů je jedno rozhodnutí pro fallback i pro katalogy polí.
+ *
+ * `group` se doplňuje z `preset.group` — kanály v presetech ho nenesou vůbec
+ * a bez něj by odvozený kanál spadl do pasti M2 na obou prefixových kopiích.
+ *
+ * `drums` staví výchozí kit (jediná role, jejíž fallback si klíče nevymýšlel).
+ * `talkback` vrací prázdno: jeho preset je `talkback_type` se šablonou
+ * `tb_{ownerKey}`, v `PRESET_REFS` ref nemá, řádek staví `buildPdfTalkback`
+ * z overlays a v lineupu nemá slot, takže se sem v produkci nedojde.
+ *
+ * Prázdný katalog dá prázdné `inputs` — táž hodnota, na kterou dnes padá
+ * `createDefaultMusicianPreset`, ne nový režim selhání.
+ */
+export function getGroupDefaultPreset(
+  group: Group,
+  presetCatalog: Record<string, Preset> | Record<string, PresetEntity> = {},
+): MusicianSetupPreset {
+  const monitoring = { monitorRef: "wedge_foh" };
+
+  if (group === "drums") {
+    return {
+      inputs: resolveDrumInputs(createDefaultDrumDefinition()).map((item) => ({
+        ...item,
+      })),
+      monitoring,
+    };
+  }
+
+  const refs = PRESET_REFS[group as keyof typeof PRESET_REFS];
+  const firstRef = refs?.[0];
+  if (!firstRef) return { inputs: [], monitoring };
+
+  const preset = getPresetEntityByRef(presetCatalog, firstRef);
+  if (preset?.type !== "preset") return { inputs: [], monitoring };
+
   return {
-    inputs: (GROUP_INPUT_LIBRARY[group] ?? []).map((item) => ({ ...item })),
-    monitoring: { monitorRef: "wedge_foh" },
+    inputs: preset.inputs.map((item) => ({ ...item, group: preset.group })),
+    monitoring,
   };
 }
 
