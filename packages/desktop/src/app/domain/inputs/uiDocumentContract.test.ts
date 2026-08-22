@@ -3,6 +3,7 @@ import type {
   Band,
   Musician,
   NotesTemplate,
+  Preset,
   PresetEntity,
   PresetOverridePatch,
   Project,
@@ -10,6 +11,7 @@ import type {
 import { buildDocument } from "../../../../../../src/domain/pipeline/buildDocument";
 import type { DataRepository } from "../../../../../../src/infra/fs/repo";
 import { resolveInputRowEditability } from "./resolveInputRowEditability";
+import { resolveInputsFieldSections } from "./resolveInputsFieldSections";
 import { resolveMonitorRowEditability } from "./resolveMonitorRowEditability";
 
 /**
@@ -312,6 +314,79 @@ describe("contract: overlay rows stay patch-proof (F5d R7, O2)", () => {
     expect(vmOf(patched).inputs.map((row) => [row.ch, row.key])).toEqual([
       [1, "voc_extra"],
       [2, "voc_lead_1"],
+    ]);
+  });
+});
+describe("contract: mono keys player (F5d R1, M4)", () => {
+  it("both prefix copies route him to keys, the modal gets the keys catalog, and the document prints the channel", () => {
+    const band: Band = {
+      id: "band",
+      name: "Band",
+      bandLeader: "k-1",
+      defaultLineup: { keys: ["k-1"] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
+    };
+    const keysPlayer: Musician = {
+      id: "k-1",
+      firstName: "Keys",
+      lastName: "One",
+      group: "keys",
+      presets: [
+        { kind: "preset", ref: "keys_mono_xlr" },
+        { kind: "monitor", ref: "wedge_foh" },
+      ],
+    };
+    // Verbatim from data/assets/presets/groups/keys/keys_mono_xlr.json. The
+    // stored channel carries no `group` field — none of the 16 preset files
+    // does — so the bare key `keys` has to survive on the prefix branch of
+    // both recognition copies (F5d R1, M4).
+    const keysPreset: Preset = {
+      type: "preset",
+      id: "keys_mono_xlr",
+      label: "Keys mono XLR",
+      group: "keys",
+      inputs: [{ key: "keys", label: "Keys", note: "XLR out from rack" }],
+    };
+    const channel = keysPreset.inputs[0];
+    const presets: Record<string, PresetEntity> = {
+      keys_mono_xlr: keysPreset,
+    };
+    const project: Project = {
+      id: "p-keys-mono",
+      bandRef: "band",
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: { keys: [{ slot: 1, musicianId: "k-1" }] },
+    };
+
+    // What the UI claims: the modal renders the keys catalog, not lead vocals.
+    // The channels handed in are the preset's own array, the same object the
+    // repo below serves to `buildDocument` — the two halves cannot drift.
+    expect(
+      resolveInputsFieldSections({
+        role: "keys",
+        effectiveInputs: keysPreset.inputs,
+      }),
+    ).toEqual([{ key: "keys", label: "keys", catalog: "keys" }]);
+
+    // What the document produces over the same data: that one channel, under
+    // the keys block, owned by the keys player, with its preset label and note
+    // intact. Measured: `vm.inputs` holds exactly this one row.
+    const vm = buildDocument(
+      project,
+      makeRepo({ band, musicians: { "k-1": keysPlayer }, project, presets }),
+    );
+    expect(
+      vm.inputs.map((row) => [
+        row.ch,
+        row.key,
+        row.label,
+        row.note,
+        row.group,
+        row.ownerMusicianId,
+      ]),
+    ).toEqual([
+      [1, channel?.key, channel?.label, channel?.note, "keys", "k-1"],
     ]);
   });
 });
