@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { createDefaultDrumDefinition } from "../drums/drumDefinition";
 import {
+  detectPresetInstrumentCapabilities,
   getAcousticGuitarMembers,
   hasAcousticGuitarPreset,
+  isAcousticOnlyMember,
   resolveInputsForCapabilitySection,
   resolveLineupInstrumentMembership,
   resolveMusicianCapabilityInputs,
@@ -222,5 +224,65 @@ describe("resolveInputsForCapabilitySection", () => {
     expect(
       resolveInputsForCapabilitySection({ section: "vocs", inputs: effectiveInputs }).map((input) => input.key),
     ).toEqual(["voc_lead"]);
+  });
+});
+
+describe("group fallbacks on capability sections (F5d R1, copy 1)", () => {
+  it("accepts a guitar-group channel outside the el_guitar prefix into the guitar section", () => {
+    const inputs = [
+      {
+        key: "gtr_whatever",
+        label: "Odd guitar channel",
+        group: "guitar" as const,
+      },
+    ];
+
+    expect(supportsCapabilitySection({ section: "guitar", inputs })).toBe(true);
+    expect(
+      resolveInputsForCapabilitySection({ section: "guitar", inputs }).map(
+        (i) => i.key,
+      ),
+    ).toEqual(["gtr_whatever"]);
+  });
+
+  it("does not let an ac_guitar channel with group guitar claim electric capability", () => {
+    // `getGroupDefaultPreset` (task 3) stamps `group: "guitar"` onto every
+    // channel it derives, `ac_guitar` included. If both capabilities took the
+    // fallback, `isAcousticOnlyMember` would stop working and the
+    // `acoustic_guitar` section on `01` would disappear.
+    const capabilities = detectPresetInstrumentCapabilities([
+      { key: "ac_guitar", label: "Acoustic guitar", group: "guitar" },
+    ]);
+
+    expect(capabilities).toEqual({
+      hasElectricGuitarCapability: false,
+      hasAcousticGuitarCapability: true,
+    });
+    expect(isAcousticOnlyMember(capabilities)).toBe(true);
+  });
+
+  it("accepts the bare `keys` key into the keys section", () => {
+    const inputs = [{ key: "keys", label: "Keys" }];
+
+    expect(supportsCapabilitySection({ section: "keys", inputs })).toBe(true);
+    expect(
+      resolveInputsForCapabilitySection({ section: "keys", inputs }).map(
+        (i) => i.key,
+      ),
+    ).toEqual(["keys"]);
+  });
+
+  it("still accepts voc_input into the vocs section", () => {
+    const inputs = [{ key: "voc_input", label: "Vocal" }];
+
+    expect(supportsCapabilitySection({ section: "vocs", inputs })).toBe(true);
+  });
+
+  it("accepts a keys-group channel with an unrelated key into the keys section", () => {
+    const inputs = [
+      { key: "synth_top", label: "Synth", group: "keys" as const },
+    ];
+
+    expect(supportsCapabilitySection({ section: "keys", inputs })).toBe(true);
   });
 });

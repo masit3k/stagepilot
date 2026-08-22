@@ -24,16 +24,53 @@ function normalizeKey(key: string): string {
   return key.trim().toLowerCase();
 }
 
+/**
+ * Kopie 1 ze dvou prefixových rozpoznávání (F5d R1). Odpovídá na „patří
+ * tenhle kanál do téhle sekce"; kopie 2 (`effectiveInstrumentGroups.ts`) na
+ * „do kterého řezu kanál spadá". Obě nesou stejné pravidlo, ale neslučují se
+ * — kopie 2 zná `lead_voc`/`back_voc`, kopie 1 ne.
+ *
+ * Bere celý `InputChannel`, ne jen klíč: kanál z `getGroupDefaultPreset` a z
+ * ručního `inputs.add` nese `group`, a bez fallbacku na něj by klíč mimo
+ * prefix vypadl ze sekce úplně (M2 — `gtr_mic` odebral kytaristovi kytaru).
+ * Kanál odvozený z presetu naopak `group` **nenese** (žádný z 16 souborů v
+ * `data/assets/presets/groups/` ho na prvcích `inputs[]` nemá), takže holý
+ * klíč `keys` z `keys_mono_*` musí projít prefixovou větví — proto je
+ * vyjmenovaný.
+ *
+ * `acoustic_guitar` se sem nedostane: typ ho vylučuje a oba volající ho řeší
+ * prefixem `ac_guitar` mimo tuhle funkci. Asymetrie „elektrika dostane
+ * fallback, akustika ne" (kopie 2) je tím vynucená strukturou.
+ */
 function isGroupInputKey(
-  key: string,
+  input: InputChannel,
   group: Exclude<SetupCapabilitySection, "acoustic_guitar">,
 ): boolean {
-  const normalized = normalizeKey(key);
-  if (group === "guitar") return normalized.startsWith("el_guitar");
-  if (group === "bass") return normalized.startsWith("el_bass") || normalized.startsWith("bass_");
-  if (group === "vocs") return normalized.startsWith("voc_") || normalized.startsWith("vocal_");
-  if (group === "drums") return normalized.startsWith("dr_");
-  return normalized.startsWith(`${group}_`);
+  const normalized = normalizeKey(input.key);
+  const inputGroup = normalizeKey(input.group ?? "");
+  if (group === "guitar")
+    return normalized.startsWith("el_guitar") || inputGroup === "guitar";
+  if (group === "bass")
+    return (
+      normalized.startsWith("el_bass") ||
+      normalized.startsWith("bass_") ||
+      inputGroup === "bass"
+    );
+  if (group === "vocs")
+    return (
+      normalized.startsWith("voc_") ||
+      normalized.startsWith("vocal_") ||
+      inputGroup === "vocs"
+    );
+  if (group === "drums")
+    return normalized.startsWith("dr_") || inputGroup === "drums";
+  if (group === "keys")
+    return (
+      normalized === "keys" ||
+      normalized.startsWith("keys_") ||
+      inputGroup === "keys"
+    );
+  return normalized.startsWith(`${group}_`) || inputGroup === group;
 }
 
 export function supportsCapabilitySection(args: {
@@ -44,19 +81,29 @@ export function supportsCapabilitySection(args: {
   if (section === "acoustic_guitar") {
     return hasAcousticGuitarCapability(inputs);
   }
-  return inputs.some((input) => isGroupInputKey(input.key, section));
+  return inputs.some((input) => isGroupInputKey(input, section));
 }
 
+/**
+ * Fallback `group === "guitar"` dostává **jen** `hasElectricGuitarCapability`
+ * (F5d R1). Kdyby ho dostala i akustika, kanál `ac_guitar` — kterému
+ * `group: "guitar"` doplní `getGroupDefaultPreset` — by kytaristu prohlásil
+ * za elektrického i akustického zároveň, `isAcousticOnlyMember` by přestal
+ * fungovat a sekce `acoustic_guitar` na `01` by zmizela.
+ */
 export function detectPresetInstrumentCapabilities(
   inputs: InputChannel[],
 ): MusicianInstrumentCapabilities {
   return inputs.reduce<MusicianInstrumentCapabilities>(
     (capabilities, input) => {
       const key = normalizeKey(input.key);
-      if (key.startsWith("el_guitar"))
-        capabilities.hasElectricGuitarCapability = true;
-      if (key.startsWith("ac_guitar"))
+      const group = normalizeKey(input.group ?? "");
+      if (key.startsWith("ac_guitar")) {
         capabilities.hasAcousticGuitarCapability = true;
+        return capabilities;
+      }
+      if (key.startsWith("el_guitar") || group === "guitar")
+        capabilities.hasElectricGuitarCapability = true;
       return capabilities;
     },
     {
@@ -166,5 +213,5 @@ export function resolveInputsForCapabilitySection(args: {
       normalizeKey(input.key).startsWith("ac_guitar"),
     );
   }
-  return inputs.filter((input) => isGroupInputKey(input.key, section));
+  return inputs.filter((input) => isGroupInputKey(input, section));
 }
