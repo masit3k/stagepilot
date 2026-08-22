@@ -438,10 +438,7 @@ describe("resolveEffectiveProjectSetup", () => {
     expect(inputs.some((input) => input.key === "dr_hihat")).toBe(false);
   });
 
-  it("does not apply a drum slot's monitoring override (fix round 1, Important 3)", () => {
-    // Reverted: symmetry with bass/guitar/keys wasn't asked for and the
-    // reviewer found it avoidable. A drums slot's monitoring stays exactly
-    // what it was before task 12c — only `inputs.update` is honored here.
+  it("applies a drum slot's monitoring override, same as bass (F5d R3)", () => {
     const band: Band = {
       id: "band",
       name: "Band",
@@ -465,7 +462,7 @@ describe("resolveEffectiveProjectSetup", () => {
         drums: {
           musicianId: "dr-1",
           presetOverride: {
-            monitoring: { monitorRef: "does_not_exist_and_must_not_be_checked" },
+            monitoring: { monitorRef: "iem_stereo_wired_foh", additionalWedgeCount: 2 },
           },
         },
       },
@@ -476,15 +473,74 @@ describe("resolveEffectiveProjectSetup", () => {
       band,
       bandLeaderId: "dr-1",
       getMusicianById: () => drummer,
-      // If the drums branch ever consulted `patch.monitoring`, resolving the
-      // bogus ref above would throw instead of the call returning cleanly.
-      getPresetByRef: (ref) =>
-        ref === "wedge_foh"
-          ? { type: "monitor", id: "wedge_foh", label: "Wedge", kind: "wedge", supplier: "foh" }
-          : undefined,
+      getPresetByRef: (ref) => {
+        if (ref === "wedge_foh")
+          return { type: "monitor", id: "wedge_foh", label: "Wedge", kind: "wedge", supplier: "foh" };
+        if (ref === "iem_stereo_wired_foh")
+          return {
+            type: "monitor",
+            id: "iem_stereo_wired_foh",
+            label: "IEM STEREO wired",
+            kind: "iem",
+            supplier: "foh",
+            mode: "stereo",
+            wireless: false,
+          };
+        return undefined;
+      },
     });
 
-    expect(resolved.byMusicianId.get("dr-1")?.monitoring.monitorRef).toBe("wedge_foh");
+    const drumSetup = resolved.byMusicianId.get("dr-1");
+    expect(drumSetup?.monitoring.monitorRef).toBe("iem_stereo_wired_foh");
+    expect(drumSetup?.monitoring.additionalWedgeCount).toBe(2);
+    // The inputs stay drum-definition-built; only monitoring opened up.
+    expect(drumSetup?.inputs.every((input) => input.key.startsWith("dr_"))).toBe(true);
+  });
+
+  it("throws on an invalid monitorRef on a drums slot — falls, does not degrade (F5d R3)", () => {
+    // Human-confirmed: the only way a `monitorRef` is written is a select over
+    // the monitor catalog, so an invalid one means hand-edited or corrupted
+    // data. Degrading to the default mix would print a monitor table nobody
+    // configured and say nothing about it.
+    const band: Band = {
+      id: "band",
+      name: "Band",
+      bandLeader: "dr-1",
+      defaultLineup: { drums: ["dr-1"] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
+    };
+    const drummer: Musician = {
+      id: "dr-1",
+      firstName: "Dr",
+      lastName: "One",
+      group: "drums",
+      presets: [{ kind: "monitor", ref: "wedge_foh" }],
+    };
+    const project: Project = {
+      id: "p-drum-monitoring-broken",
+      bandRef: "band",
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: {
+        drums: {
+          musicianId: "dr-1",
+          presetOverride: { monitoring: { monitorRef: "does_not_exist" } },
+        },
+      },
+    };
+
+    expect(() =>
+      resolveEffectiveProjectSetup({
+        project,
+        band,
+        bandLeaderId: "dr-1",
+        getMusicianById: () => drummer,
+        getPresetByRef: (ref) =>
+          ref === "wedge_foh"
+            ? { type: "monitor", id: "wedge_foh", label: "Wedge", kind: "wedge", supplier: "foh" }
+            : undefined,
+      }),
+    ).toThrow(/Missing monitor preset reference "does_not_exist"/);
   });
 
 });

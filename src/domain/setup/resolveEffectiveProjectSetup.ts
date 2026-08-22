@@ -78,15 +78,32 @@ export function resolveEffectiveProjectSetup(args: {
           ? { inputs: { update: drumPatch.inputs.update } }
           : undefined;
         const effectiveDrumInputs = applyPresetOverride(drumPreset, narrowedDrumPatch).inputs;
-        // Monitoring override reverted (fix round 1, Important 3): symmetry
-        // with bass/guitar/keys wasn't asked for: no existing screen writes
-        // a monitoring override on a drums slot, and `assertMonitorPresetRef`
-        // added a throw path that didn't exist before task 12c. A drums
-        // slot's monitoring stays exactly what it was: the musician's own
-        // default.
+        // F5d R3: monitoring bicího slotu se srovnal s basou, kytarou a
+        // klávesami. `patch.monitoring` se aplikuje a nevalidní `monitorRef`
+        // hodí stejnou chybu jako u ostatních rolí — jedna cesta kódu, ne
+        // dvě. Degradace na výchozí mix by vytiskla monitorovou tabulku,
+        // kterou nikdo nenastavil, a nikde by to neřekla. `inputs` zůstávají
+        // zúžené na `update` (viz komentář výše, R2): jejich zdrojem je
+        // `drumDefinition`, ne preset.
+        const effectiveDrumMonitoring = drumPatch?.monitoring?.monitorRef
+          ? {
+              monitorRef: drumPatch.monitoring.monitorRef,
+              ...(typeof drumPatch.monitoring.additionalWedgeCount === "number"
+                ? { additionalWedgeCount: drumPatch.monitoring.additionalWedgeCount }
+                : {}),
+            }
+          : defaultPreset.monitoring;
+        if (drumPatch?.monitoring?.monitorRef) {
+          assertMonitorPresetRef({
+            ref: drumPatch.monitoring.monitorRef,
+            role,
+            musicianId,
+            getPresetByRef: args.getPresetByRef,
+          });
+        }
         byMusicianId.set(musicianId, {
           inputs: effectiveDrumInputs,
-          monitoring: defaultPreset.monitoring,
+          monitoring: effectiveDrumMonitoring,
         });
         continue;
       }
