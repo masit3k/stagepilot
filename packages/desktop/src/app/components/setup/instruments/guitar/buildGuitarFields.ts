@@ -22,14 +22,34 @@ function defaultMainPresetId(state: EventSetupEditState, _presets: Record<string
   return readMainPresetId(state.defaultPreset.inputs);
 }
 
+/**
+ * Kanál, který přepnutí přežije, si nese uživatelovu podobu, ne tu z katalogu.
+ *
+ * Bez toho se přepnutí mikrofon → XLR mono chovalo takhle: mikrofon zůstal
+ * (`micOnCab` ho vrátí jako doplněk), ale vrátil se **panenský** z presetu,
+ * `withInputsTarget` proti defaultu nenašel rozdíl, `update` vypadl z patche
+ * a uživatelovo jméno i poznámka tiše zmizely. `resolveDroppedUserEdits` o tom
+ * mlčí schválně — hlásí jen kanály, které z efektivní sady zmizely, a tenhle
+ * v ní zůstal.
+ *
+ * Klíč je identita kanálu: dokud se nemění, jde o totéž místo na pódiu a
+ * uživatelův popis platí dál. Kde se identita opravdu mění (mikrofon → XLR je
+ * jiný klíč), kanál se odebere a přidá znovu z presetu — a na tu ztrátu se
+ * uživatel dopředu ptá potvrzovací dialog.
+ */
+function carryUserEdits(state: EventSetupEditState, inputs: InputChannel[]): InputChannel[] {
+  const effectiveByKey = new Map(state.effectivePreset.inputs.map((item) => [item.key, item]));
+  return inputs.map((item) => effectiveByKey.get(item.key) ?? item);
+}
+
 function rebuild(state: EventSetupEditState, presets: Record<string, GuitarPreset | undefined>, mainId: string, micOnCab: boolean, acoustic: boolean) {
   const keep = state.effectivePreset.inputs.filter((item) => !["el_guitar", "ac_guitar"].some((prefix) => item.key.startsWith(prefix)));
-  const mainInputs = presets[mainId]?.inputs ?? [];
+  const mainInputs = carryUserEdits(state, presets[mainId]?.inputs ?? []);
   const micInput = presets.el_guitar_mic?.inputs[0];
   const acInput = presets.ac_guitar?.inputs[0];
   const next = [...keep, ...mainInputs];
-  if (micOnCab && micInput && !next.some((item) => item.key === micInput.key)) next.push(micInput);
-  if (acoustic && acInput && !next.some((item) => item.key === acInput.key)) next.push(acInput);
+  if (micOnCab && micInput && !next.some((item) => item.key === micInput.key)) next.push(carryUserEdits(state, [micInput])[0]);
+  if (acoustic && acInput && !next.some((item) => item.key === acInput.key)) next.push(carryUserEdits(state, [acInput])[0]);
   return next;
 }
 
