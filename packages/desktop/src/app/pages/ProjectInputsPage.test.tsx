@@ -4,19 +4,25 @@ import { createDefaultDrumDefinition } from "../../../../../src/domain/drums/dru
 import type {
   Monitor,
   MusicianSetupPreset,
+  PresetEntity,
 } from "../../../../../src/domain/model/types";
 import type { SetupDiffMeta } from "../../../../../src/domain/setup/computeSetupDiff";
 import { ToastProvider } from "../../components/ui/toast/ToastProvider";
+import type { LineupMap } from "../../projectRules";
 import { InputRowInspector } from "../components/inputs/InputRowInspector";
 import { InputTable } from "../components/inputs/InputTable";
+import { InputsOverlayActions } from "../components/inputs/InputsOverlayActions";
 import { MonitorRowInspector } from "../components/inputs/MonitorRowInspector";
 import {
   type MonitorEditorRow,
   MonitorTable,
 } from "../components/inputs/MonitorTable";
 import type { InputEditorRow } from "../domain/inputs/buildInputEditorRows";
+import { resolveInputsOverlayEditorModel } from "../domain/roles/inputsOverlayEditor";
+import type { BandSetupData } from "../shell/types";
 import {
   ProjectInputsPage,
+  buildInputsSavePayload,
   countOwnerDeviations,
   isInputsDirty,
   isReorderNoop,
@@ -25,7 +31,12 @@ import {
 } from "./ProjectInputsPage";
 
 describe("isInputsDirty", () => {
-  const empty = { inputOrder: undefined, notes: undefined, lineup: {} };
+  const empty = {
+    inputOrder: undefined,
+    notes: undefined,
+    lineup: {},
+    overlays: undefined,
+  };
 
   it("is clean when nothing changed", () => {
     expect(isInputsDirty(empty, empty)).toBe(false);
@@ -63,6 +74,91 @@ describe("isInputsDirty", () => {
         { ...empty, notes: { disabled: ["a", "b"] } },
       ),
     ).toBe(false);
+  });
+
+  it("carries overlays through the snapshot so an overlay edit survives save", () => {
+    const initial = {
+      ...empty,
+      overlays: { leadVocals: ["m1"], backVocals: [] },
+    };
+    const changed = {
+      ...initial,
+      overlays: { leadVocals: [], backVocals: [] },
+    };
+
+    expect(isInputsDirty(initial, changed)).toBe(true);
+  });
+
+  it("is clean when both snapshots carry the same overlays", () => {
+    const overlays = {
+      leadVocals: ["m1"],
+      backVocals: [],
+      talkback: { mode: "assigned" as const, ownerId: "m2" },
+    };
+
+    expect(
+      isInputsDirty(
+        { ...empty, overlays },
+        { ...empty, overlays: { ...overlays } },
+      ),
+    ).toBe(false);
+  });
+});
+
+/**
+ * Nejrizikovější místo Tasku 16: kdyby se overlays nedostaly do payloadu,
+ * uživatel by vokalistu přidal, viděl ho v tabulce (ta čte `editedProject`)
+ * a po uložení by zmizel. Proto je skládání payloadu jedna exportovaná
+ * funkce a proto má vlastní test.
+ */
+describe("buildInputsSavePayload", () => {
+  const project = {
+    id: "p1",
+    purpose: "event" as const,
+    bandRef: "band",
+    documentDate: "2026-01-01",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    lineup: { vocs: [{ musicianId: "old" }] },
+    overlays: { leadVocals: ["old"], backVocals: [] },
+    inputOrder: ["a"],
+  };
+
+  it("takes all four edited layers from the snapshot, not from the project", () => {
+    const payload = buildInputsSavePayload(
+      {
+        inputOrder: ["b"],
+        notes: { disabled: ["n1"] },
+        lineup: { vocs: [{ musicianId: "new" }] },
+        overlays: { leadVocals: ["new"], backVocals: ["other"] },
+      },
+      project,
+    );
+
+    expect(payload.overlays).toEqual({
+      leadVocals: ["new"],
+      backVocals: ["other"],
+    });
+    expect(payload.lineup).toEqual({ vocs: [{ musicianId: "new" }] });
+    expect(payload.inputOrder).toEqual(["b"]);
+    expect(payload.notes).toEqual({ disabled: ["n1"] });
+  });
+
+  it("keeps the project's untouched fields", () => {
+    const payload = buildInputsSavePayload(
+      {
+        inputOrder: undefined,
+        notes: undefined,
+        lineup: {},
+        overlays: undefined,
+      },
+      project,
+    );
+
+    expect(payload.id).toBe("p1");
+    expect(payload.bandRef).toBe("band");
+    // Snapshot bez overlays je stav projektu, který je nikdy neměl — ne
+    // pokyn nechat na projektu tu starou hodnotu.
+    expect(payload.overlays).toBeUndefined();
   });
 });
 
@@ -220,6 +316,90 @@ describe("ProjectInputsPage", () => {
     );
 
     expect(html).toContain("monitor output");
+  });
+});
+
+describe("InputsOverlayActions (the three overlay actions under INPUT LIST, R7)", () => {
+  const PRESETS: Record<string, PresetEntity> = {
+    vocal_wireless: {
+      type: "preset",
+      id: "vocal_wireless",
+      label: "Vocal (wireless)",
+      group: "vocs",
+      capabilities: ["vocal"],
+      inputs: [{ key: "voc_input", label: "Vocal" }],
+    },
+  };
+  const setupData: BandSetupData = {
+    id: "band",
+    name: "Band",
+    members: { vocs: [{ id: "voc-1", name: "Vera Vocals" }] },
+    musicianPresetsById: {
+      "voc-1": [{ kind: "preset", ref: "vocal_wireless" }],
+    },
+    presetCatalog: PRESETS,
+  };
+
+  function renderActions(args: { lineup: LineupMap; disabled: boolean }) {
+    const model = resolveInputsOverlayEditorModel({
+      setupData,
+      presetCatalog: PRESETS,
+      lineup: args.lineup,
+      overlays: { leadVocals: ["voc-1"], backVocals: [] },
+    });
+    return renderToStaticMarkup(
+      <InputsOverlayActions
+        model={model}
+        disabled={args.disabled}
+        onSaveVocals={() => undefined}
+        onSaveTalkback={() => undefined}
+      />,
+    );
+  }
+
+  function disabledButtonLabels(html: string): string[] {
+    return html
+      .split("<button")
+      .filter((chunk) => chunk.includes("disabled"))
+      .map((chunk) =>
+        chunk
+          .slice(chunk.indexOf(">") + 1)
+          .split("<")[0]
+          .trim(),
+      );
+  }
+
+  const staffed: LineupMap = { vocs: [{ musicianId: "voc-1" }] };
+
+  it("offers exactly the three overlay actions and no channel-adding action", () => {
+    const html = renderActions({ lineup: staffed, disabled: false });
+
+    expect(html).toContain("Lead vocals");
+    expect(html).toContain("Back vocals");
+    expect(html).toContain("Talkback");
+    // R5: kanál se na `02` přidává přes `Edit inputs` a `Edit kit`, ne sem.
+    expect(html).not.toContain("Add input");
+  });
+
+  it("keeps every action live once the lineup has someone to offer", () => {
+    expect(
+      disabledButtonLabels(renderActions({ lineup: staffed, disabled: false })),
+    ).toEqual([]);
+  });
+
+  it("disables all three while the project is still loading", () => {
+    expect(
+      disabledButtonLabels(renderActions({ lineup: staffed, disabled: true })),
+    ).toEqual(["Lead vocals", "Back vocals", "Talkback"]);
+  });
+
+  it("disables only Talkback when nobody is in the lineup yet", () => {
+    // Vokální kandidáti chodí i z katalogu kapely (Task 15), takže ty dvě
+    // akce zůstávají živé. Talkback ale musí být v sestavě, jinak ho
+    // `resolveProjectTalkbackState` zahodí — nabízet ho nemá koho.
+    expect(
+      disabledButtonLabels(renderActions({ lineup: {}, disabled: false })),
+    ).toEqual(["Talkback"]);
   });
 });
 

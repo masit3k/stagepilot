@@ -40,6 +40,13 @@
   color: var(--color-text);
 }
 
+/* Overlay akce pod tabulkou INPUT LIST (F5d R7) — lead, back, talkback. */
+.inputsSectionActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-4);
+}
+
 .inputTable {
   display: grid;
   gap: var(--sp-2);

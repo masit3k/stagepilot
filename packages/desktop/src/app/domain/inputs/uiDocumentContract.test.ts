@@ -10,6 +10,13 @@ import type {
 } from "../../../../../../src/domain/model/types";
 import { buildDocument } from "../../../../../../src/domain/pipeline/buildDocument";
 import type { DataRepository } from "../../../../../../src/infra/fs/repo";
+import type { BandSetupData } from "../../shell/types";
+import { applyVocalOverlaySelection } from "../roles/inputsOverlayEditor";
+import { resolveSetupForSlot } from "../setup/resolveSetupForSlot";
+import {
+  type SetupForSlot,
+  collectDisabledInputRows,
+} from "./buildInputEditorRows";
 import { resolveDroppedUserEdits } from "./resolveDroppedUserEdits";
 import { resolveInputRowEditability } from "./resolveInputRowEditability";
 import { resolveInputsFieldSections } from "./resolveInputsFieldSections";
@@ -493,6 +500,209 @@ describe("contract: destructive connection switch (F5d R5)", () => {
       [1, "el_guitar_xlr"],
     ]);
     expect(vm.inputs.some((row) => row.key === "el_guitar_mic")).toBe(false);
+  });
+});
+
+describe("contract: removing a vocalist from the overlay (F5d R7, O3)", () => {
+  // R3 z F5c pro vokály neplatí: odebrání zpěváka je změna sestavy, ne
+  // vypnutí kanálu. Stav „je v sestavě, ale nemá mikrofon" model nemá, takže
+  // řádek musí zmizet a čísla se přepočítat — ne zešednout.
+  const band: Band = {
+    id: "band",
+    name: "Band",
+    bandLeader: "bass-1",
+    defaultLineup: { bass: ["bass-1"], vocs: ["voc-1", "voc-2"] },
+    defaultOverlays: { leadVocals: ["voc-1", "voc-2"], backVocals: [] },
+  };
+  const bassist: Musician = {
+    id: "bass-1",
+    firstName: "Bass",
+    lastName: "One",
+    group: "bass",
+    presets: [
+      { kind: "preset", ref: "el_bass_xlr_amp" },
+      { kind: "monitor", ref: "wedge_foh" },
+    ],
+  };
+  const singer = (id: string, last: string): Musician => ({
+    id,
+    firstName: "Voc",
+    lastName: last,
+    group: "vocs",
+    gender: "m",
+    presets: [
+      { kind: "preset", ref: "vocal_wireless" },
+      { kind: "monitor", ref: "wedge_foh" },
+    ],
+  });
+  const musicians: Record<string, Musician> = {
+    "bass-1": bassist,
+    "voc-1": singer("voc-1", "One"),
+    "voc-2": singer("voc-2", "Two"),
+  };
+  const presets: Record<string, PresetEntity> = {
+    el_bass_xlr_amp: {
+      type: "preset",
+      id: "el_bass_xlr_amp",
+      label: "Electric bass guitar",
+      group: "bass",
+      inputs: [{ key: "el_bass_xlr_amp", label: "Electric bass guitar" }],
+    },
+    vocal_wireless: {
+      type: "preset",
+      id: "vocal_wireless",
+      label: "Vocal (wireless)",
+      group: "vocs",
+      capabilities: ["vocal"],
+      inputs: [{ key: "voc_input", label: "Vocal" }],
+    },
+  };
+  /**
+   * Sestava se odebráním z overlay nemění — přesně to zapíše obrazovka `02`.
+   * Slot `voc-2` zůstává, jen mizí z `overlays.leadVocals`.
+   */
+  const lineup = {
+    bass: { musicianId: "bass-1" },
+    vocs: [{ musicianId: "voc-1" }, { musicianId: "voc-2" }],
+  };
+  const withBoth: Project = {
+    id: "p-both",
+    bandRef: "band",
+    purpose: "event",
+    documentDate: "2026-01-01",
+    lineup,
+    overlays: { leadVocals: ["voc-1", "voc-2"], backVocals: [] },
+  };
+  /**
+   * `withOne` se nepíše ručně — vyrábí ho ta samá funkce, kterou zavolá
+   * obrazovka `02`, když uživatel `voc-2` odebere z modálu lead vokálů. Tím
+   * tenhle test měří skutečnou zapisovací cestu, ne jen svou představu o ní:
+   * kdyby handler začal zapisovat `presetOverride.inputs.*`, projeví se to
+   * tady v obou polovinách kontraktu.
+   */
+  const applied = applyVocalOverlaySelection({
+    lineup,
+    overlays: withBoth.overlays,
+    musiciansById: new Map([
+      ["bass-1", { group: "bass" as const }],
+      ["voc-1", { group: "vocs" as const }],
+      ["voc-2", { group: "vocs" as const }],
+    ]),
+    candidateIds: new Set(["bass-1", "voc-1", "voc-2"]),
+    leadIds: ["voc-1"],
+    backIds: [],
+  });
+  const withOne: Project = {
+    ...withBoth,
+    id: "p-one",
+    lineup: applied.lineup as Project["lineup"],
+    overlays: applied.overlays,
+  };
+
+  /** Stejné rozlišení výchozího a efektivního setupu, jaké dělá `useSetupOverrides` na `02`. */
+  const setupData = {
+    id: "band",
+    name: "Band",
+    members: {
+      bass: [{ id: "bass-1", name: "Bass One" }],
+      vocs: [
+        { id: "voc-1", name: "Voc One" },
+        { id: "voc-2", name: "Voc Two" },
+      ],
+    },
+    musicianPresetsById: {
+      "bass-1": bassist.presets,
+      "voc-1": musicians["voc-1"].presets,
+      "voc-2": musicians["voc-2"].presets,
+    },
+    presetCatalog: { ...MONITORS, ...presets },
+  } as unknown as BandSetupData;
+  const setupForSlot: SetupForSlot = (role, musicianId, patch) =>
+    resolveSetupForSlot({
+      role,
+      musicianId,
+      patch,
+      setupData,
+      presetCatalog: { ...MONITORS, ...presets },
+    });
+
+  it("the row disappears and the numbering closes up", () => {
+    const before = buildDocument(
+      withBoth,
+      makeRepo({ band, musicians, project: withBoth, presets }),
+    );
+    const after = buildDocument(
+      withOne,
+      makeRepo({ band, musicians, project: withOne, presets }),
+    );
+
+    // Sada řádků, ne jen délka: kdyby dokument řádek nechal a jen ho
+    // přečísloval, samotné `toHaveLength` by to pustilo.
+    expect(before.inputs.map((row) => [row.ch, row.key])).toEqual([
+      [1, "el_bass_xlr_amp"],
+      [2, "voc_lead_1"],
+      [3, "voc_lead_2"],
+    ]);
+    expect(after.inputs).toHaveLength(before.inputs.length - 1);
+    expect(after.inputs.map((row) => [row.ch, row.key])).toEqual([
+      [1, "el_bass_xlr_amp"],
+      [2, "voc_lead_1"],
+    ]);
+    expect(after.inputs.some((row) => row.key.startsWith("voc_lead_2"))).toBe(
+      false,
+    );
+    // A ten, kdo zůstal, patří pořád svému vlastníkovi — ne osiřelému řádku,
+    // jaký by vyrobil `inputs.add` na vokálním slotu.
+    expect(after.inputs.map((row) => row.ownerMusicianId)).toEqual([
+      "bass-1",
+      "voc-1",
+    ]);
+  });
+
+  it("the overlay write leaves the lineup free of any channel patch", () => {
+    // Tohle je ta brána, kterou doména neduplikuje. `inputs.add` na vokálním
+    // ani talkback slotu není no-op — `buildDocument.ts` vylučuje z
+    // `eventOverride` jen `bass` a `drums` — takže by se vytiskl trvalý
+    // osiřelý řádek s `ownerMusicianId: undefined` a ukradl kanál 1.
+    expect(applied.lineup).toEqual({
+      bass: { musicianId: "bass-1" },
+      vocs: [{ musicianId: "voc-1" }, { musicianId: "voc-2" }],
+    });
+    expect(JSON.stringify(applied.lineup)).not.toContain("presetOverride");
+    expect(applied.overlays).toEqual({
+      leadVocals: ["voc-1"],
+      backVocals: [],
+    });
+  });
+
+  it("the UI paints no struck-through row for him, because the overlay path writes no patch", () => {
+    // `collectDisabledInputRows` hlásí jen kanály, které vypnul
+    // `remove`/`removeKeys` patch. Měří se nad sestavou, kterou zapsala
+    // overlay cesta — ne nad ručně opsanou.
+    expect(
+      collectDisabledInputRows({
+        lineup: applied.lineup,
+        roleOrder: ["bass", "vocs"],
+        setupForSlot,
+      }),
+    ).toEqual([]);
+
+    // Kontrolní strana: tentýž helper nad toutéž sestavou přeškrtnutý řádek
+    // opravdu vyrobí, jakmile patch nějaký kanál vypne. Bez ní by aserce výše
+    // měřila jen to, že se helper nespletl do prázdna.
+    expect(
+      collectDisabledInputRows({
+        lineup: {
+          ...applied.lineup,
+          bass: {
+            musicianId: "bass-1",
+            presetOverride: { inputs: { remove: ["el_bass_xlr_amp"] } },
+          },
+        },
+        roleOrder: ["bass", "vocs"],
+        setupForSlot,
+      }).map((row) => row.rawKey),
+    ).toEqual(["el_bass_xlr_amp"]);
   });
 });
 

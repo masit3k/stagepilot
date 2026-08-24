@@ -22,6 +22,7 @@ import { getRoleSlotLimit, normalizeLineupSlots } from "../../projectRules";
 import type { LineupMap } from "../../projectRules";
 import { InputRowInspector } from "../components/inputs/InputRowInspector";
 import { InputTable } from "../components/inputs/InputTable";
+import { InputsOverlayActions } from "../components/inputs/InputsOverlayActions";
 import { InputsSetupSection } from "../components/inputs/InputsSetupSection";
 import { MonitorRowInspector } from "../components/inputs/MonitorRowInspector";
 import {
@@ -60,6 +61,12 @@ import {
   restoreInputRow,
 } from "../domain/inputs/toggleInputRow";
 import { updateInputRow } from "../domain/inputs/updateInputRow";
+import {
+  type ProjectOverlays,
+  applyTalkbackSelection,
+  applyVocalOverlaySelection,
+  resolveInputsOverlayEditorModel,
+} from "../domain/roles/inputsOverlayEditor";
 import { buildMusicianDefaultPayload } from "../domain/setup/buildMusicianDefaultPayload";
 import { musicianDefaultsKey } from "../domain/setup/musicianDefaultsKey";
 import { useSetupOverrides } from "../domain/setup/useSetupOverrides";
@@ -97,6 +104,12 @@ export type InputsEditorSnapshot = {
   inputOrder: readonly string[] | undefined;
   notes: ProjectNotesOverride | undefined;
   lineup: LineupMap;
+  /**
+   * Vokální a talkback overlays (F5d R7). Existenci vokálních a talkback
+   * řádků řídí výhradně tohle pole, ne `presetOverride` (O1) — proto se
+   * edituje jako šestá vrstva snapshotu, ne jako patch na slotu.
+   */
+  overlays: ProjectOverlays | undefined;
 };
 
 /** Obranný výchozí stav, kdyby se ref ještě nestihl naplnit. */
@@ -104,6 +117,7 @@ const EMPTY_INPUTS_SNAPSHOT: InputsEditorSnapshot = {
   inputOrder: undefined,
   notes: undefined,
   lineup: {},
+  overlays: undefined,
 };
 
 /**
@@ -139,6 +153,31 @@ function snapshotFromProject(project: NewProjectPayload): InputsEditorSnapshot {
     inputOrder: project.inputOrder,
     notes: project.notes,
     lineup: project.lineup ?? {},
+    overlays: project.overlays,
+  };
+}
+
+/**
+ * Co? Projekt s právě editovaným snapshotem navrchu — jediné místo, kde se ty
+ * dvě poloviny skládají.
+ *
+ * Proč jedno místo? Skládají se třikrát: pro dokument v tabulce
+ * (`editedProject`), pro vstup resetu a pro payload ukládání. Dokud byly tři
+ * inline kopie, přidání šesté vrstvy znamenalo tři nezávislé úpravy — a ta
+ * zapomenutá v `saveSnapshot` je nejdražší z nich: uživatel by vokalistu
+ * přidal, viděl ho v tabulce a po uložení by zmizel. Jako exportovaná funkce
+ * to jde zamknout testem.
+ */
+export function buildInputsSavePayload(
+  snapshot: InputsEditorSnapshot,
+  project: NewProjectPayload,
+): NewProjectPayload {
+  return {
+    ...project,
+    inputOrder: snapshot.inputOrder,
+    notes: snapshot.notes,
+    lineup: snapshot.lineup,
+    overlays: snapshot.overlays,
   };
 }
 
@@ -442,6 +481,24 @@ export function ProjectInputsPage({
   const snapshot = state.kind === "ready" ? state.snapshot : null;
 
   /**
+   * Vstup pro tři overlay akce pod tabulkou (F5d R7) — kandidáti na lead a
+   * back vokály, kapelní defaulty pro `Reset` uvnitř modálů a vlastník
+   * talkbacku. Skládá to čistá funkce v `app/domain/roles/`, protože totéž
+   * potřebuje i obrazovka `01`; druhá kopie by dala dva zdroje pravdy o
+   * vokálních kandidátech.
+   */
+  const overlayModel = useMemo(
+    () =>
+      resolveInputsOverlayEditorModel({
+        setupData,
+        presetCatalog,
+        lineup,
+        overlays: snapshot?.overlays,
+      }),
+    [setupData, presetCatalog, lineup, snapshot?.overlays],
+  );
+
+  /**
    * Efektivní preset každého obsazeného slotu (všechny role, R7) — vstup pro
    * `summarizeEffectivePresetValidation`. Zrcadlí `ProjectSetupPage.tsx`'s
    * `effectiveSlotPresets`, jen nad `CANONICAL_LINEUP_ROLE_ORDER`, protože
@@ -483,12 +540,7 @@ export function ProjectInputsPage({
    */
   const editedProject = useMemo<NewProjectPayload | null>(() => {
     if (!project || !snapshot) return null;
-    return {
-      ...project,
-      inputOrder: snapshot.inputOrder,
-      notes: snapshot.notes,
-      lineup: snapshot.lineup,
-    };
+    return buildInputsSavePayload(snapshot, project);
   }, [project, snapshot]);
 
   /**
@@ -1222,18 +1274,59 @@ export function ProjectInputsPage({
     [lineup, setupForSlot, notify, id],
   );
 
+  /**
+   * Zápis vokálních overlays z obrazovky `02` (F5d R7). Overlays i lineup jdou
+   * jedním `setState`: muzikant, na kterého overlay ukazuje, musí být v
+   * `project.lineup`, jinak ho `resolveCanonicalOverlayAssignments` odfiltruje
+   * a řádek se nevytiskne.
+   *
+   * Doména se tím nemění a **žádný `presetOverride` se nezapisuje** — přidání
+   * ani odebrání vokalisty není patch kanálu. `inputs.add` na vokálním nebo
+   * talkback slotu by doména nezahodila (`buildDocument.ts` vylučuje z
+   * `eventOverride` jen `bass` a `drums`) a vytiskla by trvalý osiřelý řádek.
+   */
+  const applyVocalOverlays = useCallback(
+    (next: { leadIds: string[]; backIds: string[] }) => {
+      setState((current) => {
+        if (current.kind !== "ready") return current;
+        const applied = applyVocalOverlaySelection({
+          lineup: current.snapshot.lineup,
+          overlays: current.snapshot.overlays,
+          musiciansById: overlayModel.musiciansById,
+          candidateIds: overlayModel.vocals.candidateIds,
+          leadIds: next.leadIds,
+          backIds: next.backIds,
+        });
+        return {
+          ...current,
+          snapshot: { ...current.snapshot, ...applied },
+        };
+      });
+    },
+    [overlayModel.musiciansById, overlayModel.vocals.candidateIds],
+  );
+
+  /** Zápis vlastníka talkbacku z obrazovky `02` (F5d R7) — `null` = nikdo. */
+  const applyTalkbackOwner = useCallback((ownerId: string | null) => {
+    setState((current) => {
+      if (current.kind !== "ready") return current;
+      return {
+        ...current,
+        snapshot: {
+          ...current.snapshot,
+          overlays: applyTalkbackSelection(current.snapshot.overlays, ownerId),
+        },
+      };
+    });
+  }, []);
+
   const saveSnapshot = useCallback(
     async (snapshot: InputsEditorSnapshot, project: NewProjectPayload) => {
       setIsSaving(true);
       try {
         await saveProjectPayload({
           projectId: project.id,
-          payload: {
-            ...project,
-            inputOrder: snapshot.inputOrder,
-            notes: snapshot.notes,
-            lineup: snapshot.lineup,
-          },
+          payload: buildInputsSavePayload(snapshot, project),
           // Ruční pořadí a poznámky jsou obsah rideru, ne kosmetika.
           intent: "content",
         });
@@ -1253,22 +1346,22 @@ export function ProjectInputsPage({
    * přesně to, co je právě na obrazovce, ne poslední uložený stav na disku.
    * Nic se tu neukládá — reset jen mění editovaný snapshot, uložení pak jde
    * přes obvyklé `Save & Continue`.
+   * **Overlays reset nezahrnuje**: odebrání vokalisty je změna sestavy (R7),
+   * ne odchylka kanálu — zamčeno v `resetInputsScreen.test.ts`.
    */
   const resetToDefaults = useCallback(() => {
     setState((current) => {
       if (current.kind !== "ready") return current;
-      const reset = resetInputsScreen({
-        ...current.project,
-        inputOrder: current.snapshot.inputOrder,
-        notes: current.snapshot.notes,
-        lineup: current.snapshot.lineup,
-      });
+      const reset = resetInputsScreen(
+        buildInputsSavePayload(current.snapshot, current.project),
+      );
       return {
         ...current,
         snapshot: {
           inputOrder: reset.inputOrder,
           notes: reset.notes,
           lineup: reset.lineup ?? {},
+          overlays: reset.overlays,
         },
       };
     });
@@ -1370,6 +1463,12 @@ export function ProjectInputsPage({
               selectedKey={selectedInputKey}
               onSelect={selectChannelRow}
               onReorder={reorderInputRow}
+            />
+            <InputsOverlayActions
+              model={overlayModel}
+              disabled={state.kind !== "ready"}
+              onSaveVocals={applyVocalOverlays}
+              onSaveTalkback={applyTalkbackOwner}
             />
           </section>
           <section className="inputsSection" aria-label="Monitors">

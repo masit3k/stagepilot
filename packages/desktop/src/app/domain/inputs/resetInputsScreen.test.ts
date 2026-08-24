@@ -96,6 +96,30 @@ describe("resetInputsScreen", () => {
     expect(reset.lineup?.bass).toEqual(["m2"]);
   });
 
+  /**
+   * Rozhodnutí Kroku 7 Tasku 16 (F5d R7): overlays reset NEZAHRNUJE.
+   * Odebrání vokalisty je změna sestavy, a potvrzovací modál slibuje
+   * "Lineup and stage plan are not affected". Reset kanálů obsazení vracet
+   * nemá. Kdyby to mělo být jinak, je to jedno pole ve `stripSlotDeviations`
+   * a jedna věta v modálu — a tenhle test.
+   */
+  it("keeps the vocal and talkback overlays, because they are lineup, not channel deviations", () => {
+    const reset = resetInputsScreen({
+      ...payload,
+      overlays: {
+        leadVocals: ["m1"],
+        backVocals: ["m2"],
+        talkback: { mode: "assigned", ownerId: "m1" },
+      },
+    } as never);
+
+    expect(reset.overlays).toEqual({
+      leadVocals: ["m1"],
+      backVocals: ["m2"],
+      talkback: { mode: "assigned", ownerId: "m1" },
+    });
+  });
+
   it("strips overrides from a non-array (single-slot) lineup entry", () => {
     const singleSlotLineup = {
       ...payload,
