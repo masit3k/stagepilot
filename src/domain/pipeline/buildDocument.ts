@@ -536,7 +536,14 @@ export function buildDocument(
 
   const inputs: BuiltInput[] = [];
   const vocalCapabilityByMusicianId = new Map<string, BuiltInput[]>();
-  const monitors: DocumentViewModel["monitors"] = [];
+  /**
+   * Monitorové entity v pořadí lineupu, každá se svým vlastníkem. Které z nich
+   * dokument opravdu ponese, rozhoduje až `monitorTableRows` — viz filtr níž.
+   */
+  const monitorEntitiesByOwner: Array<{
+    ownerMusicianId: string;
+    monitor: DocumentViewModel["monitors"][number];
+  }> = [];
 
   const monitorsById: MonitorPresetIndex = {};
   const effectiveSetup = resolveEffectiveProjectSetup({
@@ -584,11 +591,14 @@ export function buildDocument(
         id: monitorEntity.id,
         label: monitorEntity.label,
       };
-      monitors.push({
-        id: `${musician.id}:${monitorEntity.id}`,
-        label: monitorEntity.label,
-        kind: monitorEntity.kind,
-        supplier: monitorEntity.supplier,
+      monitorEntitiesByOwner.push({
+        ownerMusicianId: musician.id,
+        monitor: {
+          id: `${musician.id}:${monitorEntity.id}`,
+          label: monitorEntity.label,
+          kind: monitorEntity.kind,
+          supplier: monitorEntity.supplier,
+        },
       });
     }
 
@@ -693,6 +703,24 @@ export function buildDocument(
     backVocsSlotByMusicianId,
     backVocsGenderBySlot,
   });
+
+  /**
+   * `vm.monitors` nese právě ty monitory, ke kterým `monitorTableRows` má
+   * řádek. Vlastníky vybírá jediné místo — `resolvePdfMonitorOwners` uvnitř
+   * `buildPdfMonitorRows` (F5d Nález 1) — ne druhý paralelní filtr, který by
+   * se s ním časem rozešel: dokument by pak sliboval zařízení, které tabulka
+   * nikde nezmiňuje, a `deriveMonitorNoteContext` níž by podle osiřelé entity
+   * zapnul poznámku o monitoru, co se netiskne.
+   *
+   * Pořadí zůstává pořadím lineupu; tabulka si drží vlastní business pořadí
+   * skupin (`GROUP_MONITOR_ORDER`), takže se z řádků odvozuje jen výběr.
+   */
+  const monitorRowOwnerIds = new Set(
+    monitorTableRows.map((row) => row.ownerMusicianId),
+  );
+  const monitors: DocumentViewModel["monitors"] = monitorEntitiesByOwner
+    .filter(({ ownerMusicianId }) => monitorRowOwnerIds.has(ownerMusicianId))
+    .map(({ monitor }) => monitor);
 
   inputs.sort(comparePdfInputs);
 
