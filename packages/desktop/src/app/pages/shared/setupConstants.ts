@@ -6,7 +6,6 @@ import {
 } from "../../../../../../src/domain/lineup/resolveLineupInstrumentMembership";
 import type { Group } from "../../../../../../src/domain/model/groups";
 import type {
-  PresetOverridePatch as DomainPresetOverridePatch,
   InputChannel,
   MusicianSetupPreset,
   Preset,
@@ -285,22 +284,6 @@ export function getGroupDefaultPreset(
   return {
     inputs: preset.inputs.map((item) => ({ ...item, group: preset.group })),
     monitoring,
-  };
-}
-
-export function buildInputsPatchFromTarget(
-  defaultInputs: InputChannel[],
-  targetInputs: InputChannel[],
-): NonNullable<DomainPresetOverridePatch["inputs"]> {
-  const defaultByKey = new Map(defaultInputs.map((item) => [item.key, item]));
-  const targetByKey = new Map(targetInputs.map((item) => [item.key, item]));
-  const removeKeys = defaultInputs
-    .filter((item) => !targetByKey.has(item.key))
-    .map((item) => item.key);
-  const add = targetInputs.filter((item) => !defaultByKey.has(item.key));
-  return {
-    ...(add.length > 0 ? { add } : {}),
-    ...(removeKeys.length > 0 ? { removeKeys } : {}),
   };
 }
 

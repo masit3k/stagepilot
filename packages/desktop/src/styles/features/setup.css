@@ -32,14 +32,6 @@
 /* --------------------------------------------------------------------------
    Editor layout
    -------------------------------------------------------------------------- */
-.setup-editor-grid,
-.setup-musician-layout {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--sp-10);
-  align-items: start;
-}
-
 .setup-editor-body {
   display: grid;
   gap: var(--sp-10);

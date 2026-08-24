@@ -31,11 +31,11 @@ describe("restoreInputRow", () => {
     expect(restoreInputRow(removed, "a").inputs?.remove).toEqual(["b"]);
   });
 
-  // Ruling 1 (task 13 coordination): screen `01` writes a channel it turns
-  // off into the legacy `removeKeys` field, not `remove` — see
-  // `buildInputsPatchFromTarget` in `pages/shared/setupConstants.ts`. The
+  // Ruling 1 (task 13 coordination): the writer into the legacy `removeKeys`
+  // field — the kit editor on screen `01` via `buildInputsPatchFromTarget` —
+  // is gone with F5d R6, but stored projects still carry the field. The
   // domain reads both fields as one union (`applyPresetOverride`), so a
-  // channel disabled on `01` must still come back when restored from `02`.
+  // channel disabled that way must still come back when restored from `02`.
   it("also takes the key off the legacy removeKeys list", () => {
     const patch = { inputs: { removeKeys: ["x"] } };
     const restored = restoreInputRow(patch, "x");

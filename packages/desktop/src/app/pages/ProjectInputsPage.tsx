@@ -264,15 +264,16 @@ function replaceSlotOverride(
 
 /**
  * Zapíše `drumDefinition` jednoho slotu bicích, beze změny `presetOverride`
- * (Task 16, Ruling 1). `Edit kit` na obrazovce `02` NEreplikuje bookkeeping
- * `ProjectSetupPage.tsx` (~ř. 2235-2258): tam editace kitu zapisuje
+ * (Task 16, Ruling 1). `Edit kit` na obrazovce `02` vědomě NEreplikovalo
+ * dvojí bookkeeping setup modálu na `01`: ten při každé změně kitu zapisoval
  * `drumDefinition` A ZÁROVEŇ `inputs.add`/`removeKeys` do
  * `presetOverride.inputs` přes `buildInputsPatchFromTarget` — patch, který
  * `resolveEffectiveProjectSetup.ts:75-79` u bicích schválně zužuje jen na
- * `inputs.update`, takže `add`/`removeKeys` do dokumentu nikdy nedojede.
+ * `inputs.update`, takže `add`/`removeKeys` do dokumentu nikdy nedojely.
+ * Modál i ta funkce zanikly s F5d R6, takže druhý zdroj pravdy už neexistuje;
  * `drumDefinition` je jediný zdroj pravdy o bicích kanálech (komentář fixu
- * 12c tamtéž) — zápis navíc by tu byl jen balast a rozešel by se s
- * dokumentem, přesně jako gate z Tasku 13b existuje proto, aby zabránil.
+ * 12c tamtéž). Uložené projekty starší klíče dál nesou a doména je při čtení
+ * slučuje — proto zůstává i merge v `toggleInputRow`.
  */
 export function replaceSlotDrumDefinition(
   lineup: LineupMap,

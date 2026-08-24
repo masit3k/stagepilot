@@ -42,12 +42,12 @@ function withInputs(
  * původního stavu — zapsat ho do `remove` by nechalo v projektu odchylku,
  * která nic nemění.
  *
- * Duplicitu kontroluje proti sjednocení `remove` i legacy `removeKeys` —
- * kanál vypnutý na obrazovce `01` (`buildInputsPatchFromTarget` v
- * `pages/shared/setupConstants.ts`) zapisuje do `removeKeys`, ne do `remove`,
- * a doména je při čtení stejně slučuje (`applyPresetOverride`). Bez téhle
- * kontroly by šlo stejný kanál zapsat do `remove` podruhé, i když je díky
- * `removeKeys` už vypnutý.
+ * Duplicitu kontroluje proti sjednocení `remove` i legacy `removeKeys`.
+ * Zapisovatel do `removeKeys` — editor kitu na obrazovce `01` přes
+ * `buildInputsPatchFromTarget` — zanikl s F5d R6, ale uložené projekty ho
+ * dál nesou a doména je při čtení stejně slučuje (`applyPresetOverride`).
+ * Bez téhle kontroly by šlo stejný kanál zapsat do `remove` podruhé, i když
+ * je díky `removeKeys` ze starých dat už vypnutý.
  */
 export function removeInputRow(
   patch: PresetOverridePatch | undefined,

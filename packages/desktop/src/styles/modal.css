@@ -34,8 +34,7 @@
   transform-origin: center;
 }
 
-.selector-dialog--musician-select,
-.selector-dialog--setup-editor {
+.selector-dialog--musician-select {
   overflow: hidden;
 }
 
@@ -64,17 +63,6 @@
 
 .selector-dialog--musician-select .selector-dialog__body {
   max-height: min(56vh, 540px);
-}
-
-.selector-dialog--setup-editor {
-  width: min(760px, 96vw);
-  max-height: min(90vh, 980px);
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
-}
-
-.selector-dialog--setup-editor .selector-dialog__body {
-  padding-right: var(--sp-1);
 }
 
 .setup-modal-footer {
@@ -124,10 +112,6 @@
 .selector-dialog > p {
   color: var(--color-text-body);
   font: var(--sp-body-sm);
-}
-
-.selector-dialog--setup-editor .selector-dialog__title {
-  gap: var(--sp-7);
 }
 
 .selector-dialog__divider {
