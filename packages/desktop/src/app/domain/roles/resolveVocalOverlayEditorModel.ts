@@ -95,11 +95,14 @@ export function resolveVocalOverlayEditorModel(args: {
 
   const leadSections = resolveLeadVocalCandidates({
     lineupCandidates: lineupVocalCandidates
+      // `sectionByRole.lead === "suggested"` tu stávala jako první klauzule a
+      // byla mrtvá: `resolveLineupVocalCandidates` ji přiděluje jen při
+      // `group === "vocs" && hasVocalCapability`, takže ji `primaryGroup ===
+      // "vocs"` níž beze zbytku obsahuje. Implikaci hlídá invariantní test
+      // v `resolveLineupVocalCandidates.test.ts`.
       .filter(
         (candidate) =>
-          candidate.sectionByRole.lead === "suggested" ||
-          candidate.isInProjectLineup ||
-          candidate.primaryGroup === "vocs",
+          candidate.isInProjectLineup || candidate.primaryGroup === "vocs",
       )
       .map((candidate) => ({
         musicianId: candidate.id,

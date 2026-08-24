@@ -286,3 +286,77 @@ describe("resolveLineupVocalCandidates", () => {
     expect(candidates).toEqual([]);
   });
 });
+
+describe("lead suggestion invariant", () => {
+  it("only a vocs musician can ever land in the lead suggested section", () => {
+    // Uzamyka implikaci, na ktere stoji filtr v `resolveVocalOverlayEditorModel`:
+    // `isLeadSuggested` je `group === "vocs" && hasVocalCapability`, takze
+    // `sectionByRole.lead === "suggested"` uz `primaryGroup === "vocs"` obsahuje.
+    // Dokud to plati, je klauzule `sectionByRole.lead === "suggested"` v tom
+    // filtru mrtva a byla odstranena. Az tuhle implikaci nekdo zrusi, ozve se
+    // tenhle test, ne az chybejici kandidat v modalu.
+    const candidates = resolveLineupVocalCandidates({
+      lineupMusicians: [
+        {
+          id: "voc-1",
+          firstName: "Lead",
+          lastName: "Singer",
+          group: "vocs",
+          presets: [{ kind: "preset", ref: "vocal_no_mic" }],
+        },
+        {
+          id: "voc-2",
+          firstName: "Silent",
+          lastName: "Singer",
+          group: "vocs",
+          presets: [],
+        },
+        {
+          id: "bass-1",
+          firstName: "Bass",
+          lastName: "Player",
+          group: "bass",
+          presets: [{ kind: "preset", ref: "vocal_no_mic" }],
+        },
+        {
+          id: "drums-1",
+          firstName: "Drum",
+          lastName: "Player",
+          group: "drums",
+          presets: [],
+        },
+        {
+          id: "keys-1",
+          firstName: "Keys",
+          lastName: "Player",
+          group: "keys",
+          presets: [{ kind: "preset", ref: "vocal_no_mic" }],
+        },
+        {
+          id: "gtr-1",
+          firstName: "Guitar",
+          lastName: "Player",
+          group: "guitar",
+          presets: [],
+        },
+      ],
+      lineupMembers: [
+        { id: "voc-1", name: "Lead Singer" },
+        { id: "voc-2", name: "Silent Singer" },
+        { id: "bass-1", name: "Bass Player" },
+        { id: "drums-1", name: "Drum Player" },
+        { id: "keys-1", name: "Keys Player" },
+        { id: "gtr-1", name: "Guitar Player" },
+      ],
+      presetCatalog: { vocal_no_mic: VOCAL_PRESET },
+    });
+
+    const suggestedForLead = candidates.filter(
+      (candidate) => candidate.sectionByRole.lead === "suggested",
+    );
+    expect(suggestedForLead.length).toBeGreaterThan(0);
+    expect(
+      suggestedForLead.every((candidate) => candidate.primaryGroup === "vocs"),
+    ).toBe(true);
+  });
+});
