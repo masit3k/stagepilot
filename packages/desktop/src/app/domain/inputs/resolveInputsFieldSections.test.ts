@@ -95,27 +95,75 @@ describe("resolveInputsFieldSections", () => {
     ]);
   });
 
-  it("drops a bare `ac_guitar` channel that carries no group — measured, pre-existing", () => {
-    // Not a wish, a measurement, and deliberately pinned so the move to `02`
-    // cannot be blamed for it later. Copy 1 (`isGroupInputKey`) recognises the
-    // guitar section by `el_guitar` prefix or `group === "guitar"` only; the
-    // `ac_guitar` prefix lives outside it, on section `"acoustic_guitar"`,
-    // which the modal never asks for. A channel taken straight from a preset
-    // carries no `group` (none of the 16 files in
-    // `data/assets/presets/groups/` has one on `inputs[]`), so an acoustic
-    // guitar reaches the modal only through the `group`-stamped band default.
-    // Pre-existing on `01`, out of scope for F5d.
+  it("splits the same way when the acoustic channel carries no group", () => {
+    // Kanál odvozený z presetu pole `group` **nenese** — žádný z 16 souborů
+    // v `data/assets/presets/groups/` ho na prvcích `inputs[]` nemá. Kopie 1
+    // pozná `ac_guitar` jen pod sekcí `"acoustic_guitar"`, ne pod `"guitar"`,
+    // takže modál se musí zeptat na obě: role `guitar` pokrývá obě
+    // schopnostní sekce. Kanál je doslova z
+    // `data/assets/presets/groups/guitar/ac_guitar.json`.
     expect(
       resolveInputsFieldSections({
         role: "guitar",
         effectiveInputs: [
           { key: "el_guitar_mic", label: "Electric guitar" },
-          { key: "ac_guitar", label: "Acoustic guitar" },
+          {
+            key: "ac_guitar",
+            label: "Acoustic guitar",
+            note: "TS jack 6.3mm – DI box",
+          },
         ],
       }),
     ).toEqual([
       { key: "electric_guitar", label: "electric guitar", catalog: "guitar" },
+      { key: "acoustic_guitar", label: "acoustic guitar", catalog: "guitar" },
     ]);
+  });
+
+  it("gives an acoustic-only guitarist the guitar catalog, not the lead-vocs shim", () => {
+    // Změřeno: dřív tenhle kytarista propadl na `{ key: "vocs", catalog:
+    // "lead_vocs" }`, takže mu modál `Edit inputs` nabídl výběr vokálního
+    // mikrofonu. OQ-1 dává modál rolím `bass`, `guitar` a `keys` — akustická
+    // kytara **je** guitar, takže mezera byla v rozpoznání kanálu, ne v bráně.
+    expect(
+      resolveInputsFieldSections({
+        role: "guitar",
+        effectiveInputs: [
+          {
+            key: "ac_guitar",
+            label: "Acoustic guitar",
+            note: "TS jack 6.3mm – DI box",
+          },
+        ],
+      }),
+    ).toEqual([
+      { key: "acoustic_guitar", label: "acoustic guitar", catalog: "guitar" },
+    ]);
+  });
+
+  it("counts a group-stamped acoustic channel once, not twice", () => {
+    // `getGroupDefaultPreset` razítkuje `group: "guitar"`, takže takový kanál
+    // vyhoví oběma schopnostním sekcím. Sjednocení musí být podle klíče.
+    expect(
+      resolveInputsFieldSections({
+        role: "guitar",
+        effectiveInputs: [
+          { key: "ac_guitar", label: "Acoustic guitar", group: "guitar" },
+        ],
+      }),
+    ).toEqual([
+      { key: "acoustic_guitar", label: "acoustic guitar", catalog: "guitar" },
+    ]);
+  });
+
+  it("does not hand an acoustic guitar channel to a modal of another role", () => {
+    // Sjednocení se smí týkat výhradně role `guitar`.
+    expect(
+      resolveInputsFieldSections({
+        role: "keys",
+        effectiveInputs: [{ key: "ac_guitar", label: "Acoustic guitar" }],
+      }),
+    ).toEqual([{ key: "vocs", label: "", catalog: "lead_vocs" }]);
   });
 
   it("ignores channels that belong to another slice of the same owner", () => {

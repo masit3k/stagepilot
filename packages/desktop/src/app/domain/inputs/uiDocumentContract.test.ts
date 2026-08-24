@@ -19,7 +19,10 @@ import {
 } from "./buildInputEditorRows";
 import { resolveDroppedUserEdits } from "./resolveDroppedUserEdits";
 import { resolveInputRowEditability } from "./resolveInputRowEditability";
-import { resolveInputsFieldSections } from "./resolveInputsFieldSections";
+import {
+  resolveInputsFieldSections,
+  supportsInputsModal,
+} from "./resolveInputsFieldSections";
 import { resolveMonitorRowEditability } from "./resolveMonitorRowEditability";
 
 /**
@@ -395,6 +398,89 @@ describe("contract: mono keys player (F5d R1, M4)", () => {
       ]),
     ).toEqual([
       [1, channel?.key, channel?.label, channel?.note, "keys", "k-1"],
+    ]);
+  });
+});
+describe("contract: acoustic-only guitarist (F5d R1)", () => {
+  it("the modal gate opens on his role, the modal gets the guitar catalog, and the document prints the channel", () => {
+    const band: Band = {
+      id: "band",
+      name: "Band",
+      bandLeader: "g-1",
+      defaultLineup: { guitar: ["g-1"] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
+    };
+    const guitarist: Musician = {
+      id: "g-1",
+      firstName: "Gtr",
+      lastName: "One",
+      group: "guitar",
+      presets: [
+        { kind: "preset", ref: "ac_guitar" },
+        { kind: "monitor", ref: "wedge_foh" },
+      ],
+    };
+    // Verbatim from data/assets/presets/groups/guitar/ac_guitar.json. The
+    // stored channel carries no `group` field — none of the 16 preset files
+    // does; `group` is stamped later by `getGroupDefaultPreset` out of
+    // `preset.group` — so the key `ac_guitar` has to carry the recognition on
+    // its own. `ac_guitar` is one of the four assignable guitar presets
+    // (`PRESET_REFS.guitar`), so this lineup is a supported configuration.
+    const acousticPreset: Preset = {
+      type: "preset",
+      id: "ac_guitar",
+      label: "Acoustic guitar",
+      group: "guitar",
+      inputs: [
+        {
+          key: "ac_guitar",
+          label: "Acoustic guitar",
+          note: "TS jack 6.3mm – DI box",
+        },
+      ],
+    };
+    const channel = acousticPreset.inputs[0];
+    const presets: Record<string, PresetEntity> = { ac_guitar: acousticPreset };
+    const project: Project = {
+      id: "p-guitar-acoustic-only",
+      bandRef: "band",
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: { guitar: [{ slot: 1, musicianId: "g-1" }] },
+    };
+
+    // What the UI claims. The gate is keyed on the slot's role, not on the
+    // channel — an acoustic guitarist sits in the `guitar` lineup role, so
+    // `Edit inputs` is offered — and the modal behind it must then render the
+    // guitar catalog, not the lead-vocs shim.
+    expect(supportsInputsModal("guitar")).toBe(true);
+    expect(
+      resolveInputsFieldSections({
+        role: "guitar",
+        effectiveInputs: acousticPreset.inputs,
+      }),
+    ).toEqual([
+      { key: "acoustic_guitar", label: "acoustic guitar", catalog: "guitar" },
+    ]);
+
+    // What the document produces over the same data: that one channel, in the
+    // guitar block, owned by the guitarist, and its `ownerRole` is what the
+    // gate reads.
+    const vm = buildDocument(
+      project,
+      makeRepo({ band, musicians: { "g-1": guitarist }, project, presets }),
+    );
+    expect(
+      vm.inputs.map((row) => [
+        row.key,
+        row.label,
+        row.note,
+        row.group,
+        row.ownerRole,
+        row.ownerMusicianId,
+      ]),
+    ).toEqual([
+      [channel?.key, channel?.label, channel?.note, "guitar", "guitar", "g-1"],
     ]);
   });
 });

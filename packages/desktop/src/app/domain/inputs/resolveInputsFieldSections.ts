@@ -33,6 +33,47 @@ export function supportsInputsModal(role: Group): boolean {
   return INPUTS_MODAL_ROLES.includes(role);
 }
 
+/**
+ * Kapacitní sekce, které role modálu pokrývá.
+ *
+ * Role `guitar` pokrývá dvě. Kopie 1 (`isGroupInputKey`) pozná sekci `guitar`
+ * podle prefixu `el_guitar` nebo podle `group === "guitar"`; prefix
+ * `ac_guitar` leží mimo ni, na samostatné sekci `acoustic_guitar`. A kanál
+ * odvozený z presetu pole `group` **nenese** — žádný z 16 souborů v
+ * `data/assets/presets/groups/` ho na prvcích `inputs[]` nemá, `group`
+ * doplňuje až `getGroupDefaultPreset` z `preset.group`. Akustický kytarista
+ * proto propadal na shim `lead_vocs` a modál mu nabízel vokální mikrofon.
+ *
+ * Opravuje se to tady, ne v žádné z prefixových kopií: fallback
+ * `group === "guitar"` smí v `detectPresetInstrumentCapabilities` dál dostat
+ * jen elektrika (F5d R1), jinak by byl kytarista elektrický i akustický
+ * zároveň, `isAcousticOnlyMember` by přestal fungovat a sekce
+ * `acoustic_guitar` na `01` by zmizela. Obě kopie zůstávají beze změny —
+ * mezera nebyla v rozpoznání kanálu, ale v tom, na kolik sekcí se modál ptal.
+ */
+function capabilitySectionsForRole(
+  section: SetupCapabilitySection,
+): SetupCapabilitySection[] {
+  return section === "guitar" ? ["guitar", "acoustic_guitar"] : [section];
+}
+
+/** Sjednocení podle klíče: kanál s `group: "guitar"` vyhoví oběma sekcím. */
+function resolveRoleInputs(
+  section: SetupCapabilitySection,
+  effectiveInputs: InputChannel[],
+): InputChannel[] {
+  const byKey = new Map<string, InputChannel>();
+  for (const capabilitySection of capabilitySectionsForRole(section)) {
+    for (const input of resolveInputsForCapabilitySection({
+      section: capabilitySection,
+      inputs: effectiveInputs,
+    })) {
+      if (!byKey.has(input.key)) byKey.set(input.key, input);
+    }
+  }
+  return Array.from(byKey.values());
+}
+
 function catalogForSliceKey(sliceKey: string): InputsFieldCatalogId {
   if (sliceKey === "keys") return "keys";
   if (sliceKey === "electric_guitar" || sliceKey === "acoustic_guitar")
@@ -50,10 +91,11 @@ function catalogForSliceKey(sliceKey: string): InputsFieldCatalogId {
  * dostane KEYS_FIELDS, ne LEAD_VOCS_FIELDS", a tu nad komponentou bez jsdom
  * napsat nejde.
  *
- * Sériové zapojení obou prefixových kopií (M4): `resolveInputsForCapabilitySection`
- * (kopie 1) filtruje kanály na řez role, `resolveEffectiveInstrumentGroups`
- * (kopie 2) je rozdělí na podřezy. Co odfiltruje první, druhá už neuvidí —
- * proto je krok A srovnal dřív, než se to sem přestěhovalo.
+ * Sériové zapojení obou prefixových kopií (M4): `resolveRoleInputs` nad kopií 1
+ * (`resolveInputsForCapabilitySection`) filtruje kanály na kapacitní sekce role,
+ * `resolveEffectiveInstrumentGroups` (kopie 2) je rozdělí na podřezy. Co
+ * odfiltruje první, druhá už neuvidí — proto je krok A srovnal dřív, než se to
+ * sem přestěhovalo, a proto se role `guitar` ptá na obě své sekce.
  *
  * Bass jde mimo rozdělení, jednou nedělenou sekcí, přesně jako dnes na `01`:
  * `buildBassFields` si výběr zapojení řeší samo přes `setupGroup`/`presetRole`.
@@ -77,11 +119,9 @@ export function resolveInputsFieldSections(args: {
   // i `talkback` a `bass` se vrátil o řádek dřív, takže sem dojdou jen
   // `guitar` a `keys` — obě jsou v `SetupCapabilitySection` doslova.
   const section = args.role as SetupCapabilitySection;
-  const sectionInputs = resolveInputsForCapabilitySection({
-    section,
-    inputs: args.effectiveInputs,
-  });
-  const slices = resolveEffectiveInstrumentGroups(sectionInputs);
+  const slices = resolveEffectiveInstrumentGroups(
+    resolveRoleInputs(section, args.effectiveInputs),
+  );
 
   if (slices.length === 0)
     return [{ key: "vocs", label: "", catalog: "lead_vocs" }];
