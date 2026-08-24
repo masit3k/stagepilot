@@ -416,8 +416,16 @@ testů). Přepisovat je by znamenalo zahodit hotovou otestovanou logiku a je to 
 render). Soubor má dnes 1669 řádků a je druhý největší v desktopu; přesun nesmí být záminka
 k jeho dalšímu růstu.
 
-Modál se nabízí pro role `bass`, `guitar`, `keys` a lead vocals — tedy přesně tam, kde katalog
-polí existuje. U bicích zůstává `Edit kit`.
+Modál se nabízí pro role `bass`, `guitar` a `keys` — tedy přesně tam, kde katalog polí
+existuje. U bicích zůstává `Edit kit`.
+
+> **Oprava 2026-08-24 (OQ-1).** Původní znění nabízelo modál i lead vokálům. Rozhodnutím
+> člověka z 2026-08-21 se roli `vocs` **nenabízí**: `inputs.add` na vokálním a talkback
+> slotu není no-op — `buildDocument.ts:610-612` vylučuje z `eventOverride` jen `bass`
+> a `drums`, takže `add` vytiskne osiřelý řádek s `ownerMusicianId: undefined`, který
+> ukradne kanál 1 skutečnému lead vokálu. Doména tu bránu neduplikuje, jediná ochrana je
+> v UI: `supportsInputsModal(row.ownerRole)`. O2 (`spec:165`) mluví jen o `remove`
+> a `removeKeys`, `add` u vokálů spec nikdy nezpřístupnil.
 
 ### R5 — `+ Add input` se ruší
 
