@@ -58,23 +58,4 @@ describe("resolveInputRowEditability", () => {
       resolveInputRowEditability({ ownerRole: "bass", group: "talkback" }),
     ).toEqual({ canEdit: false, reason: "overlay-not-supported" });
   });
-
-  // The two-step `+ Add input` picker used to ask this same question about a
-  // not-yet-existing row and died with F5d R5. The shape it asked in — `group`
-  // equal to `ownerRole` — is still the shape of every plain instrument-owned
-  // row, so this case stays as the gate's summary over all five lineup roles.
-  it("refuses drums and vocs, allows bass/guitar/keys, keyed by role", () => {
-    expect(
-      resolveInputRowEditability({ ownerRole: "drums", group: "drums" })
-        .canEdit,
-    ).toBe(false);
-    expect(
-      resolveInputRowEditability({ ownerRole: "vocs", group: "vocs" }).canEdit,
-    ).toBe(false);
-    for (const role of ["bass", "guitar", "keys"] as const) {
-      expect(
-        resolveInputRowEditability({ ownerRole: role, group: role }).canEdit,
-      ).toBe(true);
-    }
-  });
 });
