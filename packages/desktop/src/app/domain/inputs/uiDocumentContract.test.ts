@@ -495,3 +495,109 @@ describe("contract: destructive connection switch (F5d R5)", () => {
     expect(vm.inputs.some((row) => row.key === "el_guitar_mic")).toBe(false);
   });
 });
+
+describe("contract: removing a vocalist leaves no orphaned monitor mix (F5d R7, Nález 1)", () => {
+  it("zero vocal channels means zero vocal monitor mixes", () => {
+    const band: Band = {
+      id: "band",
+      name: "Band",
+      bandLeader: "bass-1",
+      defaultLineup: { bass: ["bass-1"], vocs: ["voc-1"] },
+      defaultOverlays: { leadVocals: ["voc-1"], backVocals: [] },
+    };
+    const bassist: Musician = {
+      id: "bass-1",
+      firstName: "Bass",
+      lastName: "One",
+      group: "bass",
+      presets: [
+        { kind: "preset", ref: "el_bass_xlr_amp" },
+        { kind: "monitor", ref: "wedge_foh" },
+      ],
+    };
+    const singer: Musician = {
+      id: "voc-1",
+      firstName: "Voc",
+      lastName: "One",
+      group: "vocs",
+      gender: "m",
+      presets: [
+        { kind: "preset", ref: "vocal_wireless" },
+        { kind: "monitor", ref: "wedge_foh" },
+      ],
+    };
+    const presets: Record<string, PresetEntity> = {
+      el_bass_xlr_amp: {
+        type: "preset",
+        id: "el_bass_xlr_amp",
+        label: "Electric bass guitar",
+        group: "bass",
+        inputs: [{ key: "el_bass_xlr_amp", label: "Electric bass guitar" }],
+      },
+      vocal_wireless: {
+        type: "preset",
+        id: "vocal_wireless",
+        label: "Vocal (wireless)",
+        group: "vocs",
+        capabilities: ["vocal"],
+        inputs: [{ key: "voc_input", label: "Vocal" }],
+      },
+    };
+    const musicians = { "bass-1": bassist, "voc-1": singer };
+
+    const withSinger: Project = {
+      id: "p-voc-present",
+      bandRef: "band",
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: {
+        bass: { musicianId: "bass-1" },
+        vocs: [{ musicianId: "voc-1" }],
+      },
+      overlays: { leadVocals: ["voc-1"], backVocals: [] },
+    };
+    // Přesně ten stav, který zapíše obrazovka `02`, když uživatel zpěváka
+    // odebere z overlay: lineup slot zůstává, položka v overlay mizí.
+    const withoutSinger: Project = {
+      ...withSinger,
+      id: "p-voc-removed",
+      overlays: { leadVocals: [], backVocals: [] },
+    };
+
+    const before = buildDocument(
+      withSinger,
+      makeRepo({ band, musicians, project: withSinger, presets }),
+    );
+    const after = buildDocument(
+      withoutSinger,
+      makeRepo({ band, musicians, project: withoutSinger, presets }),
+    );
+
+    // Kontrolní strana: dokud je v overlay, kanál i mix stojí.
+    expect(before.inputs.filter((row) => row.group === "vocs")).toHaveLength(1);
+    expect(
+      before.monitorTableRows.filter((row) => row.ownerRole === "vocs"),
+    ).toHaveLength(1);
+
+    // Měřená strana: nula vokálních kanálů, tedy nula vokálních monitor mixů,
+    // a to na obou místech, kam se řádky tisknou.
+    expect(after.inputs.filter((row) => row.group === "vocs")).toHaveLength(0);
+    expect(
+      after.monitorTableRows.filter((row) => row.ownerRole === "vocs"),
+    ).toHaveLength(0);
+    expect(
+      after.stageplan.monitorOutputs.filter((row) => row.ownerRole === "vocs"),
+    ).toHaveLength(0);
+
+    // Basový mix se odebráním zpěváka ztratit nesmí — tohle je pojistka proti
+    // příliš širokému filtru, ne kosmetika.
+    expect(after.monitorTableRows.map((row) => row.ownerMusicianId)).toEqual([
+      "bass-1",
+    ]);
+    // A co zbylo, je očíslované bez díry.
+    expect(after.monitorTableRows.map((row) => row.no)).toEqual(
+      after.monitorTableRows.map((_, index) => String(index + 1)),
+    );
+    expect(after.stageplan.monitorOutputs.map((row) => row.no)).toEqual([1]);
+  });
+});

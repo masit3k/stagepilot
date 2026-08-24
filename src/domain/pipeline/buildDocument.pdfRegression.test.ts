@@ -671,6 +671,11 @@ describe("buildDocument PDF regression model", () => {
       purpose: "generic",
       documentDate: "2026-05-29",
       lineup: { vocs: ["voc-1"] },
+      // Vokální lineup slot musí sedět v overlay, jinak projekt netiskne
+      // jediný vokální kanál a monitor mix pro něj je osiřelý (F5d Nález 1).
+      // Předmětem tohohle testu je alias `wedge` -> `wedge_foh`, ne chování
+      // overlays — fixtura ten vadný stav nesla náhodou.
+      overlays: { leadVocals: ["voc-1"], backVocals: [] },
     };
     const project = normalizeProject(projectJson);
     const presets: Record<string, PresetEntity> = {

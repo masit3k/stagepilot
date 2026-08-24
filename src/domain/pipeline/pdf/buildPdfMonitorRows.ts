@@ -27,14 +27,41 @@ type EffectiveSetupByMusicianId = Map<
 
 export type MonitorOwner = { group: Group; musician: Musician };
 
+/**
+ * Kdo dostane monitorový řádek. Vlastníci jdou z lineupu, ne z overlays —
+ * proto samotný zápis do `project.overlays` mix neuklidí (F5d Nález 1).
+ *
+ * Slot s lineup rolí `vocs`, který není v žádném vokálním overlay slotu,
+ * netiskne jediný kanál — řádky `voc_lead_*`/`voc_back_*` se stavějí výhradně
+ * z overlays — a monitorový mix pro něj je proto osiřelý: dokument by vyšel
+ * s nula vokálními kanály a s vokálním monitor mixem.
+ *
+ * Kritérium je **lineup role vlastníka**, ne vokální schopnost muzikanta.
+ * Basák, který zpívá back vokály, má `group: "bass"` a svůj basový monitor si
+ * nechává, ať je v overlay nebo ne — jeho slot existuje kvůli base. Vypadnout
+ * smí jen slot, jehož jediný důvod existence je zpěv.
+ */
 function resolvePdfMonitorOwners(args: {
   lineupMusicians: MonitorOwner[];
   effectiveSetupByMusicianId: EffectiveSetupByMusicianId;
+  leadVocsSlotByMusicianId: Map<string, number>;
+  backVocsSlotByMusicianId: Map<string, number>;
 }): MonitorOwner[] {
-  const { lineupMusicians, effectiveSetupByMusicianId } = args;
-  return lineupMusicians.filter(({ musician }) =>
-    effectiveSetupByMusicianId.has(musician.id),
-  );
+  const {
+    lineupMusicians,
+    effectiveSetupByMusicianId,
+    leadVocsSlotByMusicianId,
+    backVocsSlotByMusicianId,
+  } = args;
+  return lineupMusicians
+    .filter(({ musician }) => effectiveSetupByMusicianId.has(musician.id))
+    .filter(({ group, musician }) => {
+      if (group !== "vocs") return true;
+      return (
+        leadVocsSlotByMusicianId.has(musician.id) ||
+        backVocsSlotByMusicianId.has(musician.id)
+      );
+    });
 }
 
 export function orderPdfMonitorOwners(args: {
@@ -111,6 +138,8 @@ export function buildPdfMonitorRows(args: {
   const monitorOwners = resolvePdfMonitorOwners({
     lineupMusicians: args.lineupMusicians,
     effectiveSetupByMusicianId: args.effectiveSetupByMusicianId,
+    leadVocsSlotByMusicianId: args.leadVocsSlotByMusicianId,
+    backVocsSlotByMusicianId: args.backVocsSlotByMusicianId,
   });
   const orderedMonitorOwners = orderPdfMonitorOwners({
     owners: monitorOwners,

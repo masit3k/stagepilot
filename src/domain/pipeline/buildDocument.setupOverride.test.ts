@@ -1213,7 +1213,15 @@ describe("buildDocument setup overrides", () => {
     };
 
     const vm = buildDocument(project, repo);
-    expect(vm.stageplan.monitorOutputs).toHaveLength(6);
+    // Pět, ne šest: `vc-2` sedí ve `vocs` slotu lineupu, ale v žádném
+    // vokálním overlay — netiskne jediný kanál, takže mu monitor mix
+    // nepřísluší (F5d Nález 1). Ostatních pět vlastníků drží: `vc-1`,
+    // `gt-1`, `ky-1` a `dr-1` jsou v lead overlay, `bs-1` má nevokální
+    // lineup roli, a ta se filtrem neřídí.
+    expect(vm.stageplan.monitorOutputs).toHaveLength(5);
+    expect(
+      vm.stageplan.monitorOutputs.map((row) => row.ownerMusicianId),
+    ).not.toContain("vc-2");
     expect(vm.inputs.length).toBeGreaterThan(
       vm.stageplan.monitorOutputs.length,
     );
