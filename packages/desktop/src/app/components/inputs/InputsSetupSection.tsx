@@ -1,17 +1,14 @@
 import { useState } from "react";
 import type { Group } from "../../../../../../src/domain/model/groups";
 import type { PresetOverridePatch } from "../../../../../../src/domain/model/types";
-import { normalizeSetupOverridePatch } from "../../../../../../src/domain/rules/presetOverride";
 import { ModalOverlay, useModalBehavior } from "../../../components/ui/Modal";
 import { Close } from "../../../components/ui/icons";
-import {
-  type DroppedUserEdit,
-  resolveDroppedUserEdits,
-} from "../../domain/inputs/resolveDroppedUserEdits";
+import type { DroppedUserEdit } from "../../domain/inputs/resolveDroppedUserEdits";
 import {
   type InputsFieldCatalogId,
   resolveInputsFieldSections,
 } from "../../domain/inputs/resolveInputsFieldSections";
+import { resolveInputsPatchCommit } from "../../domain/inputs/resolveInputsPatchCommit";
 import type { buildSetupFieldCatalog } from "../../pages/shared/setupConstants";
 import { SchemaRenderer } from "../setup/SchemaRenderer";
 import { SetupSection } from "../setup/SetupSection";
@@ -185,10 +182,9 @@ export function DropUserEditsDialog({
  * `02` už mají `Reset to defaults?` a `Save as musician default` —
  * `ModalOverlay` s `role="alertdialog"`, `Cancel` a nebezpečná akce.
  *
- * `normalizeSetupOverridePatch` se volá tady, ne ve stránce: je to ta funkce,
- * která z patche udělá `undefined`, jakmile se efektivní preset vrátí na
- * default. Bez ní by v projektu zůstal patch, který nic nemění, a `DEVIATIONS N`
- * by lhal.
+ * Samo rozhodnutí „ulož, nebo zaparkuj a nech potvrdit" v komponentě neleží —
+ * je v `resolveInputsPatchCommit`, kde ho lze bez jsdom otestovat. Tady zbývá
+ * jen jeho zapojení do stavu: parkovaný patch drží `pending`.
  */
 export function InputsSetupSection({
   open,
@@ -210,20 +206,16 @@ export function InputsSetupSection({
   const [pending, setPending] = useState<PendingSwitch | null>(null);
 
   function handlePatch(rawPatch: PresetOverridePatch | undefined) {
-    const nextPatch = normalizeSetupOverridePatch(
-      state.defaultPreset,
-      rawPatch,
-    );
-    const dropped = resolveDroppedUserEdits({
+    const commit = resolveInputsPatchCommit({
       defaultPreset: state.defaultPreset,
       currentPatch: state.patch,
-      nextPatch,
+      rawPatch,
     });
-    if (dropped.length > 0) {
-      setPending({ patch: nextPatch, dropped });
+    if (commit.kind === "confirm") {
+      setPending({ patch: commit.patch, dropped: commit.dropped });
       return;
     }
-    onPatch(nextPatch);
+    onPatch(commit.patch);
   }
 
   return (
