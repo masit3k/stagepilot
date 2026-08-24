@@ -45,6 +45,60 @@ function readUnits(state: EventSetupEditState): KeysUnit[] {
   return readKeysUnits(state.effectivePreset.inputs);
 }
 
+/**
+ * Kanál, který přepnutí přežije, si nese uživatelovu podobu, ne tu z katalogu.
+ *
+ * Táž vada jako u kytary (`buildGuitarFields`, `carryUserEdits`): `keep` se
+ * bere z efektivního presetu, ale klávesové kanály `buildKeysUnitInputs`
+ * syntetizuje **panensky**. Přepnutí Stereo XLR → Stereo jack klíč `keys_l`
+ * nemění, kanál tedy přežije — ale vrátí se katalogový, `withInputsTarget`
+ * proti defaultu nenajde rozdíl a uživatelovo jméno vypadne z `update`.
+ * `resolveDroppedUserEdits` o tom mlčí schválně — hlásí jen kanály, které
+ * z efektivní sady zmizely, a tenhle v ní zůstal.
+ *
+ * Proč se tady, na rozdíl od kytary, nepřenáší celý kanál: u kláves je
+ * **poznámka nositelem zapojení** — `variantFromInput` z ní variantu čte
+ * zpátky. Kdyby se přenesla, přepnutí na jack by neudělalo vůbec nic. Proto
+ * mají obě uživatelem editovatelná pole (`updateInputRow` jiná nezná) různé
+ * pravidlo:
+ *
+ * - `label` — uživatelovo jméno vyhrává vždy. Se zapojením nesouvisí a nemá
+ *   ho přebít ani automatické přeznačení `Keys` → `Keys 1` při druhé
+ *   jednotce.
+ * - `note` — uživatelův přepis platí dál jen tam, kde ho preset nově
+ *   nepředepisuje jinak (`pristine.note === next.note`). Když se zapojení
+ *   jednotky mění, poznámku si bere zpátky preset: uživatel právě řekl
+ *   „tenhle kanál jede přes jack" a to se do poznámky zapsat musí.
+ *
+ * Odchylka se měří proti panenské podobě **před** přepnutím, ne proti
+ * defaultu slotu: default může mít jiný počet jednotek, a pak by se
+ * automatické přeznačení tvářilo jako uživatelova úprava.
+ */
+function carryUserEdits(
+  state: EventSetupEditState,
+  previous: InputChannel[],
+  next: InputChannel[],
+): InputChannel[] {
+  const effectiveByKey = new Map(
+    state.effectivePreset.inputs.map((input) => [input.key, input]),
+  );
+  const previousByKey = new Map(previous.map((input) => [input.key, input]));
+  return next.map((input) => {
+    const effective = effectiveByKey.get(input.key);
+    const pristine = previousByKey.get(input.key);
+    if (!effective || !pristine) return input;
+    const renamed = effective.label !== pristine.label;
+    const renoted =
+      effective.note !== pristine.note && pristine.note === input.note;
+    if (!renamed && !renoted) return input;
+    return {
+      ...input,
+      ...(renamed ? { label: effective.label } : {}),
+      ...(renoted ? { note: effective.note } : {}),
+    };
+  });
+}
+
 function rebuildInputs(
   state: EventSetupEditState,
   units: KeysUnit[],
@@ -52,7 +106,11 @@ function rebuildInputs(
   const keep = state.effectivePreset.inputs.filter(
     (input) => !isKeysSetupInput(input),
   );
-  return [...keep, ...buildKeysUnitInputs(units)];
+  const previous = buildKeysUnitInputs(readUnits(state));
+  return [
+    ...keep,
+    ...carryUserEdits(state, previous, buildKeysUnitInputs(units)),
+  ];
 }
 
 function patchUnits(state: EventSetupEditState, units: KeysUnit[]) {

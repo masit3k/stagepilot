@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type {
   MusicianSetupPreset,
   Preset,
+  PresetOverridePatch,
 } from "../../../../../../../../src/domain/model/types";
 import { applyPresetOverride } from "../../../../../../../../src/domain/rules/presetOverride";
 import { buildKeysFields } from "./buildKeysFields";
@@ -147,5 +148,166 @@ describe("buildKeysFields", () => {
       ["keys_r", "XLR out from rack"],
       ["keys_2", "XLR out from rack"],
     ]);
+  });
+});
+
+/**
+ * Kanály verbatim z `data/assets/presets/groups/keys/` a slot, který má
+ * `compactGroupKey`/`baseLabel` — právě na nich vada stojí.
+ */
+const editedDefaultPreset: MusicianSetupPreset = {
+  inputs: [
+    {
+      key: "keys_l",
+      label: "Keys L",
+      baseLabel: "Keys",
+      compactGroupKey: "keys",
+      channel: "L",
+      group: "keys",
+      note: "XLR out from rack",
+    },
+    {
+      key: "keys_r",
+      label: "Keys R",
+      baseLabel: "Keys",
+      compactGroupKey: "keys",
+      channel: "R",
+      group: "keys",
+      note: "XLR out from rack",
+    },
+  ],
+  monitoring: { monitorRef: "wedge_foh" },
+};
+
+function stateFor(patch?: PresetOverridePatch) {
+  return {
+    defaultPreset: editedDefaultPreset,
+    effectivePreset: applyPresetOverride(editedDefaultPreset, patch),
+    ...(patch ? { patch } : {}),
+  };
+}
+
+function variantField(index: number) {
+  const field = buildKeysFields(presets)[index + 1];
+  if (field.kind !== "dropdown") throw new Error("missing variant dropdown");
+  return field;
+}
+
+function countField() {
+  const grid = buildKeysFields(presets)[0];
+  if (grid.kind !== "toggleGrid") throw new Error("missing count grid");
+  const field = grid.fields[0];
+  if (field.kind !== "toggleWithStepper")
+    throw new Error("missing count field");
+  return field;
+}
+
+function effectiveAfter(patch: PresetOverridePatch | undefined) {
+  return applyPresetOverride(editedDefaultPreset, patch).inputs;
+}
+
+describe("buildKeysFields — user edits on channels that survive a switch", () => {
+  it("keeps the user's name when the variant switches under the same channel key", () => {
+    // Změřená vada (táž jako u kytary, `buildGuitarFields`): `rebuildInputs`
+    // bere `keep` z efektivního presetu, ale klávesové kanály syntetizuje
+    // `buildKeysUnitInputs` **panensky**. Přepnutí Stereo XLR → Stereo jack
+    // klíč `keys_l` nemění, kanál tedy přežije — ale vrátí se s katalogovým
+    // popiskem, `withInputsTarget` proti defaultu nenajde rozdíl v popisku,
+    // `update` se poskládá znovu bez něj a uživatelovo jméno tiše zmizí.
+    const patch: PresetOverridePatch = {
+      inputs: { update: [{ key: "keys_l", label: "Nord Stage 3 L" }] },
+    };
+
+    const after = effectiveAfter(
+      variantField(0).setValue(stateFor(patch), "stereo_jack"),
+    );
+
+    expect(after.find((item) => item.key === "keys_l")?.label).toBe(
+      "Nord Stage 3 L",
+    );
+  });
+
+  it("still lets the variant switch rewrite the note it owns", () => {
+    // Protiváha k testu výše a důvod, proč se u kláves nesmí přenášet celý
+    // kanál jako u kytary: poznámka je tady **nositel zapojení**
+    // (`variantFromInput` z ní variantu čte zpátky). Kdyby se přenesla,
+    // přepnutí na jack by neudělalo nic.
+    const patch: PresetOverridePatch = {
+      inputs: {
+        update: [
+          {
+            key: "keys_l",
+            label: "Nord Stage 3 L",
+            note: "vlastní DI, prosím",
+          },
+        ],
+      },
+    };
+
+    const after = effectiveAfter(
+      variantField(0).setValue(stateFor(patch), "stereo_jack"),
+    );
+
+    const left = after.find((item) => item.key === "keys_l");
+    expect(left?.label).toBe("Nord Stage 3 L");
+    expect(left?.note).toBe("TS jack 6.3mm – DI box");
+  });
+
+  it("keeps the user's name and note when only the unit count changes", () => {
+    // Přidání druhé jednotky zapojení nemění, jen přeznačuje `Keys` na
+    // `Keys 1`. Uživatelovo jméno i poznámka tedy musí přežít obojí.
+    const patch: PresetOverridePatch = {
+      inputs: {
+        update: [
+          {
+            key: "keys_l",
+            label: "Nord Stage 3 L",
+            note: "vlastní DI, prosím",
+          },
+        ],
+      },
+    };
+
+    const after = effectiveAfter(countField().setCount(stateFor(patch), 2));
+
+    const left = after.find((item) => item.key === "keys_l");
+    expect(left?.label).toBe("Nord Stage 3 L");
+    expect(left?.note).toBe("vlastní DI, prosím");
+  });
+
+  it("still renumbers a channel the user never renamed", () => {
+    // Protiváha: zachování se smí týkat jen kanálů, které uživatel skutečně
+    // upravil. Nedotčený `keys_r` se s druhou jednotkou přeznačit musí.
+    const patch: PresetOverridePatch = {
+      inputs: { update: [{ key: "keys_l", label: "Nord Stage 3 L" }] },
+    };
+
+    const after = effectiveAfter(countField().setCount(stateFor(patch), 2));
+
+    expect(after.find((item) => item.key === "keys_r")?.label).toBe("Keys 1 R");
+    expect(after.find((item) => item.key === "keys_2_l")?.label).toBe(
+      "Keys 2 L",
+    );
+  });
+
+  it("leaves a channel the user never touched exactly as the preset builds it", () => {
+    const after = effectiveAfter(
+      variantField(0).setValue(stateFor(), "stereo_jack"),
+    );
+
+    expect(after.map((item) => [item.key, item.label, item.note])).toEqual([
+      ["keys_l", "Keys L", "TS jack 6.3mm – DI box"],
+      ["keys_r", "Keys R", "TS jack 6.3mm – DI box"],
+    ]);
+  });
+
+  it("lets Reset still discard the user's edits", () => {
+    // `reset` u počtu míří na `defaultPreset.inputs` a se zachováním se
+    // potkat nesmí — jinak by se z resetu stal no-op.
+    const patch: PresetOverridePatch = {
+      inputs: { update: [{ key: "keys_l", label: "Nord Stage 3 L" }] },
+    };
+
+    expect(countField().reset?.(stateFor(patch))).toBeUndefined();
   });
 });
