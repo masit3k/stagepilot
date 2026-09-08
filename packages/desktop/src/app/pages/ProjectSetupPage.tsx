@@ -8,6 +8,8 @@ import {
 } from "../../../../../src/domain/lineup/resolveLineupInstrumentMembership";
 import type { Group } from "../../../../../src/domain/model/groups";
 import { resolvePresetIdAlias } from "../../../../../src/domain/model/presetAliases";
+import type { LineupSlotChange } from "../../../../../src/domain/project/reconcileOverlaysAfterLineupChange";
+import { resolveMusicianHasVocalCapability } from "../../../../../src/domain/project/resolveMusicianHasVocalCapability";
 import type {
   InputChannel,
   Musician,
@@ -44,6 +46,7 @@ import { ChangeBackVocsModal } from "../components/roles/modals/ChangeBackVocsMo
 import { ChangeLeadVocsModal } from "../components/roles/modals/ChangeLeadVocsModal";
 import { sanitizeBackVocsSelection } from "../components/roles/utils/backVocs";
 import { migrateProjectTalkbackOwner } from "../domain/project/migrateProjectTalkbackOwner";
+import { applyLineupChangeToVocalOverlays } from "../domain/roles/applyLineupChangeToVocalOverlays";
 import { ensureMusiciansInLineup } from "../domain/roles/ensureMusiciansInLineup";
 import { resolveVocalOverlayEditorModel } from "../domain/roles/resolveVocalOverlayEditorModel";
 import { enforceVocalSelectionInvariant } from "../domain/roles/vocalSelectionInvariant";
@@ -998,7 +1001,58 @@ export function ProjectSetupPage({
         ? compact[0]
         : compact;
     const nextLineup = { ...lineup, [role]: value as LineupMap[string] };
+    reconcileVocalOverlaysForRole(role, slots);
     applyState(nextLineup, setupData, bandLeaderId, talkbackOwnerId);
+  }
+
+  /**
+   * Výměna muzikanta na slotu musí přepsat i vokální overlays: odcházející
+   * z nich vypadne a nastupující ho zastoupí na téže pozici, pokud umí zpívat.
+   * Bez toho v `overlays.backVocals` zůstalo zombie id, které PDF sice
+   * odfiltrovalo proti lineupu, ale UI ho pořád zobrazovalo.
+   *
+   * Sedí v `setRoleSlots`, protože přes něj tečou obě cesty — `updateSlot`
+   * i commit z modálu `Change`, který mění víc slotů naráz.
+   */
+  function reconcileVocalOverlaysForRole(
+    role: string,
+    nextSlots: LineupSlotValue[],
+  ) {
+    const roleSlotLimit = getRoleSlotLimit(role);
+    const previousSlots = normalizeLineupSlots(lineup[role], roleSlotLimit);
+    const slotCount = Math.max(previousSlots.length, nextSlots.length);
+    const slotChanges: LineupSlotChange[] = [];
+    for (let slotIndex = 0; slotIndex < slotCount; slotIndex += 1) {
+      const previousMusicianId = previousSlots[slotIndex]?.musicianId ?? "";
+      const nextMusicianId = nextSlots[slotIndex]?.musicianId ?? "";
+      if (!previousMusicianId || previousMusicianId === nextMusicianId) {
+        continue;
+      }
+      slotChanges.push({ previousMusicianId, nextMusicianId });
+    }
+    if (slotChanges.length === 0) return;
+
+    const {
+      leadVocalIds: nextLeadIds,
+      backVocalIds: nextBackIds,
+      didChange,
+    } = applyLineupChangeToVocalOverlays({
+      leadVocalIds: selectedLeadVocalIds,
+      backVocalIds: selectedBackVocalIds,
+      slotChanges,
+      canSing: (musicianId) => {
+        const musician = allBandMusiciansById.get(musicianId);
+        return musician
+          ? resolveMusicianHasVocalCapability(musician, presetCatalog)
+          : false;
+      },
+    });
+    if (!didChange) return;
+
+    setLeadVocalIds(nextLeadIds);
+    setBackVocalIds(nextBackIds);
+    setHasLeadVocalOverride(true);
+    setHasBackVocalOverride(true);
   }
 
   function updateSlot(role: string, slotIndex: number, musicianId: string) {
