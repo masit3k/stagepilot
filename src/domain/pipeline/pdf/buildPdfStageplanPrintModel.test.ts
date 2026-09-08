@@ -4,6 +4,7 @@ import type {
   Musician,
   Project,
 } from "../../model/types.js";
+import { buildDefaultLayout } from "../../stageplan/layout/defaultLayout.js";
 import { buildPdfStageplanModel } from "./buildPdfStageplan.js";
 import { buildPdfStageplanPrintModel } from "./buildPdfStageplanPrintModel.js";
 
@@ -85,6 +86,7 @@ describe("buildPdfStageplanPrintModel", () => {
     };
 
     const stageplan = buildPdfStageplanModel({
+      layout: buildDefaultLayout({ slots: ["drums"], stage: null }),
       lineupMusicians: [{ group: "drums", musician: drummer }],
       lineup: {
         keys: [],

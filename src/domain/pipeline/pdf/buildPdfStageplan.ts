@@ -4,10 +4,9 @@ import type {
   Musician,
   Project,
   StageplanInstrumentKey,
+  StageplanLayout,
   StageplanPerson,
 } from "../../model/types.js";
-import { mergeWithLineup } from "../../stageplan/layout/mergeWithLineup.js";
-import { resolveStageplanBlockSlots } from "../../stageplan/layout/resolveBlockSlots.js";
 import { resolvePowerForStageplan } from "../../stageplan/resolvePowerForStageplan.js";
 
 type StageplanSlot =
@@ -69,6 +68,12 @@ function resolveStageplanPersonsBySlot(args: {
 }
 
 export function buildPdfStageplanModel(args: {
+  /**
+   * Sloučení s lineupem už proběhlo — layout přijde hotový z `buildDocument`,
+   * který ho potřebuje dřív, protože z něj odvozuje pořadí vokálů a monitorů.
+   * Druhý výpočet tady by byl druhý zdroj pravdy pro tu samou věc.
+   */
+  layout: StageplanLayout;
   lineupMusicians: Array<{ group: Group; musician: Musician }>;
   lineup: Record<Group, string[]>;
   project: Project;
@@ -123,23 +128,8 @@ export function buildPdfStageplanModel(args: {
     stageplanPersonsBySlot.lead_voc_2,
   ].filter((person): person is StageplanPerson => Boolean(person));
 
-  // Sloučení s lineupem běží i pro tisk — ale jen v paměti. Zápis do projektu
-  // by posunul contentUpdatedAt bez uživatelovy akce (R8, R9 ve F5a).
-  const layout = mergeWithLineup(args.project.stageplan?.layout, {
-    slots: resolveStageplanBlockSlots({
-      musicianIdsByGroup: {
-        drums: args.lineup.drums,
-        bass: args.lineup.bass,
-        guitar: args.lineup.guitar,
-        keys: args.lineup.keys,
-      },
-      leadVocalIds: args.leadOverlayMembers.map((musician) => musician.id),
-    }),
-    stage: null,
-  });
-
   return {
-    layout,
+    layout: args.layout,
     lineupByRole,
     leadVocals,
     inputs: args.inputsWithCh

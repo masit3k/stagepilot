@@ -26,6 +26,12 @@ import type { MonitorPresetIndex } from "../monitors/getMonitorLabel.js";
 import { resolveCanonicalOverlayAssignments } from "../project/resolveProjectAudioAssignments.js";
 import { applyPresetOverride } from "../rules/presetOverride.js";
 import { resolveEffectiveProjectSetup } from "../setup/resolveEffectiveProjectSetup.js";
+import { mergeWithLineup } from "../stageplan/layout/mergeWithLineup.js";
+import { resolveStageplanBlockSlots } from "../stageplan/layout/resolveBlockSlots.js";
+import {
+  UNPLACED_POSITION_RANK,
+  resolveStagePositionRankByRole,
+} from "../stageplan/resolveStagePositionOrder.js";
 import { applyManualInputOrder } from "./applyManualInputOrder.js";
 import { disambiguateInputKeys } from "./disambiguateInputKeys.js";
 import { formatKeysInputInstances } from "./formatKeysInputs.js";
@@ -33,10 +39,7 @@ import {
   assignPdfChannels,
   buildPdfInputRows,
 } from "./pdf/assignPdfChannels.js";
-import {
-  GROUP_MONITOR_ORDER,
-  buildPdfMonitorRows,
-} from "./pdf/buildPdfMonitorRows.js";
+import { buildPdfMonitorRows } from "./pdf/buildPdfMonitorRows.js";
 import {
   buildPdfNotes,
   deriveMonitorNoteContext,
@@ -120,19 +123,31 @@ function resolveOverlaySlots(args: {
     );
 }
 
+/**
+ * `stagePositionRankByRole` je pořadí podle skutečné pozice na stage planu
+ * (boustrofedonový had). Back vokalista svůj blok nemá, takže se řídí blokem
+ * své nástrojové role — basák zpívající back vokál jde tam, kde stojí basa.
+ */
 function resolveOverlayDrivenVocalRows(args: {
   role: "lead" | "back";
   members: Array<{ musician: Musician; slot: number }>;
   capabilityByMusicianId: Map<string, BuiltInput[]>;
   ownerGroupByMusicianId: Map<string, Group>;
+  stagePositionRankByRole: Map<Group, number>;
 }): BuiltInput[] {
-  const { role, members, capabilityByMusicianId, ownerGroupByMusicianId } =
-    args;
+  const {
+    role,
+    members,
+    capabilityByMusicianId,
+    ownerGroupByMusicianId,
+    stagePositionRankByRole,
+  } = args;
   const rows: BuiltInput[] = [];
 
   for (const { musician, slot } of members) {
     const ownerRole = ownerGroupByMusicianId.get(musician.id) ?? musician.group;
-    const orderRank = GROUP_MONITOR_ORDER[ownerRole] ?? 999;
+    const orderRank =
+      stagePositionRankByRole.get(ownerRole) ?? UNPLACED_POSITION_RANK;
     const capabilityInputs = capabilityByMusicianId.get(musician.id) ?? [
       {
         key:
@@ -639,18 +654,42 @@ export function buildDocument(
       ({ group, musician }) => [musician.id, group] as const,
     ),
   );
+  /**
+   * Rozmístění na pódiu se počítá **před** číslováním, protože pořadí vokálů i
+   * monitorů se z něj odvozuje. `mergeWithLineup` vrátí uložený layout, a když
+   * projekt žádný nemá, dopočítaný default — jedna cesta řazení pro všechny
+   * projekty, ne druhá fallback větev na pevnou tabulku. Sloučení běží jen
+   * v paměti; zápis do projektu by posunul contentUpdatedAt bez akce uživatele
+   * (R8, R9 ve F5a).
+   */
+  const stageplanLayout = mergeWithLineup(project.stageplan?.layout, {
+    slots: resolveStageplanBlockSlots({
+      musicianIdsByGroup: {
+        drums: ctx.lineup.drums,
+        bass: ctx.lineup.bass,
+        guitar: ctx.lineup.guitar,
+        keys: ctx.lineup.keys,
+      },
+      leadVocalIds: leadResolved.map(({ musician }) => musician.id),
+    }),
+    stage: null,
+  });
+  const stagePositionRankByRole =
+    resolveStagePositionRankByRole(stageplanLayout);
   const vocalRows = [
     ...resolveOverlayDrivenVocalRows({
       role: "lead",
       members: leadResolved,
       capabilityByMusicianId: vocalCapabilityByMusicianId,
       ownerGroupByMusicianId,
+      stagePositionRankByRole,
     }),
     ...resolveOverlayDrivenVocalRows({
       role: "back",
       members: backResolved,
       capabilityByMusicianId: vocalCapabilityByMusicianId,
       ownerGroupByMusicianId,
+      stagePositionRankByRole,
     }),
   ];
   // R6 / task 12c: lead/back vocal rows never went through
@@ -702,6 +741,7 @@ export function buildDocument(
     backVocsCount,
     backVocsSlotByMusicianId,
     backVocsGenderBySlot,
+    stagePositionRankByRole,
   });
 
   /**
@@ -712,8 +752,8 @@ export function buildDocument(
    * nikde nezmiňuje, a `deriveMonitorNoteContext` níž by podle osiřelé entity
    * zapnul poznámku o monitoru, co se netiskne.
    *
-   * Pořadí zůstává pořadím lineupu; tabulka si drží vlastní business pořadí
-   * skupin (`GROUP_MONITOR_ORDER`), takže se z řádků odvozuje jen výběr.
+   * Pořadí zůstává pořadím lineupu; tabulka si řadí vlastníky podle jejich
+   * pozice na stage planu, takže se z řádků odvozuje jen výběr.
    */
   const monitorRowOwnerIds = new Set(
     monitorTableRows.map((row) => row.ownerMusicianId),
@@ -791,6 +831,7 @@ export function buildDocument(
   );
   const inputRows = buildPdfInputRows(inputsWithCh);
   const stageplan = buildPdfStageplanModel({
+    layout: stageplanLayout,
     lineupMusicians: ctx.lineupMusicians,
     lineup: ctx.lineup,
     project,

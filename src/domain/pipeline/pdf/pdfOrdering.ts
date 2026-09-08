@@ -2,6 +2,7 @@ import { drumRankByResolvedKey } from "../../drums/drumInputCatalog.js";
 import { GROUP_ORDER } from "../../model/groups.js";
 import type { Group } from "../../model/groups.js";
 import { compareInputsForRole } from "../../setup/orderInputsForRole.js";
+import { UNPLACED_POSITION_RANK } from "../../stageplan/resolveStagePositionOrder.js";
 
 // Minimal shape required for PDF ordering operations.
 // BuiltInput in buildDocument.ts satisfies this structurally.
@@ -17,29 +18,22 @@ type PdfSortableInput = {
   vocalOrderRank?: number;
 };
 
-// Back-vocal owner roles sorted relative to lead vocals in the PDF vocal block.
-const VOC_ORDER: Record<string, number> = {
-  guitar: 1,
-  lead: 2,
-  keys: 3,
-  bass: 4,
-  drums: 5,
-};
-
 function groupRank(group: Group): number {
   const i = GROUP_ORDER.indexOf(group);
   return i === -1 ? 999 : i;
 }
 
+/**
+ * Pořadí vokálních kanálů = pořadí vlastníků na pódiu. Rank počítá
+ * `resolveStagePositionRankByRole` a `buildDocument` ho na řádek zapíše jako
+ * `vocalOrderRank`; tady se jen čte. Vlastní tabulka ranků na roli, kterou si
+ * tenhle modul držel dřív, byla druhý zdroj pravdy pro tu samou věc — a její
+ * klíč se navíc doloval z textu `input.key` (`voc_back_keys_2` → `keys`),
+ * takže přetažení bloku na stage planu se do pořadí nikdy nepropsalo.
+ */
 function vocalRank(input: PdfSortableInput): number {
   if (input.group !== "vocs") return 999;
-  if (input.key === "voc_lead" || input.key.startsWith("voc_lead_"))
-    return VOC_ORDER.lead;
-  if (input.key.startsWith("voc_back_")) {
-    const suffix = input.key.slice("voc_back_".length).replace(/_\d+$/i, "");
-    return VOC_ORDER[suffix] ?? 900;
-  }
-  return 900;
+  return input.vocalOrderRank ?? UNPLACED_POSITION_RANK;
 }
 
 function guitarRankByKey(input: PdfSortableInput): number {
@@ -109,7 +103,9 @@ export function orderPdfVocalInputs<T extends PdfSortableInput>(
   backVocsSlotByMusicianId: Map<string, number>,
 ): T[] {
   return vocalInputs.slice().sort((a, b) => {
-    const roleDiff = (a.vocalOrderRank ?? 999) - (b.vocalOrderRank ?? 999);
+    const roleDiff =
+      (a.vocalOrderRank ?? UNPLACED_POSITION_RANK) -
+      (b.vocalOrderRank ?? UNPLACED_POSITION_RANK);
     if (roleDiff !== 0) return roleDiff;
 
     const aSlot =
