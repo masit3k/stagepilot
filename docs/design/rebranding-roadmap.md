@@ -1,3 +1,14 @@
+---
+type: Overview
+title: "Rebranding — mapa fází a stav"
+description: "Vstupní bod rebrandingu: mapa fází F0–F7 s jejich stavem, odkazy na specy a commity, samostatné položky mimo fáze a postup, jak otevřít další fázi."
+tags: [rebranding, roadmap, phases]
+generated:
+  by: human:matej.krecmer
+  at: 2026-08-19T13:51:29+02:00
+status: stable
+audience: [developers, agents]
+---
 # Rebranding — mapa fází a stav
 
 Vstupní bod pro pokračování práce na rebrandingu. Detaily každé fáze jsou v jejím specu

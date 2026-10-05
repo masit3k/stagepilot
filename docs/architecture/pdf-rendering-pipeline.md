@@ -1,3 +1,14 @@
+---
+type: Architecture
+title: "PDF rendering pipeline"
+description: "Descriptive map of the implemented PDF pipeline from project JSON through buildDocument and validation to HTML rendering and Puppeteer output, with where each responsibility lives."
+tags: [pdf, rendering, pipeline, puppeteer]
+generated:
+  by: human:matej.krecmer
+  at: 2026-08-16T15:23:26+02:00
+status: stable
+audience: [developers, agents]
+---
 # PDF rendering pipeline
 
 > Status: Descriptive documentation of the current PDF rendering architecture.

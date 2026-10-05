@@ -1,3 +1,14 @@
+---
+type: Design
+title: "Přesun sekce Inputs na `02`, srovnání doménových řezů a dokončení Tasku 19"
+description: "Návrh F5d: přesun sekce Inputs na obrazovku `02`, srovnání doménových řezů s tím, co dokument skutečně čte, a dokončení Tasku 19 (odstranění starého setup modálu)."
+tags: [rebranding, inputs-screen, refactoring]
+generated:
+  by: human:matej.krecmer
+  at: 2026-08-24T14:32:09+02:00
+status: stable
+audience: [developers, agents]
+---
 # Přesun sekce Inputs na `02`, srovnání doménových řezů a dokončení Tasku 19
 
 **Fáze:** F5d

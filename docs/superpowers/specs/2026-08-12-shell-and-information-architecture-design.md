@@ -1,3 +1,14 @@
+---
+type: Design
+title: "Shell a informační architektura (F3)"
+description: "Návrh F3 rebrandingu: vlastní titlebar, pilulková navigace s procesní stopou, větší okno a volba tématu v Settings včetně režimu podle systému."
+tags: [rebranding, shell, navigation, theming]
+generated:
+  by: human:matej.krecmer
+  at: 2026-08-12T17:07:20+02:00
+status: stable
+audience: [developers, agents]
+---
 # Shell a informační architektura (F3)
 
 **Datum:** 2026-08-12
