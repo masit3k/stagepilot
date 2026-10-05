@@ -36,6 +36,12 @@
   "enabledPlugins": {
     "base@mibcon-market": true,
     "architecture@mibcon-market": true,
-    "browser@mibcon-market": true
+    "browser@mibcon-market": true,
+    "sap@mibcon-market": false,
+    "cez@mibcon-market": false,
+    "azure-devops@mibcon-market": false,
+    "sap-hana-cli@claude-plugins-official": false,
+    "mibcon-git@mibcon-market": false,
+    "mcp-server-dev@claude-plugins-official": false
   }
 }
