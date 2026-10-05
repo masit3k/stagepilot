@@ -8,8 +8,6 @@ import {
 } from "../../../../../src/domain/lineup/resolveLineupInstrumentMembership";
 import type { Group } from "../../../../../src/domain/model/groups";
 import { resolvePresetIdAlias } from "../../../../../src/domain/model/presetAliases";
-import type { LineupSlotChange } from "../../../../../src/domain/project/reconcileOverlaysAfterLineupChange";
-import { resolveMusicianHasVocalCapability } from "../../../../../src/domain/project/resolveMusicianHasVocalCapability";
 import type {
   InputChannel,
   Musician,
@@ -46,8 +44,9 @@ import { ChangeBackVocsModal } from "../components/roles/modals/ChangeBackVocsMo
 import { ChangeLeadVocsModal } from "../components/roles/modals/ChangeLeadVocsModal";
 import { sanitizeBackVocsSelection } from "../components/roles/utils/backVocs";
 import { migrateProjectTalkbackOwner } from "../domain/project/migrateProjectTalkbackOwner";
-import { applyLineupChangeToVocalOverlays } from "../domain/roles/applyLineupChangeToVocalOverlays";
+import { applyDerivedVocalOverlays } from "../domain/roles/applyDerivedVocalOverlays";
 import { ensureMusiciansInLineup } from "../domain/roles/ensureMusiciansInLineup";
+import { resolveDerivedBackVocalsForLineupMap } from "../domain/roles/resolveDerivedBackVocalsForLineupMap";
 import { resolveVocalOverlayEditorModel } from "../domain/roles/resolveVocalOverlayEditorModel";
 import { enforceVocalSelectionInvariant } from "../domain/roles/vocalSelectionInvariant";
 import { useSetupOverrides } from "../domain/setup/useSetupOverrides";
@@ -653,9 +652,22 @@ export function ProjectSetupPage({
             initialTemplateMusicians.includes(idValue),
           )
         : [];
-      const effectiveBackVocalIds = parsedHasBackVocalOverride
-        ? persistedBackVocalIds
-        : [];
+      /**
+       * Baseline pro dirty-tracking musí vzniknout z derivovaného stavu, ne
+       * z uloženého: back vokály jsou odvozená množina a render je přepočte
+       * hned při první hydrataci. Kdyby tu stálo `persistedBackVocalIds`,
+       * otevření projektu uloženého podle starého pravidla by se od baseline
+       * lišilo a `isDirty` by hlásilo neuloženou změnu, kterou uživatel
+       * neudělal. Derivace je idempotentní, takže u srovnaného projektu tohle
+       * vrátí přesně to, co je uložené.
+       */
+      const effectiveBackVocalIds = resolveDerivedBackVocalsForLineupMap({
+        lineup: initialState.lineup,
+        musicianPresetsById: data.musicianPresetsById,
+        presetCatalog: data.presetCatalog,
+        leadVocalIds: effectiveInitialLeadVocalIds,
+        backVocalIds: parsedHasBackVocalOverride ? persistedBackVocalIds : [],
+      }).backVocalIds;
       initialSnapshotRef.current = createLineupDirtyBaseline({
         lineup: initialSerializedLineup,
         bandLeaderId: initialState.bandLeaderId,
@@ -778,9 +790,42 @@ export function ProjectSetupPage({
   const rawSelectedLeadVocalIds = useMemo(() => {
     return extractOverlayMusicianIds(leadVocalIds);
   }, [leadVocalIds]);
-  const rawSelectedBackVocalIds = useMemo(() => {
+  const storedBackVocalIds = useMemo(() => {
     return extractOverlayMusicianIds(backVocalIds);
   }, [backVocalIds]);
+  /**
+   * Back vokály jsou odvozená množina, ne uložený výběr: každý člen sestavy
+   * s vokální capability mimo lead vokalisty. Derivace sedí tady, jako čistý
+   * `useMemo` nad stavem, a ne v efektu se `setBackVocalIds`, protože musí
+   * platit ve dvou momentech naráz — po změně lineupu i po otevření uloženého
+   * projektu, který se zapsal ještě podle starého pravidla. Efekt by pro
+   * druhý případ znamenal `setState` při hydrataci: extra render a hlavně
+   * projekt označený jako neuložený jen proto, že ho uživatel otevřel.
+   * Odvozená hodnota naproti tomu vteče do `currentDirtyState` už při první
+   * hydrataci baseline (efekt `snapshotHydratedRef` níž), takže se srovnaný
+   * stav stane baseline a `isDirty` zůstane `false`.
+   *
+   * Derivace je schválně tady na stránce a ne ve sdíleném
+   * `resolveVocalOverlayEditorModel` — ten model konzumuje i obrazovka `02`
+   * přes `inputsOverlayEditor`, kde overlays pořád pocházejí ze snapshotu
+   * projektu, ne ze sestavy editované na téhle stránce.
+   */
+  const derivedVocalOverlays = useMemo(
+    () =>
+      applyDerivedVocalOverlays({
+        lineupMusicians: selectedTemplateMusicians,
+        leadVocalIds: rawSelectedLeadVocalIds,
+        backVocalIds: storedBackVocalIds,
+        presetCatalog,
+      }),
+    [
+      presetCatalog,
+      rawSelectedLeadVocalIds,
+      selectedTemplateMusicians,
+      storedBackVocalIds,
+    ],
+  );
+  const rawSelectedBackVocalIds = derivedVocalOverlays.backVocalIds;
   const vocalOverlayModel = useMemo(
     () =>
       resolveVocalOverlayEditorModel({
@@ -1001,58 +1046,7 @@ export function ProjectSetupPage({
         ? compact[0]
         : compact;
     const nextLineup = { ...lineup, [role]: value as LineupMap[string] };
-    reconcileVocalOverlaysForRole(role, slots);
     applyState(nextLineup, setupData, bandLeaderId, talkbackOwnerId);
-  }
-
-  /**
-   * Výměna muzikanta na slotu musí přepsat i vokální overlays: odcházející
-   * z nich vypadne a nastupující ho zastoupí na téže pozici, pokud umí zpívat.
-   * Bez toho v `overlays.backVocals` zůstalo zombie id, které PDF sice
-   * odfiltrovalo proti lineupu, ale UI ho pořád zobrazovalo.
-   *
-   * Sedí v `setRoleSlots`, protože přes něj tečou obě cesty — `updateSlot`
-   * i commit z modálu `Change`, který mění víc slotů naráz.
-   */
-  function reconcileVocalOverlaysForRole(
-    role: string,
-    nextSlots: LineupSlotValue[],
-  ) {
-    const roleSlotLimit = getRoleSlotLimit(role);
-    const previousSlots = normalizeLineupSlots(lineup[role], roleSlotLimit);
-    const slotCount = Math.max(previousSlots.length, nextSlots.length);
-    const slotChanges: LineupSlotChange[] = [];
-    for (let slotIndex = 0; slotIndex < slotCount; slotIndex += 1) {
-      const previousMusicianId = previousSlots[slotIndex]?.musicianId ?? "";
-      const nextMusicianId = nextSlots[slotIndex]?.musicianId ?? "";
-      if (!previousMusicianId || previousMusicianId === nextMusicianId) {
-        continue;
-      }
-      slotChanges.push({ previousMusicianId, nextMusicianId });
-    }
-    if (slotChanges.length === 0) return;
-
-    const {
-      leadVocalIds: nextLeadIds,
-      backVocalIds: nextBackIds,
-      didChange,
-    } = applyLineupChangeToVocalOverlays({
-      leadVocalIds: selectedLeadVocalIds,
-      backVocalIds: selectedBackVocalIds,
-      slotChanges,
-      canSing: (musicianId) => {
-        const musician = allBandMusiciansById.get(musicianId);
-        return musician
-          ? resolveMusicianHasVocalCapability(musician, presetCatalog)
-          : false;
-      },
-    });
-    if (!didChange) return;
-
-    setLeadVocalIds(nextLeadIds);
-    setBackVocalIds(nextBackIds);
-    setHasLeadVocalOverride(true);
-    setHasBackVocalOverride(true);
   }
 
   function updateSlot(role: string, slotIndex: number, musicianId: string) {

@@ -8,12 +8,15 @@ import type { Musician, PresetEntity } from "../model/types.js";
  *
  * Proč v doméně? Řídí dvě věci naráz: sekci `suggested` ve vokálních modálech
  * (`packages/desktop/.../resolveLineupVocalCandidates`) a automatickou derivaci
- * overlays po změně lineupu (`reconcileOverlaysAfterLineupChange`). Druhá kopie
- * by dala dva zdroje pravdy o tom, kdo zpívá.
+ * overlays ze sestavy (`deriveVocalOverlaysFromLineup`). Druhá kopie by dala
+ * dva zdroje pravdy o tom, kdo zpívá.
  *
- * Pozor: capability řídí jen tuhle automatiku a rozdělení `suggested` vs
- * `other_lineup_members`, NE dostupnost ve výběru. Bez capability je člen
- * lineupu pořád vybratelný ručně.
+ * Pozor: pro `backVocals` je capability zdroj pravdy o obsazení, ne jen
+ * nápověda — odvozená množina je „všichni zpívající členové sestavy mimo lead
+ * vokalisty". Ruční výběr v modálu `Change back vocals` proto na obrazovce
+ * `01 LINEUP` derivaci nepřežije. Pro `leadVocals` a pro rozdělení
+ * `suggested` vs `other_lineup_members` capability pořád jen navrhuje: člen
+ * bez ní je jako lead vybratelný ručně.
  */
 export function resolveMusicianHasVocalCapability(
   musician: Musician,
