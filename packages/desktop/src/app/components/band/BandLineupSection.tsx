@@ -12,9 +12,12 @@ import {
   type BandFormState,
   type BandFormUpdate,
   type CanSing,
+  addBackVocals,
   addMembersToGroup,
   availableMusiciansForGroup,
+  backVocalCandidates,
   musicianLabel,
+  removeBackVocal,
   removeMember,
 } from "../../domain/band/bandFormModel";
 import { AddMusiciansMultiSelect } from "../roles/AddMusiciansMultiSelect";
@@ -22,6 +25,11 @@ import { LineupRow, type LineupRowName } from "../roles/LineupRow";
 import { FieldErrors } from "./FieldErrors";
 
 type LabelOf = (musicianId: string) => string;
+
+/** A1: skupina `vocs` je v editoru kapely LEAD VOCS. */
+function groupLabel(role: LineupRole): string {
+  return role === "vocs" ? "LEAD VOCS" : getRoleDisplayName(role);
+}
 
 /**
  * A4.2: Remove sedí u jména a má u všech stejný viditelný text, takže
@@ -90,9 +98,11 @@ export function BandLineupSection({
               onChange={onChange}
             />
           ))}
+          <BackVocsRow form={form} labelOf={labelOf} onChange={onChange} />
         </div>
       )}
       <FieldErrors errors={errors} field="lineup" />
+      <FieldErrors errors={errors} field="backVocals" />
     </section>
   );
 }
@@ -114,7 +124,7 @@ function GroupRow({
   onChange: BandFormUpdate;
 }) {
   const [pending, setPending] = useState<string[]>([]);
-  const label = getRoleDisplayName(role);
+  const label = groupLabel(role);
   return (
     <LineupRow
       roleLabel={label}
@@ -133,6 +143,46 @@ function GroupRow({
           onSelectionChange={setPending}
           onAddSelected={(ids) =>
             onChange((state) => addMembersToGroup(state, role, ids, canSing))
+          }
+        />
+      }
+    />
+  );
+}
+
+/**
+ * A2: BACK VOCS nejsou skupina sestavy — výběr nad instrumentalisty sestavy.
+ * Ruční přidání i odebrání zastaví předvyplňování (Ruling 3).
+ */
+function BackVocsRow({
+  form,
+  labelOf,
+  onChange,
+}: {
+  form: BandFormState;
+  labelOf: LabelOf;
+  onChange: BandFormUpdate;
+}) {
+  const [pending, setPending] = useState<string[]>([]);
+  return (
+    <LineupRow
+      roleLabel="BACK VOCS"
+      names={removableNames(form.backVocalIds, labelOf, (musicianId) =>
+        onChange((state) => removeBackVocal(state, musicianId)),
+      )}
+      emptyLabel="No back vocals"
+      actions={
+        <AddMusiciansMultiSelect
+          id="band-add-back-vocs"
+          options={backVocalCandidates(form).map((musicianId) => ({
+            id: musicianId,
+            name: labelOf(musicianId),
+          }))}
+          selectedIds={pending}
+          placeholder="Add back vocs"
+          onSelectionChange={setPending}
+          onAddSelected={(ids) =>
+            onChange((state) => addBackVocals(state, ids))
           }
         />
       }

@@ -59,15 +59,45 @@ describe("BandLineupSection", () => {
     expect(html).toContain(
       '<div class="lineup-row__name-line"><span class="lineup-list__name">Plašil Pavel</span><button type="button" class="button-ghost" aria-label="Remove Plašil Pavel">Remove</button></div>',
     );
-    expect(html.match(/>Remove</g)?.length).toBe(3);
+    expect(html.match(/>Remove</g)?.length).toBe(4);
   });
 
   it("keeps only the add control in the actions column of every row", () => {
     const columns = actionColumns(renderSection(lineupForm()));
 
-    expect(columns).toHaveLength(5);
+    expect(columns).toHaveLength(6);
     for (const column of columns) {
       expect(column.startsWith('<div class="lineup-multiselect">')).toBe(true);
     }
+  });
+
+  it("labels the vocs group LEAD VOCS and offers Add lead vocs", () => {
+    const html = renderSection(lineupForm());
+
+    expect(html).toContain('<span class="lineup-row__role">LEAD VOCS</span>');
+    expect(html).toContain("<span>Add lead vocs</span>");
+    expect(html).not.toContain('<span class="lineup-row__role">VOCS</span>');
+  });
+
+  it("shows BACK VOCS right below LEAD VOCS with Remove next to each back vocalist", () => {
+    const html = renderSection(lineupForm());
+
+    expect(html.indexOf(">BACK VOCS<")).toBeGreaterThan(
+      html.indexOf(">LEAD VOCS<"),
+    );
+    expect(html.match(/aria-label="Remove Plašil Pavel"/g)?.length).toBe(2);
+    expect(html).toContain('id="band-add-back-vocs"');
+    expect(html).toContain("<span>Add back vocs</span>");
+  });
+
+  it("shows an empty BACK VOCS row when nobody in the lineup sings", () => {
+    const state = addMembersToGroup(
+      createEmptyBandForm(),
+      "bass",
+      ["krecmer_matej"],
+      () => false,
+    );
+
+    expect(renderSection(state)).toContain("No back vocals");
   });
 });
