@@ -1,7 +1,7 @@
 import { access, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { stderr } from "node:process";
-import type { Project, ProjectJson } from "../../domain/model/types.js";
+import type { Contact, Project, ProjectJson } from "../../domain/model/types.js";
 import {
   formatProjectSlug,
 } from "../../domain/projectNaming.js";
@@ -30,14 +30,6 @@ export interface ExportPdfResult {
   versionPath: string;
 }
 
-type ContactEntity = {
-  id: string;
-  firstName: string;
-  lastName: string;
-  phone?: string;
-  email?: string;
-};
-
 function formatCzPhone(phoneRaw: string): string {
   const s = phoneRaw.trim();
 
@@ -53,7 +45,7 @@ function formatCzPhone(phoneRaw: string): string {
 }
 
 export function formatContactLine(args: {
-  contact: ContactEntity;
+  contact: Contact;
 }): PdfContact {
   const { contact } = args;
 
@@ -87,7 +79,7 @@ export async function loadDefaultContact(
     catalogPathsForRoot(runtimeRoot).contacts,
     `${defaultContactId}.json`,
   );
-  const contact = await loadJsonFile<ContactEntity>(contactPath);
+  const contact = await loadJsonFile<Contact>(contactPath);
 
   return formatContactLine({ contact });
 }
