@@ -13,4 +13,5 @@ export const TAURI_COMMANDS = {
   READ_CONTACT: "read_contact",
   WRITE_BAND: "write_band",
   WRITE_CONTACT: "write_contact",
+  DELETE_BAND: "delete_band",
 } as const;

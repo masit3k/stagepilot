@@ -7,6 +7,8 @@ import { buildBandDraftContext } from "../../../../../src/domain/band/buildBandD
 import type { BandDraft } from "../../../../../src/domain/band/buildBandFromDraft";
 import type { Musician } from "../../../../../src/domain/model/types";
 import {
+  checkBandDeletion,
+  deleteBand,
   describeApiError,
   listBandSummaries,
   loadBandFormData,
@@ -267,5 +269,86 @@ describe("loadBandFormData", () => {
     ]);
     expect(argsOf(4)).toEqual({ contactId: "krecmer_matej" });
     expect(data.contact?.phone).toBe("1");
+  });
+});
+
+describe("deleteBand", () => {
+  it("calls delete_band with the band id and reports success", async () => {
+    invokeMock.mockResolvedValueOnce(undefined);
+
+    const result = await deleteBand("test_band");
+
+    expect(result).toEqual({ ok: true });
+    expect(commandsCalled()).toEqual(["delete_band"]);
+    expect(argsOf(0)).toEqual({ bandId: "test_band", dryRun: false });
+  });
+
+  it("turns BAND_IN_USE into the list of blocking projects", async () => {
+    const projects = [
+      {
+        kind: "usesBand",
+        file: "BK_Konopiste.json",
+        displayName: "Blanická kapela – 30/05/2026 – Konopiště",
+        status: "archived",
+      },
+      { kind: "unreadable", file: "broken.json", message: "Invalid JSON" },
+    ];
+    invokeMock.mockRejectedValueOnce({
+      code: "BAND_IN_USE",
+      message: "2 project(s) still use band 'blanicka_kapela'.",
+      projects,
+    });
+
+    const result = await deleteBand("blanicka_kapela");
+
+    expect(result).toEqual({ ok: false, kind: "inUse", projects });
+  });
+
+  it("reports any other failure with its message", async () => {
+    invokeMock.mockRejectedValueOnce({
+      code: "BAND_DELETE_FAILED",
+      message: "Band file x/big_night_band.json was not found.",
+      projects: [],
+    });
+
+    const result = await deleteBand("big_night_band");
+
+    expect(result).toEqual({
+      ok: false,
+      kind: "failed",
+      message: "Band file x/big_night_band.json was not found.",
+    });
+  });
+});
+
+describe("checkBandDeletion", () => {
+  it("asks delete_band for a dry run and reports that nothing blocks", async () => {
+    invokeMock.mockResolvedValueOnce(undefined);
+
+    const result = await checkBandDeletion("test_band");
+
+    expect(result).toEqual({ ok: true });
+    expect(commandsCalled()).toEqual(["delete_band"]);
+    expect(argsOf(0)).toEqual({ bandId: "test_band", dryRun: true });
+  });
+
+  it("reports the projects that block the band in a dry run", async () => {
+    const projects = [
+      {
+        kind: "usesBand",
+        file: "BK_Praha.json",
+        displayName: "Blanická kapela – Praha",
+        status: "archived",
+      },
+    ];
+    invokeMock.mockRejectedValueOnce({
+      code: "BAND_IN_USE",
+      message: "1 project(s) still use band 'blanicka_kapela'.",
+      projects,
+    });
+
+    const result = await checkBandDeletion("blanicka_kapela");
+
+    expect(result).toEqual({ ok: false, kind: "inUse", projects });
   });
 });

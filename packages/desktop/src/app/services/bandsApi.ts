@@ -12,6 +12,7 @@ import type {
   Musician,
   PresetEntity,
 } from "../../../../../src/domain/model/types";
+import { type BandUsage, parseBandUsages } from "../domain/band/bandDeletion";
 import type { BandOption } from "../shell/types";
 import { listBands } from "./projectsApi";
 import { TAURI_COMMANDS } from "./tauriCommands";
@@ -210,4 +211,45 @@ export async function saveBandDraft(
 
 function toJsonFile(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+export type DeleteBandResult =
+  | { readonly ok: true }
+  | {
+      readonly ok: false;
+      readonly kind: "inUse";
+      readonly projects: readonly BandUsage[];
+    }
+  | { readonly ok: false; readonly kind: "failed"; readonly message: string };
+
+/**
+ * Dodatek A3 + Ruling 11: kontrola projektů i smazání běží v Rustu v jednom
+ * příkazu. `checkBandDeletion` je jeho dry run — nic nesmaže, jen řekne, zda
+ * kapelu něco blokuje; `deleteBand` kontrolu opakuje a teprve pak maže.
+ * `BAND_IN_USE` je očekávaný výsledek, ne výjimka. Ani jedna nerejectuje.
+ */
+export function checkBandDeletion(bandId: string): Promise<DeleteBandResult> {
+  return runDeleteBand(bandId, true);
+}
+
+export function deleteBand(bandId: string): Promise<DeleteBandResult> {
+  return runDeleteBand(bandId, false);
+}
+
+async function runDeleteBand(
+  bandId: string,
+  dryRun: boolean,
+): Promise<DeleteBandResult> {
+  try {
+    await invoke<void>(TAURI_COMMANDS.DELETE_BAND, { bandId, dryRun });
+    return { ok: true };
+  } catch (error) {
+    const { code, message } = describeApiError(error);
+    if (code !== "BAND_IN_USE") return { ok: false, kind: "failed", message };
+    const projects =
+      typeof error === "object" && error !== null && "projects" in error
+        ? parseBandUsages(error.projects)
+        : [];
+    return { ok: false, kind: "inUse", projects };
+  }
 }
