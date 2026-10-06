@@ -2,10 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown } from "../../../components/ui/icons";
 import type { MemberOption } from "../../shell/types";
+import {
+  type PanelPosition,
+  computeMultiSelectPanelPosition,
+} from "./utils/multiSelectPanelPosition";
 
 /**
- * Popover for adding several musicians at once. Moved verbatim out of
- * ProjectSetupPage so the band form can reuse it (band editor spec R12).
+ * Popover for adding several musicians at once. Shared by the band form and
+ * the assignment dialog of 01 LINEUP (band editor spec R12). The panel
+ * position is a pure function, so it is tested without a DOM (amendment A4.1).
  */
 export type AddMusiciansMultiSelectProps = {
   id: string;
@@ -27,12 +32,9 @@ export function AddMusiciansMultiSelect({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [panelPosition, setPanelPosition] = useState<{
-    left: number;
-    top: number;
-    width: number;
-    maxHeight: number;
-  } | null>(null);
+  const [panelPosition, setPanelPosition] = useState<PanelPosition | null>(
+    null,
+  );
   const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const orderedSelectedIds = options
     .filter((option) => selectedIdSet.has(option.id))
@@ -41,28 +43,12 @@ export function AddMusiciansMultiSelect({
   const updatePanelPosition = useCallback(() => {
     const trigger = triggerRef.current;
     if (!trigger) return;
-    const rect = trigger.getBoundingClientRect();
-    const viewportMargin = 8;
-    const preferredMaxHeight = Math.min(
-      260,
-      Math.round(window.innerHeight * 0.42),
+    setPanelPosition(
+      computeMultiSelectPanelPosition(trigger.getBoundingClientRect(), {
+        width: document.documentElement.clientWidth,
+        height: window.innerHeight,
+      }),
     );
-    const spaceBelow = window.innerHeight - rect.bottom - 6 - viewportMargin;
-    const spaceAbove = rect.top - 6 - viewportMargin;
-    const opensAbove =
-      spaceBelow < preferredMaxHeight && spaceAbove > spaceBelow;
-    const maxHeight = Math.max(
-      120,
-      Math.min(preferredMaxHeight, opensAbove ? spaceAbove : spaceBelow),
-    );
-    setPanelPosition({
-      left: rect.left,
-      top: opensAbove
-        ? Math.max(viewportMargin, rect.top - maxHeight - 6)
-        : rect.bottom + 6,
-      width: rect.width,
-      maxHeight,
-    });
   }, []);
 
   useEffect(() => {
