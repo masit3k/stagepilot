@@ -46,62 +46,6 @@ struct BandOption {
     code: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct LibraryBand {
-    id: String,
-    name: String,
-    code: String,
-    description: Option<String>,
-    default_lineup: Option<Value>,
-    members: Vec<LibraryBandMember>,
-    contacts: Vec<LibraryContact>,
-    messages: Vec<LibraryMessage>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct LibraryBandMember {
-    musician_id: String,
-    roles: Vec<String>,
-    is_default: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct LibraryMusician {
-    id: String,
-    name: String,
-    gender: Option<String>,
-    default_roles: Vec<String>,
-    notes: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct LibraryInstrument {
-    id: String,
-    name: String,
-    key: String,
-    channels: usize,
-    stereo_mode: Option<String>,
-    notes: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct LibraryContact {
-    id: String,
-    name: String,
-    title: Option<String>,
-    phone: Option<String>,
-    email: Option<String>,
-    note: Option<String>,
-    primary: Option<bool>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct LibraryMessage {
-    id: String,
-    name: String,
-    body: String,
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct BandSetupData {
@@ -282,23 +226,6 @@ fn resolve_workspace_root() -> PathBuf {
         .join("..")
         .join("..")
         .join("..")
-}
-
-fn list_json_files_recursive(root: &Path) -> Result<Vec<PathBuf>, ApiError> {
-    let mut files = Vec::new();
-    for entry in fs::read_dir(root)
-        .map_err(|err| map_io_error(err, "BAND_SETUP_LOAD_FAILED", "Failed to read directory"))?
-    {
-        let entry = entry
-            .map_err(|err| map_io_error(err, "BAND_SETUP_LOAD_FAILED", "Failed to read entry"))?;
-        let p = entry.path();
-        if p.is_dir() {
-            files.extend(list_json_files_recursive(&p)?);
-        } else if p.extension().and_then(|s| s.to_str()) == Some("json") {
-            files.push(p);
-        }
-    }
-    Ok(files)
 }
 
 fn map_storage_error(err: StorageError, code: &str, context: &str) -> ApiError {
@@ -663,40 +590,6 @@ fn resolve_musician_display_name(musician: &Value, fallback_id: &str) -> String 
         .join(" ")
 }
 
-fn load_library_list<T: for<'de> Deserialize<'de>>(
-    app: &tauri::AppHandle,
-    file_name: &str,
-) -> Result<Vec<T>, ApiError> {
-    let dir = catalog_entity_dir(app, entity_name(file_name))?;
-    if !dir.exists() {
-        return Ok(Vec::new());
-    }
-    let mut items: Vec<T> = Vec::new();
-    let files = if file_name == "musicians.json" {
-        list_json_files_recursive(&dir)?
-    } else {
-        fs::read_dir(&dir)
-            .map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read catalog"))?
-            .filter_map(|entry| entry.ok().map(|e| e.path()))
-            .collect()
-    };
-    for path in files {
-        if path.extension().and_then(|s| s.to_str()) != Some("json") {
-            continue;
-        }
-        let content = fs::read_to_string(&path)
-            .map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read entity"))?;
-        let item = serde_json::from_str::<T>(&content).map_err(|err| ApiError {
-            code: "LIBRARY_READ_FAILED".into(),
-            message: format!("Invalid JSON in {} ({})", path.display(), err),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        })?;
-        items.push(item);
-    }
-    Ok(items)
-}
-
 fn load_library_map<T: for<'de> Deserialize<'de>>(
     app: &tauri::AppHandle,
     file_name: &str,
@@ -743,73 +636,6 @@ fn save_library_map<T: Serialize>(
         .map_err(|err| map_io_error(err, "LIBRARY_WRITE_FAILED", "Failed to create catalog"))?;
     for (id, item) in items {
         let path = dir.join(format!("{}.json", sanitize_id_to_filename(id)));
-        let json = serde_json::to_vec_pretty(item).map_err(|err| ApiError {
-            code: "LIBRARY_WRITE_FAILED".into(),
-            message: format!("Failed to serialize {} ({})", id, err),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        })?;
-        atomic_write_bytes(&path, &json).map_err(|err| {
-            map_storage_error(err, "LIBRARY_WRITE_FAILED", "Failed to save entity")
-        })?;
-    }
-    Ok(())
-}
-
-fn save_library_list<T: Serialize>(
-    app: &tauri::AppHandle,
-    file_name: &str,
-    items: &Vec<T>,
-) -> Result<(), ApiError> {
-    let dir = catalog_entity_dir(app, entity_name(file_name))?;
-    fs::create_dir_all(&dir)
-        .map_err(|err| map_io_error(err, "LIBRARY_WRITE_FAILED", "Failed to create catalog"))?;
-    for item in items {
-        let value = serde_json::to_value(item).map_err(|err| ApiError {
-            code: "LIBRARY_WRITE_FAILED".into(),
-            message: format!("Failed to serialize entity ({})", err),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        })?;
-        let Some(id) = value.get("id").and_then(|v| v.as_str()) else {
-            continue;
-        };
-        let path = if file_name == "musicians.json" {
-            let role = value
-                .get("defaultRoles")
-                .or_else(|| value.get("default_roles"))
-                .and_then(|v| v.as_array())
-                .and_then(|roles| roles.iter().find_map(|role| role.as_str()))
-                .map(|role| role.trim().to_lowercase())
-                .ok_or(ApiError {
-                    code: "LIBRARY_VALIDATION_FAILED".into(),
-                    message: format!("Musician '{}' is missing default role.", id),
-                    export_pdf_path: None,
-                    version_pdf_path: None,
-                })?;
-            if !matches!(
-                role.as_str(),
-                "drums" | "bass" | "guitar" | "keys" | "vocs" | "talkback"
-            ) {
-                return Err(ApiError {
-                    code: "LIBRARY_VALIDATION_FAILED".into(),
-                    message: format!("Musician '{}' has invalid role '{}'.", id, role),
-                    export_pdf_path: None,
-                    version_pdf_path: None,
-                });
-            }
-            let role_dir = dir.join(role);
-            fs::create_dir_all(&role_dir).map_err(|err| {
-                map_io_error(
-                    err,
-                    "LIBRARY_WRITE_FAILED",
-                    "Failed to create musician role directory",
-                )
-            })?;
-            role_dir.join(format!("{}.json", sanitize_id_to_filename(id)))
-        } else {
-            dir.join(format!("{}.json", sanitize_id_to_filename(id)))
-        };
         let json = serde_json::to_vec_pretty(item).map_err(|err| ApiError {
             code: "LIBRARY_WRITE_FAILED".into(),
             message: format!("Failed to serialize {} ({})", id, err),
@@ -1910,141 +1736,6 @@ fn pick_export_pdf_path(
 }
 
 #[tauri::command]
-fn list_library_bands(app: tauri::AppHandle) -> Result<Vec<LibraryBand>, ApiError> {
-    let mut items = load_library_list::<LibraryBand>(&app, "bands.json")?;
-    items.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
-    Ok(items)
-}
-
-#[tauri::command]
-fn read_library_band(app: tauri::AppHandle, band_id: String) -> Result<LibraryBand, ApiError> {
-    let items = load_library_list::<LibraryBand>(&app, "bands.json")?;
-    items
-        .into_iter()
-        .find(|item| item.id == band_id)
-        .ok_or(ApiError {
-            code: "LIBRARY_NOT_FOUND".into(),
-            message: format!("Band not found: {}", band_id),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        })
-}
-
-#[tauri::command]
-fn upsert_library_band(app: tauri::AppHandle, band: LibraryBand) -> Result<(), ApiError> {
-    if band.name.trim().is_empty() || band.code.trim().is_empty() || band.id.trim().is_empty() {
-        return Err(ApiError {
-            code: "LIBRARY_VALIDATION_FAILED".into(),
-            message: "Band id, name, and code are required.".into(),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        });
-    }
-    let mut items = load_library_list::<LibraryBand>(&app, "bands.json")?;
-    if items
-        .iter()
-        .any(|existing| existing.id != band.id && existing.code.eq_ignore_ascii_case(&band.code))
-    {
-        return Err(ApiError {
-            code: "LIBRARY_VALIDATION_FAILED".into(),
-            message: format!("Band code '{}' is already used.", band.code),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        });
-    }
-    if let Some(existing) = items.iter_mut().find(|existing| existing.id == band.id) {
-        *existing = band;
-    } else {
-        items.push(band);
-    }
-    save_library_list(&app, "bands.json", &items)
-}
-
-#[tauri::command]
-fn delete_library_band(app: tauri::AppHandle, band_id: String) -> Result<(), ApiError> {
-    let projects = list_projects(app.clone())?;
-    if projects
-        .iter()
-        .any(|project| project.band_ref.as_deref() == Some(band_id.as_str()))
-    {
-        return Err(ApiError {
-            code: "LIBRARY_DELETE_BLOCKED".into(),
-            message: "Band is referenced by existing projects and cannot be deleted.".into(),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        });
-    }
-    let mut items = load_library_list::<LibraryBand>(&app, "bands.json")?;
-    items.retain(|item| item.id != band_id);
-    save_library_list(&app, "bands.json", &items)
-}
-
-#[tauri::command]
-fn duplicate_library_band(app: tauri::AppHandle, band_id: String) -> Result<LibraryBand, ApiError> {
-    let mut items = load_library_list::<LibraryBand>(&app, "bands.json")?;
-    let existing = items
-        .iter()
-        .find(|item| item.id == band_id)
-        .cloned()
-        .ok_or(ApiError {
-            code: "LIBRARY_NOT_FOUND".into(),
-            message: format!("Band not found: {}", band_id),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        })?;
-    let mut candidate_id = format!("{}_copy", existing.id);
-    let mut index: usize = 2;
-    while items.iter().any(|item| item.id == candidate_id) {
-        candidate_id = format!("{}_copy_{}", existing.id, index);
-        index += 1;
-    }
-    let mut duplicate = existing.clone();
-    duplicate.id = candidate_id;
-    duplicate.name = format!("{} Copy", existing.name);
-    duplicate.code = format!("{}-COPY{}", existing.code, index.saturating_sub(1));
-    items.push(duplicate.clone());
-    save_library_list(&app, "bands.json", &items)?;
-    Ok(duplicate)
-}
-
-#[tauri::command]
-fn list_library_musicians(app: tauri::AppHandle) -> Result<Vec<LibraryMusician>, ApiError> {
-    let mut items = load_library_list::<LibraryMusician>(&app, "musicians.json")?;
-    items.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
-    Ok(items)
-}
-
-#[tauri::command]
-fn upsert_library_musician(
-    app: tauri::AppHandle,
-    musician: LibraryMusician,
-) -> Result<(), ApiError> {
-    if musician.id.trim().is_empty() || musician.name.trim().is_empty() {
-        return Err(ApiError {
-            code: "LIBRARY_VALIDATION_FAILED".into(),
-            message: "Musician id and name are required.".into(),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        });
-    }
-    if musician.default_roles.is_empty() {
-        return Err(ApiError {
-            code: "LIBRARY_VALIDATION_FAILED".into(),
-            message: "Musician must define at least one default role.".into(),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        });
-    }
-    let mut items = load_library_list::<LibraryMusician>(&app, "musicians.json")?;
-    if let Some(existing) = items.iter_mut().find(|item| item.id == musician.id) {
-        *existing = musician;
-    } else {
-        items.push(musician);
-    }
-    save_library_list(&app, "musicians.json", &items)
-}
-
-#[tauri::command]
 fn update_musician_defaults(
     app: tauri::AppHandle,
     musician_id: String,
@@ -2064,95 +1755,6 @@ fn update_musician_defaults(
     let mut defaults = load_library_map::<Value>(&app, "musician_defaults.json")?;
     defaults.insert(key, setup);
     save_library_map(&app, "musician_defaults.json", &defaults)
-}
-
-#[tauri::command]
-fn delete_library_musician(app: tauri::AppHandle, musician_id: String) -> Result<(), ApiError> {
-    let bands = load_library_list::<LibraryBand>(&app, "bands.json")?;
-    if bands.iter().any(|band| {
-        band.members
-            .iter()
-            .any(|member| member.musician_id == musician_id)
-    }) {
-        return Err(ApiError {
-            code: "LIBRARY_DELETE_BLOCKED".into(),
-            message: "Musician is referenced by a band and cannot be deleted.".into(),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        });
-    }
-    let mut items = load_library_list::<LibraryMusician>(&app, "musicians.json")?;
-    items.retain(|item| item.id != musician_id);
-    save_library_list(&app, "musicians.json", &items)
-}
-
-#[tauri::command]
-fn list_library_instruments(app: tauri::AppHandle) -> Result<Vec<LibraryInstrument>, ApiError> {
-    load_library_list::<LibraryInstrument>(&app, "instruments.json")
-}
-#[tauri::command]
-fn upsert_library_instrument(
-    app: tauri::AppHandle,
-    instrument: LibraryInstrument,
-) -> Result<(), ApiError> {
-    let mut items = load_library_list::<LibraryInstrument>(&app, "instruments.json")?;
-    if let Some(existing) = items.iter_mut().find(|item| item.id == instrument.id) {
-        *existing = instrument;
-    } else {
-        items.push(instrument);
-    }
-    save_library_list(&app, "instruments.json", &items)
-}
-#[tauri::command]
-fn delete_library_instrument(app: tauri::AppHandle, instrument_id: String) -> Result<(), ApiError> {
-    let mut items = load_library_list::<LibraryInstrument>(&app, "instruments.json")?;
-    items.retain(|item| item.id != instrument_id);
-    save_library_list(&app, "instruments.json", &items)
-}
-
-#[tauri::command]
-fn list_library_contacts(app: tauri::AppHandle) -> Result<Vec<LibraryContact>, ApiError> {
-    load_library_list::<LibraryContact>(&app, "contacts.json")
-}
-#[tauri::command]
-fn upsert_library_contact(app: tauri::AppHandle, contact: LibraryContact) -> Result<(), ApiError> {
-    let mut items = load_library_list::<LibraryContact>(&app, "contacts.json")?;
-    if let Some(existing) = items.iter_mut().find(|item| item.id == contact.id) {
-        *existing = contact;
-    } else {
-        items.push(contact);
-    }
-    save_library_list(&app, "contacts.json", &items)
-}
-#[tauri::command]
-fn delete_library_contact(app: tauri::AppHandle, contact_id: String) -> Result<(), ApiError> {
-    let mut items = load_library_list::<LibraryContact>(&app, "contacts.json")?;
-    items.retain(|item| item.id != contact_id);
-    save_library_list(&app, "contacts.json", &items)
-}
-
-#[tauri::command]
-fn list_library_messages(app: tauri::AppHandle) -> Result<Vec<LibraryMessage>, ApiError> {
-    load_library_list::<LibraryMessage>(&app, "messages.json")
-}
-#[tauri::command]
-fn upsert_library_message(
-    app: tauri::AppHandle,
-    message_item: LibraryMessage,
-) -> Result<(), ApiError> {
-    let mut items = load_library_list::<LibraryMessage>(&app, "messages.json")?;
-    if let Some(existing) = items.iter_mut().find(|item| item.id == message_item.id) {
-        *existing = message_item;
-    } else {
-        items.push(message_item);
-    }
-    save_library_list(&app, "messages.json", &items)
-}
-#[tauri::command]
-fn delete_library_message(app: tauri::AppHandle, message_id: String) -> Result<(), ApiError> {
-    let mut items = load_library_list::<LibraryMessage>(&app, "messages.json")?;
-    items.retain(|item| item.id != message_id);
-    save_library_list(&app, "messages.json", &items)
 }
 
 #[tauri::command]
@@ -2261,24 +1863,7 @@ pub fn run() {
             pick_export_pdf_path,
             open_file,
             reveal_in_explorer,
-            list_library_bands,
-            read_library_band,
-            upsert_library_band,
-            delete_library_band,
-            duplicate_library_band,
-            list_library_musicians,
-            upsert_library_musician,
-            update_musician_defaults,
-            delete_library_musician,
-            list_library_instruments,
-            upsert_library_instrument,
-            delete_library_instrument,
-            list_library_contacts,
-            upsert_library_contact,
-            delete_library_contact,
-            list_library_messages,
-            upsert_library_message,
-            delete_library_message
+            update_musician_defaults
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
