@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ROLE_ORDER } from "../../shared/setupConstants";
-import { toIdSlug } from "../../shared/projectHubUtils";
+import { toIdSlug } from "../../../../../../../src/domain/ids/slug";
 import type {
   LibraryBand,
   LibraryMusician,
