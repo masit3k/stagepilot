@@ -30,3 +30,24 @@
 .library-table > .status {
   width: 100%;
 }
+
+/* --------------------------------------------------------------------------
+   Band form — four blocks stacked, each a .lineup-card (band editor spec R12)
+   -------------------------------------------------------------------------- */
+.band-form {
+  display: grid;
+  gap: var(--sp-7);
+}
+
+.band-form__checks {
+  display: grid;
+  gap: var(--sp-3);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.band-form__errors {
+  display: grid;
+  gap: var(--sp-1);
+}

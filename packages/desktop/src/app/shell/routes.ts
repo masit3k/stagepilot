@@ -91,6 +91,9 @@ export function matchLibraryBandDetailPath(pathname: string): string | null {
   return pathname.match(/^\/library\/bands\/([^/]+)$/)?.[1] ?? null;
 }
 
+/** Segment routy nové kapely. `matchLibraryBandDetailPath` ho matchuje taky, proto id `new` nesmí vzniknout. */
+export const NEW_BAND_ROUTE_SEGMENT = "new";
+
 export function withFrom(path: string, from: string, fromPath?: string) {
   const params = new URLSearchParams({ from });
   if (fromPath) params.set("fromPath", fromPath);
