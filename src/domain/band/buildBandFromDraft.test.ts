@@ -60,7 +60,7 @@ function bnbDraft(overrides: Partial<BandDraft> = {}): BandDraft {
     code: "BNB",
     bandLeaderId: "krecmer_matej",
     lineup: BNB_LINEUP,
-    leadVocalIds: ["krecmerova_eliska"],
+    backVocalIds: ["plasil_pavel", "krecmer_matej", "zidek_jakub"],
     contact: {
       musicianId: "krecmer_matej",
       phone: "+420731247870",
@@ -75,7 +75,7 @@ function emptyDraft(overrides: Partial<BandDraft> = {}): BandDraft {
     name: "Nová kapela",
     code: "NK",
     lineup: {},
-    leadVocalIds: [],
+    backVocalIds: [],
     ...overrides,
   };
 }
@@ -184,28 +184,57 @@ describe("buildBandFromDraft — valid drafts", () => {
     expect(result.contact).toBeUndefined();
   });
 
-  it("derives back vocals from canSing, not from the draft", () => {
+  it("writes leadVocals as defaultLineup.vocs in the same order", () => {
     const { band } = expectOk(
       buildBandFromDraft(
         bnbDraft({
           lineup: {
             ...BNB_LINEUP,
-            vocs: ["krecmerova_eliska", "holoubek_lukas"],
+            vocs: ["holoubek_lukas", "krecmerova_eliska"],
           },
         }),
         context(),
       ),
     );
 
-    expect(band.defaultOverlays).toEqual({
-      leadVocals: ["krecmerova_eliska"],
-      backVocals: [
-        "plasil_pavel",
-        "krecmer_matej",
-        "zidek_jakub",
-        "holoubek_lukas",
-      ],
-    });
+    expect(band.defaultLineup.vocs).toEqual([
+      "holoubek_lukas",
+      "krecmerova_eliska",
+    ]);
+    expect(band.defaultOverlays?.leadVocals).toEqual([
+      "holoubek_lukas",
+      "krecmerova_eliska",
+    ]);
+  });
+
+  it("saves exactly the drafted back vocals instead of deriving them", () => {
+    const { band } = expectOk(
+      buildBandFromDraft(
+        bnbDraft({ backVocalIds: ["zidek_jakub"] }),
+        context(),
+      ),
+    );
+
+    expect(band.defaultOverlays?.backVocals).toEqual(["zidek_jakub"]);
+  });
+
+  it("keeps empty back vocals empty", () => {
+    const { band } = expectOk(
+      buildBandFromDraft(bnbDraft({ backVocalIds: [] }), context()),
+    );
+
+    expect(band.defaultOverlays?.backVocals).toEqual([]);
+  });
+
+  it("trims and de-duplicates back vocal ids", () => {
+    const { band } = expectOk(
+      buildBandFromDraft(
+        bnbDraft({ backVocalIds: [" zidek_jakub ", "zidek_jakub"] }),
+        context(),
+      ),
+    );
+
+    expect(band.defaultOverlays?.backVocals).toEqual(["zidek_jakub"]);
   });
 
   it("normalises the code to upper case", () => {
@@ -391,15 +420,25 @@ describe("buildBandFromDraft — lineup and role errors", () => {
     ).toEqual(["bandLeader"]);
   });
 
-  it("rejects a lead vocalist outside the lineup instead of dropping them", () => {
+  it("rejects a back vocalist outside the lineup", () => {
     const result = buildBandFromDraft(
-      bnbDraft({ leadVocalIds: ["krecmerova_eliska", "holoubek_lukas"] }),
+      bnbDraft({ backVocalIds: ["fuchs_tomas"] }),
       context(),
     );
 
-    expect(fieldsOf(result)).toEqual(["leadVocals"]);
+    expect(fieldsOf(result)).toEqual(["backVocals"]);
+    expect(messagesOf(result)).toEqual(["Fuchs Tomáš is not in the lineup."]);
+  });
+
+  it("rejects a back vocalist who is a lead vocalist", () => {
+    const result = buildBandFromDraft(
+      bnbDraft({ backVocalIds: ["krecmerova_eliska"] }),
+      context(),
+    );
+
+    expect(fieldsOf(result)).toEqual(["backVocals"]);
     expect(messagesOf(result)).toEqual([
-      "Holoubek Lukáš is not in the lineup.",
+      "Krečmerová Eliška is a lead vocalist.",
     ]);
   });
 
@@ -431,6 +470,7 @@ describe("buildBandFromDraft — lineup and role errors", () => {
     const result = buildBandFromDraft(
       bnbDraft({
         lineup: { ...BNB_LINEUP, vocs: ["krecmerova_eliska", "krecmer_matej"] },
+        backVocalIds: [],
       }),
       context(),
     );
@@ -445,6 +485,7 @@ describe("buildBandFromDraft — lineup and role errors", () => {
     const result = buildBandFromDraft(
       bnbDraft({
         lineup: { ...BNB_LINEUP, drums: ["pisa_karel"], guitar: [] },
+        backVocalIds: [],
       }),
       context(),
     );
@@ -455,7 +496,10 @@ describe("buildBandFromDraft — lineup and role errors", () => {
 
   it("rejects a musician who is not in the library", () => {
     const result = buildBandFromDraft(
-      bnbDraft({ lineup: { ...BNB_LINEUP, drums: ["ghost_drummer"] } }),
+      bnbDraft({
+        lineup: { ...BNB_LINEUP, drums: ["ghost_drummer"] },
+        backVocalIds: [],
+      }),
       context(),
     );
 

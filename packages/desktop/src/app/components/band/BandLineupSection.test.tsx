@@ -4,6 +4,7 @@ import type { Group } from "../../../../../../src/domain/model/groups";
 import type { Musician } from "../../../../../../src/domain/model/types";
 import {
   type BandFormState,
+  type CanSing,
   addMembersToGroup,
   createEmptyBandForm,
 } from "../../domain/band/bandFormModel";
@@ -25,11 +26,14 @@ const MUSICIANS: readonly Musician[] = [
   musician("holoubek_lukas", "vocs", "Lukáš", "Holoubek"),
 ];
 
+/** Zpívá jen bubeník: BACK VOCS nové kapely = [Plašil]. */
+const canSing: CanSing = (musicianId) => musicianId === "plasil_pavel";
+
 function lineupForm(): BandFormState {
   let state = createEmptyBandForm();
-  state = addMembersToGroup(state, "drums", ["plasil_pavel"]);
-  state = addMembersToGroup(state, "bass", ["krecmer_matej"]);
-  return addMembersToGroup(state, "vocs", ["krecmerova_eliska"]);
+  state = addMembersToGroup(state, "drums", ["plasil_pavel"], canSing);
+  state = addMembersToGroup(state, "bass", ["krecmer_matej"], canSing);
+  return addMembersToGroup(state, "vocs", ["krecmerova_eliska"], canSing);
 }
 
 function renderSection(form: BandFormState): string {
@@ -38,6 +42,7 @@ function renderSection(form: BandFormState): string {
       form={form}
       musicians={MUSICIANS}
       errors={[]}
+      canSing={canSing}
       onChange={vi.fn()}
     />,
   );

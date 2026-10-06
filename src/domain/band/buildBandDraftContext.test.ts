@@ -114,7 +114,7 @@ describe("buildBandDraftContext", () => {
         name: "Big Night Orchestra",
         code: "bnb",
         lineup: {},
-        leadVocalIds: [],
+        backVocalIds: [],
       },
       context,
     );

@@ -11,6 +11,7 @@ import { getRoleDisplayName } from "../../../projectRules";
 import {
   type BandFormState,
   type BandFormUpdate,
+  type CanSing,
   addMembersToGroup,
   availableMusiciansForGroup,
   musicianLabel,
@@ -52,11 +53,13 @@ export function BandLineupSection({
   form,
   musicians,
   errors,
+  canSing,
   onChange,
 }: {
   form: BandFormState;
   musicians: readonly Musician[];
   errors: readonly BandDraftError[];
+  canSing: CanSing;
   onChange: BandFormUpdate;
 }) {
   const byId = new Map(musicians.map((musician) => [musician.id, musician]));
@@ -83,6 +86,7 @@ export function BandLineupSection({
               form={form}
               musicians={musicians}
               labelOf={labelOf}
+              canSing={canSing}
               onChange={onChange}
             />
           ))}
@@ -99,12 +103,14 @@ function GroupRow({
   form,
   musicians,
   labelOf,
+  canSing,
   onChange,
 }: {
   role: LineupRole;
   form: BandFormState;
   musicians: readonly Musician[];
   labelOf: LabelOf;
+  canSing: CanSing;
   onChange: BandFormUpdate;
 }) {
   const [pending, setPending] = useState<string[]>([]);
@@ -126,7 +132,7 @@ function GroupRow({
           placeholder={`Add ${label.toLowerCase()}`}
           onSelectionChange={setPending}
           onAddSelected={(ids) =>
-            onChange((state) => addMembersToGroup(state, role, ids))
+            onChange((state) => addMembersToGroup(state, role, ids, canSing))
           }
         />
       }

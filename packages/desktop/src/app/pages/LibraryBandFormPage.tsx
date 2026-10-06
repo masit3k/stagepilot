@@ -11,6 +11,7 @@ import { BandLineupSection } from "../components/band/BandLineupSection";
 import { BandRolesSection } from "../components/band/BandRolesSection";
 import {
   type BandFormState,
+  type CanSing,
   bandFormFromBand,
   createEmptyBandForm,
   serializeBandForm,
@@ -42,6 +43,9 @@ type LoadState =
   | { readonly kind: "ready"; readonly data: BandFormData };
 
 type Notify = (kind: "success" | "error", message: string) => void;
+
+/** Ruling 16: jen pro typ — formulář se bez načteného kontextu nevykresluje. */
+const cannotSing: CanSing = () => false;
 
 /** `/library/bands/new` a `/library/bands/:id` (R12): jeden formulář pro založení i úpravu. */
 export function LibraryBandFormPage({
@@ -133,6 +137,7 @@ export function LibraryBandFormPage({
         form={form}
         musicians={musicians}
         errors={errors}
+        canSing={context ? context.canSing : cannotSing}
         onChange={setForm}
       />
       <BandRolesSection

@@ -2,6 +2,7 @@ import {
   LINEUP_ASSIGNMENT_ROLES,
   type LineupAssignments,
   type LineupRole,
+  dedupeLineupIds,
   normalizeLineupAssignments,
 } from "../lineup/lineupAssignments.js";
 import {
@@ -11,7 +12,6 @@ import {
 } from "../model/bandLineup.js";
 import type { Group } from "../model/groups.js";
 import type { Band, Contact, Musician } from "../model/types.js";
-import { deriveVocalOverlaysFromLineup } from "../project/deriveVocalOverlaysFromLineup.js";
 import { isValidBandCode, normalizeBandCode } from "./bandCode.js";
 import { deriveBandId } from "./bandId.js";
 
@@ -20,7 +20,7 @@ export type BandDraftField =
   | "code"
   | "lineup"
   | "bandLeader"
-  | "leadVocals"
+  | "backVocals"
   | "contact";
 
 export type BandDraftError = {
@@ -38,8 +38,10 @@ export type BandDraft = {
   readonly name: string;
   readonly code: string;
   readonly bandLeaderId?: string;
+  /** Skupina `vocs` jsou lead vokály (dodatek A1): `leadVocals` se z ní odvodí. */
   readonly lineup: Partial<Record<Group, readonly string[]>>;
-  readonly leadVocalIds: readonly string[];
+  /** Dodatek A2: ruční výběr BACK VOCS; uloží se přesně (oříznutý, bez duplicit). */
+  readonly backVocalIds: readonly string[];
   readonly contact?: BandDraftContact;
   /** Id upravované kapely. Bez něj se kapela zakládá a id se odvodí z názvu (R4). */
   readonly existingId?: string;
@@ -51,6 +53,7 @@ export type BandDraftContext = {
   /** Zkratky ostatních kapel malými písmeny — upravovaná kapela v nich není. */
   readonly existingCodes: ReadonlySet<string>;
   readonly musiciansById: Readonly<Record<string, Musician | undefined>>;
+  /** Kdo umí zpívat. Doména ho nečte; formulář z něj předvyplní BACK VOCS nové kapely (A2). */
   readonly canSing: (musicianId: string) => boolean;
   /** Id, která nesmí vzniknout, protože kolidují s routou (`new`). */
   readonly reservedIds?: ReadonlySet<string>;
@@ -71,8 +74,9 @@ export type BuildBandResult =
  * `validateCanonicalBandModel` se proto převádí na chybu pole; pravidla
  * z R13 se kontrolují explicitně dřív, aby zprávy byly čitelné.
  *
- * `backVocals` se nikdy nečtou z draftu: vždy se odvodí ze sestavy přes
- * `canSing` (R8), takže soubor má stejný tvar jako existující kapely.
+ * Vokály (dodatek A1/A2): `leadVocals` je přesně `defaultLineup.vocs` ve
+ * stejném pořadí, `backVocals` přesně výběr z draftu. Doména nic
+ * nepřepočítává — předvyplnění BACK VOCS je věc formuláře (`bandFormModel`).
  */
 export function buildBandFromDraft(
   draft: BandDraft,
@@ -84,20 +88,16 @@ export function buildBandFromDraft(
   const code = resolveBandCode(draft.code, context, errors);
   const lineup = normalizeLineupAssignments(draft.lineup);
   errors.push(...collectLineupErrors(lineup, context));
-  const memberIds = getAllLineupMemberIds(lineup);
-  const members = new Set(memberIds);
+  const members = new Set(getAllLineupMemberIds(lineup));
   const bandLeaderId = (draft.bandLeaderId ?? "").trim();
+  errors.push(...collectLeaderErrors(bandLeaderId, members));
+  const backVocalIds = dedupeLineupIds(draft.backVocalIds);
   errors.push(
-    ...collectRoleErrors(bandLeaderId, draft.leadVocalIds, members, context),
+    ...collectBackVocalErrors(backVocalIds, lineup, members, context),
   );
   const contact = resolveContact(draft.contact, members, context, errors);
   if (errors.length > 0) return { ok: false, errors };
 
-  const overlays = deriveVocalOverlaysFromLineup({
-    lineupMusicianIds: memberIds,
-    leadVocalIds: draft.leadVocalIds,
-    canSing: context.canSing,
-  });
   return finalizeBand(
     {
       type: "band",
@@ -110,8 +110,8 @@ export function buildBandFromDraft(
       ...(contact ? { defaultContactId: contact.id } : {}),
       defaultLineup: lineup,
       defaultOverlays: {
-        leadVocals: [...overlays.leadVocalIds],
-        backVocals: [...overlays.backVocalIds],
+        leadVocals: [...lineup.vocs],
+        backVocals: backVocalIds,
       },
       ...pickUnmanagedFields(context.existingBand),
     },
@@ -209,31 +209,52 @@ function collectLineupErrors(
   return errors;
 }
 
-function collectRoleErrors(
+function collectLeaderErrors(
   bandLeaderId: string,
-  leadVocalIds: readonly string[],
+  members: ReadonlySet<string>,
+): BandDraftError[] {
+  if (!bandLeaderId) {
+    return members.size > 0
+      ? [{ field: "bandLeader", message: "Choose the band leader." }]
+      : [];
+  }
+  return members.has(bandLeaderId)
+    ? []
+    : [
+        {
+          field: "bandLeader",
+          message: "The band leader must be in the lineup.",
+        },
+      ];
+}
+
+/** A2: back vokalista musí být v sestavě a nesmí být lead (= člen `vocs`, A1). */
+function collectBackVocalErrors(
+  backVocalIds: readonly string[],
+  lineup: LineupAssignments,
   members: ReadonlySet<string>,
   context: BandDraftContext,
 ): BandDraftError[] {
-  const errors: BandDraftError[] = [];
-  if (!bandLeaderId && members.size > 0) {
-    errors.push({ field: "bandLeader", message: "Choose the band leader." });
-  }
-  if (bandLeaderId && !members.has(bandLeaderId)) {
-    errors.push({
-      field: "bandLeader",
-      message: "The band leader must be in the lineup.",
-    });
-  }
-  for (const musicianId of leadVocalIds) {
-    if (!members.has(musicianId.trim())) {
-      errors.push({
-        field: "leadVocals",
-        message: `${labelFor(musicianId, context)} is not in the lineup.`,
-      });
+  const leads = new Set(lineup.vocs);
+  return backVocalIds.flatMap((musicianId): BandDraftError[] => {
+    if (!members.has(musicianId)) {
+      return [
+        {
+          field: "backVocals",
+          message: `${labelFor(musicianId, context)} is not in the lineup.`,
+        },
+      ];
     }
-  }
-  return errors;
+    if (leads.has(musicianId)) {
+      return [
+        {
+          field: "backVocals",
+          message: `${labelFor(musicianId, context)} is a lead vocalist.`,
+        },
+      ];
+    }
+    return [];
+  });
 }
 
 function resolveContact(
@@ -308,7 +329,7 @@ function finalizeBand(
       ok: false,
       errors: [
         {
-          field: message.includes("leadVocals") ? "leadVocals" : "lineup",
+          field: message.includes("defaultOverlays") ? "backVocals" : "lineup",
           message,
         },
       ],

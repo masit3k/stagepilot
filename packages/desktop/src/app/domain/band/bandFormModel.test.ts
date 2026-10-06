@@ -4,12 +4,16 @@ import { buildBandFromDraft } from "../../../../../../src/domain/band/buildBandF
 import type { Band, Musician } from "../../../../../../src/domain/model/types";
 import {
   type BandFormState,
+  type CanSing,
+  addBackVocals,
   addMembersToGroup,
   availableMusiciansForGroup,
+  backVocalCandidates,
   bandFormFromBand,
   createEmptyBandForm,
   defaultContactMemberId,
   disableContact,
+  removeBackVocal,
   removeMember,
   setBandCode,
   setBandLeader,
@@ -17,7 +21,6 @@ import {
   setContactField,
   setContactMember,
   toBandDraft,
-  toggleLeadVocal,
 } from "./bandFormModel";
 
 const MUSICIANS: Musician[] = [
@@ -77,11 +80,32 @@ const BAND_FILE: Band = {
   },
 };
 
+const SINGERS = new Set([
+  "plasil_pavel",
+  "nyvlt_jakub",
+  "ernst_filip",
+  "krecmer_matej",
+  "krecmerova_eliska",
+]);
+const canSing: CanSing = (musicianId) => SINGERS.has(musicianId);
+const nobodySings: CanSing = () => false;
+
 function withLineup(): BandFormState {
   let state = createEmptyBandForm();
-  state = addMembersToGroup(state, "drums", ["plasil_pavel"]);
-  state = addMembersToGroup(state, "bass", ["krecmer_matej"]);
-  return addMembersToGroup(state, "vocs", ["krecmerova_eliska"]);
+  state = addMembersToGroup(state, "drums", ["plasil_pavel"], canSing);
+  state = addMembersToGroup(state, "bass", ["krecmer_matej"], canSing);
+  return addMembersToGroup(state, "vocs", ["krecmerova_eliska"], canSing);
+}
+
+/** Bubeník, který nezpívá, a zpěvačka: BACK VOCS zůstanou prázdné. */
+function silentDrummerAndSinger(): BandFormState {
+  const state = addMembersToGroup(
+    createEmptyBandForm(),
+    "drums",
+    ["nyvlt_jakub"],
+    nobodySings,
+  );
+  return addMembersToGroup(state, "vocs", ["krecmerova_eliska"], nobodySings);
 }
 
 describe("bandFormModel", () => {
@@ -94,7 +118,7 @@ describe("bandFormModel", () => {
     expect(setBandName(edited, "Big Night Orchestra").code).toBe("BIG");
   });
 
-  it("bandFormFromBand treats the stored code as manual and reads bandLeaderId", () => {
+  it("bandFormFromBand treats the stored code and BACK VOCS as manual and reads bandLeaderId", () => {
     const state = bandFormFromBand(BAND_FILE, null);
 
     expect(state.codeTouched).toBe(true);
@@ -107,7 +131,8 @@ describe("bandFormModel", () => {
       keys: [],
       vocs: ["krecmerova_eliska"],
     });
-    expect(state.leadVocalIds).toEqual(["krecmerova_eliska"]);
+    expect(state.backVocalIds).toEqual(["plasil_pavel"]);
+    expect(state.backVocalsTouched).toBe(true);
   });
 
   it("bandFormFromBand loads the stored contact or starts without one", () => {
@@ -133,40 +158,97 @@ describe("bandFormModel", () => {
     });
   });
 
-  it("pre-checks an added vocalist as lead vocals and toggles them", () => {
-    const state = withLineup();
-
-    expect(state.leadVocalIds).toEqual(["krecmerova_eliska"]);
-    expect(toggleLeadVocal(state, "krecmerova_eliska").leadVocalIds).toEqual(
-      [],
-    );
-    expect(toggleLeadVocal(state, "krecmer_matej").leadVocalIds).toEqual([
-      "krecmerova_eliska",
-      "krecmer_matej",
-    ]);
-  });
-
   it("ignores musicians who are already in the lineup", () => {
-    const state = addMembersToGroup(withLineup(), "drums", [
-      "plasil_pavel",
-      "krecmer_matej",
-      "nyvlt_jakub",
-      "nyvlt_jakub",
-    ]);
+    const state = addMembersToGroup(
+      withLineup(),
+      "drums",
+      ["plasil_pavel", "krecmer_matej", "nyvlt_jakub", "nyvlt_jakub"],
+      canSing,
+    );
 
     expect(state.lineup.drums).toEqual(["plasil_pavel", "nyvlt_jakub"]);
     expect(state.lineup.bass).toEqual(["krecmer_matej"]);
   });
 
-  it("removeMember clears the member from the lineup, the leader and lead vocals", () => {
-    const state = removeMember(
-      setBandLeader(withLineup(), "krecmerova_eliska"),
-      "krecmerova_eliska",
+  it("prefills BACK VOCS of a new band with the singers outside vocs, in lineup order", () => {
+    const state = withLineup();
+
+    expect(state.backVocalIds).toEqual(["plasil_pavel", "krecmer_matej"]);
+    expect(state.backVocalsTouched).toBe(false);
+  });
+
+  it("re-derives BACK VOCS on every lineup change until the user edits them", () => {
+    const state = addMembersToGroup(
+      withLineup(),
+      "drums",
+      ["ernst_filip"],
+      canSing,
     );
 
-    expect(state.lineup.vocs).toEqual([]);
+    expect(state.backVocalIds).toEqual([
+      "plasil_pavel",
+      "ernst_filip",
+      "krecmer_matej",
+    ]);
+  });
+
+  it("stops deriving BACK VOCS after a manual change", () => {
+    const edited = removeBackVocal(withLineup(), "plasil_pavel");
+    expect(edited.backVocalsTouched).toBe(true);
+
+    const state = addMembersToGroup(edited, "drums", ["nyvlt_jakub"], canSing);
+
+    expect(state.backVocalIds).toEqual(["krecmer_matej"]);
+  });
+
+  it("an existing band keeps its stored BACK VOCS when the lineup changes", () => {
+    const state = addMembersToGroup(
+      bandFormFromBand(BAND_FILE, null),
+      "drums",
+      ["nyvlt_jakub"],
+      canSing,
+    );
+
+    expect(state.backVocalIds).toEqual(["plasil_pavel"]);
+  });
+
+  it("backVocalCandidates offers instrumentalists outside BACK VOCS, singing or not, never lead vocals", () => {
+    const state = silentDrummerAndSinger();
+
+    expect(state.backVocalIds).toEqual([]);
+    expect(backVocalCandidates(state)).toEqual(["nyvlt_jakub"]);
+  });
+
+  it("addBackVocals adds only candidates and marks BACK VOCS as edited", () => {
+    const state = addBackVocals(silentDrummerAndSinger(), [
+      "nyvlt_jakub",
+      "krecmerova_eliska",
+      "ghost",
+    ]);
+
+    expect(state.backVocalIds).toEqual(["nyvlt_jakub"]);
+    expect(state.backVocalsTouched).toBe(true);
+    expect(backVocalCandidates(state)).toEqual([]);
+  });
+
+  it("removeMember clears the member from the lineup, the leader and BACK VOCS", () => {
+    const state = removeMember(
+      setBandLeader(withLineup(), "plasil_pavel"),
+      "plasil_pavel",
+    );
+
+    expect(state.lineup.drums).toEqual([]);
     expect(state.bandLeaderId).toBe("");
-    expect(state.leadVocalIds).toEqual([]);
+    expect(state.backVocalIds).toEqual(["krecmer_matej"]);
+  });
+
+  it("removeMember drops the member from BACK VOCS even after a manual change", () => {
+    const state = removeMember(
+      removeBackVocal(withLineup(), "plasil_pavel"),
+      "krecmer_matej",
+    );
+
+    expect(state.backVocalIds).toEqual([]);
   });
 
   it("removeMember of the contact keeps phone and e-mail but clears the member", () => {
@@ -235,7 +317,7 @@ describe("bandFormModel", () => {
       code: "DUO",
       bandLeaderId: "krecmer_matej",
       lineup: state.lineup,
-      leadVocalIds: ["krecmerova_eliska"],
+      backVocalIds: ["plasil_pavel", "krecmer_matej"],
     });
     expect(toBandDraft(state, "duo")).toMatchObject({ existingId: "duo" });
   });
@@ -257,6 +339,24 @@ describe("bandFormModel", () => {
     expect(result.ok ? [] : result.errors.map((error) => error.field)).toEqual([
       "contact",
     ]);
+  });
+
+  it("an unchanged existing band rebuilds its stored overlays", () => {
+    const stored: Band = { ...BAND_FILE, defaultContactId: undefined };
+
+    const result = buildBandFromDraft(
+      toBandDraft(bandFormFromBand(stored, null), stored.id),
+      buildBandDraftContext({
+        musicians: MUSICIANS,
+        presets: [],
+        bands: [],
+        existingBand: stored,
+      }),
+    );
+
+    expect(result.ok ? result.band.defaultOverlays : result.errors).toEqual(
+      BAND_FILE.defaultOverlays,
+    );
   });
 
   it("availableMusiciansForGroup offers the group's musicians outside the lineup, by name", () => {

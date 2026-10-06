@@ -10,11 +10,13 @@ import type {
   Contact,
   Musician,
 } from "../../../../../../src/domain/model/types";
+import { deriveVocalOverlaysFromLineup } from "../../../../../../src/domain/project/deriveVocalOverlaysFromLineup";
 import { resolveMusicianDisplayName } from "../ui/musicianDisplayName";
 
 // Co? Stav formuláře kapely a jeho přechody jako čisté funkce.
 // Proč tady? Repo nemá jsdom; každé rozhodnutí formuláře (dopočet zkratky,
-// odebrání člena, výchozí kontakt) musí být testovatelné bez Reactu.
+// předvyplnění BACK VOCS, odebrání člena, výchozí kontakt) musí být
+// testovatelné bez Reactu.
 
 export type BandFormContact =
   | { readonly mode: "none" }
@@ -30,9 +32,13 @@ export type BandFormState = {
   readonly code: string;
   /** `false` = zkratka se dopočítává z názvu (R5). */
   readonly codeTouched: boolean;
+  /** Skupina `vocs` je LEAD VOCS (dodatek A1). */
   readonly lineup: Readonly<Record<LineupRole, readonly string[]>>;
   readonly bandLeaderId: string;
-  readonly leadVocalIds: readonly string[];
+  /** BACK VOCS (dodatek A2): instrumentalisté sestavy, ne skupina. */
+  readonly backVocalIds: readonly string[];
+  /** `false` = BACK VOCS se dopočítávají ze sestavy přes `canSing` (A2, Ruling 3). */
+  readonly backVocalsTouched: boolean;
   readonly contact: BandFormContact;
 };
 
@@ -40,7 +46,20 @@ export type BandFormUpdate = (
   update: (state: BandFormState) => BandFormState,
 ) => void;
 
-const EMPTY_LINEUP: Readonly<Record<LineupRole, readonly string[]>> = {
+/** Kdo umí zpívat; stránka ho bere z `BandDraftContext.canSing` (Ruling 16). */
+export type CanSing = (musicianId: string) => boolean;
+
+type FormLineup = BandFormState["lineup"];
+
+/** A2: BACK VOCS nabízí jen instrumentalisty; `vocs` jsou LEAD VOCS (A1). */
+const BACK_VOCAL_ROLES: readonly LineupRole[] = [
+  "drums",
+  "bass",
+  "guitar",
+  "keys",
+];
+
+const EMPTY_LINEUP: FormLineup = {
   drums: [],
   bass: [],
   guitar: [],
@@ -55,12 +74,16 @@ export function createEmptyBandForm(): BandFormState {
     codeTouched: false,
     lineup: EMPTY_LINEUP,
     bandLeaderId: "",
-    leadVocalIds: [],
+    backVocalIds: [],
+    backVocalsTouched: false,
     contact: { mode: "none" },
   };
 }
 
-/** Ruling 13: uložená zkratka se bere jako ruční. Reálné soubory nesou jen `bandLeaderId`. */
+/**
+ * Ruling 13 + dodatek A2: uložená zkratka i BACK VOCS se berou jako ruční,
+ * nic se nepřepočítává. Reálné soubory nesou jen `bandLeaderId`.
+ */
 export function bandFormFromBand(
   band: Band,
   contact: Contact | null,
@@ -73,7 +96,8 @@ export function bandFormFromBand(
     lineup: normalizeLineupAssignments(band.defaultLineup),
     bandLeaderId:
       (band.bandLeader ?? "").trim() || (band.bandLeaderId ?? "").trim(),
-    leadVocalIds: [...(band.defaultOverlays?.leadVocals ?? [])],
+    backVocalIds: [...(band.defaultOverlays?.backVocals ?? [])],
+    backVocalsTouched: true,
     contact: contactId
       ? {
           mode: "member",
@@ -128,26 +152,48 @@ export function setBandCode(state: BandFormState, code: string): BandFormState {
   return { ...state, code, codeTouched: true };
 }
 
-/** Ruling 14: kdo přibude do `vocs`, je předvyplněný jako lead vokál. */
+/** A2: předvyplnění BACK VOCS — zpívající členové mimo `vocs`, v pořadí sestavy. */
+function deriveBackVocals(lineup: FormLineup, canSing: CanSing): string[] {
+  const { backVocalIds } = deriveVocalOverlaysFromLineup({
+    lineupMusicianIds: LINEUP_ASSIGNMENT_ROLES.flatMap((role) => [
+      ...lineup[role],
+    ]),
+    leadVocalIds: lineup.vocs,
+    canSing,
+  });
+  return [...backVocalIds];
+}
+
+/** Ruling 3: dokud uživatel BACK VOCS nezměnil, přepočítají se z nové sestavy. */
 export function addMembersToGroup(
   state: BandFormState,
   role: LineupRole,
   musicianIds: readonly string[],
+  canSing: CanSing,
 ): BandFormState {
   const present = new Set(lineupMemberIds(state));
   const added = [...new Set(musicianIds)].filter(
     (musicianId) => !present.has(musicianId),
   );
   if (added.length === 0) return state;
+  const lineup: FormLineup = {
+    ...state.lineup,
+    [role]: [...state.lineup[role], ...added],
+  };
   return {
     ...state,
-    lineup: { ...state.lineup, [role]: [...state.lineup[role], ...added] },
-    leadVocalIds:
-      role === "vocs" ? [...state.leadVocalIds, ...added] : state.leadVocalIds,
+    lineup,
+    backVocalIds: state.backVocalsTouched
+      ? state.backVocalIds
+      : deriveBackVocals(lineup, canSing),
   };
 }
 
-/** R12: odebraný člen mizí z kapelníka i lead vokálů; kontakt si nechá telefon a e-mail. */
+/**
+ * R12 + A2: odebraný člen mizí z kapelníka i BACK VOCS; kontakt si nechá
+ * telefon a e-mail. Bez `canSing`: u nedotčených BACK VOCS je odfiltrování
+ * totéž co přepočet (Ruling 3).
+ */
 export function removeMember(
   state: BandFormState,
   musicianId: string,
@@ -165,11 +211,47 @@ export function removeMember(
       vocs: without(state.lineup.vocs),
     },
     bandLeaderId: state.bandLeaderId === musicianId ? "" : state.bandLeaderId,
-    leadVocalIds: without(state.leadVocalIds),
+    backVocalIds: without(state.backVocalIds),
     contact:
       contact.mode === "member" && contact.musicianId === musicianId
         ? { ...contact, musicianId: "" }
         : contact,
+  };
+}
+
+/** A2: kandidáti BACK VOCS — členové `drums | bass | guitar | keys` mimo BACK VOCS. */
+export function backVocalCandidates(state: BandFormState): string[] {
+  const selected = new Set(state.backVocalIds);
+  return BACK_VOCAL_ROLES.flatMap((role) =>
+    state.lineup[role].filter((musicianId) => !selected.has(musicianId)),
+  );
+}
+
+/** A2: ruční přidání; bere jen kandidáty a zastaví předvyplňování. */
+export function addBackVocals(
+  state: BandFormState,
+  musicianIds: readonly string[],
+): BandFormState {
+  const candidates = new Set(backVocalCandidates(state));
+  const added = [...new Set(musicianIds)].filter((musicianId) =>
+    candidates.has(musicianId),
+  );
+  return {
+    ...state,
+    backVocalIds: [...state.backVocalIds, ...added],
+    backVocalsTouched: true,
+  };
+}
+
+/** A2: ruční odebrání; zastaví předvyplňování. */
+export function removeBackVocal(
+  state: BandFormState,
+  musicianId: string,
+): BandFormState {
+  return {
+    ...state,
+    backVocalIds: state.backVocalIds.filter((id) => id !== musicianId),
+    backVocalsTouched: true,
   };
 }
 
@@ -178,19 +260,6 @@ export function setBandLeader(
   musicianId: string,
 ): BandFormState {
   return { ...state, bandLeaderId: musicianId };
-}
-
-export function toggleLeadVocal(
-  state: BandFormState,
-  musicianId: string,
-): BandFormState {
-  const isLead = state.leadVocalIds.includes(musicianId);
-  return {
-    ...state,
-    leadVocalIds: isLead
-      ? state.leadVocalIds.filter((id) => id !== musicianId)
-      : [...state.leadVocalIds, musicianId],
-  };
 }
 
 /** R2: výchozí kontaktní osoba je kapelník, pokud je v sestavě; jinak první člen. */
@@ -248,7 +317,7 @@ export function toBandDraft(
     code: state.code,
     ...(state.bandLeaderId ? { bandLeaderId: state.bandLeaderId } : {}),
     lineup: state.lineup,
-    leadVocalIds: state.leadVocalIds,
+    backVocalIds: state.backVocalIds,
     ...(contact.mode === "member"
       ? {
           contact: {

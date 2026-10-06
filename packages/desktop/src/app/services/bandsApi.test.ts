@@ -35,7 +35,7 @@ function draft(overrides: Partial<BandDraft> = {}): BandDraft {
     code: "DB",
     bandLeaderId: "krecmer_matej",
     lineup: { bass: ["krecmer_matej"] },
-    leadVocalIds: [],
+    backVocalIds: [],
     contact: { musicianId: "krecmer_matej", phone: "+420731247870" },
     ...overrides,
   };

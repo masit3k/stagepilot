@@ -6,11 +6,13 @@ import {
   lineupMemberIds,
   musicianLabel,
   setBandLeader,
-  toggleLeadVocal,
 } from "../../domain/band/bandFormModel";
 import { FieldErrors, hasFieldError } from "./FieldErrors";
 
-/** R7 + R8: kapelník a lead vokály jen ze sestavy; back vokály dopočítá doména. */
+/**
+ * R7: kapelník jen ze sestavy. Vokály tu nejsou — LEAD VOCS a BACK VOCS jsou
+ * řádky sestavy (dodatek A1, A2).
+ */
 export function BandRolesSection({
   form,
   musicians,
@@ -34,7 +36,7 @@ export function BandRolesSection({
       <h3 id="band-roles-heading">Roles</h3>
       {members.length === 0 ? (
         <p className="subtle">
-          Add musicians to the lineup to choose the band leader and lead vocals.
+          Add musicians to the lineup to choose the band leader.
         </p>
       ) : (
         <div className="form-grid">
@@ -57,22 +59,6 @@ export function BandRolesSection({
             </select>
             <FieldErrors errors={errors} field="bandLeader" />
           </label>
-          <fieldset className="band-form__checks">
-            <legend>Lead vocals</legend>
-            {members.map((musicianId) => (
-              <label key={musicianId}>
-                <input
-                  type="checkbox"
-                  checked={form.leadVocalIds.includes(musicianId)}
-                  onChange={() =>
-                    onChange((state) => toggleLeadVocal(state, musicianId))
-                  }
-                />
-                {labelOf(musicianId)}
-              </label>
-            ))}
-            <FieldErrors errors={errors} field="leadVocals" />
-          </fieldset>
         </div>
       )}
     </section>
