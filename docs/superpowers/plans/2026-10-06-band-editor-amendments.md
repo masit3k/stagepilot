@@ -73,9 +73,9 @@ src/domain/stageplan/resolveStagePositionOrder.ts             1× TS2550 Propert
 | 2 | 179 | 1355 | 2 | 28 |
 | 3 | 179 | 1366 | 2 | 28 |
 | 4 | 179 | 1369 | 2 | 28 |
-| 5 | 179 | 1369 | 2 | 37 |
-| 6 | 180 | 1377 | 2 | 37 |
-| 7 | 181 | 1381 | 2 | 37 |
+| 5 | 179 | 1369 | 2 | 39 |
+| 6 | 180 | 1379 | 2 | 39 |
+| 7 | 181 | 1383 | 2 | 39 |
 
 **Lint — `npm run lint` je nedeterministický a 99 % nálezů jsou CRLF** (`core.autocrlf=true`, Biome čeká LF). Pro **upravený** soubor jediná platná metoda je LF-normalizovaná kopie na HEAD i na BASE:
 
@@ -142,7 +142,7 @@ Existující projekty mají vlastní `overlays.leadVocals` a změna kapely je ne
 
 **Ruling 3 — „dirty" BACK VOCS žije ve stavu formuláře jako `backVocalsTouched: boolean`, zrcadlo `codeTouched` (`bandFormModel.ts:31-32`).** Nová kapela začíná `false` a `addMembersToGroup` při `false` přepočítá BACK VOCS přes `deriveVocalOverlaysFromLineup` (`src/domain/project/deriveVocalOverlaysFromLineup.ts:36-62`, lead = `lineup.vocs`). Ruční `addBackVocals`/`removeBackVocal` nastaví `true`. `bandFormFromBand` nastaví `true` (A2: „existující kapela … nic se nepřepočítává"). `addMembersToGroup` proto dostane čtvrtý parametr `canSing: CanSing`; `removeMember` ho nepotřebuje — odvození je po členech nezávislé a zachovává pořadí sestavy, takže u nedotčeného stavu je „odfiltruj odebraného" totéž co přepočet. — Cena: jedno pole ve stavu a jeden parametr navíc; `serializeBandForm` (otisk guardu) ho automaticky zahrne.
 
-**Ruling 4 — tlačítko „Remove" sedí u jména a má stejný viditelný text; jméno nese `aria-label`.** A4.2 chce tlačítka „Remove …" a „Add …" v jednom sloupci napříč řádky. Dnes jsou všechna Remove v `lineup-row__actions` s textem `Remove <jméno>` (`BandLineupSection.tsx:73-84`), takže šířka akcí roste s počtem a délkou jmen a řádek se přelévá. `LineupRowName` (`LineupRow.tsx:4-7`) dostane volitelné `action?: ReactNode`, které `LineupRow` vykreslí na řádku jména (`.lineup-row__name-line`). Viditelný text je `Remove`, přístupné jméno `aria-label="Remove <jméno>"`. Bez `action` je markup `LineupRow` **beze změny**, takže `ProjectSetupPage` a `BackVocsBlock` (jeho test `BackVocsBlock.test.tsx:40` porovnává přesný markup) se nedotknou. — Cena: kdo spoléhal na viditelné jméno v tlačítku, ho uvidí jen o sloupec vedle; čtečka obrazovky ho čte dál.
+**Ruling 4 — tlačítko „Remove" sedí u jména a má stejný viditelný text; jméno nese `aria-label`.** A4.2 chce tlačítka „Remove …" a „Add …" v jednom sloupci napříč řádky. Dnes jsou všechna Remove v `lineup-row__actions` s textem `Remove <jméno>` (`BandLineupSection.tsx:73-84`), takže šířka akcí roste s počtem a délkou jmen a řádek se přelévá. `LineupRowName` (`LineupRow.tsx:4-7`) dostane volitelné `action?: ReactNode`, které `LineupRow` vykreslí na řádku jména (`.lineup-row__name-line`). Viditelný text je `Remove`, přístupné jméno `aria-label="Remove <jméno>"`. Bez `action` je markup `LineupRow` **beze změny**, takže `ProjectSetupPage` a `BackVocsBlock` (jeho test `BackVocsBlock.test.tsx:40` porovnává přesný markup) se nedotknou. — Cena: kdo spoléhal na viditelné jméno v tlačítku, ho uvidí jen o sloupec vedle; čtečka obrazovky ho čte dál. **Potvrzeno uživatelem 2026-10-06 beze změny.**
 
 **Ruling 5 — příčina oříznutého dropdownu (A4.1) je šířka panelu, ne `overflow` předků.** Panel je v portálu do `document.body` s `position: fixed` (`AddMusiciansMultiSelect.tsx:137-147`, `lineup.css:270-272`), takže ho žádný předek oříznout nemůže. Šířka panelu je ale **šířka spouštěče** (`AddMusiciansMultiSelect.tsx:63`), v řádku kapely jen ~120 px, a panel má `overflow: hidden` (`lineup.css:275`) — odtud „Nývlt Jakul…" a „A… sele…". Oprava: čistá funkce `computeMultiSelectPanelPosition` dá panelu šířku `max(šířka spouštěče, 260 px)`, zarovná ho k **pravému** okraji spouštěče a ořízne do viewportu (okraj 8 px). Svislá logika (otevřít nad/pod) se přenáší beze změny. V `ProjectSetupPage` je spouštěč v dialogu přes celou šířku (`ProjectSetupPage.tsx:1580-1582`, `.lineup-assignment-editor__add`), takže tam vyjde `left` i `width` stejně jako dnes. Je to závěr ze čtení kódu, ne z běžící aplikace — potvrzuje ho ruční bod 6. — Cena: když je příčina jinde, panel bude širší, ale ořez zůstane; ruční bod 6 to odhalí.
 
@@ -156,7 +156,7 @@ Existující projekty mají vlastní `overlays.leadVocals` a změna kapely je ne
 
 **Ruling 10 — blokují i archivované a smazané (koš) projekty; dialog u nich uvede stav.** Soubor v koši leží v `projects/` se `status: "trashed"` do `purgeAt` (`app/pages/StartPage.tsx:92`, `app/services/projectMaintenance.ts:26`) a jde obnovit — po obnovení by odkazoval na smazanou kapelu. `BandUsage` proto nese `status` a popisek přidá „(archived)" / „(in trash)". Ověřeno, že oba projekty Blanické kapely jsou `"status": "archived"` — bez popisku by uživatel nechápal, co ho blokuje (ruční bod 4). — Cena: uživatel musí koš nejdřív vysypat.
 
-**Ruling 11 — pořadí v UI: potvrzení → `delete_band` (kontrola + smazání v jednom příkazu) → při `BAND_IN_USE` dialog přepne na seznam projektů.** A3 popisuje „zjistí projekty → zablokuje, jinak potvrzení", ale zároveň chce kontrolu **uvnitř** `delete_band`, „aby mezi kontrolou a smazáním nebyla mezera". Kontrola před potvrzením by potřebovala druhý příkaz nebo parametr `dryRun`, který A3 ve signatuře `delete_band(bandId)` nemá. — Cena: u zablokované kapely uživatel jednou klikne na „Delete band" v potvrzení, než uvidí seznam. **Otevřené pro uživatele:** pokud má blokace přijít před potvrzením, přibude `dryRun: bool` (Task 5 + 6, ~1 test navíc v každém).
+**Ruling 11 — blokace přichází PŘED potvrzením: `delete_band(bandId, dryRun)` (rozhodnutí uživatele 2026-10-06).** Klik na „Delete band" zavolá `delete_band` s `dryRun: true`: příkaz projde kontrolou projektů a nic nesmaže. Při `BAND_IN_USE` se rovnou otevře dialog se seznamem projektů, který nabízí jen zavření. Jinak se otevře potvrzení „Delete band <název>?" a po něm `delete_band` s `dryRun: false`, který kontrolu **opakuje uvnitř téhož volání** a teprve pak maže — mezi kontrolou a smazáním tak není mezera v UI (A3). Desktop na to má dvě funkce nad jedním příkazem: `checkBandDeletion` (dry run) a `deleteBand`. — Cena: dvě volání příkazu místo jednoho; projekt, který vznikne mezi nimi, zachytí druhé volání a dialog přepne na seznam.
 
 **Ruling 12 — uložené `backVocals`, která odporují A1 (back vokalista ve `vocs` nebo mimo sestavu), se při načtení nečistí; doména je při uložení odmítne u pole BACK VOCS.** Tiché odfiltrování by změnilo data bez vědomí uživatele. Ověřeno čtením všech 5 souborů v `catalog/bands/`: žádný takový konflikt dnes není (BNB, COS, PL mají `vocs = leadVocals = [krecmerova_eliska]` a back vokalisty jen z nástrojů; Blanická `backVocals: []`; `test_band` `vocs: []`). — Cena: u ručně rozbitého souboru uživatel uvidí chybu a back vokalistu odebere sám.
 
@@ -169,6 +169,8 @@ Existující projekty mají vlastní `overlays.leadVocals` a změna kapely je ne
 **Ruling 16 — `BandLineupSection` dostane `canSing` jako prop z `LibraryBandFormPage`, z už spočteného `BandDraftContext` (`useDraftContext`, `LibraryBandFormPage.tsx:208-223`).** Predikát musí být týž jako na `01 LINEUP` (`buildBandDraftContext.ts:47-52`). Kontext je typově `null`, dokud se data nenačtou; stránka v té chvíli formulář nevykresluje, fallback `cannotSing` je jen pro typ. — Cena: žádná.
 
 **Ruling 17 — rozbalovací seznam „Add lead vocs" a „Add back vocs": stejná komponenta `AddMusiciansMultiSelect` s per-řádkovým stavem výběru.** Dnes je stav všech skupin v jednom `Record` (`BandLineupSection.tsx:23-29`, `:43-44`); s šestým řádkem, který není `LineupRole`, se rozpadne na podkomponenty `GroupRow` a `BackVocsRow`, každá s vlastním `useState<string[]>`. Zároveň to drží funkce pod ~40 řádky (CLAUDE.md). — Cena: žádná; rozpracovaný výběr se ztrácel i dřív po přidání.
+
+**Ruling 18 — přepínač kontaktu se opraví lokálně pod `.band-form`, globální `label` zůstává (rozhodnutí uživatele 2026-10-06).** Ověřeno v kódu: `BandContactSection.tsx:43-63` obaluje každý radio do labelu (`<label><input type="radio" … />No contact</label>`, ř. 45-53 a 54-63). Globální pravidlo `label { display: grid; gap: var(--sp-2); }` (`packages/desktop/src/styles/base.css:90-93`) dělá z labelu mřížku s jedním sloupcem, takže radio a text jsou dvě položky pod sebou — radio nahoře, popisek pod ním. `.band-form__checks` (`styles/features/library.css:42-48`) mění jen `fieldset` (grid, bez rámečku), na `label` nesahá; jiné pravidlo pro `label` nebo `input[type=radio]` ve stylech není (`grep "input\[type" packages/desktop/src/styles` → nic). Stejná příčina rozbila zrušená zaškrtávátka Lead vocals (dodatek, Proč bod 1). Oprava: `.band-form__checks label { display: flex; align-items: center; gap: var(--sp-3); }` v `library.css` — specifičnost (0,1,1) přebije globální `label` (0,0,1). Zařazeno do **Tasku 2** (layout; `library.css` už mění a na vokálech nezávisí). Bez unit testu — mění se jen CSS, markup ne; ověří ruční bod 10. — Cena: pravidlo platí jen ve formuláři kapely; jiné radio/checkbox v labelu jinde v aplikaci má dál globální chování.
 
 ---
 
@@ -187,12 +189,12 @@ Existující projekty mají vlastní `overlays.leadVocals` a změna kapely je ne
 | # | Název | Jednou větou |
 |---|---|---|
 | 1 | `computeMultiSelectPanelPosition` + `AddMusiciansMultiSelect` | A4.1: panel aspoň 260 px, zarovnaný doprava ke spouštěči, oříznutý do viewportu (Ruling 5). |
-| 2 | `LineupRow` s akcí u jména + mřížka řádků `.band-form` | A4.2/A4.3: Remove u jména, Add v pevném sloupci, úzké okno zalomí (Rulings 4, 6, 17). |
+| 2 | `LineupRow` s akcí u jména + mřížka řádků `.band-form` + přepínač kontaktu | A4.2/A4.3: Remove u jména, Add v pevném sloupci, úzké okno zalomí; radio kontaktu na jednom řádku s popiskem (Rulings 4, 6, 17, 18). |
 | 3 | A1/A2 v doméně a modelu formuláře | Lead = `vocs`, back = draft; `backVocalIds` + `backVocalsTouched`; Roles bez zaškrtávátek (Rulings 2, 3, 12, 16). |
 | 4 | Řádky LEAD VOCS a BACK VOCS v `BandLineupSection` | Popisek LEAD VOCS, řádek BACK VOCS s Remove a „Add back vocs". |
-| 5 | Rust `delete_band` | Kontrola projektů (id, zkratka, nečitelný soubor) a smazání v jednom příkazu (Rulings 7–10). |
-| 6 | `bandsApi.deleteBand` + `bandDeletion.ts` | Typovaný výsledek `ok / inUse / failed`, parsování a popisek projektů (Ruling 13). |
-| 7 | Tlačítko a dialog „Delete band" | Potvrzení, seznam blokujících projektů, návrat na seznam s toastem (Rulings 11, 14, 15). |
+| 5 | Rust `delete_band` | Kontrola projektů (id, zkratka, nečitelný soubor), `dryRun` a smazání v jednom příkazu (Rulings 7–11). |
+| 6 | `bandsApi.checkBandDeletion` / `deleteBand` + `bandDeletion.ts` | Typovaný výsledek `ok / inUse / failed`, dry run i smazání, parsování a popisek projektů (Rulings 11, 13). |
+| 7 | Tlačítko a dialog „Delete band" | Dry run → seznam blokujících projektů, nebo potvrzení → smazání, návrat na seznam s toastem (Rulings 11, 14, 15). |
 
 Po Tasku 7: **Ruční ověření** (sekce na konci plánu) — dělá člověk.
 
@@ -460,9 +462,9 @@ git commit -m "fix(roles): widen the add-musicians panel and keep it inside the 
 
 ---
 
-### Task 2: `LineupRow` s akcí u jména + mřížka řádků `.band-form`
+### Task 2: `LineupRow` s akcí u jména + mřížka řádků `.band-form` + přepínač kontaktu
 
-Dodatek A4.2 a A4.3, Rulings 4, 6, 17. `LineupRow` sdílí `ProjectSetupPage` (`:1075`, `:1098`, `:1170`, `:1201`), `LeadVocsBlock` a `BackVocsBlock` — bez `action` musí být markup **beze změny** (test `BackVocsBlock.test.tsx` to hlídá přesným řetězcem).
+Dodatek A4.2 a A4.3, Rulings 4, 6, 17; oprava přepínače kontaktu podle Rulingu 18. `LineupRow` sdílí `ProjectSetupPage` (`:1075`, `:1098`, `:1170`, `:1201`), `LeadVocsBlock` a `BackVocsBlock` — bez `action` musí být markup **beze změny** (test `BackVocsBlock.test.tsx` to hlídá přesným řetězcem).
 
 **Files:**
 - Modify: `packages/desktop/src/app/components/roles/LineupRow.tsx:1-7` (typ `LineupRowName`), `:53-66` (vykreslení jmen)
@@ -910,7 +912,24 @@ Na konec `packages/desktop/src/styles/features/library.css` připoj:
 
 Proč tyhle specifičnosti a proč container query na `.lineup-rows`: Ruling 6.
 
-- [ ] **Step 8: Typová kontrola a build**
+- [ ] **Step 8: CSS — přepínač kontaktu na jednom řádku (Ruling 18)**
+
+Na konec `packages/desktop/src/styles/features/library.css` (za blok z kroku 7) připoj:
+
+```css
+/* Contact radios (plan Ruling 18): the global `label { display: grid }` in
+   base.css put each radio above its text. Inside the band form the radio and
+   its text share one line; the global rule stays untouched. */
+.band-form__checks label {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+```
+
+Globální `label` v `styles/base.css:90-93` **neměň** — používá ho každý formulář aplikace.
+
+- [ ] **Step 9: Typová kontrola a build**
 
 Run: `npx tsc -p packages/desktop/tsconfig.json --noEmit 2>&1 | grep "error TS"`
 Expected: přesně 14 baseline chyb.
@@ -919,17 +938,17 @@ Run: `npx tsc --noEmit` → 0 chyb.
 
 Run (v `packages/desktop`): `npx vite build` → `✓ built` (ověří, že PostCSS/Vite přijme `@container`).
 
-- [ ] **Step 9: Plná sada**
+- [ ] **Step 10: Plná sada**
 
 Run: `npm test`
 Expected: 179 souborů, **1355 zelených**, 2 baseline padající.
 
-- [ ] **Step 10: Lint dotčených souborů**
+- [ ] **Step 11: Lint dotčených souborů**
 
 Nové: `LineupRow.test.tsx`, `BandLineupSection.test.tsx` → `npx biome check --write …`, pak bez `--write` → 0 chyb.
 Upravené: `LineupRow.tsx`, `BandLineupSection.tsx`, `lineup.css`, `library.css` → recept LF kopie HEAD vs BASE `b6b531c` → žádný nový nález.
 
-- [ ] **Step 11: Commit**
+- [ ] **Step 12: Commit**
 
 ```bash
 git add packages/desktop/src/app/components/roles/LineupRow.tsx packages/desktop/src/app/components/roles/LineupRow.test.tsx packages/desktop/src/app/components/band/BandLineupSection.tsx packages/desktop/src/app/components/band/BandLineupSection.test.tsx packages/desktop/src/styles/features/lineup.css packages/desktop/src/styles/features/library.css
@@ -2349,18 +2368,18 @@ git commit -m "feat(library): show LEAD VOCS and BACK VOCS rows in the band line
 
 ### Task 5: Rust `delete_band`
 
-Dodatek A3 (Rust strana), Rulings 7–10. Čistá funkce `delete_band_at` nad dvěma adresáři + tenký příkaz.
+Dodatek A3 (Rust strana), Rulings 7–11. Čistá funkce `delete_band_at` nad dvěma adresáři + tenký příkaz. Parametr `dry_run` (Ruling 11) projde stejnou kontrolou a nic nesmaže.
 
 **Files:**
 - Modify: `packages/desktop/src-tauri/src/lib.rs`
   - za `write_contact_at` (ř. 393-398): typy `BandUsage`, `DeleteBandError` a funkce `band_ref_matches`, `file_label`, `project_json_files`, `find_band_usages_at`, `delete_band_at`
   - za příkaz `write_contact` (ř. 1199-1202): příkaz `delete_band`
   - `tauri::generate_handler![…]` (ř. 1840-1867): `delete_band` za `write_contact`
-  - modul `tests` (ř. 1872-2044): import a 9 testů
+  - modul `tests` (ř. 1872-2044): import a 11 testů
 
 **Interfaces:**
 - Consumes: `ensure_safe_entity_id` (`lib.rs:343-349`), `read_json_file` (`:289-294`), `catalog_entity_dir` (`:545-547`), `storage_projects_dir` (`:14`), `map_storage_error` (`:231-252`), `ApiError` (`:20-26`).
-- Produces: Tauri příkaz `delete_band(bandId: string)`; při chybě JSON `{ code, message, projects }`, kde `code ∈ { "BAND_IN_USE", "BAND_DELETE_FAILED" }` (a výjimečně kód z `catalog_entity_dir` převedený na `BAND_DELETE_FAILED`) a `projects` je pole `{ kind: "usesBand", file, displayName: string | null, status: string | null }` nebo `{ kind: "unreadable", file, message }`. Tenhle tvar čte Task 6.
+- Produces: Tauri příkaz `delete_band(bandId: string, dryRun: boolean)` — s `dryRun: true` nic nesmaže a vrátí OK nebo `BAND_IN_USE` podle stejné kontroly; při chybě JSON `{ code, message, projects }`, kde `code ∈ { "BAND_IN_USE", "BAND_DELETE_FAILED" }` (a výjimečně kód z `catalog_entity_dir` převedený na `BAND_DELETE_FAILED`) a `projects` je pole `{ kind: "usesBand", file, displayName: string | null, status: string | null }` nebo `{ kind: "unreadable", file, message }`. Tenhle tvar čte Task 6.
 
 - [ ] **Step 1: Napiš padající testy**
 
@@ -2400,7 +2419,7 @@ a na konec modulu (před závěrečnou `}`) přidej:
             "{\"id\":\"p1\",\"bandRef\":\"big_night_band\"}",
         )
         .expect("seed project");
-        delete_band_at(&bands, &projects, "blanicka_kapela").expect("delete");
+        delete_band_at(&bands, &projects, "blanicka_kapela", false).expect("delete");
         assert!(!bands.join("blanicka_kapela.json").exists());
         assert!(bands.join("big_night_band.json").exists());
         assert!(projects.join("BNB_Bon_Repos.json").exists());
@@ -2415,7 +2434,7 @@ a na konec modulu (před závěrečnou `}`) přidej:
             "{\"id\":\"p1\",\"displayName\":\"Blanická kapela – Konopiště\",\"status\":\"archived\",\"bandRef\":\"blanicka_kapela\"}",
         )
         .expect("seed project");
-        let err = delete_band_at(&bands, &projects, "blanicka_kapela").expect_err("in use");
+        let err = delete_band_at(&bands, &projects, "blanicka_kapela", false).expect_err("in use");
         assert_eq!(err.code, "BAND_IN_USE");
         assert_eq!(
             err.projects,
@@ -2439,7 +2458,7 @@ a na konec modulu (před závěrečnou `}`) přidej:
             "{\"id\":\"p2\",\"bandRef\":\"BLANICKA_KAPELA\"}",
         )
         .expect("seed upper-case ref");
-        let err = delete_band_at(&bands, &projects, "blanicka_kapela").expect_err("in use");
+        let err = delete_band_at(&bands, &projects, "blanicka_kapela", false).expect_err("in use");
         assert_eq!(err.code, "BAND_IN_USE");
         assert_eq!(err.projects.len(), 2, "{:?}", err.projects);
         assert!(bands.join("blanicka_kapela.json").exists());
@@ -2450,7 +2469,7 @@ a na konec modulu (před závěrečnou `}`) přidej:
     fn delete_band_is_blocked_by_an_unreadable_project_file() {
         let (root, bands, projects) = band_storage("delete-unreadable");
         fs::write(projects.join("broken.json"), "{oops").expect("seed broken");
-        let err = delete_band_at(&bands, &projects, "blanicka_kapela").expect_err("unverifiable");
+        let err = delete_band_at(&bands, &projects, "blanicka_kapela", false).expect_err("unverifiable");
         assert_eq!(err.code, "BAND_IN_USE");
         assert!(
             matches!(&err.projects[..], [BandUsage::Unreadable { file, .. }] if file == "broken.json"),
@@ -2465,7 +2484,7 @@ a na konec modulu (před závěrečnou `}`) přidej:
     fn delete_band_rejects_ids_that_are_not_safe_file_names() {
         let (root, bands, projects) = band_storage("delete-unsafe");
         for id in ["Big Night", "../evil", "", ".hidden"] {
-            let err = delete_band_at(&bands, &projects, id).expect_err(id);
+            let err = delete_band_at(&bands, &projects, id, false).expect_err(id);
             assert_eq!(err.code, "BAND_DELETE_FAILED", "{}", id);
         }
         assert!(bands.join("blanicka_kapela.json").exists());
@@ -2476,7 +2495,7 @@ a na konec modulu (před závěrečnou `}`) přidej:
     fn delete_band_succeeds_without_a_projects_folder() {
         let (root, bands, projects) = band_storage("delete-no-projects");
         fs::remove_dir_all(&projects).expect("drop projects dir");
-        delete_band_at(&bands, &projects, "blanicka_kapela").expect("delete");
+        delete_band_at(&bands, &projects, "blanicka_kapela", false).expect("delete");
         assert!(!bands.join("blanicka_kapela.json").exists());
         let _ = fs::remove_dir_all(&root);
     }
@@ -2489,7 +2508,7 @@ a na konec modulu (před závěrečnou `}`) přidej:
             "{\"bandRef\":\"blanicka_kapela\"}",
         )
         .expect("seed tmp");
-        delete_band_at(&bands, &projects, "blanicka_kapela").expect("delete");
+        delete_band_at(&bands, &projects, "blanicka_kapela", false).expect("delete");
         assert!(!bands.join("blanicka_kapela.json").exists());
         let _ = fs::remove_dir_all(&root);
     }
@@ -2497,9 +2516,32 @@ a na konec modulu (před závěrečnou `}`) přidej:
     #[test]
     fn delete_band_reports_a_missing_band_file() {
         let (root, bands, projects) = band_storage("delete-missing");
-        let err = delete_band_at(&bands, &projects, "big_night_band").expect_err("missing");
+        let err = delete_band_at(&bands, &projects, "big_night_band", false).expect_err("missing");
         assert_eq!(err.code, "BAND_DELETE_FAILED");
         assert!(err.message.contains("big_night_band.json"), "{}", err.message);
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn delete_band_dry_run_keeps_the_file_when_nothing_blocks() {
+        let (root, bands, projects) = band_storage("delete-dry-free");
+        delete_band_at(&bands, &projects, "blanicka_kapela", true).expect("dry run");
+        assert!(bands.join("blanicka_kapela.json").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn delete_band_dry_run_reports_band_in_use_without_deleting() {
+        let (root, bands, projects) = band_storage("delete-dry-in-use");
+        fs::write(
+            projects.join("BK_Praha.json"),
+            "{\"id\":\"p1\",\"bandRef\":\"blanicka_kapela\"}",
+        )
+        .expect("seed project");
+        let err = delete_band_at(&bands, &projects, "blanicka_kapela", true).expect_err("in use");
+        assert_eq!(err.code, "BAND_IN_USE");
+        assert_eq!(err.projects.len(), 1, "{:?}", err.projects);
+        assert!(bands.join("blanicka_kapela.json").exists());
         let _ = fs::remove_dir_all(&root);
     }
 
@@ -2668,12 +2710,15 @@ fn find_band_usages_at(
 
 /// Amendment A3: deletes `bands/<id>.json` unless a project still uses the
 /// band. Check and delete run in one call, so no UI round trip sits between
-/// them. Contact files are never touched — they belong to the musician and
-/// other bands share them.
+/// them. `dry_run` runs the same check and deletes nothing — the UI uses it to
+/// show the blocking projects before asking for confirmation (plan Ruling 11).
+/// Contact files are never touched — they belong to the musician and other
+/// bands share them.
 fn delete_band_at(
     bands_dir: &Path,
     projects_dir: &Path,
     band_id: &str,
+    dry_run: bool,
 ) -> Result<(), DeleteBandError> {
     ensure_safe_entity_id(band_id, "BAND_DELETE_FAILED")?;
     let path = bands_dir.join(format!("{}.json", band_id));
@@ -2693,18 +2738,21 @@ fn delete_band_at(
             projects: usages,
         });
     }
+    if dry_run {
+        return Ok(());
+    }
     fs::remove_file(&path).map_err(|err| {
         DeleteBandError::failed(format!("Failed to delete {} ({})", path.display(), err))
     })
 }
 ```
 
-Poznámky k Rustu: closure `list_failed` zachytává jen `&Path`, je proto `Copy` a smí se předat dvakrát. `unwrap_or_default()` na `Option<&str>` dává `""`. Projekt i kapela se čtou jako `serde_json::Value` (R3 — žádné serde typy entit).
+Tauri převádí argument `dry_run` na `dryRun` stejně jako `band_id` na `bandId`. Poznámky k Rustu: closure `list_failed` zachytává jen `&Path`, je proto `Copy` a smí se předat dvakrát. `unwrap_or_default()` na `Option<&str>` dává `""`. Projekt i kapela se čtou jako `serde_json::Value` (R3 — žádné serde typy entit).
 
 - [ ] **Step 4: Testy projdou**
 
 Run (v `packages/desktop/src-tauri`): `cargo test delete_band`
-Expected: 8 passed (`delete_band_*`). Pak `cargo test band_usage` → 1 passed.
+Expected: 10 passed (`delete_band_*`, z toho 2 `delete_band_dry_run_*`). Pak `cargo test band_usage` → 1 passed.
 
 - [ ] **Step 5: Příkaz a registrace**
 
@@ -2712,7 +2760,11 @@ Za příkaz `write_contact` (ř. 1199-1202) vlož:
 
 ```rust
 #[tauri::command]
-fn delete_band(app: tauri::AppHandle, band_id: String) -> Result<(), DeleteBandError> {
+fn delete_band(
+    app: tauri::AppHandle,
+    band_id: String,
+    dry_run: bool,
+) -> Result<(), DeleteBandError> {
     let bands_dir = catalog_entity_dir(&app, "bands")
         .map_err(|err| DeleteBandError::failed(err.message))?;
     let projects_dir = storage_projects_dir(&app).map_err(|err| {
@@ -2721,7 +2773,7 @@ fn delete_band(app: tauri::AppHandle, band_id: String) -> Result<(), DeleteBandE
                 .message,
         )
     })?;
-    delete_band_at(&bands_dir, &projects_dir, &band_id)
+    delete_band_at(&bands_dir, &projects_dir, &band_id, dry_run)
 }
 ```
 
@@ -2730,7 +2782,7 @@ V `tauri::generate_handler![…]` přidej `delete_band,` na samostatný řádek 
 - [ ] **Step 6: Celá Rust sada bez nových warningů**
 
 Run (v `packages/desktop/src-tauri`): `cargo test 2>&1 | grep -E "^warning|test result"`
-Expected: `test result: ok. 37 passed; 0 failed` (28 + 9) a **žádný** řádek `warning` (BASE je bez warningů).
+Expected: `test result: ok. 39 passed; 0 failed` (28 + 11) a **žádný** řádek `warning` (BASE je bez warningů).
 
 - [ ] **Step 7: Plná TS sada (beze změny)**
 
@@ -2746,9 +2798,9 @@ git commit -m "feat(tauri): add delete_band that refuses bands still used by pro
 
 ---
 
-### Task 6: `bandsApi.deleteBand` + `bandDeletion.ts`
+### Task 6: `bandsApi.checkBandDeletion` / `deleteBand` + `bandDeletion.ts`
 
-Dodatek A3 (desktopová služba), R11, Ruling 13. Spec, sekce Testy → Desktop: „`bandsApi.deleteBand` mapuje `BAND_IN_USE` na typovaný výsledek se seznamem projektů (mock `invoke`)".
+Dodatek A3 (desktopová služba), R11, Rulings 11 a 13. Spec, sekce Testy → Desktop: „`bandsApi.deleteBand` mapuje `BAND_IN_USE` na typovaný výsledek se seznamem projektů (mock `invoke`)".
 
 **Files:**
 - Create: `packages/desktop/src/app/domain/band/bandDeletion.ts`
@@ -2758,10 +2810,10 @@ Dodatek A3 (desktopová služba), R11, Ruling 13. Spec, sekce Testy → Desktop:
 - Modify: `packages/desktop/src/app/services/bandsApi.test.ts` (import ř. 9-14, nový `describe` na konec)
 
 **Interfaces:**
-- Consumes: z Tasku 5 chybový JSON `{ code: "BAND_IN_USE" | "BAND_DELETE_FAILED", message, projects: [{ kind: "usesBand", file, displayName, status } | { kind: "unreadable", file, message }] }`.
+- Consumes: z Tasku 5 příkaz `delete_band` s argumenty `{ bandId, dryRun }` a chybový JSON `{ code: "BAND_IN_USE" | "BAND_DELETE_FAILED", message, projects: [{ kind: "usesBand", file, displayName, status } | { kind: "unreadable", file, message }] }`.
 - Produces:
   - `bandDeletion.ts`: `type BandUsage = { kind: "usesBand"; file: string; displayName: string | null; status: string | null } | { kind: "unreadable"; file: string; message: string }` (vše `readonly`); `parseBandUsages(value: unknown): BandUsage[]`; `describeBandUsage(usage: BandUsage): string`.
-  - `bandsApi.ts`: `type DeleteBandResult = { ok: true } | { ok: false; kind: "inUse"; projects: readonly BandUsage[] } | { ok: false; kind: "failed"; message: string }`; `deleteBand(bandId: string): Promise<DeleteBandResult>` — **nikdy nerejectuje**.
+  - `bandsApi.ts`: `type DeleteBandResult = { ok: true } | { ok: false; kind: "inUse"; projects: readonly BandUsage[] } | { ok: false; kind: "failed"; message: string }`; `checkBandDeletion(bandId: string): Promise<DeleteBandResult>` (dry run, nic nesmaže) a `deleteBand(bandId: string): Promise<DeleteBandResult>` — obě **nikdy nerejectují**.
   - `TAURI_COMMANDS.DELETE_BAND = "delete_band"`.
 
 - [ ] **Step 1: Napiš padající test `bandDeletion`**
@@ -2931,10 +2983,11 @@ Expected: PASS, 5 testů.
 
 - [ ] **Step 3: Napiš padající testy `deleteBand`**
 
-V `packages/desktop/src/app/services/bandsApi.test.ts` rozšiř import z `./bandsApi` (ř. 9-14) o `deleteBand`:
+V `packages/desktop/src/app/services/bandsApi.test.ts` rozšiř import z `./bandsApi` (ř. 9-14) o `checkBandDeletion` a `deleteBand`:
 
 ```ts
 import {
+  checkBandDeletion,
   deleteBand,
   describeApiError,
   listBandSummaries,
@@ -2954,7 +3007,7 @@ describe("deleteBand", () => {
 
     expect(result).toEqual({ ok: true });
     expect(commandsCalled()).toEqual(["delete_band"]);
-    expect(argsOf(0)).toEqual({ bandId: "test_band" });
+    expect(argsOf(0)).toEqual({ bandId: "test_band", dryRun: false });
   });
 
   it("turns BAND_IN_USE into the list of blocking projects", async () => {
@@ -2994,10 +3047,42 @@ describe("deleteBand", () => {
     });
   });
 });
+
+describe("checkBandDeletion", () => {
+  it("asks delete_band for a dry run and reports that nothing blocks", async () => {
+    invokeMock.mockResolvedValueOnce(undefined);
+
+    const result = await checkBandDeletion("test_band");
+
+    expect(result).toEqual({ ok: true });
+    expect(commandsCalled()).toEqual(["delete_band"]);
+    expect(argsOf(0)).toEqual({ bandId: "test_band", dryRun: true });
+  });
+
+  it("reports the projects that block the band in a dry run", async () => {
+    const projects = [
+      {
+        kind: "usesBand",
+        file: "BK_Praha.json",
+        displayName: "Blanická kapela – Praha",
+        status: "archived",
+      },
+    ];
+    invokeMock.mockRejectedValueOnce({
+      code: "BAND_IN_USE",
+      message: "1 project(s) still use band 'blanicka_kapela'.",
+      projects,
+    });
+
+    const result = await checkBandDeletion("blanicka_kapela");
+
+    expect(result).toEqual({ ok: false, kind: "inUse", projects });
+  });
+});
 ```
 
 Run: `npx vitest run packages/desktop/src/app/services/bandsApi.test.ts`
-Expected: FAIL u tří nových testů (`deleteBand is not a function`); ostatní projdou.
+Expected: FAIL u pěti nových testů (`deleteBand` / `checkBandDeletion is not a function`); ostatní projdou.
 
 - [ ] **Step 4: Implementuj `deleteBand`**
 
@@ -3031,13 +3116,25 @@ export type DeleteBandResult =
   | { readonly ok: false; readonly kind: "failed"; readonly message: string };
 
 /**
- * Dodatek A3: kontrola projektů i smazání běží v Rustu v jednom příkazu.
- * `BAND_IN_USE` je očekávaný výsledek, ne výjimka — vrací se se seznamem
- * projektů; ostatní selhání se zprávou. Nerejectuje.
+ * Dodatek A3 + Ruling 11: kontrola projektů i smazání běží v Rustu v jednom
+ * příkazu. `checkBandDeletion` je jeho dry run — nic nesmaže, jen řekne, zda
+ * kapelu něco blokuje; `deleteBand` kontrolu opakuje a teprve pak maže.
+ * `BAND_IN_USE` je očekávaný výsledek, ne výjimka. Ani jedna nerejectuje.
  */
-export async function deleteBand(bandId: string): Promise<DeleteBandResult> {
+export function checkBandDeletion(bandId: string): Promise<DeleteBandResult> {
+  return runDeleteBand(bandId, true);
+}
+
+export function deleteBand(bandId: string): Promise<DeleteBandResult> {
+  return runDeleteBand(bandId, false);
+}
+
+async function runDeleteBand(
+  bandId: string,
+  dryRun: boolean,
+): Promise<DeleteBandResult> {
   try {
-    await invoke<void>(TAURI_COMMANDS.DELETE_BAND, { bandId });
+    await invoke<void>(TAURI_COMMANDS.DELETE_BAND, { bandId, dryRun });
     return { ok: true };
   } catch (error) {
     const { code, message } = describeApiError(error);
@@ -3063,7 +3160,7 @@ Run (v `packages/desktop`): `npx vite build` → `✓ built`.
 - [ ] **Step 6: Plná sada**
 
 Run: `npm test`
-Expected: 180 souborů, **1377 zelených**, 2 baseline padající.
+Expected: 180 souborů, **1379 zelených**, 2 baseline padající.
 
 - [ ] **Step 7: Lint**
 
@@ -3074,7 +3171,7 @@ Upravené `tauriCommands.ts`, `bandsApi.ts`, `bandsApi.test.ts` → recept LF ko
 
 ```bash
 git add packages/desktop/src/app/domain/band/bandDeletion.ts packages/desktop/src/app/domain/band/bandDeletion.test.ts packages/desktop/src/app/services/tauriCommands.ts packages/desktop/src/app/services/bandsApi.ts packages/desktop/src/app/services/bandsApi.test.ts
-git commit -m "feat(band): add deleteBand to bandsApi with the projects that block it"
+git commit -m "feat(band): add checkBandDeletion and deleteBand to bandsApi"
 ```
 
 ---
@@ -3092,8 +3189,8 @@ Dodatek A3 (UI), Rulings 11, 14, 15; Review Focus 4.
 - Modify: `packages/desktop/src/styles/features/library.css` (dvě třídy na konec)
 
 **Interfaces:**
-- Consumes: z Tasku 6 `deleteBand(bandId): Promise<DeleteBandResult>`, `BandUsage`, `describeBandUsage`; z Tasku 3 `serializeBandForm` a `BandFormState`.
-- Produces: `isBandFormDirty(baseline: string | null, state: BandFormState): boolean`; komponenty `BandDeleteSection({ bandName, onDelete, onDeleted, onFailed })` a `BandUsageList({ projects })`.
+- Consumes: z Tasku 6 `checkBandDeletion(bandId)` a `deleteBand(bandId)` (obě `Promise<DeleteBandResult>`), `BandUsage`, `describeBandUsage`; z Tasku 3 `serializeBandForm` a `BandFormState`.
+- Produces: `isBandFormDirty(baseline: string | null, state: BandFormState): boolean`; komponenty `BandDeleteSection({ bandName, onCheck, onDelete, onDeleted, onFailed })` a `BandUsageList({ projects })`.
 
 - [ ] **Step 1: Napiš padající test `isBandFormDirty`**
 
@@ -3178,6 +3275,7 @@ describe("BandDeleteSection", () => {
     const html = renderToStaticMarkup(
       <BandDeleteSection
         bandName="Test Band"
+        onCheck={vi.fn()}
         onDelete={vi.fn()}
         onDeleted={vi.fn()}
         onFailed={vi.fn()}
@@ -3221,25 +3319,52 @@ type DeleteDialog =
   | { readonly kind: "confirm"; readonly isDeleting: boolean }
   | { readonly kind: "blocked"; readonly projects: readonly BandUsage[] };
 
+type NotDeleted = Exclude<DeleteBandResult, { ok: true }>;
+
 /**
- * Dodatek A3: mazání kapely z její stránky úprav. Kontrola projektů běží
- * v Rustu uvnitř `delete_band`, proto se nejdřív potvrzuje a teprve výsledek
- * ukáže blokující projekty (Ruling 11).
+ * Dodatek A3 + Ruling 11: klik nejdřív zavolá `onCheck` (dry run
+ * `delete_band`). Blokují-li kapelu projekty, dialog je rovnou vypíše a nabídne
+ * jen zavření; jinak potvrzení a `onDelete`, který kontrolu v Rustu zopakuje.
  */
 export function BandDeleteSection({
   bandName,
+  onCheck,
   onDelete,
   onDeleted,
   onFailed,
 }: {
   bandName: string;
+  onCheck: () => Promise<DeleteBandResult>;
   onDelete: () => Promise<DeleteBandResult>;
   onDeleted: () => void;
   onFailed: (message: string) => void;
 }) {
   const [dialog, setDialog] = useState<DeleteDialog>({ kind: "closed" });
+  const [isChecking, setIsChecking] = useState(false);
   const close = () => setDialog({ kind: "closed" });
   const dialogRef = useModalBehavior(dialog.kind !== "closed", close);
+
+  /** Nesmazáno: blokace → seznam projektů, jiné selhání → toast. */
+  const showNotDeleted = (result: NotDeleted) => {
+    if (result.kind === "inUse") {
+      setDialog({ kind: "blocked", projects: result.projects });
+      return;
+    }
+    close();
+    onFailed(result.message);
+  };
+
+  const check = () => {
+    setIsChecking(true);
+    void onCheck().then((result) => {
+      setIsChecking(false);
+      if (result.ok) {
+        setDialog({ kind: "confirm", isDeleting: false });
+        return;
+      }
+      showNotDeleted(result);
+    });
+  };
 
   const confirm = () => {
     setDialog({ kind: "confirm", isDeleting: true });
@@ -3248,12 +3373,7 @@ export function BandDeleteSection({
         onDeleted();
         return;
       }
-      if (result.kind === "inUse") {
-        setDialog({ kind: "blocked", projects: result.projects });
-        return;
-      }
-      close();
-      onFailed(result.message);
+      showNotDeleted(result);
     });
   };
 
@@ -3270,9 +3390,10 @@ export function BandDeleteSection({
       <button
         type="button"
         className="button-danger"
-        onClick={() => setDialog({ kind: "confirm", isDeleting: false })}
+        disabled={isChecking}
+        onClick={check}
       >
-        Delete band
+        {isChecking ? "Checking…" : "Delete band"}
       </button>
       <ModalOverlay open={dialog.kind !== "closed"} onClose={close}>
         <div
@@ -3392,7 +3513,7 @@ export function BandUsageList({
 }
 ```
 
-Pozn.: `onDelete` (= `deleteBand`) nikdy nerejectuje (Task 6), takže `.then` bez `.catch` nic nepolyká. Nadpis potvrzení je doslova „Delete band <název>?" podle A3.
+Pozn.: `onCheck` (= `checkBandDeletion`) ani `onDelete` (= `deleteBand`) nikdy nerejectují (Task 6), takže `.then` bez `.catch` nic nepolyká. Tlačítko je během dry runu zakázané („Checking…"), aby dvojklik nespustil dvě kontroly. Nadpis potvrzení je doslova „Delete band <název>?" podle A3.
 
 Run: `npx vitest run packages/desktop/src/app/components/band/BandDeleteSection.test.tsx`
 Expected: PASS, 3 testy.
@@ -3426,7 +3547,7 @@ V `packages/desktop/src/app/pages/LibraryBandFormPage.tsx`:
 import { BandDeleteSection } from "../components/band/BandDeleteSection";
 ```
 
-do importu z `../domain/band/bandFormModel` přidej `isBandFormDirty,` (za `createEmptyBandForm,`) a do importu z `../services/bandsApi` přidej `deleteBand,` (za `type SaveBandDraftResult,`).
+do importu z `../domain/band/bandFormModel` přidej `isBandFormDirty,` (za `createEmptyBandForm,`) a do importu z `../services/bandsApi` přidej `checkBandDeletion,` a `deleteBand,` (za `type SaveBandDraftResult,`).
 
 2. Guard (dnes ř. 78-80):
 
@@ -3464,6 +3585,7 @@ a řádek `const { musicians } = load.data;` změň na `const { musicians, band 
       {bandId ? (
         <BandDeleteSection
           bandName={band?.name ?? bandId}
+          onCheck={() => checkBandDeletion(bandId)}
           onDelete={() => deleteBand(bandId)}
           onDeleted={handleDeleted}
           onFailed={(message) =>
@@ -3510,10 +3632,10 @@ Run (v `packages/desktop`): `npx vite build` → `✓ built`.
 - [ ] **Step 9: Plná sada (TS i Rust)**
 
 Run: `npm test`
-Expected: 181 souborů, **1381 zelených**, 2 baseline padající.
+Expected: 181 souborů, **1383 zelených**, 2 baseline padající.
 
 Run (v `packages/desktop/src-tauri`): `cargo test 2>&1 | grep -E "^warning|test result"`
-Expected: `37 passed; 0 failed`, žádný warning.
+Expected: `39 passed; 0 failed`, žádný warning.
 
 - [ ] **Step 10: Lint**
 
@@ -3531,7 +3653,7 @@ git commit -m "feat(library): delete a band from its edit page unless projects u
 
 ## Ruční ověření (dělá člověk)
 
-Repo nemá jsdom; stránky a dialogy se ověřují ručně v `npm run dev`. Převzato z dodatku (sekce „Ruční průchod (doplnění)", body 1–6), doplněno o body 7–9 z Rulings. Předpoklad: Tasky 1–7 hotové, `npm test` 1381 zelených + 2 baseline selhání, `cargo test` 37/0.
+Repo nemá jsdom; stránky a dialogy se ověřují ručně v `npm run dev`. Převzato z dodatku (sekce „Ruční průchod (doplnění)", body 1–6), doplněno o body 7–10 z Rulings. Předpoklad: Tasky 1–7 hotové, `npm test` 1383 zelených + 2 baseline selhání, `cargo test` 39/0.
 
 **Před průchodem: záloha katalogu mimo scratchpad.** Průchod zapisuje do `%APPDATA%/StagePilot/catalog/` a bod 5 maže soubor kapely; scratchpad není záloha.
 
@@ -3544,22 +3666,22 @@ Spusť `npm run dev`. Známá past: port 1420 obsazený jiným procesem zablokuj
 1. **Nová kapela** (`/library` → `New band`): přidání bubeníka, který zpívá (např. Plašil Pavel), předvyplní BACK VOCS. Ruční odebrání z BACK VOCS a další změna sestavy (přidání dalšího zpívajícího bubeníka) už BACK VOCS nepřepíše. Sekce Roles obsahuje jen select „Band leader".
 2. **Blanická kapela:** otevřít a uložit bez změn → `backVocals` zůstane `[]`. Očekávaný rozdíl proti záloze: `leadVocals` je přerovnané podle `vocs` na `["holoubek_lukas", "krecmerova_eliska"]` (A1, Ruling 1). Porovnej: `diff "$HOME/stagepilot-catalog-backup-<datum>/bands/blanicka_kapela.json" "$APPDATA/StagePilot/catalog/bands/blanicka_kapela.json"`.
 3. **Big Night Band:** BACK VOCS ukazuje Plašil, Krečmer, Žídek; uložení beze změny nemění soubor (kromě formátování) — stejný `diff` proti záloze.
-4. **Smazání Blanické kapely je zablokované:** `Delete band` → potvrzení → dialog „This band is still in use" se dvěma projekty (`bandRef: blanicka_kapela`), oba se štítkem „(archived)" (Ruling 10); nabízí jen `Close`. Soubor `catalog/bands/blanicka_kapela.json` zůstal.
-5. **Smazání `test_band` projde:** nejdřív změň název (formulář je „dirty"), pak `Delete band` → potvrzení → návrat na `/library` **bez** dialogu neuložených změn (Review Focus 4), toast „Band deleted.", kapela zmizela ze seznamu i z výběru kapel při zakládání projektu. `catalog/contacts/` beze změny: `diff -r "$HOME/stagepilot-catalog-backup-<datum>/contacts" "$APPDATA/StagePilot/catalog/contacts"` → žádný rozdíl.
+4. **Smazání Blanické kapely je zablokované hned:** `Delete band` → **bez potvrzení** rovnou dialog „This band is still in use" se dvěma projekty (`bandRef: blanicka_kapela`), oba se štítkem „(archived)" (Ruling 10); nabízí jen `Close`. Soubor `catalog/bands/blanicka_kapela.json` zůstal.
+5. **Smazání `test_band` projde:** nejdřív změň název (formulář je „dirty"), pak `Delete band` → potvrzení „Delete band Test Band?" (žádný seznam projektů) → `Delete band` → návrat na `/library` **bez** dialogu neuložených změn (Review Focus 4), toast „Band deleted.", kapela zmizela ze seznamu i z výběru kapel při zakládání projektu. `catalog/contacts/` beze změny: `diff -r "$HOME/stagepilot-catalog-backup-<datum>/contacts" "$APPDATA/StagePilot/catalog/contacts"` → žádný rozdíl.
 6. **Layout:** dropdown „Add drums" je celý viditelný (jména i „Add selected"), zarovnaný k pravému okraji spouštěče (Ruling 5); tlačítka `Remove` a spouštěče `Add …` jsou ve všech řádcích, včetně LEAD VOCS a BACK VOCS, ve stejném sloupci; zúžení okna nezahodí tlačítka — `Add …` se zalomí pod jména (Ruling 6).
 7. **Pořadí lead vokálů v novém projektu (Ruling 1):** po bodu 2 založ projekt Blanické kapely → na `02 INPUTS` je `Lead vocal 1` Holoubek Lukáš. Je-li to nežádoucí, v LEAD VOCS kapely odeber a znovu přidej Holoubka (posune se za Krečmerovou) a ulož. Existující projekty Blanické kapely se nemění.
 8. **`01 LINEUP` projektu beze změny (Ruling 4, 5, 6):** otevři libovolný projekt → `01 LINEUP`: řádky mají dosavadní flex layout (role, jméno, `Change`/`Setup` vpravo), LEAD VOCS / BACK VOCS bloky tam vypadají jako dřív. `Change` u DRUMS → v dialogu je panel „Add …" stejně široký jako spouštěč a pod ním.
 9. **Nová kapela bez muzikantů v knihovně** (volitelné, čistá instalace): prázdný stav sestavy se nezměnil a sekce „Delete band" se u nové kapely nezobrazuje.
+10. **Přepínač kontaktu (Ruling 18):** v bloku Contact je radio „No contact" i „Band member" na **stejném řádku** jako jeho popisek, ne nad ním; přepínání funguje jako dřív. Jiné formuláře (např. nový projekt) mají popisky polí dál nad polem.
 
 Po průchodu: chceš-li vrátit `test_band` nebo původní pořadí Blanické kapely, obnov soubory ze zálohy (`cp "$HOME/stagepilot-catalog-backup-<datum>/bands/<soubor>" "$APPDATA/StagePilot/catalog/bands/"`).
 
 ---
 
-## Mimo rozsah a k rozhodnutí
+## Mimo rozsah a rozhodnutí uživatele
 
 - **Mimo rozsah (dodatek):** mazání muzikantů a kontaktů; mazání rozbité kapely z chybového řádku seznamu; hromadné přepojení projektů; změna `list_bands`.
-- **Pravděpodobně stejná layoutová vada jinde (neověřeno v běžící aplikaci, odhad ze CSS):** přepínač „No contact / Band member" v `BandContactSection.tsx:43-60` používá tutéž `fieldset.band-form__checks` s `<label><input …/>text</label>` jako zrušená zaškrtávátka, a globální `label { display: grid; }` (`styles/base.css:90-93`) staví text pod radio. Dodatek ho neřeší; plán ho nemění. Rozhodne uživatel.
-- **Ruling 11** (potvrzení před kontrolou) — pokud má blokace přijít před potvrzením, přibude `dryRun`.
+- **Rozhodnuto uživatelem 2026-10-06:** Ruling 4 potvrzen beze změny; Ruling 11 změněn na blokaci před potvrzením (`dryRun`); přepínač kontaktu se opravuje v Tasku 2 (Ruling 18).
 
 ---
 
@@ -3568,7 +3690,7 @@ Po průchodu: chceš-li vrátit `test_band` nebo původní pořadí Blanické ka
 Repo zůstalo nedotčené; všechno běželo nad kopiemi ve scratchpadu.
 
 - **Baseline** znovu změřen na `b6b531c`: `npm test` 176 souborů, 1345 zelených + 2 baseline selhání; root `tsc` 0; desktop `tsc` 14 chyb (seznam v Global Constraints sedí); `cargo test` 28 passed.
-- **Rust (Task 5):** bloky kódu z plánu vloženy skriptem do kopie `packages/desktop/src-tauri` (import testů, typy + funkce za `write_contact_at`, příkaz za `write_contact`, registrace, 9 testů) → `cargo test`: **37 passed, 0 failed, 0 warnings**.
+- **Rust (Task 5):** bloky kódu z plánu vloženy skriptem do kopie `packages/desktop/src-tauri` (import testů, typy + funkce za `write_contact_at`, příkaz za `write_contact`, registrace, 11 testů včetně `dry_run`) → `cargo test`: **39 passed, 0 failed, 0 warnings**.
 - **Biome (Tasky 1, 2, 3, 6, 7):** všechny nové soubory a celé přepisy (`multiSelectPanelPosition*.ts`, `LineupRow.test.tsx`, `BandLineupSection*.tsx` ve stavu po Tasku 2, `bandFormModel*.ts`, `BandRolesSection.tsx`, `bandDeletion*.ts`, `BandDeleteSection*.tsx`) a `lineup.css` / `library.css` s vloženými bloky → 0 lint nálezů; dva formátovací rozdíly byly v plánu opraveny a druhý běh je čistý.
 - **Markup v testech komponent:** řetězce, na které testy Tasků 2, 4 a 7 spoléhají (pořadí atributů `type` → `class` → `aria-label`, prázdný textový uzel bez komentáře, `1. One` bez oddělovače, `<li>` s pomlčkou), ověřeny přes `renderToStaticMarkup` z `packages/desktop/node_modules` (react-dom **19.2.4**).
 - **Neověřeno nanečisto:** typová kontrola a běh vitestu nad TS změnami Tasků 1–4, 6, 7 — kopie stromu s `node_modules` ve scratchpadu nebyla k dispozici. Proto má každý task explicitní kroky `tsc` (obě konfigurace), `vite build` a plný `npm test` s očekávanými počty; odchylka od tabulky v Global Constraints patří do reportu tasku.
@@ -3591,7 +3713,7 @@ Repo zůstalo nedotčené; všechno běželo nad kopiemi ve scratchpadu.
 | A2 odebraný člen zmizí z BACK VOCS | 3 (2 testy) |
 | A2 uloží se přesně výběr, `validateDefaultVocals` projde | 3 (doména, 4 testy + Review Focus 5) |
 | A3 tlačítko dole na úpravě, ne v seznamu, ne u nové | 7 (Ruling 14), ruční bod 9 |
-| A3 blokace projekty s dialogem názvů | 5, 6, 7, ruční bod 4 |
+| A3 blokace projekty s dialogem názvů (před potvrzením, Ruling 11) | 5 (`dry_run`), 6 (`checkBandDeletion`), 7, ruční bod 4 |
 | A3 potvrzení „Delete band <název>?", návrat + toast | 7, ruční bod 5 |
 | A3 kontakty se nemažou | 5 (`delete_band_at` sahá jen na `bands/<id>.json`), ruční bod 5 |
 | A3 `delete_band` v Rustu, kontrola uvnitř, `BAND_IN_USE` / `BAND_DELETE_FAILED`, sanitace jako `read_band` | 5 |
@@ -3600,13 +3722,14 @@ Repo zůstalo nedotčené; všechno běželo nad kopiemi ve scratchpadu.
 | A4.1 dropdown celý viditelný | 1 |
 | A4.2 jeden sloupec tlačítek, šířka nezávislá na jménu | 2 |
 | A4.3 úzké okno zalomí | 2 (container query), ruční bod 6 |
+| Přepínač kontaktu (rozhodnutí uživatele, Ruling 18) | 2 (Step 8), ruční bod 10 |
 | A4 nesmí rozbít `ProjectSetupPage` | 1 (široký spouštěč beze změny, test), 2 (markup bez akce beze změny, `BackVocsBlock.test`), ruční bod 8 |
 | Testy — doména / Rust / desktop podle dodatku | 3 / 5 / 6 |
 
 **Placeholder scan:** žádné „TBD", „doplň", „obdobně jako Task N"; každý krok s kódem kód obsahuje. Kroky, které se odkazují na řádky, uvádějí i symbol (řádky se mezi tasky posouvají).
 
-**Typová konzistence:** `BandDraft.backVocalIds`, `BandDraftField "backVocals"`, `BandFormState.backVocalIds/backVocalsTouched`, `CanSing`, `addMembersToGroup(state, role, ids, canSing)`, `backVocalCandidates`, `addBackVocals`, `removeBackVocal`, `isBandFormDirty`, `BandUsage` (`usesBand`/`unreadable`, `file`, `displayName`, `status`, `message`), `DeleteBandResult` (`inUse`/`failed`), `TAURI_COMMANDS.DELETE_BAND`, Rust `BandUsage::UsesBand { file, display_name, status }` → JSON `displayName` (test `band_usage_serializes_in_the_shape_bands_api_reads`) — stejná jména v produkujícím tasku i ve všech konzumentech.
+**Typová konzistence:** `BandDraft.backVocalIds`, `BandDraftField "backVocals"`, `BandFormState.backVocalIds/backVocalsTouched`, `CanSing`, `addMembersToGroup(state, role, ids, canSing)`, `backVocalCandidates`, `addBackVocals`, `removeBackVocal`, `isBandFormDirty`, `BandUsage` (`usesBand`/`unreadable`, `file`, `displayName`, `status`, `message`), `DeleteBandResult` (`inUse`/`failed`), `checkBandDeletion`/`deleteBand` → `{ bandId, dryRun }` ↔ Rust `delete_band(band_id, dry_run)`, `TAURI_COMMANDS.DELETE_BAND`, Rust `BandUsage::UsesBand { file, display_name, status }` → JSON `displayName` (test `band_usage_serializes_in_the_shape_bands_api_reads`) — stejná jména v produkujícím tasku i ve všech konzumentech.
 
-**Počty testů (kumulativně, BASE 1345 zelených / 176 souborů / cargo 28):** T1 +6 (nový soubor) → 1351 / 177; T2 +4 (2 nové soubory) → 1355 / 179; T3 +4 doména +7 model → 1366; T4 +3 → 1369; T5 cargo +9 → 37; T6 +5 +3 (1 nový soubor) → 1377 / 180; T7 +1 +3 (1 nový soubor) → **1381 zelených, 2 baseline selhání, 1383 celkem, 181 souborů; cargo 37**.
+**Počty testů (kumulativně, BASE 1345 zelených / 176 souborů / cargo 28):** T1 +6 (nový soubor) → 1351 / 177; T2 +4 (2 nové soubory) → 1355 / 179; T3 +4 doména +7 model → 1366; T4 +3 → 1369; T5 cargo +11 → 39; T6 +5 +5 (1 nový soubor) → 1379 / 180; T7 +1 +3 (1 nový soubor) → **1383 zelených, 2 baseline selhání, 1385 celkem, 181 souborů; cargo 39**.
 
 **Review Focus:** pět vstupů, každý s testem ve vlastnícím tasku (5, 5, 5, 7, 3).
