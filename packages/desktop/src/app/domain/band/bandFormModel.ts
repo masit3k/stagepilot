@@ -114,6 +114,17 @@ export function serializeBandForm(state: BandFormState): string {
   return JSON.stringify(state);
 }
 
+/**
+ * Ruling 15: bez otisku (`null` — formulář ještě nenačten, nebo kapela právě
+ * smazaná) formulář nikdy není „dirty", aby guard nezastavil návrat na seznam.
+ */
+export function isBandFormDirty(
+  baseline: string | null,
+  state: BandFormState,
+): boolean {
+  return baseline !== null && serializeBandForm(state) !== baseline;
+}
+
 export function lineupMemberIds(state: BandFormState): string[] {
   return LINEUP_ASSIGNMENT_ROLES.flatMap((role) => [...state.lineup[role]]);
 }

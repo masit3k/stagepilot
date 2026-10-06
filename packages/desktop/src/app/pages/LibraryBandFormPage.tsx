@@ -6,6 +6,7 @@ import type {
 } from "../../../../../src/domain/band/buildBandFromDraft";
 import { useToast } from "../../components/ui/toast/useToast";
 import { BandContactSection } from "../components/band/BandContactSection";
+import { BandDeleteSection } from "../components/band/BandDeleteSection";
 import { BandIdentitySection } from "../components/band/BandIdentitySection";
 import { BandLineupSection } from "../components/band/BandLineupSection";
 import { BandRolesSection } from "../components/band/BandRolesSection";
@@ -14,6 +15,7 @@ import {
   type CanSing,
   bandFormFromBand,
   createEmptyBandForm,
+  isBandFormDirty,
   serializeBandForm,
   setContactMember,
   toBandDraft,
@@ -21,6 +23,8 @@ import {
 import {
   type BandFormData,
   type SaveBandDraftResult,
+  checkBandDeletion,
+  deleteBand,
   describeApiError,
   loadBandFormData,
   readContact,
@@ -79,9 +83,7 @@ export function LibraryBandFormPage({
 
   useEffect(() => {
     registerNavigationGuard({
-      isDirty: () =>
-        baselineRef.current !== null &&
-        serializeBandForm(formRef.current) !== baselineRef.current,
+      isDirty: () => isBandFormDirty(baselineRef.current, formRef.current),
       save: async () => {
         const result = await persist();
         if (!result?.ok) throw new Error("The band was not saved.");
@@ -120,7 +122,14 @@ export function LibraryBandFormPage({
         navigate(`/library/bands/${encodeURIComponent(result.bandId)}`);
     });
   };
-  const { musicians } = load.data;
+  /** Ruling 15: smazaná kapela nemá neuložené změny; guard nesmí zastavit návrat na seznam. */
+  const handleDeleted = () => {
+    baselineRef.current = null;
+    notify("success", "Band deleted.");
+    void refreshBandList(onBandSaved, notify, "deleted");
+    navigate("/library");
+  };
+  const { musicians, band } = load.data;
 
   return (
     <section className="panel band-form">
@@ -153,6 +162,17 @@ export function LibraryBandFormPage({
         onChange={setForm}
         onSelectMember={selectContactMember}
       />
+      {bandId ? (
+        <BandDeleteSection
+          bandName={band?.name ?? bandId}
+          onCheck={() => checkBandDeletion(bandId)}
+          onDelete={() => deleteBand(bandId)}
+          onDeleted={handleDeleted}
+          onFailed={(message) =>
+            notify("error", `The band could not be deleted: ${message}`)
+          }
+        />
+      ) : null}
       <div className="setup-action-bar setup-action-bar--equal">
         <button
           type="button"
@@ -254,7 +274,7 @@ function useBandPersistence(args: {
       reportSaveResult(result, notify);
       if (result.ok) {
         baselineRef.current = serializeBandForm(submitted);
-        await refreshAfterSave(onBandSaved, notify);
+        await refreshBandList(onBandSaved, notify, "saved");
       }
       return result;
     } finally {
@@ -289,16 +309,17 @@ function reportSaveResult(result: SaveBandDraftResult, notify: Notify): void {
   );
 }
 
-async function refreshAfterSave(
+async function refreshBandList(
   onBandSaved: () => Promise<void>,
   notify: Notify,
+  outcome: "saved" | "deleted",
 ): Promise<void> {
   try {
     await onBandSaved();
   } catch (error) {
     notify(
       "error",
-      `The band was saved, but the band list could not be refreshed: ${describeApiError(error).message}`,
+      `The band was ${outcome}, but the band list could not be refreshed: ${describeApiError(error).message}`,
     );
   }
 }

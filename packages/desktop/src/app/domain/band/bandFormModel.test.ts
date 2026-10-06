@@ -13,8 +13,10 @@ import {
   createEmptyBandForm,
   defaultContactMemberId,
   disableContact,
+  isBandFormDirty,
   removeBackVocal,
   removeMember,
+  serializeBandForm,
   setBandCode,
   setBandLeader,
   setBandName,
@@ -368,5 +370,15 @@ describe("bandFormModel", () => {
       ),
     ).toEqual(["ernst_filip", "nyvlt_jakub"]);
     expect(availableMusiciansForGroup(MUSICIANS, "bass", state)).toEqual([]);
+  });
+
+  it("isBandFormDirty compares with the baseline and is false without one", () => {
+    const state = withLineup();
+    const baseline = serializeBandForm(state);
+    const changed = setBandName(state, "Changed");
+
+    expect(isBandFormDirty(baseline, state)).toBe(false);
+    expect(isBandFormDirty(baseline, changed)).toBe(true);
+    expect(isBandFormDirty(null, changed)).toBe(false);
   });
 });

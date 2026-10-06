@@ -102,3 +102,16 @@
   align-items: center;
   gap: var(--sp-3);
 }
+
+/* Delete band (amendment A3): the last block of the edit form, above the
+   sticky action bar, so the bar never covers it. */
+.band-form__danger {
+  justify-items: start;
+}
+
+.band-form__usages {
+  margin: 0;
+  padding-left: var(--sp-7);
+  display: grid;
+  gap: var(--sp-2);
+}
