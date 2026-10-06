@@ -51,3 +51,54 @@
   display: grid;
   gap: var(--sp-1);
 }
+
+/* --------------------------------------------------------------------------
+   Band form lineup rows — fixed columns (amendment A4.2, A4.3)
+
+   Scoped to .band-form: the 01 LINEUP rows of the project setup keep their
+   flex layout from lineup.css. Columns come from the template, not from the
+   content, so a long name cannot push the buttons around. Below 720px of
+   lineup width a row becomes one column and the add control drops under the
+   names instead of overflowing the clipped .lineup-rows box.
+   -------------------------------------------------------------------------- */
+.band-form .lineup-rows {
+  container: band-lineup / inline-size;
+}
+
+.band-form .lineup-row {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr) 240px;
+  align-items: start;
+  gap: var(--sp-3) var(--sp-10);
+}
+
+/* (0,3,0): must beat `.lineup-row--stacked .lineup-row__role`, which
+   lineup.css declares later with the same (0,2,0) weight. */
+.band-form .lineup-row .lineup-row__role {
+  padding-top: var(--sp-3);
+}
+
+.band-form .lineup-row__name {
+  gap: var(--sp-2);
+}
+
+.band-form .lineup-row__actions {
+  display: grid;
+  margin-left: 0;
+  min-width: 0;
+}
+
+@container band-lineup (max-width: 720px) {
+  .band-form .lineup-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Contact radios (plan Ruling 18): the global `label { display: grid }` in
+   base.css put each radio above its text. Inside the band form the radio and
+   its text share one line; the global rule stays untouched. */
+.band-form__checks label {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}

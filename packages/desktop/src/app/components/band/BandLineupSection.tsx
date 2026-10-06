@@ -17,16 +17,35 @@ import {
   removeMember,
 } from "../../domain/band/bandFormModel";
 import { AddMusiciansMultiSelect } from "../roles/AddMusiciansMultiSelect";
-import { LineupRow } from "../roles/LineupRow";
+import { LineupRow, type LineupRowName } from "../roles/LineupRow";
 import { FieldErrors } from "./FieldErrors";
 
-const NO_PENDING: Record<LineupRole, string[]> = {
-  drums: [],
-  bass: [],
-  guitar: [],
-  keys: [],
-  vocs: [],
-};
+type LabelOf = (musicianId: string) => string;
+
+/**
+ * A4.2: Remove sedí u jména a má u všech stejný viditelný text, takže
+ * tlačítka tvoří jeden sloupec; jméno nese `aria-label` (Ruling 4).
+ */
+function removableNames(
+  musicianIds: readonly string[],
+  labelOf: LabelOf,
+  onRemove: (musicianId: string) => void,
+): LineupRowName[] {
+  return musicianIds.map((musicianId) => ({
+    key: musicianId,
+    label: labelOf(musicianId),
+    action: (
+      <button
+        type="button"
+        className="button-ghost"
+        aria-label={`Remove ${labelOf(musicianId)}`}
+        onClick={() => onRemove(musicianId)}
+      >
+        Remove
+      </button>
+    ),
+  }));
+}
 
 /** R6 + R12 blok 2: pět skupin bez talkbacku, výběr jen z muzikantů dané skupiny. */
 export function BandLineupSection({
@@ -40,10 +59,8 @@ export function BandLineupSection({
   errors: readonly BandDraftError[];
   onChange: BandFormUpdate;
 }) {
-  const [pending, setPending] =
-    useState<Record<LineupRole, string[]>>(NO_PENDING);
   const byId = new Map(musicians.map((musician) => [musician.id, musician]));
-  const labelOf = (musicianId: string) => {
+  const labelOf: LabelOf = (musicianId) => {
     const musician = byId.get(musicianId);
     return musician ? musicianLabel(musician) : musicianId;
   };
@@ -60,54 +77,59 @@ export function BandLineupSection({
       ) : (
         <div className="lineup-rows">
           {LINEUP_ASSIGNMENT_ROLES.map((role) => (
-            <LineupRow
+            <GroupRow
               key={role}
-              roleLabel={getRoleDisplayName(role)}
-              names={form.lineup[role].map((musicianId) => ({
-                key: musicianId,
-                label: labelOf(musicianId),
-              }))}
-              emptyLabel="No musicians"
-              actions={
-                <>
-                  {form.lineup[role].map((musicianId) => (
-                    <button
-                      key={musicianId}
-                      type="button"
-                      className="button-ghost"
-                      onClick={() =>
-                        onChange((state) => removeMember(state, musicianId))
-                      }
-                    >
-                      Remove {labelOf(musicianId)}
-                    </button>
-                  ))}
-                  <AddMusiciansMultiSelect
-                    id={`band-add-${role}`}
-                    options={availableMusiciansForGroup(
-                      musicians,
-                      role,
-                      form,
-                    ).map((musician) => ({
-                      id: musician.id,
-                      name: musicianLabel(musician),
-                    }))}
-                    selectedIds={pending[role]}
-                    placeholder={`Add ${getRoleDisplayName(role).toLowerCase()}`}
-                    onSelectionChange={(ids) =>
-                      setPending((current) => ({ ...current, [role]: ids }))
-                    }
-                    onAddSelected={(ids) =>
-                      onChange((state) => addMembersToGroup(state, role, ids))
-                    }
-                  />
-                </>
-              }
+              role={role}
+              form={form}
+              musicians={musicians}
+              labelOf={labelOf}
+              onChange={onChange}
             />
           ))}
         </div>
       )}
       <FieldErrors errors={errors} field="lineup" />
     </section>
+  );
+}
+
+/** Ruling 17: každý řádek drží vlastní rozpracovaný výběr. */
+function GroupRow({
+  role,
+  form,
+  musicians,
+  labelOf,
+  onChange,
+}: {
+  role: LineupRole;
+  form: BandFormState;
+  musicians: readonly Musician[];
+  labelOf: LabelOf;
+  onChange: BandFormUpdate;
+}) {
+  const [pending, setPending] = useState<string[]>([]);
+  const label = getRoleDisplayName(role);
+  return (
+    <LineupRow
+      roleLabel={label}
+      names={removableNames(form.lineup[role], labelOf, (musicianId) =>
+        onChange((state) => removeMember(state, musicianId)),
+      )}
+      emptyLabel="No musicians"
+      actions={
+        <AddMusiciansMultiSelect
+          id={`band-add-${role}`}
+          options={availableMusiciansForGroup(musicians, role, form).map(
+            (musician) => ({ id: musician.id, name: musicianLabel(musician) }),
+          )}
+          selectedIds={pending}
+          placeholder={`Add ${label.toLowerCase()}`}
+          onSelectionChange={setPending}
+          onAddSelected={(ids) =>
+            onChange((state) => addMembersToGroup(state, role, ids))
+          }
+        />
+      }
+    />
   );
 }

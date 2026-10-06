@@ -1,9 +1,14 @@
 import type { ReactNode } from "react";
 
-/** A name with a caller-supplied stable key, so the row never keys on an index. */
+/**
+ * A name with a caller-supplied stable key, so the row never keys on an index.
+ * `action` sits on the name's own line (the band form's Remove, amendment
+ * A4.2); without it the markup is exactly what it was before.
+ */
 export type LineupRowName = {
   readonly key: string;
   readonly label: string;
+  readonly action?: ReactNode;
 };
 
 /**
@@ -51,18 +56,30 @@ export function LineupRow({
     >
       <span className="lineup-row__role">{roleLabel}</span>
       <div className="lineup-row__name">
-        {shown.map((name, index) => (
-          <span
-            key={name.key}
-            // Muted, so an unassigned position does not read like a real name.
-            className={
-              isEmpty ? "lineup-list__name is-placeholder" : "lineup-list__name"
-            }
-          >
-            {isStacked ? `${index + 1}. ` : ""}
-            {name.label}
-          </span>
-        ))}
+        {shown.map((name, index) => {
+          const text = (
+            <span
+              key={name.key}
+              // Muted, so an unassigned position does not read like a real name.
+              className={
+                isEmpty
+                  ? "lineup-list__name is-placeholder"
+                  : "lineup-list__name"
+              }
+            >
+              {isStacked ? `${index + 1}. ` : ""}
+              {name.label}
+            </span>
+          );
+          return name.action ? (
+            <div key={name.key} className="lineup-row__name-line">
+              {text}
+              {name.action}
+            </div>
+          ) : (
+            text
+          );
+        })}
       </div>
       {/* The hint shares the flexible middle column with the badges: the name
           column is too narrow for a sentence and would wrap it every time. */}
