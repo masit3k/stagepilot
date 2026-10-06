@@ -1,12 +1,7 @@
-import { LibraryHomePage } from "../../pages/ShellPages";
 import {
   ChooseProjectTypePage,
-  LibraryBandDetailPage,
+  LibraryBandFormPage,
   LibraryBandsPage,
-  LibraryContactsPage,
-  LibraryInstrumentsPage,
-  LibraryMessagesPage,
-  LibraryMusiciansPage,
   NewEventProjectPage,
   NewGenericProjectPage,
   ProjectInputsPage,
@@ -18,6 +13,7 @@ import {
 } from "../pages/ShellRoutedPages";
 import type { BandOption, NavigationGuard, ProjectSummary } from "./types";
 import {
+  NEW_BAND_ROUTE_SEGMENT,
   matchLibraryBandDetailPath,
   matchProjectEventPath,
   matchProjectGenericPath,
@@ -37,6 +33,7 @@ type ShellRouterProps = {
   bands: BandOption[];
   projects: ProjectSummary[];
   refreshProjects: () => Promise<void>;
+  refreshBands: () => Promise<void>;
   actions: {
     archiveProject: (project: ProjectSummary) => Promise<void>;
     unarchiveProject: (project: ProjectSummary) => Promise<void>;
@@ -54,6 +51,7 @@ export function ShellRouter({
   bands,
   projects,
   refreshProjects,
+  refreshBands,
   actions,
 }: ShellRouterProps) {
   const eventEditProjectId = matchProjectEventPath(pathname);
@@ -167,30 +165,20 @@ export function ShellRouter({
       />
     );
   }
-  if (pathname === "/library") return <LibraryHomePage navigate={navigate} />;
-  if (pathname === "/library/bands") {
+  if (pathname === "/library" || pathname === "/library/bands") {
     return <LibraryBandsPage navigate={navigate} registerNavigationGuard={registerNavigationGuard} />;
   }
   if (libraryBandDetailId) {
+    const bandId = libraryBandDetailId === NEW_BAND_ROUTE_SEGMENT ? null : libraryBandDetailId;
     return (
-      <LibraryBandDetailPage
-        bandId={libraryBandDetailId}
+      <LibraryBandFormPage
+        key={libraryBandDetailId}
+        bandId={bandId}
         navigate={navigate}
         registerNavigationGuard={registerNavigationGuard}
+        onBandSaved={refreshBands}
       />
     );
-  }
-  if (pathname === "/library/musicians") {
-    return <LibraryMusiciansPage navigate={navigate} registerNavigationGuard={registerNavigationGuard} />;
-  }
-  if (pathname === "/library/instruments") {
-    return <LibraryInstrumentsPage navigate={navigate} registerNavigationGuard={registerNavigationGuard} />;
-  }
-  if (pathname === "/library/contacts") {
-    return <LibraryContactsPage navigate={navigate} registerNavigationGuard={registerNavigationGuard} />;
-  }
-  if (pathname === "/library/messages") {
-    return <LibraryMessagesPage navigate={navigate} registerNavigationGuard={registerNavigationGuard} />;
   }
   if (pathname === "/settings") return <SettingsPage />;
 

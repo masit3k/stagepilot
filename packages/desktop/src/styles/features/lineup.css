@@ -2,11 +2,6 @@
    LINEUP — position cards, assignment editor, musician multiselect
    ========================================================================== */
 
-.lineup-grid {
-  display: grid;
-  gap: var(--sp-7);
-}
-
 .lineup-meta {
   margin: var(--sp-10) 0;
 }
@@ -35,10 +30,9 @@
 /* --------------------------------------------------------------------------
    Bordered block
 
-   Positions no longer use this — they are rows now. It stays because the Library
-   screens use it as a generic bordered block (Members, Default lineup) and the
-   assignment editor uses __add. The header/body/actions parts that only the old
-   position cards used are gone.
+   Positions no longer use this — they are rows now. It stays as a generic
+   bordered block for the four blocks of the band form, and the assignment
+   editor uses __add.
    -------------------------------------------------------------------------- */
 .lineup-card {
   border: 1px solid var(--color-border);

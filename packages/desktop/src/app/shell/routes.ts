@@ -44,22 +44,6 @@ export const SHELL_ROUTES: ShellRouteDef[] = [
     key: "library-band-detail",
     test: (pathname) => Boolean(matchLibraryBandDetailPath(pathname)),
   },
-  {
-    key: "library-musicians",
-    test: (pathname) => pathname === "/library/musicians",
-  },
-  {
-    key: "library-instruments",
-    test: (pathname) => pathname === "/library/instruments",
-  },
-  {
-    key: "library-contacts",
-    test: (pathname) => pathname === "/library/contacts",
-  },
-  {
-    key: "library-messages",
-    test: (pathname) => pathname === "/library/messages",
-  },
   { key: "settings", test: (pathname) => pathname === "/settings" },
 ];
 

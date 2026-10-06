@@ -30,38 +30,6 @@ export type ProjectSummary = {
 
 export type BandOption = { id: string; name: string; code?: string | null };
 export type MemberOption = { id: string; name: string };
-export type LibraryBandMember = {
-  musicianId: string;
-  roles: string[];
-  isDefault: boolean;
-};
-export type LibraryContact = {
-  id: string;
-  name: string;
-  title?: string;
-  phone?: string;
-  email?: string;
-  note?: string;
-  primary?: boolean;
-};
-export type LibraryMessage = { id: string; name: string; body: string };
-export type LibraryBand = {
-  id: string;
-  name: string;
-  code: string;
-  description?: string;
-  defaultLineup?: LineupMap | null;
-  members: LibraryBandMember[];
-  contacts: LibraryContact[];
-  messages: LibraryMessage[];
-};
-export type LibraryMusician = {
-  id: string;
-  name: string;
-  gender?: string;
-  defaultRoles: string[];
-  notes?: string;
-};
 export type BandSetupData = {
   id: string;
   name: string;

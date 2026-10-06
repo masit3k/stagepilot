@@ -67,7 +67,6 @@
   letter-spacing: var(--sp-track-mono);
 }
 
-.project-actions,
 .view-toggle {
   display: flex;
   gap: var(--sp-3);
@@ -83,16 +82,9 @@
   border-color: var(--color-border-structural);
 }
 
-.view-toggle__icon,
-.project-actions .button-secondary {
+.view-toggle__icon {
   min-width: var(--sp-13);
   padding: var(--sp-3) var(--sp-4);
-}
-
-.project-actions .button-secondary {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
 }
 
 /* --------------------------------------------------------------------------

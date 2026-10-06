@@ -20,7 +20,7 @@ function AppShell() {
     saveAndExit,
   } = useAppNavigation();
   const [isAboutOpen, setIsAboutOpen] = useState(false);
-  const { projects, bands, status, refreshProjects, actions } =
+  const { projects, bands, status, refreshProjects, refreshBands, actions } =
     useProjectsHubData(navigateImmediate);
 
   return (
@@ -45,6 +45,7 @@ function AppShell() {
           projects={projects}
           bands={bands}
           refreshProjects={refreshProjects}
+          refreshBands={refreshBands}
           actions={actions}
         />
       </main>
