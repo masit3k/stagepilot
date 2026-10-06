@@ -397,6 +397,173 @@ fn write_contact_at(contacts_dir: &Path, contact_id: &str, json: &str) -> Result
     write_catalog_json(contacts_dir, &path, json, "CONTACT_WRITE_FAILED")
 }
 
+/// One project that keeps a band from being deleted (band editor amendment A3).
+/// `kind` and the camelCase keys are the contract `bandDeletion.ts` parses.
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+enum BandUsage {
+    #[serde(rename_all = "camelCase")]
+    UsesBand {
+        file: String,
+        display_name: Option<String>,
+        status: Option<String>,
+    },
+    /// A project file that cannot be read or parsed cannot be checked, so it blocks.
+    #[serde(rename_all = "camelCase")]
+    Unreadable { file: String, message: String },
+}
+
+/// `delete_band` error: the `ApiError` code and message plus the projects that
+/// block the deletion. Its own type, because `ApiError` is built as a struct
+/// literal in dozens of places.
+#[derive(Debug, Serialize)]
+struct DeleteBandError {
+    code: String,
+    message: String,
+    projects: Vec<BandUsage>,
+}
+
+impl DeleteBandError {
+    fn failed(message: String) -> Self {
+        DeleteBandError {
+            code: "BAND_DELETE_FAILED".into(),
+            message,
+            projects: Vec::new(),
+        }
+    }
+}
+
+impl From<ApiError> for DeleteBandError {
+    fn from(err: ApiError) -> Self {
+        DeleteBandError {
+            code: err.code,
+            message: err.message,
+            projects: Vec::new(),
+        }
+    }
+}
+
+/// `catalogRepository.getBand` resolves a `bandRef` by id and by lower-cased
+/// id or code, so a project uses the band under any of them.
+fn band_ref_matches(band_ref: &str, band_id: &str, band_code: Option<&str>) -> bool {
+    let band_ref = band_ref.trim();
+    if band_ref.is_empty() {
+        return false;
+    }
+    band_ref.eq_ignore_ascii_case(band_id)
+        || matches!(band_code, Some(code) if !code.is_empty() && band_ref.eq_ignore_ascii_case(code))
+}
+
+fn file_label(path: &Path) -> String {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default()
+        .to_string()
+}
+
+/// `*.json` files directly in `projects/`, sorted. A missing folder means no
+/// projects yet (fresh install), not an error.
+fn project_json_files(projects_dir: &Path) -> Result<Vec<PathBuf>, DeleteBandError> {
+    if !projects_dir.exists() {
+        return Ok(Vec::new());
+    }
+    let list_failed = |err: std::io::Error| {
+        DeleteBandError::failed(format!(
+            "Failed to list projects in {} ({})",
+            projects_dir.display(),
+            err
+        ))
+    };
+    let mut files = Vec::new();
+    for entry in fs::read_dir(projects_dir).map_err(list_failed)? {
+        let path = entry.map_err(list_failed)?.path();
+        if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json") {
+            files.push(path);
+        }
+    }
+    files.sort();
+    Ok(files)
+}
+
+/// Projects whose `bandRef` resolves to the band. A file that cannot be read
+/// or parsed is reported as `Unreadable` and blocks (amendment A3).
+fn find_band_usages_at(
+    projects_dir: &Path,
+    band_id: &str,
+    band_code: Option<&str>,
+) -> Result<Vec<BandUsage>, DeleteBandError> {
+    let mut usages = Vec::new();
+    for path in project_json_files(projects_dir)? {
+        let file = file_label(&path);
+        let parsed = fs::read_to_string(&path)
+            .map_err(|err| err.to_string())
+            .and_then(|text| serde_json::from_str::<Value>(&text).map_err(|err| err.to_string()));
+        let project = match parsed {
+            Ok(project) => project,
+            Err(message) => {
+                usages.push(BandUsage::Unreadable { file, message });
+                continue;
+            }
+        };
+        let band_ref = project
+            .get("bandRef")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default();
+        if band_ref_matches(band_ref, band_id, band_code) {
+            let text_of = |key: &str| {
+                project
+                    .get(key)
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string)
+            };
+            usages.push(BandUsage::UsesBand {
+                file,
+                display_name: text_of("displayName"),
+                status: text_of("status"),
+            });
+        }
+    }
+    Ok(usages)
+}
+
+/// Amendment A3: deletes `bands/<id>.json` unless a project still uses the
+/// band. Check and delete run in one call, so no UI round trip sits between
+/// them. `dry_run` runs the same check and deletes nothing — the UI uses it to
+/// show the blocking projects before asking for confirmation (plan Ruling 11).
+/// Contact files are never touched — they belong to the musician and other
+/// bands share them.
+fn delete_band_at(
+    bands_dir: &Path,
+    projects_dir: &Path,
+    band_id: &str,
+    dry_run: bool,
+) -> Result<(), DeleteBandError> {
+    ensure_safe_entity_id(band_id, "BAND_DELETE_FAILED")?;
+    let path = bands_dir.join(format!("{}.json", band_id));
+    if !path.exists() {
+        return Err(DeleteBandError::failed(format!(
+            "Band file {} was not found.",
+            path.display()
+        )));
+    }
+    let band = read_json_file(&path, "BAND_DELETE_FAILED")?;
+    let code = band.get("code").and_then(|v| v.as_str()).map(str::trim);
+    let usages = find_band_usages_at(projects_dir, band_id, code)?;
+    if !usages.is_empty() {
+        return Err(DeleteBandError {
+            code: "BAND_IN_USE".into(),
+            message: format!("{} project(s) still use band '{}'.", usages.len(), band_id),
+            projects: usages,
+        });
+    }
+    if dry_run {
+        return Ok(());
+    }
+    fs::remove_file(&path).map_err(|err| {
+        DeleteBandError::failed(format!("Failed to delete {} ({})", path.display(), err))
+    })
+}
+
 fn parse_node_export_response(stdout: &str, stderr: &str) -> Result<NodeExportResponse, ApiError> {
     serde_json::from_str(stdout.trim()).map_err(|err| ApiError {
         code: "EXPORT_RESPONSE_INVALID".into(),
@@ -1202,6 +1369,23 @@ fn write_contact(app: tauri::AppHandle, contact_id: String, json: String) -> Res
 }
 
 #[tauri::command]
+fn delete_band(
+    app: tauri::AppHandle,
+    band_id: String,
+    dry_run: bool,
+) -> Result<(), DeleteBandError> {
+    let bands_dir = catalog_entity_dir(&app, "bands")
+        .map_err(|err| DeleteBandError::failed(err.message))?;
+    let projects_dir = storage_projects_dir(&app).map_err(|err| {
+        DeleteBandError::failed(
+            map_storage_error(err, "BAND_DELETE_FAILED", "Failed to resolve projects dir")
+                .message,
+        )
+    })?;
+    delete_band_at(&bands_dir, &projects_dir, &band_id, dry_run)
+}
+
+#[tauri::command]
 fn read_project(app: tauri::AppHandle, project_id: String) -> Result<String, ApiError> {
     let project_path = resolve_project_path_by_id(&app, &project_id)?.ok_or(ApiError {
         code: "PROJECT_READ_FAILED".into(),
@@ -1848,6 +2032,7 @@ pub fn run() {
             read_contact,
             write_band,
             write_contact,
+            delete_band,
             read_project,
             save_project,
             delete_project,
@@ -1872,8 +2057,9 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::{
-        list_catalog_musicians_at, load_preset_catalog_at, parse_node_export_response,
-        read_catalog_entity_at, resolve_workspace_root, write_band_at, write_contact_at,
+        delete_band_at, list_catalog_musicians_at, load_preset_catalog_at,
+        parse_node_export_response, read_catalog_entity_at, resolve_workspace_root,
+        write_band_at, write_contact_at, BandUsage,
     };
     use std::{
         fs,
@@ -2040,5 +2226,177 @@ mod tests {
             .find(|p| p.get("id").and_then(|v| v.as_str()) == Some("vocal_wired"))
             .expect("vocal_wired is bundled");
         assert_eq!(vocal["capabilities"][0], "vocal");
+    }
+
+    const BLANICKA_JSON: &str =
+        "{\"id\":\"blanicka_kapela\",\"code\":\"BK\",\"name\":\"Blanická kapela\"}";
+
+    /// `bands/` with Blanická kapela and an empty `projects/` under one temp root.
+    fn band_storage(name: &str) -> (PathBuf, PathBuf, PathBuf) {
+        let root = temp_test_dir(name);
+        let bands = root.join("bands");
+        let projects = root.join("projects");
+        fs::create_dir_all(&bands).expect("bands dir");
+        fs::create_dir_all(&projects).expect("projects dir");
+        fs::write(bands.join("blanicka_kapela.json"), BLANICKA_JSON).expect("seed band");
+        (root, bands, projects)
+    }
+
+    #[test]
+    fn delete_band_removes_the_file_when_no_project_uses_it() {
+        let (root, bands, projects) = band_storage("delete-free");
+        fs::write(bands.join("big_night_band.json"), BNB_JSON).expect("seed other band");
+        fs::write(
+            projects.join("BNB_Bon_Repos.json"),
+            "{\"id\":\"p1\",\"bandRef\":\"big_night_band\"}",
+        )
+        .expect("seed project");
+        delete_band_at(&bands, &projects, "blanicka_kapela", false).expect("delete");
+        assert!(!bands.join("blanicka_kapela.json").exists());
+        assert!(bands.join("big_night_band.json").exists());
+        assert!(projects.join("BNB_Bon_Repos.json").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn delete_band_is_blocked_by_a_project_and_keeps_the_file() {
+        let (root, bands, projects) = band_storage("delete-in-use");
+        fs::write(
+            projects.join("BK_Konopiste.json"),
+            "{\"id\":\"p1\",\"displayName\":\"Blanická kapela – Konopiště\",\"status\":\"archived\",\"bandRef\":\"blanicka_kapela\"}",
+        )
+        .expect("seed project");
+        let err = delete_band_at(&bands, &projects, "blanicka_kapela", false).expect_err("in use");
+        assert_eq!(err.code, "BAND_IN_USE");
+        assert_eq!(
+            err.projects,
+            vec![BandUsage::UsesBand {
+                file: "BK_Konopiste.json".into(),
+                display_name: Some("Blanická kapela – Konopiště".into()),
+                status: Some("archived".into()),
+            }]
+        );
+        assert!(bands.join("blanicka_kapela.json").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn delete_band_is_blocked_by_a_project_that_names_the_band_by_its_code() {
+        let (root, bands, projects) = band_storage("delete-by-code");
+        fs::write(projects.join("by_code.json"), "{\"id\":\"p1\",\"bandRef\":\"bk\"}")
+            .expect("seed code ref");
+        fs::write(
+            projects.join("by_upper_id.json"),
+            "{\"id\":\"p2\",\"bandRef\":\"BLANICKA_KAPELA\"}",
+        )
+        .expect("seed upper-case ref");
+        let err = delete_band_at(&bands, &projects, "blanicka_kapela", false).expect_err("in use");
+        assert_eq!(err.code, "BAND_IN_USE");
+        assert_eq!(err.projects.len(), 2, "{:?}", err.projects);
+        assert!(bands.join("blanicka_kapela.json").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn delete_band_is_blocked_by_an_unreadable_project_file() {
+        let (root, bands, projects) = band_storage("delete-unreadable");
+        fs::write(projects.join("broken.json"), "{oops").expect("seed broken");
+        let err = delete_band_at(&bands, &projects, "blanicka_kapela", false).expect_err("unverifiable");
+        assert_eq!(err.code, "BAND_IN_USE");
+        assert!(
+            matches!(&err.projects[..], [BandUsage::Unreadable { file, .. }] if file == "broken.json"),
+            "{:?}",
+            err.projects
+        );
+        assert!(bands.join("blanicka_kapela.json").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn delete_band_rejects_ids_that_are_not_safe_file_names() {
+        let (root, bands, projects) = band_storage("delete-unsafe");
+        for id in ["Big Night", "../evil", "", ".hidden"] {
+            let err = delete_band_at(&bands, &projects, id, false).expect_err(id);
+            assert_eq!(err.code, "BAND_DELETE_FAILED", "{}", id);
+        }
+        assert!(bands.join("blanicka_kapela.json").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn delete_band_succeeds_without_a_projects_folder() {
+        let (root, bands, projects) = band_storage("delete-no-projects");
+        fs::remove_dir_all(&projects).expect("drop projects dir");
+        delete_band_at(&bands, &projects, "blanicka_kapela", false).expect("delete");
+        assert!(!bands.join("blanicka_kapela.json").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn delete_band_ignores_files_that_are_not_json() {
+        let (root, bands, projects) = band_storage("delete-not-json");
+        fs::write(
+            projects.join("BK_Konopiste.tmp"),
+            "{\"bandRef\":\"blanicka_kapela\"}",
+        )
+        .expect("seed tmp");
+        delete_band_at(&bands, &projects, "blanicka_kapela", false).expect("delete");
+        assert!(!bands.join("blanicka_kapela.json").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn delete_band_reports_a_missing_band_file() {
+        let (root, bands, projects) = band_storage("delete-missing");
+        let err = delete_band_at(&bands, &projects, "big_night_band", false).expect_err("missing");
+        assert_eq!(err.code, "BAND_DELETE_FAILED");
+        assert!(err.message.contains("big_night_band.json"), "{}", err.message);
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn delete_band_dry_run_keeps_the_file_when_nothing_blocks() {
+        let (root, bands, projects) = band_storage("delete-dry-free");
+        delete_band_at(&bands, &projects, "blanicka_kapela", true).expect("dry run");
+        assert!(bands.join("blanicka_kapela.json").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn delete_band_dry_run_reports_band_in_use_without_deleting() {
+        let (root, bands, projects) = band_storage("delete-dry-in-use");
+        fs::write(
+            projects.join("BK_Praha.json"),
+            "{\"id\":\"p1\",\"bandRef\":\"blanicka_kapela\"}",
+        )
+        .expect("seed project");
+        let err = delete_band_at(&bands, &projects, "blanicka_kapela", true).expect_err("in use");
+        assert_eq!(err.code, "BAND_IN_USE");
+        assert_eq!(err.projects.len(), 1, "{:?}", err.projects);
+        assert!(bands.join("blanicka_kapela.json").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn band_usage_serializes_in_the_shape_bands_api_reads() {
+        let uses = serde_json::to_value(BandUsage::UsesBand {
+            file: "a.json".into(),
+            display_name: Some("A".into()),
+            status: None,
+        })
+        .expect("serialize");
+        assert_eq!(
+            uses,
+            serde_json::json!({ "kind": "usesBand", "file": "a.json", "displayName": "A", "status": null })
+        );
+        let unreadable = serde_json::to_value(BandUsage::Unreadable {
+            file: "b.json".into(),
+            message: "bad".into(),
+        })
+        .expect("serialize");
+        assert_eq!(
+            unreadable,
+            serde_json::json!({ "kind": "unreadable", "file": "b.json", "message": "bad" })
+        );
     }
 }
