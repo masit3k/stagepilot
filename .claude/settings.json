@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test*)",
+      "Bash(npm run lint*)",
+      "Bash(npx vitest *)",
+      "Bash(npx tsc --noEmit*)",
+      "Bash(npx biome *)",
+      "Bash(cargo check *)",
+      "Bash(cargo test *)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show *)"
+    ],
+    "ask": ["Bash(git commit*)", "Bash(git push*)"],
+    "deny": ["Bash(git reset --hard*)", "Edit(data/assets/**)"]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/hooks/check-edited-file.mjs\""
+          }
+        ]
+      }
+    ]
+  }
+}

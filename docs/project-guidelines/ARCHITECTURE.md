@@ -1,52 +1,51 @@
-Code & Architecture
+# Code & Architecture
 
 This document defines the architectural and coding principles of the Stageplan & Inputlist Generator project.
 The goal is a modern, robust, readable, professional, and scalable solution.
 
---------------------------------------------------
-1. Core Architectural Principles
---------------------------------------------------
+## 1. Core Architectural Principles
 
-- Single Source of Truth
+- **Single Source of Truth**
   Project + Presets + Templates -> PDF
   No manual adjustments, no hidden state.
 
-- Strict Layered Architecture
+- **Strict Layered Architecture**
   UI -> Application -> Domain -> Infrastructure
 
-- Deterministic Output
+- **Deterministic Output**
   Same input data always produces the same PDF.
 
-- No Overengineering
+- **No Overengineering**
   Simple and explicit solutions are preferred.
 
---------------------------------------------------
-2. Layer Responsibilities
---------------------------------------------------
+## 2. Layer Responsibilities
 
-UI
+### UI
+
 - Data editing and selection
 - Displays validation errors
 - No business logic
 
-Application
+### Application
+
 - Orchestrates use-cases
 - Coordinates validation and export
 
-Domain
+### Domain
+
 - Core business rules
 - Domain models
 - No IO, no rendering
 
-Infrastructure
+### Infrastructure
+
 - Filesystem access
 - PDF rendering
 - Templates and logging
 
---------------------------------------------------
-3. Project Structure
---------------------------------------------------
+## 3. Project Structure
 
+```text
 /data
   /bands
   /musicians
@@ -58,12 +57,12 @@ Infrastructure
   /app
   /infra
   /ui
+```
 
---------------------------------------------------
-4. Domain Model Principles
---------------------------------------------------
+## 4. Domain Model Principles
 
 Entities:
+
 - Band
 - Musician
 - Preset
@@ -75,9 +74,7 @@ Entities:
 - No side effects
 - Controlled state changes
 
---------------------------------------------------
-5. Processing Pipeline
---------------------------------------------------
+## 5. Processing Pipeline
 
 1. Resolve lineup
 2. Build input list
@@ -88,9 +85,7 @@ Entities:
 7. Validate
 8. Render PDF
 
---------------------------------------------------
-6. Fixed Rules & Constraints
---------------------------------------------------
+## 6. Fixed Rules & Constraints
 
 - Max 32 inputs
 - Max monitor mixes as count of members
@@ -101,18 +96,14 @@ Entities:
 - Exception: Inputlist PDF export MAY be 2 pages when Stageplan is included as page 2.
   Stageplan is always page 2, never page 1.
 
---------------------------------------------------
-7. Validation Strategy
---------------------------------------------------
+## 7. Validation Strategy
 
 - Runs before export
 - Returns all errors
 - Errors contain:
   code, message, path
 
---------------------------------------------------
-8. PDF Rendering Rules
---------------------------------------------------
+## 8. PDF Rendering Rules
 
 - HTML/CSS rendering
 - Local fonts only
@@ -120,36 +111,29 @@ Entities:
 - No page breaks (except the explicit Stageplan page 2)
 - Overflow = validation error (for each page separately)
 
---------------------------------------------------
-9. Logging & Debugging
---------------------------------------------------
+## 9. Logging & Debugging
 
 - Structured logs
 - One job ID per export
 - Logs include band, date, errors
 
---------------------------------------------------
-10. Testing Strategy
---------------------------------------------------
+## 10. Testing Strategy
 
 - Unit tests for domain logic
 - Snapshot tests for view models
 - Optional PDF checks
 
---------------------------------------------------
-11. Code Quality Rules
---------------------------------------------------
+## 11. Code Quality Rules
 
 - TypeScript strict mode
 - No any
 - No magic strings
 - Short, readable functions
 
---------------------------------------------------
-12. Long-Term Scalability
---------------------------------------------------
+## 12. Long-Term Scalability
 
 Architecture must allow:
+
 - Database storage
 - Multi-page exports
 - Drag & drop stageplan

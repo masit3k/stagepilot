@@ -7,7 +7,7 @@ description: "Use in the StagePilot repository for commit-related tasks: inspect
 
 Use this skill only in the StagePilot repository.
 
-Follow the repository `AGENTS.md` strictly before applying this workflow. Repository instructions have priority for architecture, storage, validation, and UX rules.
+Follow the repository `CLAUDE.md` strictly before applying this workflow. Repository instructions have priority for architecture, storage, validation, and UX rules.
 
 Do not edit source files as part of this workflow unless the user explicitly asks for fixes before committing.
 

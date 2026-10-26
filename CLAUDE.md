@@ -6,6 +6,37 @@ This file provides guidance to Claude Code when working with the StagePilot code
 
 StagePilot is a **production-quality desktop application** for generating stage plan PDFs for music events. The goal is a robust, professional app suitable for public distribution — not a prototype. Prioritize correctness, maintainability, and architectural integrity over speed.
 
+## Read Before Architecture Or Refactoring Work
+
+Before architecture, refactoring, storage, PDF, or data-model work, read these documents:
+
+1. `docs/project-guidelines/ARCHITECTURE.md`
+2. `docs/project-guidelines/PROJECT_GUIDELINES.md`
+3. `docs/project-guidelines/STAGEPILOT_PROJECT_INSTRUCTIONS.md`
+
+## Conflict Priority
+
+1. User's explicit task instruction
+2. `CLAUDE.md`
+3. `docs/project-guidelines/ARCHITECTURE.md`
+4. `docs/project-guidelines/PROJECT_GUIDELINES.md`
+5. `docs/project-guidelines/STAGEPILOT_PROJECT_INSTRUCTIONS.md`
+
+If a user instruction intentionally overrides documentation, mention the override in the final output. If the override is unclear or appears dangerous, stop and ask questions before changing code.
+
+## Non-Negotiable Rules
+
+- Preserve existing behavior unless the task explicitly requires a behavior change.
+- Do not redesign architecture unless explicitly requested.
+- Do not introduce speculative abstractions.
+- Do not silently change persisted project JSON shape.
+- Do not duplicate business logic between UI and PDF/export code.
+- Keep UI, application, domain, infrastructure, Tauri, CLI, and PDF responsibilities separated.
+- If a requested change conflicts with documented invariants, stop and list questions.
+- Prefer small, focused, deterministic changes.
+- Do not modify unrelated files.
+- Run relevant checks when possible.
+
 ## Commands
 
 ```bash
@@ -130,3 +161,18 @@ Artifacts carry a feature between phases — not conversation history:
 Plans run 2000–3500 lines by design. Never load a whole plan into the main session — read only the task section, or let the agent read it. Details: `context-handoff` skill.
 
 **Baselines, not zeros.** `npm test`, `npm run lint` and `npx tsc --noEmit` each have known pre-existing failures. Every plan records the current numbers in its Global Constraints; measure the delta against those. Never report success from an absolute zero, and do not fix unrelated pre-existing failures.
+
+## Commit Workflow
+
+- Do not create commits unless explicitly requested.
+- Do not push unless explicitly requested.
+- For commit-related tasks, use the `stagepilot-commit` skill (`.claude/skills/stagepilot-commit/SKILL.md`).
+
+## Final Output
+
+Final output must include:
+
+- summary of changes
+- modified/created/deleted files
+- tests/checks run
+- single-line commit message
