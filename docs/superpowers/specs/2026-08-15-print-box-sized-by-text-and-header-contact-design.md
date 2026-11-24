@@ -1,3 +1,14 @@
+---
+type: Design
+title: "Tištěný box podle textu, kapelník v boxu a kontakt v hlavičce"
+description: "Návrh F7: velikost tištěného boxu podle jeho textu místo zóny, jednotné označení kapelníka a kontaktní osoba v hlavičce dokumentu."
+tags: [rebranding, pdf, stageplan, header]
+generated:
+  by: human:matej.krecmer
+  at: 2026-08-16T15:22:35+02:00
+status: stable
+audience: [developers, agents]
+---
 # Tištěný box podle textu, kapelník v boxu a kontakt v hlavičce
 
 **Fáze:** F7

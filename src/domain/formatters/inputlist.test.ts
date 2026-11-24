@@ -44,6 +44,24 @@ describe("input list formatters", () => {
       ),
     ).toEqual({ base: "OH", aSide: "L", shouldCollapse: false });
   });
+
+  it("does not pair _l and _r keys whose base differs", () => {
+    expect(
+      resolveStereoPair(
+        { key: "synth_l", label: "Synth", group: "keys" },
+        { key: "piano_r", label: "Piano", group: "keys" },
+      ),
+    ).toBeNull();
+  });
+
+  it("pairs _l and _r keys with the same base regardless of order and case", () => {
+    expect(
+      resolveStereoPair(
+        { key: "Synth_R", label: "Synth", group: "keys" },
+        { key: "synth_l", label: "Synth", group: "keys" },
+      ),
+    ).toEqual({ base: "Synth", aSide: "R", shouldCollapse: true });
+  });
 });
 
 describe("compactStereoInputChannelsForPdf", () => {

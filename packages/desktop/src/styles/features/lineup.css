@@ -2,11 +2,6 @@
    LINEUP — position cards, assignment editor, musician multiselect
    ========================================================================== */
 
-.lineup-grid {
-  display: grid;
-  gap: var(--sp-7);
-}
-
 .lineup-meta {
   margin: var(--sp-10) 0;
 }
@@ -35,10 +30,9 @@
 /* --------------------------------------------------------------------------
    Bordered block
 
-   Positions no longer use this — they are rows now. It stays because the Library
-   screens use it as a generic bordered block (Members, Default lineup) and the
-   assignment editor uses __add. The header/body/actions parts that only the old
-   position cards used are gone.
+   Positions no longer use this — they are rows now. It stays as a generic
+   bordered block for the four blocks of the band form, and the assignment
+   editor uses __add.
    -------------------------------------------------------------------------- */
 .lineup-card {
   border: 1px solid var(--color-border);
@@ -152,6 +146,22 @@
 .lineup-row__actions .button-secondary {
   min-height: var(--sp-control-md);
   padding: var(--sp-3) var(--sp-6);
+}
+
+/* A name with its own action — the band form's Remove (amendment A4.2). The
+   action column is `auto` and every Remove has the same text, so the buttons
+   line up down the rows. Without an action LineupRow renders no name line. */
+.lineup-row__name-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sp-5);
+}
+
+.lineup-row__name-line .lineup-list__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .section-divider {

@@ -46,62 +46,6 @@ struct BandOption {
     code: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct LibraryBand {
-    id: String,
-    name: String,
-    code: String,
-    description: Option<String>,
-    default_lineup: Option<Value>,
-    members: Vec<LibraryBandMember>,
-    contacts: Vec<LibraryContact>,
-    messages: Vec<LibraryMessage>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct LibraryBandMember {
-    musician_id: String,
-    roles: Vec<String>,
-    is_default: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct LibraryMusician {
-    id: String,
-    name: String,
-    gender: Option<String>,
-    default_roles: Vec<String>,
-    notes: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct LibraryInstrument {
-    id: String,
-    name: String,
-    key: String,
-    channels: usize,
-    stereo_mode: Option<String>,
-    notes: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct LibraryContact {
-    id: String,
-    name: String,
-    title: Option<String>,
-    phone: Option<String>,
-    email: Option<String>,
-    note: Option<String>,
-    primary: Option<bool>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct LibraryMessage {
-    id: String,
-    name: String,
-    body: String,
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct BandSetupData {
@@ -277,28 +221,26 @@ fn infer_monitoring_default_from_ref(monitor_ref: &str) -> Value {
     })
 }
 
+/// Starts a console program without a console window of its own. A release
+/// build runs in the Windows GUI subsystem, where each console child would
+/// otherwise flash a window on every preview and export.
+fn background_command(program: &str) -> Command {
+    #[cfg_attr(not(target_os = "windows"), allow(unused_mut))]
+    let mut command = Command::new(program);
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    command
+}
+
 fn resolve_workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
         .join("..")
         .join("..")
-}
-
-fn list_json_files_recursive(root: &Path) -> Result<Vec<PathBuf>, ApiError> {
-    let mut files = Vec::new();
-    for entry in fs::read_dir(root)
-        .map_err(|err| map_io_error(err, "BAND_SETUP_LOAD_FAILED", "Failed to read directory"))?
-    {
-        let entry = entry
-            .map_err(|err| map_io_error(err, "BAND_SETUP_LOAD_FAILED", "Failed to read entry"))?;
-        let p = entry.path();
-        if p.is_dir() {
-            files.extend(list_json_files_recursive(&p)?);
-        } else if p.extension().and_then(|s| s.to_str()) == Some("json") {
-            files.push(p);
-        }
-    }
-    Ok(files)
 }
 
 fn map_storage_error(err: StorageError, code: &str, context: &str) -> ApiError {
@@ -331,6 +273,310 @@ fn map_io_error(err: std::io::Error, code: &str, message: &str) -> ApiError {
         export_pdf_path: None,
         version_pdf_path: None,
     }
+}
+
+fn api_error(code: &str, message: String) -> ApiError {
+    ApiError {
+        code: code.into(),
+        message,
+        export_pdf_path: None,
+        version_pdf_path: None,
+    }
+}
+
+/// Recursively lists `*.json` files below `root`, sorted so callers see a
+/// stable order. Mapping the I/O error to an `ApiError` is the caller's job,
+/// because each command reports under its own code.
+fn collect_json_files(root: &Path) -> std::io::Result<Vec<PathBuf>> {
+    let mut files = Vec::new();
+    for entry in fs::read_dir(root)? {
+        let path = entry?.path();
+        if path.is_dir() {
+            files.extend(collect_json_files(&path)?);
+        } else if path.extension().and_then(|s| s.to_str()) == Some("json") {
+            files.push(path);
+        }
+    }
+    files.sort();
+    Ok(files)
+}
+
+fn read_json_file(path: &Path, code: &str) -> Result<Value, ApiError> {
+    let content = fs::read_to_string(path)
+        .map_err(|err| api_error(code, format!("Failed to read {} ({})", path.display(), err)))?;
+    serde_json::from_str(&content)
+        .map_err(|err| api_error(code, format!("Invalid JSON in {} ({})", path.display(), err)))
+}
+
+/// Every musician file under `catalog/musicians/<role>/`. One broken file
+/// fails the whole list with its path: the band form must not offer a
+/// partial catalog (spec R13).
+fn list_catalog_musicians_at(musicians_dir: &Path) -> Result<Vec<Value>, ApiError> {
+    if !musicians_dir.exists() {
+        return Ok(Vec::new());
+    }
+    let files = collect_json_files(musicians_dir).map_err(|err| {
+        api_error(
+            "MUSICIAN_LIST_FAILED",
+            format!("Failed to list musicians in {} ({})", musicians_dir.display(), err),
+        )
+    })?;
+    files
+        .iter()
+        .map(|path| read_json_file(path, "MUSICIAN_LIST_FAILED"))
+        .collect()
+}
+
+/// Bundled group and monitor presets. Shared by `get_band_setup_data` and
+/// `list_presets` so both read the catalog the same way (spec R10); `code`
+/// keeps each command's own error code.
+fn load_preset_catalog_at(workspace_root: &Path, code: &str) -> Result<Vec<Value>, ApiError> {
+    let mut presets = Vec::new();
+    for preset_dir in [
+        workspace_root.join("data/assets/presets/groups"),
+        workspace_root.join("data/assets/presets/monitors"),
+    ] {
+        if !preset_dir.exists() {
+            continue;
+        }
+        let files = collect_json_files(&preset_dir).map_err(|err| {
+            api_error(
+                code,
+                format!("Failed to list presets in {} ({})", preset_dir.display(), err),
+            )
+        })?;
+        for path in files {
+            presets.push(read_json_file(&path, code)?);
+        }
+    }
+    Ok(presets)
+}
+
+/// A catalog id must already be a safe file name: the domain derives it, Rust
+/// only refuses to "fix" it, because a silently changed id would point
+/// `bandRef` or `defaultContactId` at a file that does not exist.
+fn ensure_safe_entity_id(id: &str, code: &str) -> Result<(), ApiError> {
+    if id.is_empty() || sanitize_id_to_filename(id) != id {
+        return Err(api_error(code, format!("'{}' is not a safe catalog id.", id)));
+    }
+    Ok(())
+}
+
+/// Parses `json` only to check that it is JSON and names `id`. The caller
+/// writes the original text, so the key order chosen by the domain survives.
+fn ensure_json_matches_id(id: &str, json: &str, code: &str) -> Result<(), ApiError> {
+    let value: Value = serde_json::from_str(json)
+        .map_err(|err| api_error(code, format!("JSON for '{}' is not valid ({})", id, err)))?;
+    match value.get("id").and_then(|v| v.as_str()) {
+        Some(json_id) if json_id == id => Ok(()),
+        other => Err(api_error(
+            code,
+            format!("JSON id {:?} does not match '{}'.", other, id),
+        )),
+    }
+}
+
+fn read_catalog_entity_at(dir: &Path, id: &str, code: &str) -> Result<Option<Value>, ApiError> {
+    ensure_safe_entity_id(id, code)?;
+    let path = dir.join(format!("{}.json", id));
+    if !path.exists() {
+        return Ok(None);
+    }
+    read_json_file(&path, code).map(Some)
+}
+
+fn write_catalog_json(dir: &Path, path: &Path, json: &str, code: &str) -> Result<(), ApiError> {
+    fs::create_dir_all(dir)
+        .map_err(|err| map_io_error(err, code, "Failed to create catalog directory"))?;
+    atomic_write_bytes(path, json.as_bytes())
+        .map_err(|err| map_storage_error(err, code, "Failed to write catalog file"))
+}
+
+fn write_band_at(bands_dir: &Path, band_id: &str, json: &str, expect_new: bool) -> Result<(), ApiError> {
+    ensure_safe_entity_id(band_id, "BAND_WRITE_FAILED")?;
+    ensure_json_matches_id(band_id, json, "BAND_WRITE_FAILED")?;
+    let path = bands_dir.join(format!("{}.json", band_id));
+    if expect_new && path.exists() {
+        return Err(api_error(
+            "BAND_EXISTS",
+            format!("A band already exists at {}.", path.display()),
+        ));
+    }
+    write_catalog_json(bands_dir, &path, json, "BAND_WRITE_FAILED")
+}
+
+fn write_contact_at(contacts_dir: &Path, contact_id: &str, json: &str) -> Result<(), ApiError> {
+    ensure_safe_entity_id(contact_id, "CONTACT_WRITE_FAILED")?;
+    ensure_json_matches_id(contact_id, json, "CONTACT_WRITE_FAILED")?;
+    let path = contacts_dir.join(format!("{}.json", contact_id));
+    write_catalog_json(contacts_dir, &path, json, "CONTACT_WRITE_FAILED")
+}
+
+/// One project that keeps a band from being deleted (band editor amendment A3).
+/// `kind` and the camelCase keys are the contract `bandDeletion.ts` parses.
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+enum BandUsage {
+    #[serde(rename_all = "camelCase")]
+    UsesBand {
+        file: String,
+        display_name: Option<String>,
+        status: Option<String>,
+    },
+    /// A project file that cannot be read or parsed cannot be checked, so it blocks.
+    #[serde(rename_all = "camelCase")]
+    Unreadable { file: String, message: String },
+}
+
+/// `delete_band` error: the `ApiError` code and message plus the projects that
+/// block the deletion. Its own type, because `ApiError` is built as a struct
+/// literal in dozens of places.
+#[derive(Debug, Serialize)]
+struct DeleteBandError {
+    code: String,
+    message: String,
+    projects: Vec<BandUsage>,
+}
+
+impl DeleteBandError {
+    fn failed(message: String) -> Self {
+        DeleteBandError {
+            code: "BAND_DELETE_FAILED".into(),
+            message,
+            projects: Vec::new(),
+        }
+    }
+}
+
+impl From<ApiError> for DeleteBandError {
+    fn from(err: ApiError) -> Self {
+        DeleteBandError {
+            code: err.code,
+            message: err.message,
+            projects: Vec::new(),
+        }
+    }
+}
+
+/// `catalogRepository.getBand` resolves a `bandRef` by id and by lower-cased
+/// id or code, so a project uses the band under any of them.
+fn band_ref_matches(band_ref: &str, band_id: &str, band_code: Option<&str>) -> bool {
+    let band_ref = band_ref.trim();
+    if band_ref.is_empty() {
+        return false;
+    }
+    band_ref.eq_ignore_ascii_case(band_id)
+        || matches!(band_code, Some(code) if !code.is_empty() && band_ref.eq_ignore_ascii_case(code))
+}
+
+fn file_label(path: &Path) -> String {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default()
+        .to_string()
+}
+
+/// `*.json` files directly in `projects/`, sorted. A missing folder means no
+/// projects yet (fresh install), not an error.
+fn project_json_files(projects_dir: &Path) -> Result<Vec<PathBuf>, DeleteBandError> {
+    if !projects_dir.exists() {
+        return Ok(Vec::new());
+    }
+    let list_failed = |err: std::io::Error| {
+        DeleteBandError::failed(format!(
+            "Failed to list projects in {} ({})",
+            projects_dir.display(),
+            err
+        ))
+    };
+    let mut files = Vec::new();
+    for entry in fs::read_dir(projects_dir).map_err(list_failed)? {
+        let path = entry.map_err(list_failed)?.path();
+        if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json") {
+            files.push(path);
+        }
+    }
+    files.sort();
+    Ok(files)
+}
+
+/// Projects whose `bandRef` resolves to the band. A file that cannot be read
+/// or parsed is reported as `Unreadable` and blocks (amendment A3).
+fn find_band_usages_at(
+    projects_dir: &Path,
+    band_id: &str,
+    band_code: Option<&str>,
+) -> Result<Vec<BandUsage>, DeleteBandError> {
+    let mut usages = Vec::new();
+    for path in project_json_files(projects_dir)? {
+        let file = file_label(&path);
+        let parsed = fs::read_to_string(&path)
+            .map_err(|err| err.to_string())
+            .and_then(|text| serde_json::from_str::<Value>(&text).map_err(|err| err.to_string()));
+        let project = match parsed {
+            Ok(project) => project,
+            Err(message) => {
+                usages.push(BandUsage::Unreadable { file, message });
+                continue;
+            }
+        };
+        let band_ref = project
+            .get("bandRef")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default();
+        if band_ref_matches(band_ref, band_id, band_code) {
+            let text_of = |key: &str| {
+                project
+                    .get(key)
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string)
+            };
+            usages.push(BandUsage::UsesBand {
+                file,
+                display_name: text_of("displayName"),
+                status: text_of("status"),
+            });
+        }
+    }
+    Ok(usages)
+}
+
+/// Amendment A3: deletes `bands/<id>.json` unless a project still uses the
+/// band. Check and delete run in one call, so no UI round trip sits between
+/// them. `dry_run` runs the same check and deletes nothing — the UI uses it to
+/// show the blocking projects before asking for confirmation (plan Ruling 11).
+/// Contact files are never touched — they belong to the musician and other
+/// bands share them.
+fn delete_band_at(
+    bands_dir: &Path,
+    projects_dir: &Path,
+    band_id: &str,
+    dry_run: bool,
+) -> Result<(), DeleteBandError> {
+    ensure_safe_entity_id(band_id, "BAND_DELETE_FAILED")?;
+    let path = bands_dir.join(format!("{}.json", band_id));
+    if !path.exists() {
+        return Err(DeleteBandError::failed(format!(
+            "Band file {} was not found.",
+            path.display()
+        )));
+    }
+    let band = read_json_file(&path, "BAND_DELETE_FAILED")?;
+    let code = band.get("code").and_then(|v| v.as_str()).map(str::trim);
+    let usages = find_band_usages_at(projects_dir, band_id, code)?;
+    if !usages.is_empty() {
+        return Err(DeleteBandError {
+            code: "BAND_IN_USE".into(),
+            message: format!("{} project(s) still use band '{}'.", usages.len(), band_id),
+            projects: usages,
+        });
+    }
+    if dry_run {
+        return Ok(());
+    }
+    fs::remove_file(&path).map_err(|err| {
+        DeleteBandError::failed(format!("Failed to delete {} ({})", path.display(), err))
+    })
 }
 
 fn parse_node_export_response(stdout: &str, stderr: &str) -> Result<NodeExportResponse, ApiError> {
@@ -482,10 +728,6 @@ fn catalog_entity_dir(app: &tauri::AppHandle, entity: &str) -> Result<PathBuf, A
     Ok(catalog_dir(app)?.join(entity))
 }
 
-fn entity_name(file_name: &str) -> &str {
-    file_name.strip_suffix(".json").unwrap_or(file_name)
-}
-
 fn resolve_musician_display_name(musician: &Value, fallback_id: &str) -> String {
     let first_name = musician
         .get("firstName")
@@ -524,166 +766,6 @@ fn resolve_musician_display_name(musician: &Value, fallback_id: &str) -> String 
         })
         .collect::<Vec<String>>()
         .join(" ")
-}
-
-fn load_library_list<T: for<'de> Deserialize<'de>>(
-    app: &tauri::AppHandle,
-    file_name: &str,
-) -> Result<Vec<T>, ApiError> {
-    let dir = catalog_entity_dir(app, entity_name(file_name))?;
-    if !dir.exists() {
-        return Ok(Vec::new());
-    }
-    let mut items: Vec<T> = Vec::new();
-    let files = if file_name == "musicians.json" {
-        list_json_files_recursive(&dir)?
-    } else {
-        fs::read_dir(&dir)
-            .map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read catalog"))?
-            .filter_map(|entry| entry.ok().map(|e| e.path()))
-            .collect()
-    };
-    for path in files {
-        if path.extension().and_then(|s| s.to_str()) != Some("json") {
-            continue;
-        }
-        let content = fs::read_to_string(&path)
-            .map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read entity"))?;
-        let item = serde_json::from_str::<T>(&content).map_err(|err| ApiError {
-            code: "LIBRARY_READ_FAILED".into(),
-            message: format!("Invalid JSON in {} ({})", path.display(), err),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        })?;
-        items.push(item);
-    }
-    Ok(items)
-}
-
-fn load_library_map<T: for<'de> Deserialize<'de>>(
-    app: &tauri::AppHandle,
-    file_name: &str,
-) -> Result<HashMap<String, T>, ApiError> {
-    let dir = catalog_entity_dir(app, entity_name(file_name))?;
-    if !dir.exists() {
-        return Ok(HashMap::new());
-    }
-    let mut items: HashMap<String, T> = HashMap::new();
-    for entry in fs::read_dir(&dir)
-        .map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read catalog"))?
-    {
-        let entry = entry
-            .map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read entry"))?;
-        let path = entry.path();
-        if path.extension().and_then(|s| s.to_str()) != Some("json") {
-            continue;
-        }
-        let key = path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or_default()
-            .to_string();
-        let content = fs::read_to_string(&path)
-            .map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read entity"))?;
-        let item = serde_json::from_str::<T>(&content).map_err(|err| ApiError {
-            code: "LIBRARY_READ_FAILED".into(),
-            message: format!("Invalid JSON in {} ({})", path.display(), err),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        })?;
-        items.insert(key, item);
-    }
-    Ok(items)
-}
-
-fn save_library_map<T: Serialize>(
-    app: &tauri::AppHandle,
-    file_name: &str,
-    items: &HashMap<String, T>,
-) -> Result<(), ApiError> {
-    let dir = catalog_entity_dir(app, entity_name(file_name))?;
-    fs::create_dir_all(&dir)
-        .map_err(|err| map_io_error(err, "LIBRARY_WRITE_FAILED", "Failed to create catalog"))?;
-    for (id, item) in items {
-        let path = dir.join(format!("{}.json", sanitize_id_to_filename(id)));
-        let json = serde_json::to_vec_pretty(item).map_err(|err| ApiError {
-            code: "LIBRARY_WRITE_FAILED".into(),
-            message: format!("Failed to serialize {} ({})", id, err),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        })?;
-        atomic_write_bytes(&path, &json).map_err(|err| {
-            map_storage_error(err, "LIBRARY_WRITE_FAILED", "Failed to save entity")
-        })?;
-    }
-    Ok(())
-}
-
-fn save_library_list<T: Serialize>(
-    app: &tauri::AppHandle,
-    file_name: &str,
-    items: &Vec<T>,
-) -> Result<(), ApiError> {
-    let dir = catalog_entity_dir(app, entity_name(file_name))?;
-    fs::create_dir_all(&dir)
-        .map_err(|err| map_io_error(err, "LIBRARY_WRITE_FAILED", "Failed to create catalog"))?;
-    for item in items {
-        let value = serde_json::to_value(item).map_err(|err| ApiError {
-            code: "LIBRARY_WRITE_FAILED".into(),
-            message: format!("Failed to serialize entity ({})", err),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        })?;
-        let Some(id) = value.get("id").and_then(|v| v.as_str()) else {
-            continue;
-        };
-        let path = if file_name == "musicians.json" {
-            let role = value
-                .get("defaultRoles")
-                .or_else(|| value.get("default_roles"))
-                .and_then(|v| v.as_array())
-                .and_then(|roles| roles.iter().find_map(|role| role.as_str()))
-                .map(|role| role.trim().to_lowercase())
-                .ok_or(ApiError {
-                    code: "LIBRARY_VALIDATION_FAILED".into(),
-                    message: format!("Musician '{}' is missing default role.", id),
-                    export_pdf_path: None,
-                    version_pdf_path: None,
-                })?;
-            if !matches!(
-                role.as_str(),
-                "drums" | "bass" | "guitar" | "keys" | "vocs" | "talkback"
-            ) {
-                return Err(ApiError {
-                    code: "LIBRARY_VALIDATION_FAILED".into(),
-                    message: format!("Musician '{}' has invalid role '{}'.", id, role),
-                    export_pdf_path: None,
-                    version_pdf_path: None,
-                });
-            }
-            let role_dir = dir.join(role);
-            fs::create_dir_all(&role_dir).map_err(|err| {
-                map_io_error(
-                    err,
-                    "LIBRARY_WRITE_FAILED",
-                    "Failed to create musician role directory",
-                )
-            })?;
-            role_dir.join(format!("{}.json", sanitize_id_to_filename(id)))
-        } else {
-            dir.join(format!("{}.json", sanitize_id_to_filename(id)))
-        };
-        let json = serde_json::to_vec_pretty(item).map_err(|err| ApiError {
-            code: "LIBRARY_WRITE_FAILED".into(),
-            message: format!("Failed to serialize {} ({})", id, err),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        })?;
-        atomic_write_bytes(&path, &json).map_err(|err| {
-            map_storage_error(err, "LIBRARY_WRITE_FAILED", "Failed to save entity")
-        })?;
-    }
-    Ok(())
 }
 
 #[tauri::command]
@@ -1109,35 +1191,19 @@ fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSet
         ));
     }
 
-    let mut preset_catalog: HashMap<String, Value> = HashMap::new();
-    let workspace_root = resolve_workspace_root();
     // Presets exposed to setup UI are built-in application assets. Runtime
     // AppData catalog storage remains limited to user entities and notes.
-    for preset_dir in [
-        workspace_root.join("data/assets/presets/groups"),
-        workspace_root.join("data/assets/presets/monitors"),
-    ] {
-        if !preset_dir.exists() {
+    let mut preset_catalog: HashMap<String, Value> = HashMap::new();
+    for preset in load_preset_catalog_at(&resolve_workspace_root(), "BAND_SETUP_LOAD_FAILED")? {
+        let Some(id) = preset.get("id").and_then(|v| v.as_str()).map(str::to_string) else {
             continue;
-        }
-        for entry in list_json_files_recursive(&preset_dir)? {
-            let content = fs::read_to_string(&entry).map_err(|err| {
-                map_io_error(err, "BAND_SETUP_LOAD_FAILED", "Failed to read preset file")
-            })?;
-            let preset: Value = serde_json::from_str(&content).map_err(|err| ApiError {
-                code: "BAND_SETUP_LOAD_FAILED".into(),
-                message: format!("Invalid preset JSON in {} ({})", entry.display(), err),
-                export_pdf_path: None,
-                version_pdf_path: None,
-            })?;
-            if let Some(id) = preset.get("id").and_then(|v| v.as_str()) {
-                preset_catalog.insert(id.to_string(), preset);
-            }
-        }
+        };
+        preset_catalog.insert(id, preset);
     }
 
     let musician_default_overrides =
-        load_library_map::<Value>(&app, "musician_defaults.json").unwrap_or_default();
+        read_musician_defaults_at(&catalog_entity_dir(&app, MUSICIAN_DEFAULTS_ENTITY)?)
+            .unwrap_or_default();
     for (key, value) in musician_default_overrides {
         musician_defaults.insert(key, value);
     }
@@ -1214,6 +1280,62 @@ fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSet
         notes_template,
         load_warnings,
     })
+}
+
+#[tauri::command]
+fn list_catalog_musicians(app: tauri::AppHandle) -> Result<Vec<Value>, ApiError> {
+    list_catalog_musicians_at(&catalog_entity_dir(&app, "musicians")?)
+}
+
+#[tauri::command]
+fn list_presets() -> Result<Vec<Value>, ApiError> {
+    load_preset_catalog_at(&resolve_workspace_root(), "PRESET_LIST_FAILED")
+}
+
+#[tauri::command]
+fn read_band(app: tauri::AppHandle, band_id: String) -> Result<Option<Value>, ApiError> {
+    read_catalog_entity_at(&catalog_entity_dir(&app, "bands")?, &band_id, "BAND_READ_FAILED")
+}
+
+#[tauri::command]
+fn read_contact(app: tauri::AppHandle, contact_id: String) -> Result<Option<Value>, ApiError> {
+    read_catalog_entity_at(
+        &catalog_entity_dir(&app, "contacts")?,
+        &contact_id,
+        "CONTACT_READ_FAILED",
+    )
+}
+
+#[tauri::command]
+fn write_band(
+    app: tauri::AppHandle,
+    band_id: String,
+    json: String,
+    expect_new: bool,
+) -> Result<(), ApiError> {
+    write_band_at(&catalog_entity_dir(&app, "bands")?, &band_id, &json, expect_new)
+}
+
+#[tauri::command]
+fn write_contact(app: tauri::AppHandle, contact_id: String, json: String) -> Result<(), ApiError> {
+    write_contact_at(&catalog_entity_dir(&app, "contacts")?, &contact_id, &json)
+}
+
+#[tauri::command]
+fn delete_band(
+    app: tauri::AppHandle,
+    band_id: String,
+    dry_run: bool,
+) -> Result<(), DeleteBandError> {
+    let bands_dir = catalog_entity_dir(&app, "bands")
+        .map_err(|err| DeleteBandError::failed(err.message))?;
+    let projects_dir = storage_projects_dir(&app).map_err(|err| {
+        DeleteBandError::failed(
+            map_storage_error(err, "BAND_DELETE_FAILED", "Failed to resolve projects dir")
+                .message,
+        )
+    })?;
+    delete_band_at(&bands_dir, &projects_dir, &band_id, dry_run)
 }
 
 #[tauri::command]
@@ -1370,7 +1492,7 @@ fn export_pdf(
     let workspace_root = resolve_workspace_root();
     let script_path = workspace_root.join("scripts").join("desktop_export.ts");
 
-    let mut command = Command::new("node");
+    let mut command = background_command("node");
     command
         .arg("--import")
         .arg("tsx")
@@ -1459,7 +1581,7 @@ fn build_project_pdf_preview(
         script_path.display()
     );
 
-    let mut command = Command::new("node");
+    let mut command = background_command("node");
     command
         .arg("--import")
         .arg("tsx")
@@ -1508,22 +1630,20 @@ fn build_project_pdf_preview(
         }
     }
 
+    let code = response.code.unwrap_or_else(|| "PREVIEW_FAILED".into());
+    // The renderer's own message goes to the UI: a release build has no log to
+    // point the user at, and the reason is usually something they can fix.
+    let message = response
+        .message
+        .unwrap_or_else(|| "Preview could not be generated. Please retry.".into());
     eprintln!(
         "[preview] command failed project_id={} code={} message={}",
-        project_id,
-        response
-            .code
-            .clone()
-            .unwrap_or_else(|| "PREVIEW_FAILED".into()),
-        response
-            .message
-            .clone()
-            .unwrap_or_else(|| "Preview failed.".into())
+        project_id, code, message
     );
 
     Err(ApiError {
-        code: response.code.unwrap_or_else(|| "PREVIEW_FAILED".into()),
-        message: "Preview could not be generated. Please retry. Check desktop logs for Chromium diagnostics.".into(),
+        code,
+        message,
         export_pdf_path: response.export_pdf_path,
         version_pdf_path: response.version_pdf_path,
     })
@@ -1552,7 +1672,7 @@ fn build_stageplan_print_metrics(
         script_path.display()
     );
 
-    let output = Command::new("node")
+    let output = background_command("node")
         .arg("--import")
         .arg("tsx")
         .arg(script_path.as_os_str())
@@ -1751,141 +1871,6 @@ fn pick_export_pdf_path(
 }
 
 #[tauri::command]
-fn list_library_bands(app: tauri::AppHandle) -> Result<Vec<LibraryBand>, ApiError> {
-    let mut items = load_library_list::<LibraryBand>(&app, "bands.json")?;
-    items.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
-    Ok(items)
-}
-
-#[tauri::command]
-fn read_library_band(app: tauri::AppHandle, band_id: String) -> Result<LibraryBand, ApiError> {
-    let items = load_library_list::<LibraryBand>(&app, "bands.json")?;
-    items
-        .into_iter()
-        .find(|item| item.id == band_id)
-        .ok_or(ApiError {
-            code: "LIBRARY_NOT_FOUND".into(),
-            message: format!("Band not found: {}", band_id),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        })
-}
-
-#[tauri::command]
-fn upsert_library_band(app: tauri::AppHandle, band: LibraryBand) -> Result<(), ApiError> {
-    if band.name.trim().is_empty() || band.code.trim().is_empty() || band.id.trim().is_empty() {
-        return Err(ApiError {
-            code: "LIBRARY_VALIDATION_FAILED".into(),
-            message: "Band id, name, and code are required.".into(),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        });
-    }
-    let mut items = load_library_list::<LibraryBand>(&app, "bands.json")?;
-    if items
-        .iter()
-        .any(|existing| existing.id != band.id && existing.code.eq_ignore_ascii_case(&band.code))
-    {
-        return Err(ApiError {
-            code: "LIBRARY_VALIDATION_FAILED".into(),
-            message: format!("Band code '{}' is already used.", band.code),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        });
-    }
-    if let Some(existing) = items.iter_mut().find(|existing| existing.id == band.id) {
-        *existing = band;
-    } else {
-        items.push(band);
-    }
-    save_library_list(&app, "bands.json", &items)
-}
-
-#[tauri::command]
-fn delete_library_band(app: tauri::AppHandle, band_id: String) -> Result<(), ApiError> {
-    let projects = list_projects(app.clone())?;
-    if projects
-        .iter()
-        .any(|project| project.band_ref.as_deref() == Some(band_id.as_str()))
-    {
-        return Err(ApiError {
-            code: "LIBRARY_DELETE_BLOCKED".into(),
-            message: "Band is referenced by existing projects and cannot be deleted.".into(),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        });
-    }
-    let mut items = load_library_list::<LibraryBand>(&app, "bands.json")?;
-    items.retain(|item| item.id != band_id);
-    save_library_list(&app, "bands.json", &items)
-}
-
-#[tauri::command]
-fn duplicate_library_band(app: tauri::AppHandle, band_id: String) -> Result<LibraryBand, ApiError> {
-    let mut items = load_library_list::<LibraryBand>(&app, "bands.json")?;
-    let existing = items
-        .iter()
-        .find(|item| item.id == band_id)
-        .cloned()
-        .ok_or(ApiError {
-            code: "LIBRARY_NOT_FOUND".into(),
-            message: format!("Band not found: {}", band_id),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        })?;
-    let mut candidate_id = format!("{}_copy", existing.id);
-    let mut index: usize = 2;
-    while items.iter().any(|item| item.id == candidate_id) {
-        candidate_id = format!("{}_copy_{}", existing.id, index);
-        index += 1;
-    }
-    let mut duplicate = existing.clone();
-    duplicate.id = candidate_id;
-    duplicate.name = format!("{} Copy", existing.name);
-    duplicate.code = format!("{}-COPY{}", existing.code, index.saturating_sub(1));
-    items.push(duplicate.clone());
-    save_library_list(&app, "bands.json", &items)?;
-    Ok(duplicate)
-}
-
-#[tauri::command]
-fn list_library_musicians(app: tauri::AppHandle) -> Result<Vec<LibraryMusician>, ApiError> {
-    let mut items = load_library_list::<LibraryMusician>(&app, "musicians.json")?;
-    items.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
-    Ok(items)
-}
-
-#[tauri::command]
-fn upsert_library_musician(
-    app: tauri::AppHandle,
-    musician: LibraryMusician,
-) -> Result<(), ApiError> {
-    if musician.id.trim().is_empty() || musician.name.trim().is_empty() {
-        return Err(ApiError {
-            code: "LIBRARY_VALIDATION_FAILED".into(),
-            message: "Musician id and name are required.".into(),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        });
-    }
-    if musician.default_roles.is_empty() {
-        return Err(ApiError {
-            code: "LIBRARY_VALIDATION_FAILED".into(),
-            message: "Musician must define at least one default role.".into(),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        });
-    }
-    let mut items = load_library_list::<LibraryMusician>(&app, "musicians.json")?;
-    if let Some(existing) = items.iter_mut().find(|item| item.id == musician.id) {
-        *existing = musician;
-    } else {
-        items.push(musician);
-    }
-    save_library_list(&app, "musicians.json", &items)
-}
-
-#[tauri::command]
 fn update_musician_defaults(
     app: tauri::AppHandle,
     musician_id: String,
@@ -1900,100 +1885,88 @@ fn update_musician_defaults(
             version_pdf_path: None,
         });
     }
-    let normalized_role = role.trim().to_lowercase();
-    let key = format!("{}:{}", musician_id.trim(), normalized_role);
-    let mut defaults = load_library_map::<Value>(&app, "musician_defaults.json")?;
-    defaults.insert(key, setup);
-    save_library_map(&app, "musician_defaults.json", &defaults)
+    let dir = catalog_entity_dir(&app, MUSICIAN_DEFAULTS_ENTITY)?;
+    write_musician_default_at(&dir, &musician_id, &role, &setup)
 }
 
-#[tauri::command]
-fn delete_library_musician(app: tauri::AppHandle, musician_id: String) -> Result<(), ApiError> {
-    let bands = load_library_list::<LibraryBand>(&app, "bands.json")?;
-    if bands.iter().any(|band| {
-        band.members
-            .iter()
-            .any(|member| member.musician_id == musician_id)
-    }) {
-        return Err(ApiError {
-            code: "LIBRARY_DELETE_BLOCKED".into(),
-            message: "Musician is referenced by a band and cannot be deleted.".into(),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        });
-    }
-    let mut items = load_library_list::<LibraryMusician>(&app, "musicians.json")?;
-    items.retain(|item| item.id != musician_id);
-    save_library_list(&app, "musicians.json", &items)
+const MUSICIAN_DEFAULTS_ENTITY: &str = "musician_defaults";
+
+fn musician_default_key(musician_id: &str, role: &str) -> String {
+    format!("{}:{}", musician_id.trim(), role.trim().to_lowercase())
 }
 
-#[tauri::command]
-fn list_library_instruments(app: tauri::AppHandle) -> Result<Vec<LibraryInstrument>, ApiError> {
-    load_library_list::<LibraryInstrument>(&app, "instruments.json")
-}
-#[tauri::command]
-fn upsert_library_instrument(
-    app: tauri::AppHandle,
-    instrument: LibraryInstrument,
+/// Stores one musician default together with its owner.
+///
+/// The file name is sanitised (`m1:bass` becomes `m1_bass.json`) and cannot be
+/// turned back into the `id:role` key the UI looks up, so the owner travels
+/// inside the file and the reader rebuilds the key from there.
+fn write_musician_default_at(
+    dir: &Path,
+    musician_id: &str,
+    role: &str,
+    setup: &Value,
 ) -> Result<(), ApiError> {
-    let mut items = load_library_list::<LibraryInstrument>(&app, "instruments.json")?;
-    if let Some(existing) = items.iter_mut().find(|item| item.id == instrument.id) {
-        *existing = instrument;
-    } else {
-        items.push(instrument);
-    }
-    save_library_list(&app, "instruments.json", &items)
-}
-#[tauri::command]
-fn delete_library_instrument(app: tauri::AppHandle, instrument_id: String) -> Result<(), ApiError> {
-    let mut items = load_library_list::<LibraryInstrument>(&app, "instruments.json")?;
-    items.retain(|item| item.id != instrument_id);
-    save_library_list(&app, "instruments.json", &items)
-}
-
-#[tauri::command]
-fn list_library_contacts(app: tauri::AppHandle) -> Result<Vec<LibraryContact>, ApiError> {
-    load_library_list::<LibraryContact>(&app, "contacts.json")
-}
-#[tauri::command]
-fn upsert_library_contact(app: tauri::AppHandle, contact: LibraryContact) -> Result<(), ApiError> {
-    let mut items = load_library_list::<LibraryContact>(&app, "contacts.json")?;
-    if let Some(existing) = items.iter_mut().find(|item| item.id == contact.id) {
-        *existing = contact;
-    } else {
-        items.push(contact);
-    }
-    save_library_list(&app, "contacts.json", &items)
-}
-#[tauri::command]
-fn delete_library_contact(app: tauri::AppHandle, contact_id: String) -> Result<(), ApiError> {
-    let mut items = load_library_list::<LibraryContact>(&app, "contacts.json")?;
-    items.retain(|item| item.id != contact_id);
-    save_library_list(&app, "contacts.json", &items)
+    fs::create_dir_all(dir)
+        .map_err(|err| map_io_error(err, "LIBRARY_WRITE_FAILED", "Failed to create catalog"))?;
+    let key = musician_default_key(musician_id, role);
+    let record = serde_json::json!({
+        "musicianId": musician_id.trim(),
+        "role": role.trim().to_lowercase(),
+        "setup": setup,
+    });
+    let json = serde_json::to_vec_pretty(&record).map_err(|err| ApiError {
+        code: "LIBRARY_WRITE_FAILED".into(),
+        message: format!("Failed to serialize {} ({})", key, err),
+        export_pdf_path: None,
+        version_pdf_path: None,
+    })?;
+    let path = dir.join(format!("{}.json", sanitize_id_to_filename(&key)));
+    atomic_write_bytes(&path, &json)
+        .map_err(|err| map_storage_error(err, "LIBRARY_WRITE_FAILED", "Failed to save entity"))
 }
 
-#[tauri::command]
-fn list_library_messages(app: tauri::AppHandle) -> Result<Vec<LibraryMessage>, ApiError> {
-    load_library_list::<LibraryMessage>(&app, "messages.json")
-}
-#[tauri::command]
-fn upsert_library_message(
-    app: tauri::AppHandle,
-    message_item: LibraryMessage,
-) -> Result<(), ApiError> {
-    let mut items = load_library_list::<LibraryMessage>(&app, "messages.json")?;
-    if let Some(existing) = items.iter_mut().find(|item| item.id == message_item.id) {
-        *existing = message_item;
-    } else {
-        items.push(message_item);
+fn parse_musician_default(content: &str) -> Option<(String, Value)> {
+    let record = serde_json::from_str::<Value>(content).ok()?;
+    let musician_id = record.get("musicianId")?.as_str()?;
+    let role = record.get("role")?.as_str()?;
+    let setup = record.get("setup")?.clone();
+    if musician_id.trim().is_empty() || role.trim().is_empty() {
+        return None;
     }
-    save_library_list(&app, "messages.json", &items)
+    Some((musician_default_key(musician_id, role), setup))
 }
-#[tauri::command]
-fn delete_library_message(app: tauri::AppHandle, message_id: String) -> Result<(), ApiError> {
-    let mut items = load_library_list::<LibraryMessage>(&app, "messages.json")?;
-    items.retain(|item| item.id != message_id);
-    save_library_list(&app, "messages.json", &items)
+
+/// Reads every stored musician default, keyed `id:role`. A file that cannot be
+/// read or does not name its owner is skipped, so one bad file does not hide
+/// the defaults of everyone else.
+fn read_musician_defaults_at(dir: &Path) -> Result<HashMap<String, Value>, ApiError> {
+    let mut defaults: HashMap<String, Value> = HashMap::new();
+    if !dir.exists() {
+        return Ok(defaults);
+    }
+    for entry in fs::read_dir(dir)
+        .map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read catalog"))?
+    {
+        let path = entry
+            .map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read entry"))?
+            .path();
+        if path.extension().and_then(|s| s.to_str()) != Some("json") {
+            continue;
+        }
+        let parsed = fs::read_to_string(&path)
+            .ok()
+            .and_then(|content| parse_musician_default(&content));
+        match parsed {
+            Some((key, setup)) => {
+                defaults.insert(key, setup);
+            }
+            None => eprintln!(
+                "[musician-defaults] skipping unreadable file {}",
+                path.display()
+            ),
+        }
+    }
+    Ok(defaults)
 }
 
 #[tauri::command]
@@ -2008,6 +1981,16 @@ fn reveal_in_explorer(path: String) -> Result<(), ApiError> {
 
 fn open_path(path: &str, reveal: bool) -> Result<(), ApiError> {
     let path = Path::new(path);
+    // The launchers below report success even when the target is gone, so a
+    // missing path has to be caught here for the caller to hear about it.
+    if !path.exists() {
+        return Err(ApiError {
+            code: "OPEN_FAILED".into(),
+            message: format!("Path does not exist: {}", path.display()),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        });
+    }
 
     #[cfg(target_os = "windows")]
     {
@@ -2019,7 +2002,7 @@ fn open_path(path: &str, reveal: bool) -> Result<(), ApiError> {
                 .map_err(|err| map_io_error(err, "OPEN_FAILED", "Failed to open path"))?;
         } else {
             let path_str = path.to_string_lossy().to_string();
-            Command::new("cmd")
+            background_command("cmd")
                 .args(["/C", "start", "", &path_str])
                 .status()
                 .map_err(|err| map_io_error(err, "OPEN_FAILED", "Failed to open path"))?;
@@ -2081,6 +2064,13 @@ pub fn run() {
             list_projects,
             list_bands,
             get_band_setup_data,
+            list_catalog_musicians,
+            list_presets,
+            read_band,
+            read_contact,
+            write_band,
+            write_contact,
+            delete_band,
             read_project,
             save_project,
             delete_project,
@@ -2096,24 +2086,7 @@ pub fn run() {
             pick_export_pdf_path,
             open_file,
             reveal_in_explorer,
-            list_library_bands,
-            read_library_band,
-            upsert_library_band,
-            delete_library_band,
-            duplicate_library_band,
-            list_library_musicians,
-            upsert_library_musician,
-            update_musician_defaults,
-            delete_library_musician,
-            list_library_instruments,
-            upsert_library_instrument,
-            delete_library_instrument,
-            list_library_contacts,
-            upsert_library_contact,
-            delete_library_contact,
-            list_library_messages,
-            upsert_library_message,
-            delete_library_message
+            update_musician_defaults
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -2121,7 +2094,85 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_node_export_response;
+    use super::{
+        delete_band_at, list_catalog_musicians_at, load_preset_catalog_at, open_path,
+        parse_node_export_response, read_catalog_entity_at, read_musician_defaults_at,
+        resolve_workspace_root, write_band_at, write_contact_at, write_musician_default_at,
+        BandUsage,
+    };
+    use std::{
+        fs,
+        path::PathBuf,
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    fn temp_test_dir(name: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or_default();
+        let dir = std::env::temp_dir().join(format!("stagepilot-lib-tests-{name}-{nanos}"));
+        fs::create_dir_all(&dir).expect("create temp dir");
+        dir
+    }
+
+    const BNB_JSON: &str = "{\n  \"type\": \"band\",\n  \"id\": \"big_night_band\",\n  \"name\": \"Big Night Band\",\n  \"code\": \"BNB\"\n}\n";
+
+    #[test]
+    fn musician_default_is_read_back_under_the_key_the_ui_looks_up() {
+        let dir = temp_test_dir("musician-default-roundtrip");
+        let setup = serde_json::json!({ "inputs": [{ "key": "el_bass_xlr_amp" }] });
+        write_musician_default_at(&dir, " m1 ", " Bass ", &setup).expect("write");
+        let defaults = read_musician_defaults_at(&dir).expect("read");
+        assert_eq!(defaults.get("m1:bass"), Some(&setup));
+        assert_eq!(defaults.len(), 1);
+    }
+
+    #[test]
+    fn musician_default_keeps_one_file_per_musician_and_role() {
+        let dir = temp_test_dir("musician-default-per-role");
+        let bass = serde_json::json!({ "inputs": [] });
+        let vocs = serde_json::json!({ "monitoring": { "type": "wedge" } });
+        write_musician_default_at(&dir, "m1", "bass", &bass).expect("write bass");
+        write_musician_default_at(&dir, "m1", "vocs", &vocs).expect("write vocs");
+        write_musician_default_at(&dir, "m1", "bass", &vocs).expect("overwrite bass");
+        let defaults = read_musician_defaults_at(&dir).expect("read");
+        assert_eq!(defaults.get("m1:bass"), Some(&vocs));
+        assert_eq!(defaults.get("m1:vocs"), Some(&vocs));
+        assert_eq!(defaults.len(), 2);
+    }
+
+    #[test]
+    fn musician_defaults_skip_files_without_an_owner_and_unreadable_json() {
+        let dir = temp_test_dir("musician-default-skip");
+        let setup = serde_json::json!({ "inputs": [] });
+        write_musician_default_at(&dir, "m1", "bass", &setup).expect("write");
+        fs::write(dir.join("m2_keys.json"), "{ \"inputs\": [] }").expect("ownerless file");
+        fs::write(dir.join("m3_vocs.json"), "{ not json").expect("broken file");
+        let defaults = read_musician_defaults_at(&dir).expect("read");
+        assert_eq!(defaults.len(), 1);
+        assert!(defaults.contains_key("m1:bass"));
+    }
+
+    #[test]
+    fn musician_defaults_of_a_missing_directory_are_empty() {
+        let dir = temp_test_dir("musician-default-missing").join("absent");
+        assert!(read_musician_defaults_at(&dir).expect("read").is_empty());
+    }
+
+    #[test]
+    fn opening_a_missing_path_fails_instead_of_reporting_success() {
+        let missing = temp_test_dir("open-missing").join("gone.pdf");
+        let path = missing.to_string_lossy().to_string();
+        assert_eq!(
+            open_path(&path, false).expect_err("open file").code,
+            "OPEN_FAILED"
+        );
+        assert_eq!(
+            open_path(&path, true).expect_err("reveal").code,
+            "OPEN_FAILED"
+        );
+    }
 
     #[test]
     fn parses_clean_success_response() {
@@ -2137,5 +2188,310 @@ mod tests {
 {"ok":true,"result":{}}"#;
         let err = parse_node_export_response(stdout, "").expect_err("should fail");
         assert_eq!(err.code, "EXPORT_RESPONSE_INVALID");
+    }
+
+    #[test]
+    fn write_band_writes_the_given_text_to_a_file_named_after_the_id() {
+        let dir = temp_test_dir("write-band");
+        write_band_at(&dir, "big_night_band", BNB_JSON, true).expect("write");
+        let path = dir.join("big_night_band.json");
+        assert_eq!(fs::read_to_string(&path).expect("read back"), BNB_JSON);
+        assert!(!dir.join("big_night_band.tmp").exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn write_band_rejects_ids_that_are_not_safe_file_names() {
+        let dir = temp_test_dir("unsafe-id");
+        for id in ["Big Night", "../evil", "", ".hidden"] {
+            let json = format!("{{\"id\":\"{}\"}}", id);
+            let err = write_band_at(&dir, id, &json, true).expect_err(id);
+            assert_eq!(err.code, "BAND_WRITE_FAILED", "{}", id);
+        }
+        assert_eq!(fs::read_dir(&dir).expect("list").count(), 0);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn write_band_rejects_json_whose_id_differs_or_is_not_json() {
+        let dir = temp_test_dir("id-mismatch");
+        let err = write_band_at(&dir, "other_band", BNB_JSON, true).expect_err("mismatch");
+        assert_eq!(err.code, "BAND_WRITE_FAILED");
+        let err = write_band_at(&dir, "big_night_band", "{not json", true).expect_err("broken");
+        assert_eq!(err.code, "BAND_WRITE_FAILED");
+        assert!(!dir.join("other_band.json").exists());
+        assert!(!dir.join("big_night_band.json").exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn write_band_with_expect_new_refuses_to_overwrite_an_existing_file() {
+        let dir = temp_test_dir("expect-new");
+        let path = dir.join("big_night_band.json");
+        fs::write(&path, "{\"id\":\"big_night_band\",\"name\":\"Original\"}").expect("seed");
+        let err = write_band_at(&dir, "big_night_band", BNB_JSON, true).expect_err("exists");
+        assert_eq!(err.code, "BAND_EXISTS");
+        assert!(fs::read_to_string(&path).expect("read").contains("Original"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn write_band_without_expect_new_overwrites_an_existing_file() {
+        let dir = temp_test_dir("overwrite");
+        let path = dir.join("big_night_band.json");
+        fs::write(&path, "{\"id\":\"big_night_band\",\"name\":\"Original\"}").expect("seed");
+        write_band_at(&dir, "big_night_band", BNB_JSON, false).expect("overwrite");
+        assert_eq!(fs::read_to_string(&path).expect("read"), BNB_JSON);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn write_contact_checks_the_id_and_writes_the_file() {
+        let dir = temp_test_dir("contact");
+        let json = "{\"id\":\"krecmer_matej\",\"firstName\":\"Matěj\",\"lastName\":\"Krečmer\"}";
+        let err = write_contact_at(&dir, "zidek_jakub", json).expect_err("mismatch");
+        assert_eq!(err.code, "CONTACT_WRITE_FAILED");
+        write_contact_at(&dir, "krecmer_matej", json).expect("write");
+        assert_eq!(
+            fs::read_to_string(dir.join("krecmer_matej.json")).expect("read"),
+            json
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn read_catalog_entity_returns_none_for_a_missing_file() {
+        let dir = temp_test_dir("read-missing");
+        let value = read_catalog_entity_at(&dir, "nobody", "BAND_READ_FAILED").expect("read");
+        assert!(value.is_none());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn read_catalog_entity_reports_the_path_of_broken_json() {
+        let dir = temp_test_dir("read-broken");
+        fs::write(dir.join("broken.json"), "{oops").expect("seed");
+        let err = read_catalog_entity_at(&dir, "broken", "BAND_READ_FAILED").expect_err("broken");
+        assert_eq!(err.code, "BAND_READ_FAILED");
+        assert!(err.message.contains("broken.json"), "{}", err.message);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn list_catalog_musicians_reads_every_role_folder() {
+        let dir = temp_test_dir("musicians");
+        fs::create_dir_all(dir.join("bass")).expect("bass dir");
+        fs::create_dir_all(dir.join("vocs")).expect("vocs dir");
+        fs::write(dir.join("bass/krecmer_matej.json"), "{\"id\":\"krecmer_matej\",\"group\":\"bass\"}").expect("seed bass");
+        fs::write(dir.join("vocs/krecmerova_eliska.json"), "{\"id\":\"krecmerova_eliska\",\"group\":\"vocs\"}").expect("seed vocs");
+        fs::write(dir.join("vocs/readme.txt"), "not json").expect("seed txt");
+        let musicians = list_catalog_musicians_at(&dir).expect("list");
+        let mut ids: Vec<&str> = musicians
+            .iter()
+            .filter_map(|m| m.get("id").and_then(|v| v.as_str()))
+            .collect();
+        ids.sort();
+        assert_eq!(ids, vec!["krecmer_matej", "krecmerova_eliska"]);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn list_catalog_musicians_fails_with_the_path_of_a_broken_file() {
+        let dir = temp_test_dir("musicians-broken");
+        fs::create_dir_all(dir.join("keys")).expect("keys dir");
+        fs::write(dir.join("keys/zidek_jakub.json"), "{\"id\":").expect("seed");
+        let err = list_catalog_musicians_at(&dir).expect_err("broken");
+        assert_eq!(err.code, "MUSICIAN_LIST_FAILED");
+        assert!(err.message.contains("zidek_jakub.json"), "{}", err.message);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn list_catalog_musicians_returns_nothing_for_a_missing_folder() {
+        let dir = temp_test_dir("musicians-missing").join("does-not-exist");
+        assert!(list_catalog_musicians_at(&dir).expect("list").is_empty());
+    }
+
+    #[test]
+    fn load_preset_catalog_reads_the_bundled_assets() {
+        let presets = load_preset_catalog_at(&resolve_workspace_root(), "PRESET_LIST_FAILED")
+            .expect("bundled presets");
+        let vocal = presets
+            .iter()
+            .find(|p| p.get("id").and_then(|v| v.as_str()) == Some("vocal_wired"))
+            .expect("vocal_wired is bundled");
+        assert_eq!(vocal["capabilities"][0], "vocal");
+    }
+
+    const BLANICKA_JSON: &str =
+        "{\"id\":\"blanicka_kapela\",\"code\":\"BK\",\"name\":\"Blanická kapela\"}";
+
+    /// `bands/` with Blanická kapela and an empty `projects/` under one temp root.
+    fn band_storage(name: &str) -> (PathBuf, PathBuf, PathBuf) {
+        let root = temp_test_dir(name);
+        let bands = root.join("bands");
+        let projects = root.join("projects");
+        fs::create_dir_all(&bands).expect("bands dir");
+        fs::create_dir_all(&projects).expect("projects dir");
+        fs::write(bands.join("blanicka_kapela.json"), BLANICKA_JSON).expect("seed band");
+        (root, bands, projects)
+    }
+
+    #[test]
+    fn delete_band_removes_the_file_when_no_project_uses_it() {
+        let (root, bands, projects) = band_storage("delete-free");
+        fs::write(bands.join("big_night_band.json"), BNB_JSON).expect("seed other band");
+        fs::write(
+            projects.join("BNB_Bon_Repos.json"),
+            "{\"id\":\"p1\",\"bandRef\":\"big_night_band\"}",
+        )
+        .expect("seed project");
+        delete_band_at(&bands, &projects, "blanicka_kapela", false).expect("delete");
+        assert!(!bands.join("blanicka_kapela.json").exists());
+        assert!(bands.join("big_night_band.json").exists());
+        assert!(projects.join("BNB_Bon_Repos.json").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn delete_band_is_blocked_by_a_project_and_keeps_the_file() {
+        let (root, bands, projects) = band_storage("delete-in-use");
+        fs::write(
+            projects.join("BK_Konopiste.json"),
+            "{\"id\":\"p1\",\"displayName\":\"Blanická kapela – Konopiště\",\"status\":\"archived\",\"bandRef\":\"blanicka_kapela\"}",
+        )
+        .expect("seed project");
+        let err = delete_band_at(&bands, &projects, "blanicka_kapela", false).expect_err("in use");
+        assert_eq!(err.code, "BAND_IN_USE");
+        assert_eq!(
+            err.projects,
+            vec![BandUsage::UsesBand {
+                file: "BK_Konopiste.json".into(),
+                display_name: Some("Blanická kapela – Konopiště".into()),
+                status: Some("archived".into()),
+            }]
+        );
+        assert!(bands.join("blanicka_kapela.json").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn delete_band_is_blocked_by_a_project_that_names_the_band_by_its_code() {
+        let (root, bands, projects) = band_storage("delete-by-code");
+        fs::write(projects.join("by_code.json"), "{\"id\":\"p1\",\"bandRef\":\"bk\"}")
+            .expect("seed code ref");
+        fs::write(
+            projects.join("by_upper_id.json"),
+            "{\"id\":\"p2\",\"bandRef\":\"BLANICKA_KAPELA\"}",
+        )
+        .expect("seed upper-case ref");
+        let err = delete_band_at(&bands, &projects, "blanicka_kapela", false).expect_err("in use");
+        assert_eq!(err.code, "BAND_IN_USE");
+        assert_eq!(err.projects.len(), 2, "{:?}", err.projects);
+        assert!(bands.join("blanicka_kapela.json").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn delete_band_is_blocked_by_an_unreadable_project_file() {
+        let (root, bands, projects) = band_storage("delete-unreadable");
+        fs::write(projects.join("broken.json"), "{oops").expect("seed broken");
+        let err = delete_band_at(&bands, &projects, "blanicka_kapela", false).expect_err("unverifiable");
+        assert_eq!(err.code, "BAND_IN_USE");
+        assert!(
+            matches!(&err.projects[..], [BandUsage::Unreadable { file, .. }] if file == "broken.json"),
+            "{:?}",
+            err.projects
+        );
+        assert!(bands.join("blanicka_kapela.json").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn delete_band_rejects_ids_that_are_not_safe_file_names() {
+        let (root, bands, projects) = band_storage("delete-unsafe");
+        for id in ["Big Night", "../evil", "", ".hidden"] {
+            let err = delete_band_at(&bands, &projects, id, false).expect_err(id);
+            assert_eq!(err.code, "BAND_DELETE_FAILED", "{}", id);
+        }
+        assert!(bands.join("blanicka_kapela.json").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn delete_band_succeeds_without_a_projects_folder() {
+        let (root, bands, projects) = band_storage("delete-no-projects");
+        fs::remove_dir_all(&projects).expect("drop projects dir");
+        delete_band_at(&bands, &projects, "blanicka_kapela", false).expect("delete");
+        assert!(!bands.join("blanicka_kapela.json").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn delete_band_ignores_files_that_are_not_json() {
+        let (root, bands, projects) = band_storage("delete-not-json");
+        fs::write(
+            projects.join("BK_Konopiste.tmp"),
+            "{\"bandRef\":\"blanicka_kapela\"}",
+        )
+        .expect("seed tmp");
+        delete_band_at(&bands, &projects, "blanicka_kapela", false).expect("delete");
+        assert!(!bands.join("blanicka_kapela.json").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn delete_band_reports_a_missing_band_file() {
+        let (root, bands, projects) = band_storage("delete-missing");
+        let err = delete_band_at(&bands, &projects, "big_night_band", false).expect_err("missing");
+        assert_eq!(err.code, "BAND_DELETE_FAILED");
+        assert!(err.message.contains("big_night_band.json"), "{}", err.message);
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn delete_band_dry_run_keeps_the_file_when_nothing_blocks() {
+        let (root, bands, projects) = band_storage("delete-dry-free");
+        delete_band_at(&bands, &projects, "blanicka_kapela", true).expect("dry run");
+        assert!(bands.join("blanicka_kapela.json").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn delete_band_dry_run_reports_band_in_use_without_deleting() {
+        let (root, bands, projects) = band_storage("delete-dry-in-use");
+        fs::write(
+            projects.join("BK_Praha.json"),
+            "{\"id\":\"p1\",\"bandRef\":\"blanicka_kapela\"}",
+        )
+        .expect("seed project");
+        let err = delete_band_at(&bands, &projects, "blanicka_kapela", true).expect_err("in use");
+        assert_eq!(err.code, "BAND_IN_USE");
+        assert_eq!(err.projects.len(), 1, "{:?}", err.projects);
+        assert!(bands.join("blanicka_kapela.json").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn band_usage_serializes_in_the_shape_bands_api_reads() {
+        let uses = serde_json::to_value(BandUsage::UsesBand {
+            file: "a.json".into(),
+            display_name: Some("A".into()),
+            status: None,
+        })
+        .expect("serialize");
+        assert_eq!(
+            uses,
+            serde_json::json!({ "kind": "usesBand", "file": "a.json", "displayName": "A", "status": null })
+        );
+        let unreadable = serde_json::to_value(BandUsage::Unreadable {
+            file: "b.json".into(),
+            message: "bad".into(),
+        })
+        .expect("serialize");
+        assert_eq!(
+            unreadable,
+            serde_json::json!({ "kind": "unreadable", "file": "b.json", "message": "bad" })
+        );
     }
 }

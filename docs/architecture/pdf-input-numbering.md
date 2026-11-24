@@ -1,3 +1,14 @@
+---
+type: Reference
+title: "PDF input numbering rules"
+description: "Descriptive record of how buildDocument numbers PDF input channels: mono and stereo numbering, odd-start stereo, spare channels and compact stereo rows."
+tags: [pdf, input-list, channel-numbering, stereo]
+generated:
+  by: human:matej.krecmer
+  at: 2026-06-01T13:18:23+02:00
+status: stable
+audience: [developers, agents]
+---
 # PDF input numbering rules
 
 This document records the current `buildDocument` behavior for PDF input

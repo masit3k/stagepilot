@@ -1,3 +1,14 @@
+---
+type: Design
+title: "PDF čte rozmístění stage planu (F5b)"
+description: "Návrh F5b: tištěný stage plan čte `stageplan.layout`, tedy bloky na pozicích a rotacích z editoru, nakreslené podle identity, a editor ukazuje skutečnou velikost bloku na papíře."
+tags: [rebranding, pdf, stageplan, layout]
+generated:
+  by: human:matej.krecmer
+  at: 2026-08-14T13:48:50+02:00
+status: stable
+audience: [developers, agents]
+---
 # PDF čte rozmístění stage planu (F5b)
 
 **Datum:** 2026-08-13

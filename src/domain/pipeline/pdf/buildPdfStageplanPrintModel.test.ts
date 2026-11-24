@@ -4,6 +4,7 @@ import type {
   Musician,
   Project,
 } from "../../model/types.js";
+import { buildDefaultLayout } from "../../stageplan/layout/defaultLayout.js";
 import { buildPdfStageplanModel } from "./buildPdfStageplan.js";
 import { buildPdfStageplanPrintModel } from "./buildPdfStageplanPrintModel.js";
 
@@ -62,6 +63,24 @@ describe("buildPdfStageplanPrintModel", () => {
     );
   });
 
+  it("prints separate channel runs when another role's channel sits inside the drum numbers", () => {
+    const model = buildPdfStageplanPrintModel(
+      baseStageplan({
+        inputs: [
+          { channelNo: 1, label: "Kick", group: "drums" },
+          { channelNo: 2, label: "Bass DI", group: "bass" },
+          { channelNo: 3, label: "Snare", group: "drums" },
+          { channelNo: 4, label: "Hi-hat", group: "drums" },
+          { channelNo: 5, label: "Tom", group: "drums" },
+          { channelNo: 7, label: "OH L", group: "drums" },
+        ],
+      }),
+    );
+
+    expect(model.boxesBySlot.drums.inputBullets).toContain("Drums (1, 3–5, 7)");
+    expect(model.boxesBySlot.bass.inputBullets).toContain("Bass DI (2)");
+  });
+
   it("prepares lead vocal headers from current lead slot behavior", () => {
     const model = buildPdfStageplanPrintModel(baseStageplan());
 
@@ -85,6 +104,7 @@ describe("buildPdfStageplanPrintModel", () => {
     };
 
     const stageplan = buildPdfStageplanModel({
+      layout: buildDefaultLayout({ slots: ["drums"], stage: null }),
       lineupMusicians: [{ group: "drums", musician: drummer }],
       lineup: {
         keys: [],

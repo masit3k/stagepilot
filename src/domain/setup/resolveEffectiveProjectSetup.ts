@@ -84,15 +84,15 @@ export function resolveEffectiveProjectSetup(args: {
         // dvě. Degradace na výchozí mix by vytiskla monitorovou tabulku,
         // kterou nikdo nenastavil, a nikde by to neřekla. `inputs` zůstávají
         // zúžené na `update` (viz komentář výše, R2): jejich zdrojem je
-        // `drumDefinition`, ne preset.
-        const effectiveDrumMonitoring = drumPatch?.monitoring?.monitorRef
-          ? {
-              monitorRef: drumPatch.monitoring.monitorRef,
-              ...(typeof drumPatch.monitoring.additionalWedgeCount === "number"
-                ? { additionalWedgeCount: drumPatch.monitoring.additionalWedgeCount }
-                : {}),
-            }
-          : defaultPreset.monitoring;
+        // `drumDefinition`, ne preset. Monitoring se slučuje stejnou funkcí
+        // jako u ostatních rolí, takže patch jen s `additionalWedgeCount`
+        // (bez `monitorRef`) se nezahodí.
+        const effectiveDrumMonitoring = applyPresetOverride(
+          { inputs: [], monitoring: defaultPreset.monitoring },
+          drumPatch?.monitoring
+            ? { monitoring: drumPatch.monitoring }
+            : undefined,
+        ).monitoring;
         if (drumPatch?.monitoring?.monitorRef) {
           assertMonitorPresetRef({
             ref: drumPatch.monitoring.monitorRef,

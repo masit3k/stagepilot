@@ -10,15 +10,7 @@ import {
   type MonitorPresetIndex,
   getMonitorLabel,
 } from "../../monitors/getMonitorLabel.js";
-
-export const GROUP_MONITOR_ORDER: Record<Group, number> = {
-  guitar: 1,
-  vocs: 2,
-  keys: 3,
-  bass: 4,
-  drums: 5,
-  talkback: 999,
-};
+import { UNPLACED_POSITION_RANK } from "../../stageplan/resolveStagePositionOrder.js";
 
 type EffectiveSetupByMusicianId = Map<
   string,
@@ -64,18 +56,25 @@ function resolvePdfMonitorOwners(args: {
     });
 }
 
+/**
+ * Pořadí monitorových řádků se řídí tím, kde vlastník na pódiu stojí — had ze
+ * `resolveStagePositionRankByRole`. Zvukař čte tabulku podle stage, ne podle
+ * pevného pořadí skupin; ta tabulka, která tu byla dřív, byla jen zakódované
+ * výchozí rozmístění a s prvním přetažením bloku přestala platit.
+ */
 export function orderPdfMonitorOwners(args: {
   owners: MonitorOwner[];
   leadVocsSlotByMusicianId: Map<string, number>;
+  stagePositionRankByRole: Map<Group, number>;
 }): MonitorOwner[] {
-  const { owners, leadVocsSlotByMusicianId } = args;
+  const { owners, leadVocsSlotByMusicianId, stagePositionRankByRole } = args;
 
   return owners
     .map((owner, originalIndex) => ({ owner, originalIndex }))
     .sort((a, b) => {
       const groupRankDiff =
-        (GROUP_MONITOR_ORDER[a.owner.group] ?? 999) -
-        (GROUP_MONITOR_ORDER[b.owner.group] ?? 999);
+        (stagePositionRankByRole.get(a.owner.group) ?? UNPLACED_POSITION_RANK) -
+        (stagePositionRankByRole.get(b.owner.group) ?? UNPLACED_POSITION_RANK);
       if (groupRankDiff !== 0) return groupRankDiff;
 
       if (a.owner.group === "vocs" && b.owner.group === "vocs") {
@@ -134,6 +133,7 @@ export function buildPdfMonitorRows(args: {
   backVocsCount: number;
   backVocsSlotByMusicianId: Map<string, number>;
   backVocsGenderBySlot: Array<string | undefined>;
+  stagePositionRankByRole: Map<Group, number>;
 }): DocumentViewModel["monitorTableRows"] {
   const monitorOwners = resolvePdfMonitorOwners({
     lineupMusicians: args.lineupMusicians,
@@ -144,6 +144,7 @@ export function buildPdfMonitorRows(args: {
   const orderedMonitorOwners = orderPdfMonitorOwners({
     owners: monitorOwners,
     leadVocsSlotByMusicianId: args.leadVocsSlotByMusicianId,
+    stagePositionRankByRole: args.stagePositionRankByRole,
   });
   const rows: DocumentViewModel["monitorTableRows"] = [];
 

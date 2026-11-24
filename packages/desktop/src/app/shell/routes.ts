@@ -44,22 +44,6 @@ export const SHELL_ROUTES: ShellRouteDef[] = [
     key: "library-band-detail",
     test: (pathname) => Boolean(matchLibraryBandDetailPath(pathname)),
   },
-  {
-    key: "library-musicians",
-    test: (pathname) => pathname === "/library/musicians",
-  },
-  {
-    key: "library-instruments",
-    test: (pathname) => pathname === "/library/instruments",
-  },
-  {
-    key: "library-contacts",
-    test: (pathname) => pathname === "/library/contacts",
-  },
-  {
-    key: "library-messages",
-    test: (pathname) => pathname === "/library/messages",
-  },
   { key: "settings", test: (pathname) => pathname === "/settings" },
 ];
 
@@ -90,6 +74,9 @@ export function matchProjectGenericPath(pathname: string): string | null {
 export function matchLibraryBandDetailPath(pathname: string): string | null {
   return pathname.match(/^\/library\/bands\/([^/]+)$/)?.[1] ?? null;
 }
+
+/** Segment routy nové kapely. `matchLibraryBandDetailPath` ho matchuje taky, proto id `new` nesmí vzniknout. */
+export const NEW_BAND_ROUTE_SEGMENT = "new";
 
 export function withFrom(path: string, from: string, fromPath?: string) {
   const params = new URLSearchParams({ from });

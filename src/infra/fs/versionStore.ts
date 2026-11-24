@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { PROJECT_ROOT, USER_DATA_ROOT } from "./dataRoot.js";
+import { assertSafePathSegment } from "./safePathSegment.js";
 
 export type ProjectSnapshotMeta = {
   schemaVersion: 1;
@@ -46,6 +47,11 @@ export async function createProjectVersion(
 ): Promise<ProjectSnapshotMeta> {
   const versionsRoot = resolveVersionsRoot(args.userDataRoot);
   const projectRoot = args.projectRoot ?? PROJECT_ROOT;
+  assertSafePathSegment(args.projectId, "projectId");
+  assertSafePathSegment(args.pdfFileName, "pdfFileName");
+  if (args.versionId !== undefined) {
+    assertSafePathSegment(args.versionId, "versionId");
+  }
   let versionId = args.versionId;
   let versionDir = args.versionDir;
 
@@ -99,7 +105,10 @@ export async function listProjectVersions(
   userDataRoot?: string
 ): Promise<ProjectSnapshotMeta[]> {
   const versionsRoot = resolveVersionsRoot(userDataRoot);
-  const projectDir = path.join(versionsRoot, projectId);
+  const projectDir = path.join(
+    versionsRoot,
+    assertSafePathSegment(projectId, "projectId")
+  );
 
   if (!(await pathExists(projectDir))) {
     return [];
@@ -109,14 +118,60 @@ export async function listProjectVersions(
   const metas = await Promise.all(
     entries
       .filter((entry) => entry.isDirectory())
-      .map(async (entry) => {
-        const metaPath = path.join(projectDir, entry.name, "meta.json");
-        const raw = await fs.readFile(metaPath, "utf8");
-        return JSON.parse(raw) as ProjectSnapshotMeta;
-      })
+      .map((entry) => readVersionMeta(path.join(projectDir, entry.name)))
   );
 
-  return metas.sort((a, b) => b.generatedAt.localeCompare(a.generatedAt));
+  return metas
+    .filter((meta): meta is ProjectSnapshotMeta => meta !== null)
+    .sort((a, b) => b.generatedAt.localeCompare(a.generatedAt));
+}
+
+/**
+ * `meta.json` se zapisuje jako poslední soubor verze, takže složka bez
+ * čitelného `meta.json` je nedokončená nebo poškozená verze. Výpis ji
+ * přeskočí a ohlásí na stderr; jedna vadná složka nesmí skrýt ostatní.
+ */
+async function readVersionMeta(
+  versionDir: string
+): Promise<ProjectSnapshotMeta | null> {
+  const metaPath = path.join(versionDir, "meta.json");
+  try {
+    const parsed: unknown = JSON.parse(await fs.readFile(metaPath, "utf8"));
+    if (!isSortableMeta(parsed)) {
+      throw new Error("meta.json has no generatedAt");
+    }
+    return parsed;
+  } catch (error) {
+    console.error("[versions] skipping version without a readable meta.json", {
+      versionDir,
+      reason: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
+function isSortableMeta(value: unknown): value is ProjectSnapshotMeta {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "generatedAt" in value &&
+    typeof value.generatedAt === "string"
+  );
+}
+
+/**
+ * Smaže právě založenou složku verze po neúspěšném exportu. Nikdy nevyhodí:
+ * volá se při zpracování jiné chyby a nesmí ji přebít.
+ */
+export async function discardVersionDir(versionDir: string): Promise<void> {
+  try {
+    await fs.rm(versionDir, { recursive: true, force: true });
+  } catch (error) {
+    console.error("[versions] failed to remove an unfinished version folder", {
+      versionDir,
+      reason: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 export async function loadProjectVersion(
@@ -129,7 +184,11 @@ export async function loadProjectVersion(
   pdfPath: string;
 }> {
   const versionsRoot = resolveVersionsRoot(userDataRoot);
-  const versionDir = path.join(versionsRoot, projectId, versionId);
+  const versionDir = path.join(
+    versionsRoot,
+    assertSafePathSegment(projectId, "projectId"),
+    assertSafePathSegment(versionId, "versionId")
+  );
   const metaPath = path.join(versionDir, "meta.json");
   const projectPath = path.join(versionDir, "project.json");
 
@@ -185,6 +244,8 @@ export async function prepareVersionDir(
   versionId: string;
   versionDir: string;
 }> {
+  assertSafePathSegment(projectId, "projectId");
+  assertSafePathSegment(baseVersionId, "versionId");
   const versionsRoot = resolveVersionsRoot(userDataRoot);
   const { versionId, versionDir } = await ensureUniqueVersionDir(
     versionsRoot,

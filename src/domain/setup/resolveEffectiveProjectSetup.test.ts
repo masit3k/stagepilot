@@ -497,6 +497,59 @@ describe("resolveEffectiveProjectSetup", () => {
     expect(drumSetup?.inputs.every((input) => input.key.startsWith("dr_"))).toBe(true);
   });
 
+  it("keeps a drum slot's additionalWedgeCount when the patch names no monitorRef", () => {
+    const band: Band = {
+      id: "band",
+      name: "Band",
+      bandLeader: "dr-1",
+      defaultLineup: { drums: ["dr-1"] },
+      defaultOverlays: { leadVocals: [], backVocals: [] },
+    };
+    const drummer: Musician = {
+      id: "dr-1",
+      firstName: "Dr",
+      lastName: "One",
+      group: "drums",
+      presets: [{ kind: "monitor", ref: "iem_stereo_wired_foh" }],
+    };
+    const project: Project = {
+      id: "p-drum-wedge-count-only",
+      bandRef: "band",
+      purpose: "event",
+      documentDate: "2026-01-01",
+      lineup: {
+        drums: {
+          musicianId: "dr-1",
+          presetOverride: { monitoring: { additionalWedgeCount: 2 } },
+        },
+      },
+    };
+
+    const resolved = resolveEffectiveProjectSetup({
+      project,
+      band,
+      bandLeaderId: "dr-1",
+      getMusicianById: () => drummer,
+      getPresetByRef: (ref) =>
+        ref === "iem_stereo_wired_foh"
+          ? {
+              type: "monitor",
+              id: "iem_stereo_wired_foh",
+              label: "IEM STEREO wired",
+              kind: "iem",
+              supplier: "foh",
+              mode: "stereo",
+              wireless: false,
+            }
+          : undefined,
+    });
+
+    const drumSetup = resolved.byMusicianId.get("dr-1");
+    expect(drumSetup?.monitoring.monitorRef).toBe("iem_stereo_wired_foh");
+    expect(drumSetup?.monitoring.additionalWedgeCount).toBe(2);
+    expect(drumSetup?.inputs.every((input) => input.key.startsWith("dr_"))).toBe(true);
+  });
+
   it("throws on an invalid monitorRef on a drums slot — falls, does not degrade (F5d R3)", () => {
     // Human-confirmed: the only way a `monitorRef` is written is a select over
     // the monitor catalog, so an invalid one means hand-edited or corrupted

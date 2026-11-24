@@ -233,7 +233,34 @@ export async function finalizeRenderedPdf(tempOutFile: string, outFile: string):
             `PDF page count mismatch: expected ${EXPECTED_PAGE_COUNT}, got ${pageCount}. Content overflowed the A4 page.`,
         );
     }
-    await fs.rename(tempOutFile, outFile);
+    try {
+        await fs.rename(tempOutFile, outFile);
+    } catch (renameError) {
+        try {
+            await fs.unlink(tempOutFile);
+        } catch (cleanupError) {
+            console.error("[pdf] failed to remove temp render artifact after failed move", {
+                tempOutFile,
+                error: describeError(cleanupError),
+            });
+        }
+        throw renameError;
+    }
+}
+
+/**
+ * Zavře prohlížeč po renderu a nikdy nevyhodí. Volá se z `finally`, kde by
+ * chyba ze zavření přebila chybu renderu — a ta je pro uživatele ta podstatná.
+ * Když render uspěl, PDF už je na místě a selhané zavření ho nezneplatní.
+ */
+export async function closePdfBrowser(browser: Pick<Browser, "close">): Promise<void> {
+    try {
+        await browser.close();
+    } catch (closeError) {
+        console.error("[pdf] failed to close browser", {
+            error: describeError(closeError),
+        });
+    }
 }
 
 export interface RenderPdfOptions {
@@ -398,6 +425,6 @@ export async function renderPdf(vm: DocumentViewModel, opts: RenderPdfOptions): 
 
         await finalizeRenderedPdf(tempOutFile, opts.outFile);
     } finally {
-        await browser.close();
+        await closePdfBrowser(browser);
     }
 }

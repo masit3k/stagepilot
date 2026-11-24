@@ -1,3 +1,14 @@
+---
+type: Design
+title: "Typografie a hlavička PDF (F4)"
+description: "Návrh F4 rebrandingu: hlavička se značkou a patička s kontaktem a číslem strany na obou stranách PDF, písma z identity, tabulka bez rámečků a funkční kontrola přetečení A4."
+tags: [rebranding, pdf, typography, header]
+generated:
+  by: human:matej.krecmer
+  at: 2026-08-13T10:25:01+02:00
+status: stable
+audience: [developers, agents]
+---
 # Typografie a hlavička PDF (F4)
 
 **Datum:** 2026-08-12

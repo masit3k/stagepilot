@@ -1,3 +1,14 @@
+---
+type: Design
+title: "Datum aktualizace rideru a dodavatel odposlechů"
+description: "Návrh dvou oprav PDF: razítko poslední změny obsahu v hlavičce místo data vzniku projektu a rozlišení dodavatele odposlechů v katalogu monitorových presetů."
+tags: [pdf, monitors, presets, update-stamp]
+generated:
+  by: human:matej.krecmer
+  at: 2026-08-11T11:39:04+02:00
+status: stable
+audience: [developers, agents]
+---
 # Datum aktualizace rideru a dodavatel odposlechů
 
 Datum: 2026-08-11

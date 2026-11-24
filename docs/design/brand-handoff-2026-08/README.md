@@ -1,3 +1,14 @@
+---
+type: Reference
+title: "Handoff: StagePilot — značka, vizuální styl, Lineup Setup a Stage Plan Editor"
+description: "Designový handoff nové identity StagePilot (kolo 3, značka XLR): znak a ikony, obrazovky Title bar, Lineup Setup, Stage Plan Editor a PDF export, interakce, design tokeny a assety."
+tags: [brand, design-handoff, design-tokens, ui]
+generated:
+  by: human:matej.krecmer
+  at: 2026-08-12T14:07:34+02:00
+status: stable
+audience: [developers, agents]
+---
 # Handoff: StagePilot — značka, vizuální styl, Lineup Setup a Stage Plan Editor
 
 ## Overview

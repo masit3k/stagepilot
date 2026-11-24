@@ -27,7 +27,7 @@ dist-icons/
 packages/**/user_data/
 
 # claude
-.mcp.json
+.mcp.json*
 .superpowers/
 # session handoff pointer — ephemeral state, not project history
 .claude/state/

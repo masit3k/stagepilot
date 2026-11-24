@@ -1,3 +1,14 @@
+---
+type: Design
+title: "Identita a token foundation (F0 + F1)"
+description: "Návrh F0 + F1 rebrandingu: značka StagePilot, ikony aplikace, zabalená písma a dvouvrstvá tokenová architektura se světlým i tmavým tématem a ověřenými kontrasty."
+tags: [rebranding, brand, design-tokens, theming]
+generated:
+  by: human:matej.krecmer
+  at: 2026-08-12T14:07:34+02:00
+status: stable
+audience: [developers, agents]
+---
 # Identita a token foundation (F0 + F1)
 
 **Datum:** 2026-08-12

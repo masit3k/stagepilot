@@ -1,3 +1,14 @@
+---
+type: Design
+title: "Obrazovka `02 INPUTS` — editor kanálů, monitorů a poznámek"
+description: "Návrh F5c: obrazovka `02 INPUTS` jako editovatelné zrcadlo první strany PDF s kanály, monitory a poznámkami a s odchylkami uloženými na projektu."
+tags: [rebranding, inputs-screen, input-list, monitors]
+generated:
+  by: human:matej.krecmer
+  at: 2026-08-19T14:35:11+02:00
+status: stable
+audience: [developers, agents]
+---
 # Obrazovka `02 INPUTS` — editor kanálů, monitorů a poznámek
 
 **Fáze:** F5c

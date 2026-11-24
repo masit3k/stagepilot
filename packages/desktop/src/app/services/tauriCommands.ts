@@ -7,4 +7,11 @@ export const TAURI_COMMANDS = {
   GET_BAND_SETUP_DATA: "get_band_setup_data",
   STAGEPLAN_PRINT_METRICS: "build_stageplan_print_metrics",
   UPDATE_MUSICIAN_DEFAULTS: "update_musician_defaults",
+  LIST_CATALOG_MUSICIANS: "list_catalog_musicians",
+  LIST_PRESETS: "list_presets",
+  READ_BAND: "read_band",
+  READ_CONTACT: "read_contact",
+  WRITE_BAND: "write_band",
+  WRITE_CONTACT: "write_contact",
+  DELETE_BAND: "delete_band",
 } as const;

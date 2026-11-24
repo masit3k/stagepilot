@@ -39,6 +39,27 @@ function isFileLockMessage(message: string): boolean {
   );
 }
 
+const OVERFLOW_ADVICE = "Remove or shorten some content and try again.";
+
+/**
+ * Turns a PDF renderer failure the user can act on into a sentence for them.
+ * Preview and export share the renderer, so both pages read the same wording.
+ * Returns `null` for failures that carry nothing the user could fix.
+ */
+export function describePdfFailure(technicalMessage: string): string | null {
+  if (technicalMessage.startsWith("Stageplan print collision:")) {
+    return technicalMessage;
+  }
+  if (!technicalMessage.startsWith("PDF overflow:")) return null;
+  if (technicalMessage.includes("dimension=height")) {
+    return `The document is too tall for one A4 page. ${OVERFLOW_ADVICE}`;
+  }
+  if (technicalMessage.includes("dimension=width")) {
+    return `The document is too wide for one A4 page. ${OVERFLOW_ADVICE}`;
+  }
+  return `The document does not fit one A4 page. ${OVERFLOW_ADVICE}`;
+}
+
 export function mapExportError(err: unknown): ExportUiError {
   const { code, message } = readApiError(err);
   const technicalMessage = message ?? "Unknown export error";
@@ -72,7 +93,9 @@ export function mapExportError(err: unknown): ExportUiError {
   if (code === "EXPORT_FAILED") {
     return {
       kind: "backendFailure",
-      userMessage: "Export failed while generating PDF.",
+      userMessage:
+        describePdfFailure(technicalMessage) ??
+        "Export failed while generating PDF.",
       technicalMessage,
     };
   }

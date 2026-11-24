@@ -1,3 +1,14 @@
+---
+type: Design
+title: "Editor stage planu a model rozmístění (F5a)"
+description: "Návrh F5a: model rozmístění bloků na pódiu v metrech, uložený v projektu, generovaný z lineupu a editovatelný v novém Stage Plan Editoru."
+tags: [rebranding, stageplan-editor, layout-model]
+generated:
+  by: human:matej.krecmer
+  at: 2026-08-13T13:13:46+02:00
+status: stable
+audience: [developers, agents]
+---
 # Editor stage planu a model rozmístění (F5a)
 
 **Datum:** 2026-08-13

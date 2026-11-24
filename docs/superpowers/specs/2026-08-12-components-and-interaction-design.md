@@ -1,3 +1,14 @@
+---
+type: Design
+title: "Komponenty a interakce (F2)"
+description: "Návrh F2 rebrandingu: ikonový set jako inline SVG, toasty pro potvrzení a chyby, prázdné stavy, skeleton náhledu PDF a pozice v Lineup Setup jako řádky."
+tags: [rebranding, icons, toasts, empty-states]
+generated:
+  by: human:matej.krecmer
+  at: 2026-08-12T14:07:34+02:00
+status: stable
+audience: [developers, agents]
+---
 # Komponenty a interakce (F2)
 
 **Datum:** 2026-08-12

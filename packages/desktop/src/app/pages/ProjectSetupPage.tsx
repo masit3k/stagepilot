@@ -1,6 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import {
   type SetupCapabilitySection,
   resolveMusicianCapabilityInputs,
@@ -17,12 +16,7 @@ import type {
 } from "../../../../../src/domain/model/types";
 import { summarizeEffectivePresetValidation } from "../../../../../src/domain/rules/presetOverride";
 import { ModalOverlay, useModalBehavior } from "../../components/ui/Modal";
-import {
-  ArrowDown,
-  ArrowUp,
-  ChevronDown,
-  Close,
-} from "../../components/ui/icons";
+import { ArrowDown, ArrowUp, Close } from "../../components/ui/icons";
 import {
   type LineupMap,
   type LineupSlotValue,
@@ -37,6 +31,7 @@ import {
   resolveTalkbackOwnerId,
   validateLineup,
 } from "../../projectRules";
+import { AddMusiciansMultiSelect } from "../components/roles/AddMusiciansMultiSelect";
 import { BackVocsBlock } from "../components/roles/BackVocsBlock";
 import { LeadVocsBlock } from "../components/roles/LeadVocsBlock";
 import { LineupRow } from "../components/roles/LineupRow";
@@ -44,7 +39,9 @@ import { ChangeBackVocsModal } from "../components/roles/modals/ChangeBackVocsMo
 import { ChangeLeadVocsModal } from "../components/roles/modals/ChangeLeadVocsModal";
 import { sanitizeBackVocsSelection } from "../components/roles/utils/backVocs";
 import { migrateProjectTalkbackOwner } from "../domain/project/migrateProjectTalkbackOwner";
+import { applyDerivedVocalOverlays } from "../domain/roles/applyDerivedVocalOverlays";
 import { ensureMusiciansInLineup } from "../domain/roles/ensureMusiciansInLineup";
+import { resolveDerivedBackVocalsForLineupMap } from "../domain/roles/resolveDerivedBackVocalsForLineupMap";
 import { resolveVocalOverlayEditorModel } from "../domain/roles/resolveVocalOverlayEditorModel";
 import { enforceVocalSelectionInvariant } from "../domain/roles/vocalSelectionInvariant";
 import { useSetupOverrides } from "../domain/setup/useSetupOverrides";
@@ -170,203 +167,6 @@ function getAssignmentRoleCopy(role: string): AssignmentRoleCopy {
   );
 }
 
-type AddMusiciansMultiSelectProps = {
-  id: string;
-  options: MemberOption[];
-  selectedIds: string[];
-  placeholder: string;
-  onSelectionChange: (nextSelectedIds: string[]) => void;
-  onAddSelected: (selectedIds: string[]) => void;
-};
-
-function AddMusiciansMultiSelect({
-  id,
-  options,
-  selectedIds,
-  placeholder,
-  onSelectionChange,
-  onAddSelected,
-}: AddMusiciansMultiSelectProps) {
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const panelRef = useRef<HTMLDivElement | null>(null);
-  const [isOpen, setIsOpen] = useState(false);
-  const [panelPosition, setPanelPosition] = useState<{
-    left: number;
-    top: number;
-    width: number;
-    maxHeight: number;
-  } | null>(null);
-  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
-  const orderedSelectedIds = options
-    .filter((option) => selectedIdSet.has(option.id))
-    .map((option) => option.id);
-
-  const updatePanelPosition = useCallback(() => {
-    const trigger = triggerRef.current;
-    if (!trigger) return;
-    const rect = trigger.getBoundingClientRect();
-    const viewportMargin = 8;
-    const preferredMaxHeight = Math.min(
-      260,
-      Math.round(window.innerHeight * 0.42),
-    );
-    const spaceBelow = window.innerHeight - rect.bottom - 6 - viewportMargin;
-    const spaceAbove = rect.top - 6 - viewportMargin;
-    const opensAbove =
-      spaceBelow < preferredMaxHeight && spaceAbove > spaceBelow;
-    const maxHeight = Math.max(
-      120,
-      Math.min(preferredMaxHeight, opensAbove ? spaceAbove : spaceBelow),
-    );
-    setPanelPosition({
-      left: rect.left,
-      top: opensAbove
-        ? Math.max(viewportMargin, rect.top - maxHeight - 6)
-        : rect.bottom + 6,
-      width: rect.width,
-      maxHeight,
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!isOpen) return undefined;
-    updatePanelPosition();
-    const onMouseDown = (event: MouseEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (triggerRef.current?.contains(target)) return;
-      if (panelRef.current?.contains(target)) return;
-      setIsOpen(false);
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setIsOpen(false);
-    };
-    window.addEventListener("resize", updatePanelPosition);
-    window.addEventListener("scroll", updatePanelPosition, true);
-    document.addEventListener("mousedown", onMouseDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("resize", updatePanelPosition);
-      window.removeEventListener("scroll", updatePanelPosition, true);
-      document.removeEventListener("mousedown", onMouseDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [isOpen, updatePanelPosition]);
-
-  const setSelectedFromSet = (nextSet: Set<string>) => {
-    onSelectionChange(
-      options
-        .filter((option) => nextSet.has(option.id))
-        .map((option) => option.id),
-    );
-  };
-  const toggleOption = (musicianId: string) => {
-    const nextSet = new Set(selectedIds);
-    if (nextSet.has(musicianId)) {
-      nextSet.delete(musicianId);
-    } else {
-      nextSet.add(musicianId);
-    }
-    setSelectedFromSet(nextSet);
-  };
-  const addSelected = () => {
-    if (orderedSelectedIds.length === 0) return;
-    onAddSelected(orderedSelectedIds);
-    onSelectionChange([]);
-    setIsOpen(false);
-  };
-
-  return (
-    <div className="lineup-multiselect">
-      <button
-        id={id}
-        ref={triggerRef}
-        type="button"
-        className="lineup-multiselect__trigger"
-        aria-haspopup="true"
-        aria-expanded={isOpen}
-        onClick={() => {
-          updatePanelPosition();
-          setIsOpen((current) => !current);
-        }}
-      >
-        <span>
-          {options.length === 0 ? "All musicians assigned" : placeholder}
-        </span>
-        <span aria-hidden="true" className="lineup-multiselect__chevron">
-          <ChevronDown size={14} />
-        </span>
-      </button>
-      {isOpen && panelPosition && typeof document !== "undefined"
-        ? createPortal(
-            <div
-              ref={panelRef}
-              className="lineup-multiselect__popover"
-              style={{
-                left: `${panelPosition.left}px`,
-                top: `${panelPosition.top}px`,
-                width: `${panelPosition.width}px`,
-                maxHeight: `${panelPosition.maxHeight}px`,
-              }}
-            >
-              <div
-                className="lineup-multiselect__options"
-                aria-label={placeholder}
-              >
-                {options.length === 0 ? (
-                  <p className="lineup-multiselect__empty">
-                    No available musicians
-                  </p>
-                ) : (
-                  options.map((option) => {
-                    const selected = selectedIdSet.has(option.id);
-                    return (
-                      <button
-                        key={option.id}
-                        type="button"
-                        className={
-                          selected
-                            ? "lineup-multiselect__option is-selected"
-                            : "lineup-multiselect__option"
-                        }
-                        onClick={() => toggleOption(option.id)}
-                      >
-                        <input
-                          type="checkbox"
-                          tabIndex={-1}
-                          checked={selected}
-                          readOnly
-                          aria-hidden="true"
-                        />
-                        <span>{option.name}</span>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-              <div className="lineup-multiselect__footer">
-                <span>
-                  {orderedSelectedIds.length === 1
-                    ? "1 selected"
-                    : `${orderedSelectedIds.length} selected`}
-                </span>
-                <button
-                  type="button"
-                  className="button-secondary"
-                  disabled={orderedSelectedIds.length === 0}
-                  onClick={addSelected}
-                >
-                  Add selected
-                </button>
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
-    </div>
-  );
-}
-
 export function ProjectSetupPage({
   id,
   navigate,
@@ -454,6 +254,9 @@ export function ProjectSetupPage({
 
   useEffect(() => {
     snapshotHydratedRef.current = false;
+    // A reply that lands after unmount or after `id` changed belongs to a
+    // project this page no longer shows; applying it would overwrite state.
+    let cancelled = false;
     (async () => {
       console.info("[project-open] setup-init-start", { projectId: id });
       let rawProject = "";
@@ -471,6 +274,7 @@ export function ProjectSetupPage({
         });
         throw error;
       }
+      if (cancelled) return;
       let parsedRaw: NewProjectPayload;
       try {
         parsedRaw = JSON.parse(rawProject) as NewProjectPayload;
@@ -545,10 +349,13 @@ export function ProjectSetupPage({
           error,
         });
         data = createFallbackSetupData(parsed);
-        setStatus(
-          "Band defaults could not be loaded. You can still configure lineup manually.",
-        );
+        if (!cancelled) {
+          setStatus(
+            "Band defaults could not be loaded. You can still configure lineup manually.",
+          );
+        }
       }
+      if (cancelled) return;
       if (data.loadWarnings?.length) {
         console.warn("Band setup loaded with warnings", {
           projectId: id,
@@ -611,6 +418,7 @@ export function ProjectSetupPage({
           payload: updatedProject,
           intent: "system",
         });
+        if (cancelled) return;
         setProject(updatedProject);
       } else {
         const hasLegacyLineupFormat = Object.values(parsed.lineup ?? {}).some(
@@ -630,6 +438,7 @@ export function ProjectSetupPage({
             payload: migratedProject,
             intent: "system",
           });
+          if (cancelled) return;
           setProject(migratedProject);
         }
       }
@@ -650,9 +459,22 @@ export function ProjectSetupPage({
             initialTemplateMusicians.includes(idValue),
           )
         : [];
-      const effectiveBackVocalIds = parsedHasBackVocalOverride
-        ? persistedBackVocalIds
-        : [];
+      /**
+       * Baseline pro dirty-tracking musí vzniknout z derivovaného stavu, ne
+       * z uloženého: back vokály jsou odvozená množina a render je přepočte
+       * hned při první hydrataci. Kdyby tu stálo `persistedBackVocalIds`,
+       * otevření projektu uloženého podle starého pravidla by se od baseline
+       * lišilo a `isDirty` by hlásilo neuloženou změnu, kterou uživatel
+       * neudělal. Derivace je idempotentní, takže u srovnaného projektu tohle
+       * vrátí přesně to, co je uložené.
+       */
+      const effectiveBackVocalIds = resolveDerivedBackVocalsForLineupMap({
+        lineup: initialState.lineup,
+        musicianPresetsById: data.musicianPresetsById,
+        presetCatalog: data.presetCatalog,
+        leadVocalIds: effectiveInitialLeadVocalIds,
+        backVocalIds: parsedHasBackVocalOverride ? persistedBackVocalIds : [],
+      }).backVocalIds;
       initialSnapshotRef.current = createLineupDirtyBaseline({
         lineup: initialSerializedLineup,
         bandLeaderId: initialState.bandLeaderId,
@@ -670,9 +492,13 @@ export function ProjectSetupPage({
         projectId: id,
         error,
       });
+      if (cancelled) return;
       setStatus("Failed to load setup.");
     });
-  }, [id, applyState, buildSetupSnapshot]);
+    return () => {
+      cancelled = true;
+    };
+  }, [id, buildSetupSnapshot]);
 
   const errors = useMemo(
     () => (!setupData ? [] : validateLineup(lineup, ROLE_ORDER)),
@@ -775,9 +601,42 @@ export function ProjectSetupPage({
   const rawSelectedLeadVocalIds = useMemo(() => {
     return extractOverlayMusicianIds(leadVocalIds);
   }, [leadVocalIds]);
-  const rawSelectedBackVocalIds = useMemo(() => {
+  const storedBackVocalIds = useMemo(() => {
     return extractOverlayMusicianIds(backVocalIds);
   }, [backVocalIds]);
+  /**
+   * Back vokály jsou odvozená množina, ne uložený výběr: každý člen sestavy
+   * s vokální capability mimo lead vokalisty. Derivace sedí tady, jako čistý
+   * `useMemo` nad stavem, a ne v efektu se `setBackVocalIds`, protože musí
+   * platit ve dvou momentech naráz — po změně lineupu i po otevření uloženého
+   * projektu, který se zapsal ještě podle starého pravidla. Efekt by pro
+   * druhý případ znamenal `setState` při hydrataci: extra render a hlavně
+   * projekt označený jako neuložený jen proto, že ho uživatel otevřel.
+   * Odvozená hodnota naproti tomu vteče do `currentDirtyState` už při první
+   * hydrataci baseline (efekt `snapshotHydratedRef` níž), takže se srovnaný
+   * stav stane baseline a `isDirty` zůstane `false`.
+   *
+   * Derivace je schválně tady na stránce a ne ve sdíleném
+   * `resolveVocalOverlayEditorModel` — ten model konzumuje i obrazovka `02`
+   * přes `inputsOverlayEditor`, kde overlays pořád pocházejí ze snapshotu
+   * projektu, ne ze sestavy editované na téhle stránce.
+   */
+  const derivedVocalOverlays = useMemo(
+    () =>
+      applyDerivedVocalOverlays({
+        lineupMusicians: selectedTemplateMusicians,
+        leadVocalIds: rawSelectedLeadVocalIds,
+        backVocalIds: storedBackVocalIds,
+        presetCatalog,
+      }),
+    [
+      presetCatalog,
+      rawSelectedLeadVocalIds,
+      selectedTemplateMusicians,
+      storedBackVocalIds,
+    ],
+  );
+  const rawSelectedBackVocalIds = derivedVocalOverlays.backVocalIds;
   const vocalOverlayModel = useMemo(
     () =>
       resolveVocalOverlayEditorModel({
@@ -1668,6 +1527,7 @@ export function ProjectSetupPage({
                                   type="button"
                                   className="button-ghost"
                                   disabled={index === 0}
+                                  aria-label="Move up"
                                   onClick={() =>
                                     setAssignmentEditor((current) => {
                                       if (!current) return current;
@@ -1689,6 +1549,7 @@ export function ProjectSetupPage({
                                     index ===
                                     assignmentEditor.draftSlots.length - 1
                                   }
+                                  aria-label="Move down"
                                   onClick={() =>
                                     setAssignmentEditor((current) => {
                                       if (!current) return current;

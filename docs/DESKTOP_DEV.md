@@ -1,3 +1,14 @@
+---
+type: Onboarding
+title: "StagePilot Desktop Dev"
+description: "Prerequisites, dev and build commands, the user data root and its folders, troubleshooting, and wiping local data for the StagePilot desktop app."
+tags: [desktop, tauri, setup, user-data, troubleshooting]
+generated:
+  by: human:matej.krecmer
+  at: 2026-05-26T11:41:56+02:00
+status: stable
+audience: [developers, agents]
+---
 # StagePilot Desktop Dev
 
 ## Prerequisites

@@ -1,3 +1,14 @@
+---
+type: Design
+title: "Tok, obsah bloků, úchyty a jazyk rozhraní (F6)"
+description: "Návrh F6: editor jako krok po lineupu, obsah bloků shodný s tiskem, úchyty velikosti zón, tisk bez barevného zvýraznění, označení kapelníka a anglické rozhraní při českém PDF."
+tags: [rebranding, stageplan-editor, pdf, ui-language]
+generated:
+  by: human:matej.krecmer
+  at: 2026-08-15T11:41:46+02:00
+status: stable
+audience: [developers, agents]
+---
 # Tok, obsah bloků, úchyty a jazyk rozhraní (F6)
 
 **Fáze:** F6

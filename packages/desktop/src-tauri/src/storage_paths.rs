@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::Manager;
 
@@ -455,15 +456,35 @@ fn normalize_lineup_object(
     }
 }
 
+/// Načte uživatelský JSON pro startovní migraci. `Ok(None)` znamená, že soubor
+/// nejde přečíst jako JSON (poškozený obsah nebo neplatné UTF-8) — volající ho
+/// přeskočí a nechá beze změny, aby poškozená uživatelská data nikdy neshodila
+/// start aplikace. Ostatní chyby čtení se šíří dál.
+fn read_json_for_startup_migration(path: &Path) -> Result<Option<serde_json::Value>, StorageError> {
+    let skip_reason = match fs::read_to_string(path) {
+        Ok(content) => match serde_json::from_str(&content) {
+            Ok(value) => return Ok(Some(value)),
+            Err(err) => format!("{err:?}"),
+        },
+        Err(err) if err.kind() == std::io::ErrorKind::InvalidData => format!("{err:?}"),
+        Err(err) => return Err(err.into()),
+    };
+    eprintln!(
+        "StagePilot: {} could not be migrated, leaving it untouched: {skip_reason}",
+        path.display()
+    );
+    Ok(None)
+}
+
 fn migrate_lineup_json_file(
     path: &Path,
     field_name: &str,
     preserve_project_slots: bool,
     create_when_missing: bool,
 ) -> Result<bool, StorageError> {
-    let content = fs::read_to_string(path)?;
-    let mut value: serde_json::Value = serde_json::from_str(&content)
-        .map_err(|e| StorageError::Resolve(format!("Invalid JSON {} ({e})", path.display())))?;
+    let Some(mut value) = read_json_for_startup_migration(path)? else {
+        return Ok(false);
+    };
     let changed = normalize_lineup_object(
         &mut value,
         field_name,
@@ -567,9 +588,9 @@ fn normalize_vocal_overlay_ids(value: Option<&serde_json::Value>) -> serde_json:
 }
 
 fn cleanup_vocal_overlays_in_file(path: &Path, is_band: bool) -> Result<bool, StorageError> {
-    let content = fs::read_to_string(path)?;
-    let mut value: serde_json::Value = serde_json::from_str(&content)
-        .map_err(|e| StorageError::Resolve(format!("Invalid JSON {} ({e})", path.display())))?;
+    let Some(mut value) = read_json_for_startup_migration(path)? else {
+        return Ok(false);
+    };
     let before = value.clone();
 
     let Some(object) = value.as_object_mut() else {
@@ -1161,6 +1182,183 @@ mod tests {
 
         let _ = fs::remove_dir_all(&root);
     }
+
+    const CORRUPT_JSON: &[u8] = b"{ this is not valid json";
+
+    #[test]
+    fn migrate_lineup_assignments_skips_unreadable_files_and_migrates_the_rest() {
+        let root = temp_test_dir("lineup-migration-corrupt");
+        fs::create_dir_all(root.join("catalog/bands")).unwrap();
+        fs::create_dir_all(root.join("projects")).unwrap();
+
+        let corrupt_band = root.join("catalog/bands/a_corrupt.json");
+        fs::write(&corrupt_band, CORRUPT_JSON).unwrap();
+        let good_band = root.join("catalog/bands/b_good.json");
+        fs::write(
+            &good_band,
+            r#"{"id":"b_good","defaultLineup":{"bass":"b-1"}}"#,
+        )
+        .unwrap();
+
+        let corrupt_project = root.join("projects/a_corrupt.json");
+        fs::write(&corrupt_project, CORRUPT_JSON).unwrap();
+        let good_project = root.join("projects/b_good.json");
+        fs::write(&good_project, r#"{"id":"b_good","lineup":{"bass":"b-1"}}"#).unwrap();
+
+        assert!(migrate_lineup_assignments(&root).unwrap());
+
+        assert_eq!(fs::read(&corrupt_band).unwrap(), CORRUPT_JSON);
+        assert_eq!(fs::read(&corrupt_project).unwrap(), CORRUPT_JSON);
+        let band: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&good_band).unwrap()).unwrap();
+        assert_eq!(
+            band.pointer("/defaultLineup/bass").unwrap(),
+            &serde_json::json!(["b-1"])
+        );
+        let project: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&good_project).unwrap()).unwrap();
+        assert_eq!(
+            project.pointer("/lineup/bass").unwrap(),
+            &serde_json::json!(["b-1"])
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn migrate_lineup_assignments_skips_files_that_are_not_utf8() {
+        let root = temp_test_dir("lineup-migration-not-utf8");
+        fs::create_dir_all(root.join("catalog/bands")).unwrap();
+        fs::create_dir_all(root.join("projects")).unwrap();
+
+        let not_utf8: &[u8] = &[0xff, 0xfe, 0x7b, 0x00];
+        let project_path = root.join("projects/p1.json");
+        fs::write(&project_path, not_utf8).unwrap();
+
+        assert!(!migrate_lineup_assignments(&root).unwrap());
+        assert_eq!(fs::read(&project_path).unwrap(), not_utf8);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn cleanup_vocal_overlays_skips_unreadable_files_and_cleans_the_rest() {
+        let root = temp_test_dir("vocal-overlay-cleanup-corrupt");
+        fs::create_dir_all(root.join("catalog/bands")).unwrap();
+        fs::create_dir_all(root.join("projects")).unwrap();
+
+        let corrupt_band = root.join("catalog/bands/a_corrupt.json");
+        fs::write(&corrupt_band, CORRUPT_JSON).unwrap();
+        let good_band = root.join("catalog/bands/b_good.json");
+        fs::write(
+            &good_band,
+            r#"{"id":"b_good","defaultVocals":{"lead":["legacy"]}}"#,
+        )
+        .unwrap();
+
+        let corrupt_project = root.join("projects/a_corrupt.json");
+        fs::write(&corrupt_project, CORRUPT_JSON).unwrap();
+        let good_project = root.join("projects/b_good.json");
+        fs::write(
+            &good_project,
+            r#"{"id":"b_good","leadVocalistIds":["legacy"]}"#,
+        )
+        .unwrap();
+
+        assert!(cleanup_vocal_overlays(&root).unwrap());
+
+        assert_eq!(fs::read(&corrupt_band).unwrap(), CORRUPT_JSON);
+        assert_eq!(fs::read(&corrupt_project).unwrap(), CORRUPT_JSON);
+        let band: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&good_band).unwrap()).unwrap();
+        assert!(band.get("defaultVocals").is_none());
+        let project: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&good_project).unwrap()).unwrap();
+        assert!(project.get("leadVocalistIds").is_none());
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn ensure_user_storage_at_root_starts_up_with_unreadable_project_and_band_files() {
+        let root = temp_test_dir("startup-corrupt-user-json");
+        fs::create_dir_all(root.join("catalog/bands")).unwrap();
+        fs::create_dir_all(root.join("projects")).unwrap();
+        let corrupt_band = root.join("catalog/bands/broken.json");
+        fs::write(&corrupt_band, CORRUPT_JSON).unwrap();
+        let corrupt_project = root.join("projects/broken.json");
+        fs::write(&corrupt_project, CORRUPT_JSON).unwrap();
+
+        ensure_user_storage_at_root(&root).unwrap();
+
+        assert_eq!(fs::read(&corrupt_band).unwrap(), CORRUPT_JSON);
+        assert_eq!(fs::read(&corrupt_project).unwrap(), CORRUPT_JSON);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    fn file_names_in(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = fs::read_dir(dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    }
+
+    #[test]
+    fn atomic_write_bytes_does_not_share_a_temp_file_with_another_writer() {
+        let dir = temp_test_dir("atomic-write-unique-temp");
+        fs::create_dir_all(&dir).unwrap();
+        let target = dir.join("band.json");
+        // Rozpracovaný dočasný soubor jiného zápisu téhož cíle.
+        let other_writer_temp = dir.join("band.tmp");
+        fs::write(&other_writer_temp, b"other writer in progress").unwrap();
+
+        atomic_write_bytes(&target, b"{\"id\":\"band\"}").unwrap();
+
+        assert_eq!(fs::read(&target).unwrap(), b"{\"id\":\"band\"}");
+        assert_eq!(
+            fs::read(&other_writer_temp).unwrap(),
+            b"other writer in progress"
+        );
+        assert_eq!(file_names_in(&dir), vec!["band.json", "band.tmp"]);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn atomic_write_bytes_overwrites_an_existing_file_and_leaves_no_temp_file() {
+        let dir = temp_test_dir("atomic-write-overwrite");
+        fs::create_dir_all(&dir).unwrap();
+        let target = dir.join("band.json");
+        fs::write(&target, b"old").unwrap();
+
+        atomic_write_bytes(&target, b"new").unwrap();
+        atomic_write_bytes(&target, b"newer").unwrap();
+
+        assert_eq!(fs::read(&target).unwrap(), b"newer");
+        assert_eq!(file_names_in(&dir), vec!["band.json"]);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn atomic_write_bytes_removes_its_temp_file_when_the_rename_fails() {
+        let dir = temp_test_dir("atomic-write-rename-fails");
+        // Cíl je neprázdný adresář, takže přejmenování souboru na něj selže.
+        let target = dir.join("band.json");
+        fs::create_dir_all(&target).unwrap();
+        fs::write(target.join("keep.txt"), b"keep").unwrap();
+
+        let result = atomic_write_bytes(&target, b"{}");
+
+        assert!(matches!(result, Err(StorageError::Io(_))));
+        assert_eq!(file_names_in(&dir), vec!["band.json"]);
+        assert_eq!(fs::read(target.join("keep.txt")).unwrap(), b"keep");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
 }
 
 pub fn ensure_user_storage(app: &tauri::AppHandle) -> Result<UserStorageMeta, StorageError> {
@@ -1311,11 +1509,40 @@ pub fn sanitize_id_to_filename(project_id: &str) -> String {
     }
 }
 
-pub fn atomic_write_bytes(path: &Path, bytes: &[u8]) -> Result<(), StorageError> {
-    let temp_path = path.with_extension("tmp");
-    let mut file = File::create(&temp_path)?;
+static ATOMIC_WRITE_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+/// Dočasné jméno unikátní pro každý zápis, ve stejném adresáři jako cíl.
+/// Končí na `.tmp`, takže ho výpisy `*.json` nikdy nezahrnou.
+fn unique_temp_path(path: &Path) -> PathBuf {
+    let file_name = path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or_default();
+    let sequence = ATOMIC_WRITE_COUNTER.fetch_add(1, Ordering::Relaxed);
+    path.with_file_name(format!(
+        "{file_name}.{}-{nanos}-{sequence}.tmp",
+        std::process::id()
+    ))
+}
+
+fn write_and_sync_new_file(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    let mut file = File::options().write(true).create_new(true).open(path)?;
     file.write_all(bytes)?;
-    file.sync_all()?;
-    fs::rename(temp_path, path)?;
+    file.sync_all()
+}
+
+pub fn atomic_write_bytes(path: &Path, bytes: &[u8]) -> Result<(), StorageError> {
+    let temp_path = unique_temp_path(path);
+    let written =
+        write_and_sync_new_file(&temp_path, bytes).and_then(|()| fs::rename(&temp_path, path));
+    if let Err(err) = written {
+        // Úklid je best-effort: původní chyba zápisu je ta, kterou volající potřebuje.
+        let _ = fs::remove_file(&temp_path);
+        return Err(err.into());
+    }
     Ok(())
 }

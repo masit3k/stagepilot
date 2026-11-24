@@ -7,4 +7,5 @@ export * from "./ProjectInputsPage";
 export * from "./ProjectPreviewPage";
 export * from "./StagePlanEditorPage";
 export * from "./SettingsPage";
-export * from "./components/library/LibraryPages";
+export * from "./LibraryBandsPage";
+export * from "./LibraryBandFormPage";

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { DataRepository } from "../../../infra/fs/repo.js";
 import type { Musician } from "../../model/types.js";
 import type { MonitorPresetIndex } from "../../monitors/getMonitorLabel.js";
+import { buildDefaultLayout } from "../../stageplan/layout/defaultLayout.js";
+import { resolveStagePositionRankByRole } from "../../stageplan/resolveStagePositionOrder.js";
 import {
   type MonitorOwner,
   buildPdfMonitorRows,
@@ -74,6 +76,12 @@ describe("resolvePdfMonitorOwners via buildPdfMonitorRows (F5d Nález 1)", () =>
       effectiveSetupByMusicianId,
       monitorsById,
       repo,
+      stagePositionRankByRole: resolveStagePositionRankByRole(
+        buildDefaultLayout({
+          slots: ["drums", "bass", "guitar", "keys", "lead_voc_1"],
+          stage: null,
+        }),
+      ),
       leadVocsCount: args.leadSlots.length,
       leadVocsSlotByMusicianId: new Map(args.leadSlots),
       leadVocsGenderBySlot: args.leadSlots.map(() => "m"),

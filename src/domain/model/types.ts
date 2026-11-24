@@ -232,6 +232,20 @@ export interface Band {
   logoFile?: string;
 }
 
+/**
+ * Kontaktní osoba kapely: `catalog/contacts/<id>.json`. Id je id muzikanta
+ * ze sestavy (R2 specu editoru kapely); jméno se přebírá z muzikanta.
+ * Soubor nemá vlastníka — sdílí ho každá kapela, která na něj ukazuje
+ * přes `defaultContactId`.
+ */
+export interface Contact {
+  readonly id: string;
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly phone?: string;
+  readonly email?: string;
+}
+
 /** Muzikant: profil osoby a reference na presety, které používá. */
 export interface Musician {
   id: string;

@@ -1,3 +1,14 @@
+---
+type: Reference
+title: "Project model (StagePilot)"
+description: "Model `Project` jako účel stageplanu: explicitní rozlišení typů `event` a `generic`, jejich metadata a pole rozhraní `Project`."
+tags: [domain-model, project, stageplan]
+generated:
+  by: human:matej.krecmer
+  at: 2026-02-07T15:21:53+01:00
+status: stable
+audience: [developers, agents]
+---
 # Project model (StagePilot)
 
 ## Cíl

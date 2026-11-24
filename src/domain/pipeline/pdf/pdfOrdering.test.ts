@@ -1,12 +1,24 @@
 import { describe, expect, it } from "vitest";
 import type { Group } from "../../model/groups.js";
 import type { Musician } from "../../model/types.js";
+import { buildDefaultLayout } from "../../stageplan/layout/defaultLayout.js";
 import {
-  GROUP_MONITOR_ORDER,
+  TALKBACK_POSITION_RANK,
+  resolveStagePositionRankByRole,
+} from "../../stageplan/resolveStagePositionOrder.js";
+import {
   type MonitorOwner,
   orderPdfMonitorOwners,
 } from "./buildPdfMonitorRows.js";
 import { comparePdfInputs, composeFinalPdfInputOrder } from "./pdfOrdering.js";
+
+/** Výchozí rozmístění pěti bloků — hada z něj čte `resolveStagePositionOrder`. */
+const DEFAULT_RANK_BY_ROLE = resolveStagePositionRankByRole(
+  buildDefaultLayout({
+    slots: ["drums", "bass", "guitar", "keys", "lead_voc_1"],
+    stage: null,
+  }),
+);
 
 type SortableInput = {
   key: string;
@@ -102,8 +114,8 @@ describe("comparePdfInputs — group order", () => {
 });
 
 /* ------------------------------------------------------------------ */
-describe("orderPdfMonitorOwners — monitor group order", () => {
-  it("orders guitar → vocs → keys → bass → drums", () => {
+describe("orderPdfMonitorOwners — order follows the position on stage", () => {
+  it("reads the default layout as guitar → vocs → keys → bass → drums", () => {
     const owners = [
       owner("drm", "drums"),
       owner("keys", "keys"),
@@ -114,6 +126,7 @@ describe("orderPdfMonitorOwners — monitor group order", () => {
     const result = orderPdfMonitorOwners({
       owners,
       leadVocsSlotByMusicianId: new Map(),
+      stagePositionRankByRole: DEFAULT_RANK_BY_ROLE,
     });
     expect(result.map((o) => o.group)).toEqual([
       "guitar",
@@ -124,11 +137,47 @@ describe("orderPdfMonitorOwners — monitor group order", () => {
     ]);
   });
 
+  it("follows the blocks once the user moves them, instead of a fixed group table", () => {
+    // Zrcadlové rozmístění: kytara vpravo, klávesy vlevo. První řada se čte
+    // zleva doprava, takže klávesy jdou před kytaru — pevná tabulka pořadí
+    // skupin by tuhle změnu nikdy nezaznamenala.
+    const mirrored = resolveStagePositionRankByRole({
+      stage: null,
+      blocks: [
+        { slot: "drums", centerXM: 6, centerYM: 1.2, widthM: 2.8, depthM: 1.6, rotationDeg: 0 },
+        { slot: "bass", centerXM: 2.6, centerYM: 1.2, widthM: 2.7, depthM: 1.4, rotationDeg: 0 },
+        { slot: "keys", centerXM: 2.6, centerYM: 5.5, widthM: 2.8, depthM: 1.4, rotationDeg: 0 },
+        { slot: "guitar", centerXM: 9.4, centerYM: 5.5, widthM: 2.7, depthM: 1.4, rotationDeg: 0 },
+        { slot: "lead_voc_1", centerXM: 6, centerYM: 5.5, widthM: 2.6, depthM: 1.2, rotationDeg: 0 },
+      ],
+    });
+    const owners = [
+      owner("drm", "drums"),
+      owner("keys", "keys"),
+      owner("voc", "vocs"),
+      owner("bass", "bass"),
+      owner("gtr", "guitar"),
+    ];
+    const result = orderPdfMonitorOwners({
+      owners,
+      leadVocsSlotByMusicianId: new Map(),
+      stagePositionRankByRole: mirrored,
+    });
+    expect(result.map((o) => o.group)).toEqual([
+      "keys",
+      "vocs",
+      "guitar",
+      "drums",
+      "bass",
+    ]);
+  });
+
   it("places vocs lead-slot owner before non-lead vocs owner", () => {
     const owners = [owner("voc-back", "vocs"), owner("voc-lead-1", "vocs")];
     const result = orderPdfMonitorOwners({
       owners,
       leadVocsSlotByMusicianId: new Map([["voc-lead-1", 1]]),
+      stagePositionRankByRole: DEFAULT_RANK_BY_ROLE,
     });
     expect(result[0].musician.id).toBe("voc-lead-1");
     expect(result[1].musician.id).toBe("voc-back");
@@ -139,14 +188,20 @@ describe("orderPdfMonitorOwners — monitor group order", () => {
     const result = orderPdfMonitorOwners({
       owners,
       leadVocsSlotByMusicianId: new Map(),
+      stagePositionRankByRole: DEFAULT_RANK_BY_ROLE,
     });
     expect(result[0].musician.id).toBe("keys-a");
     expect(result[1].musician.id).toBe("keys-b");
   });
 
-  it("GROUP_MONITOR_ORDER has talkback ranked last", () => {
-    expect(GROUP_MONITOR_ORDER.talkback).toBeGreaterThan(
-      GROUP_MONITOR_ORDER.drums,
-    );
+  it("ranks talkback last — it has no block on the stage plan", () => {
+    expect(DEFAULT_RANK_BY_ROLE.get("talkback")).toBe(TALKBACK_POSITION_RANK);
+    const owners = [owner("tb", "talkback"), owner("drm", "drums")];
+    const result = orderPdfMonitorOwners({
+      owners,
+      leadVocsSlotByMusicianId: new Map(),
+      stagePositionRankByRole: DEFAULT_RANK_BY_ROLE,
+    });
+    expect(result.map((o) => o.group)).toEqual(["drums", "talkback"]);
   });
 });

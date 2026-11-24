@@ -137,6 +137,7 @@ export function useProjectsHubData(navigateImmediate: NavigateImmediateFn) {
     bands,
     status,
     refreshProjects,
+    refreshBands,
     actions: {
       archiveProject,
       unarchiveProject,
