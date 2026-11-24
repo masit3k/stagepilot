@@ -22,6 +22,7 @@ import {
   resolvePrintScale,
   toPrintScaleBlock,
 } from "../../../domain/stageplan/print/printScale.js";
+import { escapeHtml } from "../escapeHtml.js";
 import { parsePt, pdfChromeHeights, pdfLayout } from "../layout.js";
 import {
   type StageplanRenderOptions,
@@ -336,7 +337,7 @@ function renderBox(
   typography: StageplanPlan["typography"],
 ): string {
   const lines: string[] = [
-    `<div class="stageplanBoxHeader">${box.header}</div>`,
+    `<div class="stageplanBoxHeader">${escapeHtml(box.header)}</div>`,
   ];
 
   // Jméno a role patří k sobě — mezi ně mezera nepatří (R3, R9).
@@ -355,7 +356,7 @@ function renderBox(
   const addBullets = (bullets: string[]) => {
     for (const bullet of bullets) {
       lines.push(
-        `<div class="stageplanBoxLine"><span class="bullet" style="margin-right:${typography.bulletSpacingPx}px;">•</span><span class="text">${bullet}</span></div>`,
+        `<div class="stageplanBoxLine"><span class="bullet" style="margin-right:${typography.bulletSpacingPx}px;">•</span><span class="text">${escapeHtml(bullet)}</span></div>`,
       );
     }
   };
@@ -375,7 +376,7 @@ function renderBox(
   // stejnou jako mezi skupinami odrážek (R8).
   if (box.hasPowerBadge) {
     lines.push(`<div class="stageplanGap"></div>`);
-    lines.push(`<div class="stageplanPower">${box.powerBadgeText}</div>`);
+    lines.push(`<div class="stageplanPower">${escapeHtml(box.powerBadgeText)}</div>`);
   }
 
   return `<div class="stageplanBox" style="left:${box.xMm}mm; top:${box.yMm}mm; width:${box.widthMm}mm; height:${box.heightMm}mm; transform:rotate(${box.rotationDeg}deg);">${lines.join("")}</div>`;

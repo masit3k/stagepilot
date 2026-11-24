@@ -1,17 +1,9 @@
 import type { DocumentHeaderModel, DocumentViewModel } from "../../domain/model/types.js";
+import { escapeHtml as esc } from "./escapeHtml.js";
 import { pdfLayout, pdfTokens } from "./layout.js";
 import { renderStageplanSection } from "./sections/stageplan.js";
 import type { StageplanRenderOptions } from "./stageplanRenderOptions.js";
 import { pdfStyles } from "./styles.js";
-
-function esc(s: unknown): string {
-  const str = s == null ? "" : String(s);
-  return str
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
 
 /**
  * Znak XLR je inline SVG, ne soubor: odpadá tím závislost na baseHref a jedna

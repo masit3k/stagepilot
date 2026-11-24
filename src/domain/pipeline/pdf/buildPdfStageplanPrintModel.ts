@@ -165,10 +165,23 @@ function formatRange(
   items: Array<{ channelNo: number }>,
 ): string | null {
   if (items.length === 0) return null;
-  const numbers = items.map((item) => item.channelNo);
-  const min = Math.min(...numbers);
-  const max = Math.max(...numbers);
-  const range = min === max ? `${min}` : `${min}–${max}`;
+  const numbers = [...new Set(items.map((item) => item.channelNo))].sort(
+    (a, b) => a - b,
+  );
+  // Po ručním přeřazení může mezi kanály role ležet cizí kanál — tiskne se
+  // každý souvislý úsek zvlášť, ne obálka od nejmenšího po největší.
+  const runs: Array<{ from: number; to: number }> = [];
+  for (const channelNo of numbers) {
+    const last = runs[runs.length - 1];
+    if (last && channelNo === last.to + 1) {
+      last.to = channelNo;
+    } else {
+      runs.push({ from: channelNo, to: channelNo });
+    }
+  }
+  const range = runs
+    .map(({ from, to }) => (from === to ? `${from}` : `${from}–${to}`))
+    .join(", ");
   return `${label} (${range})`;
 }
 

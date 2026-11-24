@@ -637,7 +637,13 @@ export function buildDocument(
         ? undefined
         : ctx.presetOverrideByMusicianId.get(musician.id);
     if (eventOverride) {
-      const affected = inputs.filter((input) => input.group === group);
+      // Jen kanály muzikanta, který patch nese. Filtr jen podle skupiny by
+      // patch pustil i na kanály ostatních muzikantů téže role a
+      // `applyInputOverridePatch` by jim všem přepsal vlastníka.
+      const affected = inputs.filter(
+        (input) =>
+          input.group === group && input.ownerMusicianId === musician.id,
+      );
       const patched = applyInputOverridePatch(affected, eventOverride);
       for (const input of affected) {
         const idx = inputs.indexOf(input);

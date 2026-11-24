@@ -5,13 +5,12 @@ import {
   acceptISOToDDMMYYYY,
   formatDateDigitsToDDMMYYYY,
   formatIsoDateToUs,
-  formatProjectDisplayName,
-  formatProjectSlug,
   getTodayIsoLocal,
   isPastIsoDate,
   parseDDMMYYYYToISO,
   parseUsDateInput,
 } from "../../projectRules";
+import { buildProjectInfoPayload } from "../domain/project/buildProjectInfoPayload";
 import * as projectsApi from "../services/projectsApi";
 import { getNavigationContextLabel } from "../shell/routes";
 import {
@@ -23,6 +22,7 @@ import type { BandSetupData, NewProjectPayload } from "../shell/types";
 import { toPersistableProject } from "../shell/types";
 import { buildCanonicalProjectBaseFromBandDefaults } from "../shell/canonicalProject";
 import { EventDateInput } from "./components/EventDateInput";
+import { commitProjectSave } from "./shared/commitProjectSave";
 import type { NewProjectPageProps } from "./shared/pageTypes";
 import { resolveProjectTalkbackOwnerId } from "./shared/talkbackPersistence";
 
@@ -112,34 +112,19 @@ export function NewEventProjectPage({
   const persist = useCallback(
     async (targetId?: string) => {
       if (!selectedBand || !eventDateIso || !eventVenue.trim()) return;
-      const namingSource = {
-        purpose: "event" as const,
-        eventDate: eventDateIso,
-        eventVenue,
-        documentDate: todayIso,
-      };
-      const slug = formatProjectSlug(namingSource, selectedBand);
-      const displayName = formatProjectDisplayName(namingSource, selectedBand);
       const id = targetId ?? editingProjectId ?? generateUuidV7();
-      const nowIso = new Date().toISOString();
-      let payload: NewProjectPayload = {
+      let payload: NewProjectPayload = buildProjectInfoPayload({
+        existingProject,
         id,
-        slug,
-        displayName,
-        purpose: "event",
-        templateType: "event",
-        status: "active",
-        eventDate: eventDateIso,
-        eventVenue: eventVenue.trim(),
-        bandRef: selectedBand.id,
-        documentDate: todayIso,
-        createdAt: existingProject?.createdAt ?? nowIso,
-        updatedAt: nowIso,
-        contentUpdatedAt: nowIso,
-        lineup: existingProject?.lineup,
-        overlays: existingProject?.overlays,
-        bandLeaderId: existingProject?.bandLeaderId,
-      };
+        band: selectedBand,
+        form: {
+          purpose: "event",
+          eventDate: eventDateIso,
+          eventVenue,
+          documentDate: todayIso,
+        },
+        nowIso: new Date().toISOString(),
+      });
       if (!editingProjectId) {
         try {
           const setupDefaults = await invoke<BandSetupData>(
@@ -234,7 +219,18 @@ export function NewEventProjectPage({
       navigate(`/projects/${encodeURIComponent(id)}/setup`);
       return;
     }
-    await persist(id);
+    const saved = await commitProjectSave({
+      persist: () => persist(id),
+      setIsCommitting,
+      onError: (error) => {
+        console.error("Failed to save event project", {
+          projectId: id,
+          error,
+        });
+        setStatus("Failed to save project. Please try again.");
+      },
+    });
+    if (!saved) return;
     console.info("[project-open] continue-navigate", {
       target: `/projects/${encodeURIComponent(id)}/setup`,
       persisted: true,

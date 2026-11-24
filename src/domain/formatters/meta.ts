@@ -5,6 +5,8 @@ export function formatDocumentDate(isoDate: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return "";
   const d = new Date(`${normalized}T00:00:00Z`);
   if (Number.isNaN(d.getTime())) return "";
+  // `Date` přetečení dne tiše posune do dalšího měsíce (31. 2. → 3. 3.).
+  if (d.toISOString().slice(0, 10) !== normalized) return "";
   return `${d.getUTCDate()}. ${d.getUTCMonth() + 1}. ${d.getUTCFullYear()}`;
 }
 

@@ -16,19 +16,16 @@ async function cleanupTemp(tempPath: string): Promise<void> {
   }
 }
 
+/**
+ * Cíl se před přejmenováním nemaže: `rename` existující soubor nahradí sám
+ * (na Windows i POSIXu), takže když selže, původní soubor zůstane na místě.
+ */
 export async function replaceFileAtomic(srcPath: string, destPath: string): Promise<void> {
   const destDir = path.dirname(destPath);
   await fs.mkdir(destDir, { recursive: true });
 
   const tempPath = makeTempPath(destPath);
   await fs.copyFile(srcPath, tempPath);
-
-  try {
-    await fs.rm(destPath, { force: true });
-  } catch (err) {
-    await cleanupTemp(tempPath);
-    throw err;
-  }
 
   try {
     await fs.rename(tempPath, destPath);

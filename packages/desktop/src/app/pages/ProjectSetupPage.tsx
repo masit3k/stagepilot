@@ -254,6 +254,9 @@ export function ProjectSetupPage({
 
   useEffect(() => {
     snapshotHydratedRef.current = false;
+    // A reply that lands after unmount or after `id` changed belongs to a
+    // project this page no longer shows; applying it would overwrite state.
+    let cancelled = false;
     (async () => {
       console.info("[project-open] setup-init-start", { projectId: id });
       let rawProject = "";
@@ -271,6 +274,7 @@ export function ProjectSetupPage({
         });
         throw error;
       }
+      if (cancelled) return;
       let parsedRaw: NewProjectPayload;
       try {
         parsedRaw = JSON.parse(rawProject) as NewProjectPayload;
@@ -345,10 +349,13 @@ export function ProjectSetupPage({
           error,
         });
         data = createFallbackSetupData(parsed);
-        setStatus(
-          "Band defaults could not be loaded. You can still configure lineup manually.",
-        );
+        if (!cancelled) {
+          setStatus(
+            "Band defaults could not be loaded. You can still configure lineup manually.",
+          );
+        }
       }
+      if (cancelled) return;
       if (data.loadWarnings?.length) {
         console.warn("Band setup loaded with warnings", {
           projectId: id,
@@ -411,6 +418,7 @@ export function ProjectSetupPage({
           payload: updatedProject,
           intent: "system",
         });
+        if (cancelled) return;
         setProject(updatedProject);
       } else {
         const hasLegacyLineupFormat = Object.values(parsed.lineup ?? {}).some(
@@ -430,6 +438,7 @@ export function ProjectSetupPage({
             payload: migratedProject,
             intent: "system",
           });
+          if (cancelled) return;
           setProject(migratedProject);
         }
       }
@@ -483,9 +492,13 @@ export function ProjectSetupPage({
         projectId: id,
         error,
       });
+      if (cancelled) return;
       setStatus("Failed to load setup.");
     });
-  }, [id, applyState, buildSetupSnapshot]);
+    return () => {
+      cancelled = true;
+    };
+  }, [id, buildSetupSnapshot]);
 
   const errors = useMemo(
     () => (!setupData ? [] : validateLineup(lineup, ROLE_ORDER)),
@@ -1514,6 +1527,7 @@ export function ProjectSetupPage({
                                   type="button"
                                   className="button-ghost"
                                   disabled={index === 0}
+                                  aria-label="Move up"
                                   onClick={() =>
                                     setAssignmentEditor((current) => {
                                       if (!current) return current;
@@ -1535,6 +1549,7 @@ export function ProjectSetupPage({
                                     index ===
                                     assignmentEditor.draftSlots.length - 1
                                   }
+                                  aria-label="Move down"
                                   onClick={() =>
                                     setAssignmentEditor((current) => {
                                       if (!current) return current;

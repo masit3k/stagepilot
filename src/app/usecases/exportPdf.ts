@@ -12,7 +12,12 @@ import { catalogPathsForRoot } from "../../infra/storage/catalogPaths.js";
 import { loadJsonFile } from "../../infra/fs/loadJson.js";
 import { loadRepository } from "../../infra/fs/repo.js";
 import {
+  assertSafePathSegment,
+  toSafeFileName,
+} from "../../infra/fs/safePathSegment.js";
+import {
   createProjectVersion,
+  discardVersionDir,
   prepareVersionDir,
 } from "../../infra/fs/versionStore.js";
 import { renderPdf } from "../../infra/pdf/pdf.js";
@@ -77,7 +82,7 @@ export async function loadDefaultContact(
 
   const contactPath = path.resolve(
     catalogPathsForRoot(runtimeRoot).contacts,
-    `${defaultContactId}.json`,
+    `${assertSafePathSegment(defaultContactId, "defaultContactId")}.json`,
   );
   const contact = await loadJsonFile<Contact>(contactPath);
 
@@ -115,6 +120,7 @@ async function exportPdfFromProject(
   if (project.id !== projectId) {
     throw new Error(`Project id mismatch: ${projectId} vs ${project.id}`);
   }
+  assertSafePathSegment(projectId, "projectId");
   const repo = await loadRepository({ userDataRoot: outDir });
   const band = repo.getBand(project.bandRef);
 
@@ -134,35 +140,44 @@ async function exportPdfFromProject(
 
   const slug = project.slug ?? formatProjectSlug(project, band);
   stderr.write(`project=${projectId} slug=${slug}\n`);
-  // Uses slug (human doc key), not id (UUID).
-  const pdfFileName = `${slug}.pdf`;
+  // Uses slug (human doc key), not id (UUID). Slug nese kód kapely a místo
+  // konání, tedy lidský text: znaky, které do názvu souboru nesmí, nahradí `_`.
+  const pdfFileName = toSafeFileName(`${slug}.pdf`);
 
   const { versionId, versionDir } = await prepareVersionDir(projectId, outDir);
   const pdfPath = path.join(versionDir, pdfFileName);
 
-  await mkdir(versionDir, { recursive: true });
-  await renderPdf(vm, { outFile: pdfPath, contact, stageplan });
+  // Složka verze vznikla o řádek výš. Když render nebo zápis verze spadne,
+  // nesmí po ní zůstat sirotek bez meta.json; původní chyba jde dál.
+  let meta: Awaited<ReturnType<typeof createProjectVersion>>;
+  try {
+    await mkdir(versionDir, { recursive: true });
+    await renderPdf(vm, { outFile: pdfPath, contact, stageplan });
 
-  const meta = await createProjectVersion({
-    project,
-    projectId,
-    pdfSourcePath: pdfPath,
-    pdfFileName,
-    versionId,
-    versionDir,
-    userDataRoot: outDir,
-    meta: {
+    meta = await createProjectVersion({
+      project,
       projectId,
-      slug,
-      generatedAt: getGeneratedAtUtc(),
-      documentDate: project.documentDate,
-      bandRef: project.bandRef,
-      purpose: project.purpose,
-      note: project.note ?? null,
-      eventDate: project.eventDate,
-      eventVenue: project.eventVenue,
-    },
-  });
+      pdfSourcePath: pdfPath,
+      pdfFileName,
+      versionId,
+      versionDir,
+      userDataRoot: outDir,
+      meta: {
+        projectId,
+        slug,
+        generatedAt: getGeneratedAtUtc(),
+        documentDate: project.documentDate,
+        bandRef: project.bandRef,
+        purpose: project.purpose,
+        note: project.note ?? null,
+        eventDate: project.eventDate,
+        eventVenue: project.eventVenue,
+      },
+    });
+  } catch (error) {
+    await discardVersionDir(versionDir);
+    throw error;
+  }
 
   const versionPath = path.resolve(versionDir);
   const { exportPdfPath, exportUpdated } = await publishExportPdf({

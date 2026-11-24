@@ -1,10 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { generateUuidV7 } from "../../../../../src/domain/projectNaming";
-import {
-  formatProjectDisplayName,
-  formatProjectSlug,
-} from "../../projectRules";
+import { buildProjectInfoPayload } from "../domain/project/buildProjectInfoPayload";
 import * as projectsApi from "../services/projectsApi";
 import { getNavigationContextLabel } from "../shell/routes";
 import {
@@ -16,6 +13,7 @@ import {
 import type { BandSetupData, NewProjectPayload } from "../shell/types";
 import { toPersistableProject } from "../shell/types";
 import { buildCanonicalProjectBaseFromBandDefaults } from "../shell/canonicalProject";
+import { commitProjectSave } from "./shared/commitProjectSave";
 import type { NewProjectPageProps } from "./shared/pageTypes";
 import { resolveProjectTalkbackOwnerId } from "./shared/talkbackPersistence";
 
@@ -99,30 +97,13 @@ export function NewGenericProjectPage({
     async (targetId?: string) => {
       if (!selectedBand) return;
       const id = targetId ?? editingProjectId ?? generateUuidV7();
-      const nowIso = new Date().toISOString();
-      let payload: NewProjectPayload = {
+      let payload: NewProjectPayload = buildProjectInfoPayload({
+        existingProject,
         id,
-        slug: formatProjectSlug(
-          { purpose: "generic", documentDate: `${validityYear}-01-01`, note },
-          selectedBand,
-        ),
-        displayName: formatProjectDisplayName(
-          { purpose: "generic", documentDate: `${validityYear}-01-01`, note },
-          selectedBand,
-        ),
-        purpose: "generic",
-        templateType: "generic",
-        status: "active",
-        bandRef: selectedBand.id,
-        documentDate: `${validityYear}-01-01`,
-        ...(note.trim() ? { note: note.trim() } : {}),
-        createdAt: existingProject?.createdAt ?? nowIso,
-        updatedAt: nowIso,
-        contentUpdatedAt: nowIso,
-        lineup: existingProject?.lineup,
-        overlays: existingProject?.overlays,
-        bandLeaderId: existingProject?.bandLeaderId,
-      };
+        band: selectedBand,
+        form: { purpose: "generic", validityYear, note },
+        nowIso: new Date().toISOString(),
+      });
       if (!editingProjectId) {
         try {
           const setupDefaults = await invoke<BandSetupData>(
@@ -200,8 +181,18 @@ export function NewGenericProjectPage({
     const id = editingProjectId ?? generateUuidV7();
     if (!editingProjectId && !selectedBand) return;
     if (shouldSaveGenericSetupOnContinue(editingProjectId, isDirty)) {
-      setIsCommitting(true);
-      await persist(id);
+      const saved = await commitProjectSave({
+        persist: () => persist(id),
+        setIsCommitting,
+        onError: (error) => {
+          console.error("Failed to save generic project", {
+            projectId: id,
+            error,
+          });
+          setStatus("Failed to save project. Please try again.");
+        },
+      });
+      if (!saved) return;
     }
     console.info("[project-open] continue-navigate", {
       target: `/projects/${encodeURIComponent(id)}/setup`,

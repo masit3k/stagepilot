@@ -221,6 +221,21 @@ fn infer_monitoring_default_from_ref(monitor_ref: &str) -> Value {
     })
 }
 
+/// Starts a console program without a console window of its own. A release
+/// build runs in the Windows GUI subsystem, where each console child would
+/// otherwise flash a window on every preview and export.
+fn background_command(program: &str) -> Command {
+    #[cfg_attr(not(target_os = "windows"), allow(unused_mut))]
+    let mut command = Command::new(program);
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    command
+}
+
 fn resolve_workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
@@ -713,10 +728,6 @@ fn catalog_entity_dir(app: &tauri::AppHandle, entity: &str) -> Result<PathBuf, A
     Ok(catalog_dir(app)?.join(entity))
 }
 
-fn entity_name(file_name: &str) -> &str {
-    file_name.strip_suffix(".json").unwrap_or(file_name)
-}
-
 fn resolve_musician_display_name(musician: &Value, fallback_id: &str) -> String {
     let first_name = musician
         .get("firstName")
@@ -755,65 +766,6 @@ fn resolve_musician_display_name(musician: &Value, fallback_id: &str) -> String 
         })
         .collect::<Vec<String>>()
         .join(" ")
-}
-
-fn load_library_map<T: for<'de> Deserialize<'de>>(
-    app: &tauri::AppHandle,
-    file_name: &str,
-) -> Result<HashMap<String, T>, ApiError> {
-    let dir = catalog_entity_dir(app, entity_name(file_name))?;
-    if !dir.exists() {
-        return Ok(HashMap::new());
-    }
-    let mut items: HashMap<String, T> = HashMap::new();
-    for entry in fs::read_dir(&dir)
-        .map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read catalog"))?
-    {
-        let entry = entry
-            .map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read entry"))?;
-        let path = entry.path();
-        if path.extension().and_then(|s| s.to_str()) != Some("json") {
-            continue;
-        }
-        let key = path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or_default()
-            .to_string();
-        let content = fs::read_to_string(&path)
-            .map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read entity"))?;
-        let item = serde_json::from_str::<T>(&content).map_err(|err| ApiError {
-            code: "LIBRARY_READ_FAILED".into(),
-            message: format!("Invalid JSON in {} ({})", path.display(), err),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        })?;
-        items.insert(key, item);
-    }
-    Ok(items)
-}
-
-fn save_library_map<T: Serialize>(
-    app: &tauri::AppHandle,
-    file_name: &str,
-    items: &HashMap<String, T>,
-) -> Result<(), ApiError> {
-    let dir = catalog_entity_dir(app, entity_name(file_name))?;
-    fs::create_dir_all(&dir)
-        .map_err(|err| map_io_error(err, "LIBRARY_WRITE_FAILED", "Failed to create catalog"))?;
-    for (id, item) in items {
-        let path = dir.join(format!("{}.json", sanitize_id_to_filename(id)));
-        let json = serde_json::to_vec_pretty(item).map_err(|err| ApiError {
-            code: "LIBRARY_WRITE_FAILED".into(),
-            message: format!("Failed to serialize {} ({})", id, err),
-            export_pdf_path: None,
-            version_pdf_path: None,
-        })?;
-        atomic_write_bytes(&path, &json).map_err(|err| {
-            map_storage_error(err, "LIBRARY_WRITE_FAILED", "Failed to save entity")
-        })?;
-    }
-    Ok(())
 }
 
 #[tauri::command]
@@ -1250,7 +1202,8 @@ fn get_band_setup_data(app: tauri::AppHandle, band_id: String) -> Result<BandSet
     }
 
     let musician_default_overrides =
-        load_library_map::<Value>(&app, "musician_defaults.json").unwrap_or_default();
+        read_musician_defaults_at(&catalog_entity_dir(&app, MUSICIAN_DEFAULTS_ENTITY)?)
+            .unwrap_or_default();
     for (key, value) in musician_default_overrides {
         musician_defaults.insert(key, value);
     }
@@ -1539,7 +1492,7 @@ fn export_pdf(
     let workspace_root = resolve_workspace_root();
     let script_path = workspace_root.join("scripts").join("desktop_export.ts");
 
-    let mut command = Command::new("node");
+    let mut command = background_command("node");
     command
         .arg("--import")
         .arg("tsx")
@@ -1628,7 +1581,7 @@ fn build_project_pdf_preview(
         script_path.display()
     );
 
-    let mut command = Command::new("node");
+    let mut command = background_command("node");
     command
         .arg("--import")
         .arg("tsx")
@@ -1677,22 +1630,20 @@ fn build_project_pdf_preview(
         }
     }
 
+    let code = response.code.unwrap_or_else(|| "PREVIEW_FAILED".into());
+    // The renderer's own message goes to the UI: a release build has no log to
+    // point the user at, and the reason is usually something they can fix.
+    let message = response
+        .message
+        .unwrap_or_else(|| "Preview could not be generated. Please retry.".into());
     eprintln!(
         "[preview] command failed project_id={} code={} message={}",
-        project_id,
-        response
-            .code
-            .clone()
-            .unwrap_or_else(|| "PREVIEW_FAILED".into()),
-        response
-            .message
-            .clone()
-            .unwrap_or_else(|| "Preview failed.".into())
+        project_id, code, message
     );
 
     Err(ApiError {
-        code: response.code.unwrap_or_else(|| "PREVIEW_FAILED".into()),
-        message: "Preview could not be generated. Please retry. Check desktop logs for Chromium diagnostics.".into(),
+        code,
+        message,
         export_pdf_path: response.export_pdf_path,
         version_pdf_path: response.version_pdf_path,
     })
@@ -1721,7 +1672,7 @@ fn build_stageplan_print_metrics(
         script_path.display()
     );
 
-    let output = Command::new("node")
+    let output = background_command("node")
         .arg("--import")
         .arg("tsx")
         .arg(script_path.as_os_str())
@@ -1934,11 +1885,88 @@ fn update_musician_defaults(
             version_pdf_path: None,
         });
     }
-    let normalized_role = role.trim().to_lowercase();
-    let key = format!("{}:{}", musician_id.trim(), normalized_role);
-    let mut defaults = load_library_map::<Value>(&app, "musician_defaults.json")?;
-    defaults.insert(key, setup);
-    save_library_map(&app, "musician_defaults.json", &defaults)
+    let dir = catalog_entity_dir(&app, MUSICIAN_DEFAULTS_ENTITY)?;
+    write_musician_default_at(&dir, &musician_id, &role, &setup)
+}
+
+const MUSICIAN_DEFAULTS_ENTITY: &str = "musician_defaults";
+
+fn musician_default_key(musician_id: &str, role: &str) -> String {
+    format!("{}:{}", musician_id.trim(), role.trim().to_lowercase())
+}
+
+/// Stores one musician default together with its owner.
+///
+/// The file name is sanitised (`m1:bass` becomes `m1_bass.json`) and cannot be
+/// turned back into the `id:role` key the UI looks up, so the owner travels
+/// inside the file and the reader rebuilds the key from there.
+fn write_musician_default_at(
+    dir: &Path,
+    musician_id: &str,
+    role: &str,
+    setup: &Value,
+) -> Result<(), ApiError> {
+    fs::create_dir_all(dir)
+        .map_err(|err| map_io_error(err, "LIBRARY_WRITE_FAILED", "Failed to create catalog"))?;
+    let key = musician_default_key(musician_id, role);
+    let record = serde_json::json!({
+        "musicianId": musician_id.trim(),
+        "role": role.trim().to_lowercase(),
+        "setup": setup,
+    });
+    let json = serde_json::to_vec_pretty(&record).map_err(|err| ApiError {
+        code: "LIBRARY_WRITE_FAILED".into(),
+        message: format!("Failed to serialize {} ({})", key, err),
+        export_pdf_path: None,
+        version_pdf_path: None,
+    })?;
+    let path = dir.join(format!("{}.json", sanitize_id_to_filename(&key)));
+    atomic_write_bytes(&path, &json)
+        .map_err(|err| map_storage_error(err, "LIBRARY_WRITE_FAILED", "Failed to save entity"))
+}
+
+fn parse_musician_default(content: &str) -> Option<(String, Value)> {
+    let record = serde_json::from_str::<Value>(content).ok()?;
+    let musician_id = record.get("musicianId")?.as_str()?;
+    let role = record.get("role")?.as_str()?;
+    let setup = record.get("setup")?.clone();
+    if musician_id.trim().is_empty() || role.trim().is_empty() {
+        return None;
+    }
+    Some((musician_default_key(musician_id, role), setup))
+}
+
+/// Reads every stored musician default, keyed `id:role`. A file that cannot be
+/// read or does not name its owner is skipped, so one bad file does not hide
+/// the defaults of everyone else.
+fn read_musician_defaults_at(dir: &Path) -> Result<HashMap<String, Value>, ApiError> {
+    let mut defaults: HashMap<String, Value> = HashMap::new();
+    if !dir.exists() {
+        return Ok(defaults);
+    }
+    for entry in fs::read_dir(dir)
+        .map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read catalog"))?
+    {
+        let path = entry
+            .map_err(|err| map_io_error(err, "LIBRARY_READ_FAILED", "Failed to read entry"))?
+            .path();
+        if path.extension().and_then(|s| s.to_str()) != Some("json") {
+            continue;
+        }
+        let parsed = fs::read_to_string(&path)
+            .ok()
+            .and_then(|content| parse_musician_default(&content));
+        match parsed {
+            Some((key, setup)) => {
+                defaults.insert(key, setup);
+            }
+            None => eprintln!(
+                "[musician-defaults] skipping unreadable file {}",
+                path.display()
+            ),
+        }
+    }
+    Ok(defaults)
 }
 
 #[tauri::command]
@@ -1953,6 +1981,16 @@ fn reveal_in_explorer(path: String) -> Result<(), ApiError> {
 
 fn open_path(path: &str, reveal: bool) -> Result<(), ApiError> {
     let path = Path::new(path);
+    // The launchers below report success even when the target is gone, so a
+    // missing path has to be caught here for the caller to hear about it.
+    if !path.exists() {
+        return Err(ApiError {
+            code: "OPEN_FAILED".into(),
+            message: format!("Path does not exist: {}", path.display()),
+            export_pdf_path: None,
+            version_pdf_path: None,
+        });
+    }
 
     #[cfg(target_os = "windows")]
     {
@@ -1964,7 +2002,7 @@ fn open_path(path: &str, reveal: bool) -> Result<(), ApiError> {
                 .map_err(|err| map_io_error(err, "OPEN_FAILED", "Failed to open path"))?;
         } else {
             let path_str = path.to_string_lossy().to_string();
-            Command::new("cmd")
+            background_command("cmd")
                 .args(["/C", "start", "", &path_str])
                 .status()
                 .map_err(|err| map_io_error(err, "OPEN_FAILED", "Failed to open path"))?;
@@ -2057,9 +2095,10 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::{
-        delete_band_at, list_catalog_musicians_at, load_preset_catalog_at,
-        parse_node_export_response, read_catalog_entity_at, resolve_workspace_root,
-        write_band_at, write_contact_at, BandUsage,
+        delete_band_at, list_catalog_musicians_at, load_preset_catalog_at, open_path,
+        parse_node_export_response, read_catalog_entity_at, read_musician_defaults_at,
+        resolve_workspace_root, write_band_at, write_contact_at, write_musician_default_at,
+        BandUsage,
     };
     use std::{
         fs,
@@ -2078,6 +2117,62 @@ mod tests {
     }
 
     const BNB_JSON: &str = "{\n  \"type\": \"band\",\n  \"id\": \"big_night_band\",\n  \"name\": \"Big Night Band\",\n  \"code\": \"BNB\"\n}\n";
+
+    #[test]
+    fn musician_default_is_read_back_under_the_key_the_ui_looks_up() {
+        let dir = temp_test_dir("musician-default-roundtrip");
+        let setup = serde_json::json!({ "inputs": [{ "key": "el_bass_xlr_amp" }] });
+        write_musician_default_at(&dir, " m1 ", " Bass ", &setup).expect("write");
+        let defaults = read_musician_defaults_at(&dir).expect("read");
+        assert_eq!(defaults.get("m1:bass"), Some(&setup));
+        assert_eq!(defaults.len(), 1);
+    }
+
+    #[test]
+    fn musician_default_keeps_one_file_per_musician_and_role() {
+        let dir = temp_test_dir("musician-default-per-role");
+        let bass = serde_json::json!({ "inputs": [] });
+        let vocs = serde_json::json!({ "monitoring": { "type": "wedge" } });
+        write_musician_default_at(&dir, "m1", "bass", &bass).expect("write bass");
+        write_musician_default_at(&dir, "m1", "vocs", &vocs).expect("write vocs");
+        write_musician_default_at(&dir, "m1", "bass", &vocs).expect("overwrite bass");
+        let defaults = read_musician_defaults_at(&dir).expect("read");
+        assert_eq!(defaults.get("m1:bass"), Some(&vocs));
+        assert_eq!(defaults.get("m1:vocs"), Some(&vocs));
+        assert_eq!(defaults.len(), 2);
+    }
+
+    #[test]
+    fn musician_defaults_skip_files_without_an_owner_and_unreadable_json() {
+        let dir = temp_test_dir("musician-default-skip");
+        let setup = serde_json::json!({ "inputs": [] });
+        write_musician_default_at(&dir, "m1", "bass", &setup).expect("write");
+        fs::write(dir.join("m2_keys.json"), "{ \"inputs\": [] }").expect("ownerless file");
+        fs::write(dir.join("m3_vocs.json"), "{ not json").expect("broken file");
+        let defaults = read_musician_defaults_at(&dir).expect("read");
+        assert_eq!(defaults.len(), 1);
+        assert!(defaults.contains_key("m1:bass"));
+    }
+
+    #[test]
+    fn musician_defaults_of_a_missing_directory_are_empty() {
+        let dir = temp_test_dir("musician-default-missing").join("absent");
+        assert!(read_musician_defaults_at(&dir).expect("read").is_empty());
+    }
+
+    #[test]
+    fn opening_a_missing_path_fails_instead_of_reporting_success() {
+        let missing = temp_test_dir("open-missing").join("gone.pdf");
+        let path = missing.to_string_lossy().to_string();
+        assert_eq!(
+            open_path(&path, false).expect_err("open file").code,
+            "OPEN_FAILED"
+        );
+        assert_eq!(
+            open_path(&path, true).expect_err("reveal").code,
+            "OPEN_FAILED"
+        );
+    }
 
     #[test]
     fn parses_clean_success_response() {

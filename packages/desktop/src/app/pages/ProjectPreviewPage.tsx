@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { PdfPageSkeleton } from "../../components/ui/Skeleton";
 import { useToast } from "../../components/ui/toast/useToast";
 import { buildExportFileName } from "../../projectRules";
-import { mapExportError } from "../exportErrors";
+import { describePdfFailure, mapExportError } from "../exportErrors";
 import {
   type ExportModalState,
   ExportResultModal,
@@ -147,7 +147,7 @@ export function ProjectPreviewPage({
           kind: "error",
           message: missingPreview
             ? "Preview is no longer available because the temporary file was removed after export. Generate preview again."
-            : `Preview failed: ${message}`,
+            : `Preview failed: ${describePdfFailure(message) ?? message}`,
           missingPreview,
         });
       } finally {

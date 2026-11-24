@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { useState } from "react";
 import {
   ModalFooter,
   ModalHeader,
@@ -23,9 +24,23 @@ export function ExportResultModal({
   onRetry: () => void;
   onGoToHub: () => void;
 }) {
+  const dialogRef = useModalBehavior(Boolean(state), onClose);
+  // The failure is kept with the export result it belongs to, so the next
+  // result does not inherit a stale message.
+  const [openFailure, setOpenFailure] = useState<{
+    result: ExportModalState;
+    message: string;
+  } | null>(null);
   if (!state) return null;
   const isSuccess = state.kind === "success";
-  const dialogRef = useModalBehavior(Boolean(state), onClose);
+  const openError = openFailure?.result === state ? openFailure.message : "";
+  const openExported = (command: string, path: string, message: string) => {
+    setOpenFailure(null);
+    invoke(command, { path }).catch((error) => {
+      console.error("Failed to open exported PDF", { command, path, error });
+      setOpenFailure({ result: state, message });
+    });
+  };
   return (
     <ModalOverlay open={Boolean(state)} onClose={onClose}>
       <div
@@ -67,13 +82,24 @@ export function ExportResultModal({
             <p className="subtle">{state.technical || state.message}</p>
           </div>
         )}
+        {openError ? (
+          <p className="status status--error" role="alert">
+            {openError}
+          </p>
+        ) : null}
         <ModalFooter>
           {isSuccess ? (
             <>
               <button
                 type="button"
                 className="button-secondary"
-                onClick={() => invoke("open_file", { path: state.path })}
+                onClick={() =>
+                  openExported(
+                    "open_file",
+                    state.path,
+                    "Could not open the file.",
+                  )
+                }
               >
                 Open file
               </button>
@@ -81,7 +107,11 @@ export function ExportResultModal({
                 type="button"
                 className="button-secondary"
                 onClick={() =>
-                  invoke("reveal_in_explorer", { path: state.path })
+                  openExported(
+                    "reveal_in_explorer",
+                    state.path,
+                    "Could not open the folder.",
+                  )
                 }
               >
                 Open folder

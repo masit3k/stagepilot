@@ -9,6 +9,7 @@
     "tauri": "npm --prefix packages/desktop run tauri",
     "tauri:dev": "npm run tauri -- dev",
     "tauri:build": "npm run tauri -- build",
+    "tauri:build:local": "npm --prefix packages/desktop run tauri -- build --no-bundle --config src-tauri/tauri.local.conf.json",
     "test": "vitest run",
     "lint": "biome check .",
     "format": "biome format --write .",

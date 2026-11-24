@@ -156,7 +156,8 @@ export function resolveStereoPair(
   const aIsR = ka.endsWith("_r");
   const bIsL = kb.endsWith("_l");
   const bIsR = kb.endsWith("_r");
-  if ((aIsL && bIsR) || (aIsR && bIsL)) {
+  const sameKeyBase = ka.slice(0, -2) === kb.slice(0, -2);
+  if (sameKeyBase && ((aIsL && bIsR) || (aIsR && bIsL))) {
     const base = a.key.replace(/_l$/i, "").replace(/_r$/i, "");
     return { base, aSide: aIsL ? "L" : "R", shouldCollapse: !isOverheadsBase(base) };
   }

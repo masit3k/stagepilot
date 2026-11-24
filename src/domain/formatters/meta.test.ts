@@ -10,6 +10,17 @@ describe("formatDocumentDate", () => {
     expect(formatDocumentDate("")).toBe("");
     expect(formatDocumentDate("RRRR-01-01")).toBe("");
   });
+
+  it("returns empty string for a day the month does not have, same as for month 13", () => {
+    expect(formatDocumentDate("2026-13-01")).toBe("");
+    expect(formatDocumentDate("2026-02-31")).toBe("");
+    expect(formatDocumentDate("2026-04-31")).toBe("");
+    expect(formatDocumentDate("2025-02-29")).toBe("");
+  });
+
+  it("keeps a real leap day", () => {
+    expect(formatDocumentDate("2028-02-29")).toBe("29. 2. 2028");
+  });
 });
 
 describe("formatDocumentHeader", () => {
